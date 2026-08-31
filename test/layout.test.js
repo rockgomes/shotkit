@@ -378,3 +378,66 @@ describe('frame: screen is the genuine interior, for every kind', () => {
     expect(browser.web.chrome.frame).toBe(0);
   });
 });
+
+// --- Fix round 2: the frame must be sized FROM the screenshot, not the
+// other way round -----------------------------------------------------
+//
+// Round 1 fit the *frame* into the safe box using the source ratio, then
+// carved `screen` out of it by subtracting the bar/bezel - leaving `screen`
+// at a DIFFERENT aspect ratio than the source image, which would force
+// Task 5 to letterbox, crop or stretch the screenshot inside its own frame.
+// A real browser window is sized BY its content: frame width = screenshot
+// width, frame height = screenshot height + bar height (+ bezel, for
+// iphone), and THAT assembly is what gets fitted into the safe box. This
+// block pins the fix: `screen` must always come back at the source ratio.
+describe('frame: screen always matches the source ratio (contain)', () => {
+  const CASES = [
+    ['browser', 1.6],
+    ['browser', 0.5],
+    ['iphone', 0.462],
+    ['iphone', 2.2],
+  ];
+
+  for (const [frameKind, sourceRatio] of CASES) {
+    it(`${frameKind} @ source ratio ${sourceRatio}: screen.w/screen.h === source ratio`, () => {
+      const c = normalise({ layout: 'web', ratio: '3:2', frameKind });
+      const { web } = layout(c, { web: sourceRatio, mobile: [] });
+      expect(web.chrome.screen.w / web.chrome.screen.h).toBeCloseTo(sourceRatio, 6);
+    });
+  }
+});
+
+describe('frame: cover is untouched - the frame still fills the box and the screenshot crops', () => {
+  for (const frameKind of ['browser', 'iphone']) {
+    it(`${frameKind}: with fit 'cover', the frame fills the safe box exactly (screen may not match the source ratio)`, () => {
+      const c = normalise({ layout: 'web', ratio: '3:2', fit: 'cover', frameKind });
+      const { safe, web } = layout(c, { web: 2.5, mobile: [] });
+      expect(web.w).toBeCloseTo(safe.w, 6);
+      expect(web.h).toBeCloseTo(safe.h, 6);
+    });
+  }
+});
+
+describe('frame: accepted consequence — the visible screenshot is smaller than an unframed one, at the same settings', () => {
+  // Sizing the frame FROM the content (so `screen` keeps the source ratio)
+  // means the bar/bezel eats into space that used to be all screenshot.
+  // The OUTER frame can still be as large as the safe box allows (it may
+  // even fill it in one dimension) - it's the INTERIOR `screen`, the part
+  // that actually shows the UI, that shrinks. Pinned here so nobody "fixes"
+  // this later thinking it's regression: it's the direct, intended result
+  // of sizing the frame by its content instead of the other way round.
+  const CASES = [
+    ['browser', 1.6],
+    ['iphone', 0.462],
+  ];
+
+  for (const [frameKind, sourceRatio] of CASES) {
+    it(`${frameKind}: chrome.screen has less area than the equivalent unframed web box`, () => {
+      const unframed = layout(normalise({ layout: 'web', ratio: '3:2' }), { web: sourceRatio, mobile: [] }).web;
+      const framed = layout(normalise({ layout: 'web', ratio: '3:2', frameKind }), { web: sourceRatio, mobile: [] }).web;
+      const unframedArea = unframed.w * unframed.h;
+      const screenArea = framed.chrome.screen.w * framed.chrome.screen.h;
+      expect(screenArea).toBeLessThan(unframedArea);
+    });
+  }
+});

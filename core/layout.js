@@ -69,13 +69,60 @@ function chromeFor(c, web) {
   };
 }
 
+function frameRatio(frameKind, s) {
+  // The closed-form outer-frame ratio such that, once the bar (and for
+  // iphone, the all-round bezel) is subtracted back out by chromeFor(), the
+  // interior `screen` comes back at exactly the source ratio `s`. A frame
+  // is sized BY its content - the way a real browser window is - not the
+  // other way round. See the fix-round-2 section of the task report for
+  // the full derivation; the short version:
+  //
+  // browser: only a top bar, spanning the full frame width, so
+  //   frameH = screenH + frameW*B  =>  frameRatio = s / (1 + s*B)
+  //
+  // iphone: a bezel of thickness frameW*B on every side, so
+  //   frameW = screenW / (1 - 2B)
+  //   frameH = screenH + 2*frameW*B
+  //   frameRatio = s / (1 + 2*B*(s - 1))
+  //
+  // Both formulas assume the bezel/bar is exactly a fraction of the frame's
+  // own width - they do not account for PHONE_BEZEL_MIN's floor. That floor
+  // only matters at frame widths below ~3 / PHONE_BEZEL_RATIO (~158px),
+  // far smaller than any canvas this project ships (RATIOS/TEMPLATES in
+  // presets.js all resolve to safe boxes well above that); chromeFor()
+  // still applies the floor when it derives the real `frame` value, so a
+  // pathologically small canvas would see a tiny, bounded mismatch between
+  // this ratio and the actual bezel - not iterated away, and not expected
+  // to occur at any size shotkit actually produces.
+  if (frameKind === 'iphone') {
+    const B = PHONE_BEZEL_RATIO;
+    return s / (1 + 2 * B * (s - 1));
+  }
+  const B = BROWSER_BAR_RATIO;
+  return s / (1 + s * B);
+}
+
 function webBox(c, box, ratio) {
   // In "contain" the screen takes the image's own ratio so NOTHING is ever
-  // cropped. "cover" fills the box and accepts the crop.
+  // cropped. "cover" fills the box and accepts the crop - untouched by
+  // frameKind, on purpose: only "contain" derives a frame from its content,
+  // so cover's fill-and-crop behaviour never changes.
+  //
+  // When a frame is present, "contain" must fit the FRAME (screenshot + bar
+  // + bezel) into the box, not the bare screenshot - fitting the bare
+  // screenshot and then carving the bar/bezel back out of it (round 1's
+  // approach) leaves `screen` at a different ratio than the source image.
+  // frameRatio() is the adjusted ratio that makes the round trip exact.
+  // When frameKind is 'none' this is `ratio` unchanged, so that path is
+  // provably untouched.
+  const fitRatio = (c.fit === 'contain' && c.frameKind !== 'none')
+    ? frameRatio(c.frameKind, ratio)
+    : ratio;
+
   let w = box.w, h = box.h;
   if (c.fit === 'contain') {
-    if (ratio > box.w / box.h) { w = box.w; h = box.w / ratio; }
-    else                       { h = box.h; w = box.h * ratio; }
+    if (fitRatio > box.w / box.h) { w = box.w; h = box.w / fitRatio; }
+    else                          { h = box.h; w = box.h * fitRatio; }
   }
   const x = box.x + (box.w - w) / 2;
   const y = box.y + (box.h - h) / 2;
