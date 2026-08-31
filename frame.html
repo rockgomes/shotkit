@@ -1,0 +1,224 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>shotkit frame</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { overflow: hidden; }
+  body {
+    position: relative;
+    font-family: Inter, -apple-system, "Segoe UI", Roboto, sans-serif;
+    /* --g1/--g2/--g3 are injected: highlight, mid, deep */
+    background:
+      radial-gradient(115% 85% at 22% 6%,  var(--g1) 0%, transparent 58%),
+      radial-gradient(105% 90% at 88% 97%, var(--g3) 0%, transparent 62%),
+      linear-gradient(166deg, var(--g1) 0%, var(--g2) 52%, var(--g3) 100%);
+  }
+
+  /* fine grain, keeps big flat gradients from banding */
+  .grain {
+    position: absolute; inset: 0; pointer-events: none; z-index: 9;
+    mix-blend-mode: soft-light;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 240px 240px;
+  }
+
+  .stage { position: absolute; inset: 0; }
+
+  /* ---------- WEB SCREEN ---------- */
+  .web {
+    position: absolute;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--screen-bg);
+    box-shadow:
+      0 3.2% 7% -1% rgba(12,14,20,var(--sh1)),
+      0 1% 2.2% rgba(12,14,20,var(--sh2));
+  }
+  .web img { display: block; width: 100%; height: 100%; object-fit: var(--fit); object-position: top center; }
+  .web::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    box-shadow: inset 0 0 0 1px var(--hairline);
+  }
+
+  /* ---------- PHONE ---------- */
+  .phone {
+    position: absolute;
+    background: var(--phone-frame);
+    overflow: hidden;
+  }
+  .phone .scr { width: 100%; height: 100%; overflow: hidden; background: var(--screen-bg); position: relative; }
+  .phone img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+  .phone::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.10);
+  }
+
+  /* ---------- CAPTION ---------- */
+  .caption {
+    position: absolute; z-index: 10;
+    left: var(--capx); bottom: var(--capy);
+    color: var(--ink); opacity: .55;
+    letter-spacing: -0.01em;
+  }
+</style>
+</head>
+<body>
+  <div class="stage" id="stage"></div>
+  <div class="grain" id="grain"></div>
+
+<script>
+// ---------------------------------------------------------------------------
+// config arrives base64'd in ?c= . Everything is proportional to the canvas,
+// so the same layout holds at 4:3, 3:2, 16:9 or 1:1.
+// ---------------------------------------------------------------------------
+const CFG = JSON.parse(decodeURIComponent(escape(atob(new URLSearchParams(location.search).get('c')))));
+
+const W = CFG.canvas.w, H = CFG.canvas.h;
+const R = document.documentElement.style;
+document.documentElement.style.width = W + 'px';
+document.body.style.width  = W + 'px';
+document.body.style.height = H + 'px';
+document.documentElement.style.height = H + 'px';
+
+// ground
+R.setProperty('--g1', CFG.ground[0]);
+R.setProperty('--g2', CFG.ground[1]);
+R.setProperty('--g3', CFG.ground[2]);
+R.setProperty('--ink', CFG.dark ? '#ffffff' : '#101218');
+R.setProperty('--screen-bg', CFG.dark ? '#0e0f13' : '#ffffff');
+R.setProperty('--hairline', CFG.dark ? 'rgba(255,255,255,0.09)' : 'rgba(16,18,27,0.07)');
+R.setProperty('--phone-frame', CFG.dark ? '#08080a' : '#111318');
+R.setProperty('--fit', CFG.fit || 'contain');
+R.setProperty('--sh1', CFG.dark ? 0.34 : 0.16);
+R.setProperty('--sh2', CFG.dark ? 0.22 : 0.06);
+document.getElementById('grain').style.opacity = (CFG.grain ?? 0.34);
+
+const stage = document.getElementById('stage');
+const px = v => v + 'px';
+
+function shadow(spreadY, blur, a1, a2) {
+  return `0 ${px(spreadY)} ${px(blur)} rgba(12,14,20,${a1}), 0 ${px(spreadY*0.28)} ${px(blur*0.3)} rgba(12,14,20,${a2})`;
+}
+
+// ---- load every image first so we can measure real aspect ratios ----------
+function load(src) {
+  return new Promise(res => {
+    const im = new Image();
+    im.onload = () => res({ src, w: im.naturalWidth, h: im.naturalHeight, r: im.naturalWidth / im.naturalHeight });
+    im.onerror = () => res(null);
+    im.src = src;
+  });
+}
+
+function makeWeb(meta, box, radius) {
+  // box = {x,y,w,h} maximum allowed. In "contain" the element takes the
+  // image's own ratio so NOTHING is ever cropped. This is the header-cut fix.
+  let w = box.w, h = box.h;
+  if ((CFG.fit || 'contain') === 'contain') {
+    if (meta.r > box.w / box.h) { w = box.w; h = box.w / meta.r; }
+    else { h = box.h; w = box.h * meta.r; }
+  }
+  const el = document.createElement('div');
+  el.className = 'web';
+  el.style.width = px(w); el.style.height = px(h);
+  el.style.left = px(box.x + (box.w - w) / 2);
+  el.style.top  = px(box.y + (box.h - h) / 2);
+  el.style.borderRadius = px(radius);
+  el.style.boxShadow = shadow(H * 0.040, H * 0.105, CFG.dark ? 0.40 : 0.17, CFG.dark ? 0.26 : 0.07);
+  const img = document.createElement('img'); img.src = meta.src;
+  el.appendChild(img);
+  return el;
+}
+
+function makePhone(meta, h, cx, cy, rot) {
+  // phone width follows the source ratio, so the screenshot is never squashed
+  const w = h * (meta.r || 0.462);
+  const frame = Math.max(3, w * 0.019);          // bezel thickness
+  const rad = w * 0.125;                          // phone corner radius
+  const el = document.createElement('div');
+  el.className = 'phone';
+  el.style.width = px(w); el.style.height = px(h);
+  el.style.left = px(cx - w / 2); el.style.top = px(cy - h / 2);
+  el.style.padding = px(frame);
+  el.style.borderRadius = px(rad);
+  el.style.boxShadow = shadow(h * 0.055, h * 0.14, CFG.dark ? 0.44 : 0.22, CFG.dark ? 0.30 : 0.10);
+  if (rot) el.style.transform = `rotate(${rot}deg)`;
+  const scr = document.createElement('div');
+  scr.className = 'scr';
+  scr.style.borderRadius = px(rad - frame);
+  const img = document.createElement('img'); img.src = meta.src;
+  scr.appendChild(img); el.appendChild(scr);
+  return el;
+}
+
+(async () => {
+  const webMeta = CFG.web ? await load(CFG.web) : null;
+  const mobMeta = [];
+  for (const m of (CFG.mobile || [])) { const r = await load(m); if (r) mobMeta.push(r); }
+
+  const radius = CFG.radius ?? Math.round(W * 0.0133);
+  // ONE padding number, in units of the shorter canvas side, so the margin is
+  // the same on every edge. Two separate percentages (5% of width, 9% of
+  // height) silently produced very different gaps and the UI floated.
+  const padPx = (CFG.pad ?? 0.052) * Math.min(W, H);
+  const box = CFG.insetX !== undefined || CFG.insetY !== undefined
+    ? { x: W * (CFG.insetX ?? 0.052), y: H * (CFG.insetY ?? 0.052),
+        w: W * (1 - (CFG.insetX ?? 0.052) * 2), h: H * (1 - (CFG.insetY ?? 0.052) * 2) }
+    : { x: padPx, y: padPx, w: W - padPx * 2, h: H - padPx * 2 };
+
+  const layout = CFG.layout || 'web';
+
+  if (layout === 'web' && webMeta) {
+    stage.appendChild(makeWeb(webMeta, box, radius));
+  }
+
+  else if (layout === 'mobile' && mobMeta.length) {
+    // 1-3 phones, staggered. Middle one sits highest.
+    const n = Math.min(mobMeta.length, 3);
+    const ph = H * (n === 1 ? 0.86 : 0.80);
+    const pw = ph * (mobMeta[0].r || 0.462);
+    const step = pw * 0.86;                        // slight overlap
+    const total = step * (n - 1);
+    for (let i = 0; i < n; i++) {
+      const cx = W / 2 - total / 2 + i * step;
+      const lift = (n === 2) ? (i === 0 ? H * 0.030 : -H * 0.030)
+                             : (i === 1 ? -H * 0.035 : H * 0.028);
+      stage.appendChild(makePhone(mobMeta[i], ph, cx, H / 2 + lift, 0));
+    }
+  }
+
+  else if (layout === 'web+mobile' && webMeta) {
+    // web screen fills the safe box; the phone lands on top of its right side,
+    // its own right edge flush with the same margin
+    stage.appendChild(makeWeb(webMeta, box, radius));
+    if (mobMeta.length) {
+      // phone rises out of the bottom-right corner. Letting it bleed past the
+      // bottom edge reads as deliberate layering and buries less of the app
+      // than a phone parked in the middle of the right-hand side.
+      const bleed = CFG.phoneBleed ?? 0.10;
+      const ph = H * (CFG.phoneScale ?? 0.86);
+      const pw = ph * (mobMeta[0].r || 0.462);
+      const cx = box.x + box.w - pw * 0.46;
+      const cy = H / 2 + H * bleed;
+      stage.appendChild(makePhone(mobMeta[0], ph, cx, cy, 0));
+    }
+  }
+
+  // caption
+  if (CFG.caption) {
+    const c = document.createElement('div');
+    c.className = 'caption';
+    c.textContent = CFG.caption;
+    c.style.setProperty('--capx', px(box.x));
+    c.style.setProperty('--capy', px(H * 0.035));
+    c.style.fontSize = px(Math.round(H * 0.021));
+    document.body.appendChild(c);
+  }
+
+  document.body.dataset.ready = '1';
+})();
+</script>
+</body>
+</html>
