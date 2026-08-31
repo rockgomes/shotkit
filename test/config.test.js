@@ -75,3 +75,70 @@ describe('normalise', () => {
     expect(normalise({}).tone).toBeNull();
   });
 });
+
+describe('templates', () => {
+  it('resolves a named template to its pixel size', () => {
+    expect(normalise({ template: 'dribbble' })).toMatchObject({ w: 2800, h: 2100 });
+    expect(normalise({ template: 'twitter-post' })).toMatchObject({ w: 1600, h: 900 });
+    expect(normalise({ template: 'instagram' })).toMatchObject({ w: 2160, h: 2160 });
+  });
+
+  it('template beats ratio', () => {
+    expect(normalise({ ratio: '16:9', template: 'dribbble' })).toMatchObject({ w: 2800, h: 2100 });
+  });
+
+  it('explicit w/h beats template', () => {
+    expect(normalise({ template: 'dribbble', w: 100, h: 50 })).toMatchObject({ w: 100, h: 50 });
+  });
+
+  it('an unknown template falls back to the ratio', () => {
+    expect(normalise({ template: 'nope', ratio: '1:1' })).toMatchObject({ w: 1500, h: 1500 });
+  });
+
+  it('ratios still work untouched', () => {
+    expect(normalise({ ratio: '3:2' })).toMatchObject({ w: 1800, h: 1200 });
+  });
+});
+
+describe('export settings', () => {
+  it('defaults to scale 1 and png', () => {
+    expect(normalise({})).toMatchObject({ scale: 1, format: 'png' });
+  });
+
+  it('accepts scale 2 and 3', () => {
+    expect(normalise({ scale: 2 }).scale).toBe(2);
+    expect(normalise({ scale: '3' }).scale).toBe(3);
+  });
+
+  it('rejects a nonsense scale back to 1', () => {
+    expect(normalise({ scale: 7 }).scale).toBe(1);
+    expect(normalise({ scale: 'big' }).scale).toBe(1);
+  });
+
+  it('accepts the three formats and rejects others', () => {
+    expect(normalise({ format: 'jpeg' }).format).toBe('jpeg');
+    expect(normalise({ format: 'webp' }).format).toBe('webp');
+    expect(normalise({ format: 'gif' }).format).toBe('png');
+  });
+
+  it('scale does NOT change the canvas size', () => {
+    // scale is applied at export, not by inflating the composition
+    expect(normalise({ ratio: '3:2', scale: 3 })).toMatchObject({ w: 1800, h: 1200 });
+  });
+});
+
+describe('angle', () => {
+  it("defaults to frame.html's 166 degrees", () => {
+    expect(normalise({}).angle).toBe(166);
+  });
+
+  it('accepts a number and wraps out-of-range values', () => {
+    expect(normalise({ angle: 45 }).angle).toBe(45);
+    expect(normalise({ angle: 420 }).angle).toBe(60);
+    expect(normalise({ angle: -30 }).angle).toBe(330);
+  });
+
+  it('falls back to 166 on nonsense', () => {
+    expect(normalise({ angle: 'sideways' }).angle).toBe(166);
+  });
+});

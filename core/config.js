@@ -1,4 +1,4 @@
-import { RATIOS, HUES, DEFAULTS, RADIUS_RATIO } from './presets.js';
+import { RATIOS, HUES, DEFAULTS, RADIUS_RATIO, TEMPLATES, DEFAULT_ANGLE, SCALES, FORMATS } from './presets.js';
 
 function num(v, fallback) {
   if (v === undefined || v === null || v === '') return fallback;
@@ -12,9 +12,12 @@ function num(v, fallback) {
  * jobs.json written for the old tool stays valid input here.
  */
 export function normalise(input = {}) {
+  const tpl = TEMPLATES[input.template];
   const [rw, rh] = RATIOS[input.ratio] || RATIOS[DEFAULTS.ratio];
-  const w = num(input.w, rw);
-  const h = num(input.h, rh);
+  const baseW = tpl ? tpl.w : rw;
+  const baseH = tpl ? tpl.h : rh;
+  const w = num(input.w, baseW);
+  const h = num(input.h, baseH);
 
   let forceHue = null;
   if (input.ground !== undefined && input.ground !== null && input.ground !== 'auto') {
@@ -43,5 +46,12 @@ export function normalise(input = {}) {
     caption: input.caption ? String(input.caption) : DEFAULTS.caption,
     forceHue,
     tone: input.tone === 'light' || input.tone === 'mid' ? input.tone : DEFAULTS.tone,
+    scale: SCALES.includes(num(input.scale, 1)) ? num(input.scale, 1) : 1,
+    format: FORMATS.includes(input.format) ? input.format : 'png',
+    angle: (() => {
+      const a = num(input.angle, DEFAULT_ANGLE);
+      return ((a % 360) + 360) % 360;
+    })(),
+    template: tpl ? input.template : null,
   };
 }
