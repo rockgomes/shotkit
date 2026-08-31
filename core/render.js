@@ -9,6 +9,15 @@
  * rgba()/hexToRgb below); Task 7 appends the phone and caption.
  */
 
+import {
+  CHROME_DOT_RATIO,
+  CHROME_DOT_GAP_RATIO,
+  CHROME_BAR_PADDING_RATIO,
+  CHROME_BAR_GAP_RATIO,
+  URL_PILL_HEIGHT_RATIO,
+  URL_PILL_RADIUS_RATIO,
+} from './presets.js';
+
 export const SHADOW_RGB = '12,14,20';
 
 function hexToRgb(hex) {
@@ -309,6 +318,12 @@ function drawFitted(ctx, box, image, fit) {
  * Ported from frame.html's `.web` rule, `.web::after`, and `makeWeb()`.
  */
 export function paintWeb(ctx, c, box, image) {
+  // A device frame (browser today, iPhone from Task 6) replaces everything
+  // below with paintWebChrome. box.chrome is null for frameKind: 'none' -
+  // the only branch this line adds - so every line below it is completely
+  // untouched, reached exactly as before whenever there is no frame.
+  if (box.chrome) return paintWebChrome(ctx, c, box, image);
+
   // shadow first, on an opaque rect, then the screen over it.
   //
   // Alphas are frame.html's makeWeb() values UNCHANGED: 0.17 / 0.07. Do not
@@ -362,6 +377,148 @@ export function paintWeb(ctx, c, box, image) {
   ctx.strokeStyle = 'rgba(16,18,27,0.07)';         // --hairline
   ctx.lineWidth = 1;
   roundRect(ctx, box.x + 0.5, box.y + 0.5, box.w - 1, box.h - 1, box.radius);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// --- Device frame chrome -------------------------------------------------
+//
+// Source: design_handoff_backdrop_1a/Backdrop Mockups.dc.html, section
+// id="1a", the browser-frame markup around line 100 and the theme table in
+// its renderVals() around line 376:
+//
+//   fBg:     dark #1b1d22   / light #f6f7f9    - bar background
+//   fBorder: dark rgba(255,255,255,.09) / light #e3e5ea - frame + bar hairlines
+//   fUrlBg:  dark rgba(255,255,255,.07) / light #ffffff - URL pill fill
+//   fUrlTxt: dark #9ba1ab   / light #5c6470    - URL pill text colour
+//   fBodyBg: dark #101114   / light #ffffff    - frame body, behind the bar
+//
+// fUrlTxt is captured here (matching the brief) even though nothing draws
+// text into the pill yet: shotkit has no real URL/title string to put
+// there, and inventing a placeholder (e.g. "example.com") would mean
+// shipping fabricated content into every user's export. The colour is on
+// record for whenever a real title/URL field is plumbed through config.
+//
+// Traffic-light colours (#ff5f57 #febc2e #28c840) are theme-independent and
+// identical in both frame.html locations that render them (line ~48, the
+// outer app-window traffic lights, and line ~102, the inner browser-frame
+// ones being ported here).
+const CHROME_THEME = {
+  dark:  { bar: '#1b1d22', body: '#101114', border: 'rgba(255,255,255,0.09)', pill: 'rgba(255,255,255,0.07)', pillText: '#9ba1ab' },
+  light: { bar: '#f6f7f9', body: '#ffffff', border: '#e3e5ea',                pill: '#ffffff',                pillText: '#5c6470' },
+};
+
+function chromeColours(theme) {
+  return theme === 'light' ? CHROME_THEME.light : CHROME_THEME.dark;
+}
+
+const TRAFFIC_DOT_COLOURS = ['#ff5f57', '#febc2e', '#28c840'];
+
+/**
+ * Browser window chrome: the title bar, the three traffic-light dots, and
+ * the URL pill. Every size below is a ratio of `box.w` (the frame's own
+ * width - the same convention presets.js documents for CHROME_DOT_RATIO
+ * etc., and the same one phoneBox() already uses for the phone's bezel).
+ *
+ * `box.chrome` kind-dispatches: only 'browser' paints anything today.
+ * 'iphone' arrives in Task 6 - its frame carries no bar (chrome.barH is 0
+ * per layout.js's chromeFor()), so there is nothing here for it to draw yet.
+ */
+export function paintChrome(ctx, c, box, theme) {
+  const chrome = box.chrome;
+  if (chrome.kind !== 'browser') return;
+
+  const t = chromeColours(theme);
+  const barX = box.x, barY = box.y, barW = box.w, barH = chrome.barH;
+
+  // bar fill
+  ctx.fillStyle = t.bar;
+  ctx.fillRect(barX, barY, barW, barH);
+
+  // bar's own bottom hairline: `border-bottom:1px solid {{fBorder}}` on the
+  // bar div itself, distinct from the frame's outer border painted by
+  // paintWebChrome.
+  ctx.save();
+  ctx.strokeStyle = t.border;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(barX, barY + barH - 0.5);
+  ctx.lineTo(barX + barW, barY + barH - 0.5);
+  ctx.stroke();
+  ctx.restore();
+
+  // traffic-light dots: left-aligned with the bar's own left padding
+  const padX = box.w * CHROME_BAR_PADDING_RATIO;
+  const dotD = box.w * CHROME_DOT_RATIO;
+  const dotGap = box.w * CHROME_DOT_GAP_RATIO;
+  const cy = barY + barH / 2;
+  let cx = barX + padX + dotD / 2;
+  for (const colour of TRAFFIC_DOT_COLOURS) {
+    ctx.beginPath();
+    ctx.fillStyle = colour;
+    ctx.arc(cx, cy, dotD / 2, 0, Math.PI * 2);
+    ctx.fill();
+    cx += dotD + dotGap;
+  }
+
+  // URL pill: fills the rest of the bar's width after the dot group and the
+  // bar's own flex gap, up to the same right padding as the left.
+  const dotsGroupW = dotD * 3 + dotGap * 2;
+  const barGap = box.w * CHROME_BAR_GAP_RATIO;
+  const pillH = box.w * URL_PILL_HEIGHT_RATIO;
+  const pillR = box.w * URL_PILL_RADIUS_RATIO;
+  const pillX = barX + padX + dotsGroupW + barGap;
+  const pillW = (barX + barW - padX) - pillX;
+  const pillY = cy - pillH / 2;
+  roundRect(ctx, pillX, pillY, pillW, pillH, pillR);
+  ctx.fillStyle = t.pill;
+  ctx.fill();
+}
+
+/**
+ * The chrome-framed web screen: outer frame body + shadow, the bar/dots/
+ * pill via paintChrome, then the screenshot drawn straight into
+ * chrome.screen. `screen` already carries the source image's exact aspect
+ * ratio - that is layout.js's job (see chromeFor()/frameRatio() there) - so
+ * this never fits, covers, or letterboxes: a plain drawImage at chrome.screen
+ * is correct and is the entire job here.
+ *
+ * Reuses paintShadow/roundRect exactly as the unframed path above does; only
+ * the rounded-rect radius changes, to chrome.radius (the frame's own corner
+ * radius from the handoff - BROWSER_RADIUS_RATIO in presets.js - which is
+ * deliberately not box.radius, the plain frameless-screen radius the
+ * unframed path above uses).
+ */
+function paintWebChrome(ctx, c, box, image) {
+  const chrome = box.chrome;
+  const outer = { x: box.x, y: box.y, w: box.w, h: box.h, radius: chrome.radius };
+  const t = chromeColours(c.chromeTheme);
+
+  // Same alphas/spread maths as the unframed screen's shadow above - only
+  // the shadowed box changes (the outer frame, not the bare screenshot).
+  // Do NOT retune: see the doc comment above paintShadow.
+  paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07);
+
+  ctx.save();
+  roundRect(ctx, outer.x, outer.y, outer.w, outer.h, outer.radius);
+  ctx.clip();
+
+  ctx.fillStyle = t.body;                          // fBodyBg
+  ctx.fillRect(outer.x, outer.y, outer.w, outer.h);
+
+  paintChrome(ctx, c, box, c.chromeTheme);
+
+  // Straight into the interior - no fit/cover/contain maths belongs here.
+  ctx.drawImage(image, chrome.screen.x, chrome.screen.y, chrome.screen.w, chrome.screen.h);
+
+  ctx.restore();
+
+  // outer hairline: `border:1px solid {{fBorder}}` on the mockup's frame
+  // wrapper.
+  ctx.save();
+  ctx.strokeStyle = t.border;
+  ctx.lineWidth = 1;
+  roundRect(ctx, outer.x + 0.5, outer.y + 0.5, outer.w - 1, outer.h - 1, outer.radius);
   ctx.stroke();
   ctx.restore();
 }
