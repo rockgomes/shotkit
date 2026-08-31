@@ -61,8 +61,14 @@ function radial(ctx, c, hex, cxPct, cyPct, rxPct, ryPct, stopPct) {
  *
  * CSS paints background layers first-on-top, so the linear gradient goes
  * down first here and the two radials are layered over it in the same order.
+ *
+ * `c.bgType` picks the background: 'linear' (default), 'solid', or 'mesh'.
+ * Callers keep calling this one function - the split is invisible downstream.
  */
 export function paintGround(ctx, c, stops) {
+  if (c.bgType === 'solid') return paintSolid(ctx, c, stops);
+  if (c.bgType === 'mesh')  return paintMesh(ctx, c, stops);
+
   const [g1, g2, g3] = stops;
 
   // linear-gradient(<angle>deg, g1 0%, g2 52%, g3 100%) - 166deg by default.
@@ -84,6 +90,81 @@ export function paintGround(ctx, c, stops) {
 }
 
 /**
+ * Flat ground: the middle sampled stop, wall to wall. The simplest possible
+ * background, and still "from the product" since g2 is itself derived from
+ * the screenshot's own accent (see core/ground.js).
+ */
+export function paintSolid(ctx, c, stops) {
+  ctx.fillStyle = stops[1];
+  ctx.fillRect(0, 0, c.w, c.h);
+}
+
+/**
+ * A seeded mesh ground: soft radial blobs scattered over the middle stop,
+ * finished with the same two corner radials the linear path uses.
+ *
+ * Colour comes ONLY from the three sampled stops (g1 and g3, alternating -
+ * g2 is already the base fill). That is deliberate, not an oversight: this
+ * library's whole premise is that the ground comes from the product's own
+ * accent colour, never an invented hue. A mesh that painted in colours the
+ * screenshot doesn't have would break the same "dark UI gets a mid-tone
+ * ground" contract core/ground.js exists to uphold, just with prettier
+ * blobs. See test/render-mesh.test.js's hue-spread test for the guard.
+ *
+ * Positions and radii come from mulberry32, the same PRNG noiseTile already
+ * uses, seeded from c.seed so the field is reproducible and re-exportable.
+ */
+export function paintMesh(ctx, c, stops) {
+  const [g1, , g3] = stops;
+  const blobColours = [g1, g3];
+  const BLOB_COUNT = 6;
+
+  // base fill - the field of blobs is laid over this, same role g2 plays in
+  // the linear gradient's midpoint.
+  ctx.fillStyle = stops[1];
+  ctx.fillRect(0, 0, c.w, c.h);
+
+  const rnd = mulberry32(c.seed ?? 1);
+  const short = Math.min(c.w, c.h);
+  const margin = short * 0.12;
+
+  for (let i = 0; i < BLOB_COUNT; i++) {
+    const cx = margin + rnd() * (c.w - margin * 2);
+    const cy = margin + rnd() * (c.h - margin * 2);
+    const r = short * (0.40 + rnd() * 0.35);   // 40-75% of the shorter side
+    const colour = blobColours[i % blobColours.length];
+
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, rgba(colour, 0.75));
+    g.addColorStop(1, rgba(colour, 0));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, c.w, c.h);
+  }
+
+  // Same two corner radials the linear path uses, so a mesh ground still
+  // reads as belonging to the same system: top-left highlight, bottom-right
+  // deepening.
+  radial(ctx, c, g1, 0.22, 0.06, 1.15, 0.85, 0.58);
+  radial(ctx, c, g3, 0.88, 0.97, 1.05, 0.90, 0.62);
+}
+
+/**
+ * mulberry32: tiny, seeded, no dependency. Shared by noiseTile (always seeded
+ * from the fixed constant 0x9e3779b9 - do not change that default, the grain
+ * it produces is baked into every frozen golden PNG) and paintMesh (seeded
+ * from c.seed).
+ */
+function mulberry32(seed) {
+  let s = seed | 0;
+  return () => {
+    s |= 0; s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
  * Deterministic fractal value noise. The original used an SVG feTurbulence
  * filter, which cannot be reproduced exactly on a canvas, so this is a
  * fixed-seed approximation with the same character: 3 octaves, fine grain.
@@ -92,14 +173,7 @@ export function paintGround(ctx, c, stops) {
  * the export to match the preview byte for byte.
  */
 export function noiseTile(size = 240) {
-  // mulberry32: tiny, seeded, no dependency
-  let s = 0x9e3779b9;
-  const rnd = () => {
-    s |= 0; s = (s + 0x6d2b79f5) | 0;
-    let t = Math.imul(s ^ (s >>> 15), 1 | s);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+  const rnd = mulberry32(0x9e3779b9);
 
   const grid = n => {
     const g = new Float64Array(n * n);

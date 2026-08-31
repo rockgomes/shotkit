@@ -118,6 +118,7 @@ describe('pixel-diff against frozen renders', () => {
     ['mobile',     { layout: 'mobile', ratio: '3:2' },     { mobile: ['samples/karaoke-mobile.png', 'samples/karaoke-mobile-2.png'] }],
     ['web-mobile', { layout: 'web+mobile', ratio: '3:2' }, { web: 'samples/karaoke-web.png', mobile: ['samples/karaoke-mobile.png'] }],
     ['caption',    { ratio: '3:2', caption: 'Fieldset — 2026' }, { web: 'samples/fieldset.png' }],
+    ['mesh',       { ratio: '3:2', bgType: 'mesh', seed: 7 },   { web: 'samples/fieldset.png' }],
   ];
 
   for (const [name, cfg, files] of CASES) {

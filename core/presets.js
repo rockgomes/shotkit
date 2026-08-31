@@ -22,6 +22,8 @@ export const DEFAULTS = {
   phoneBleed: 0.10,
   caption: null,
   tone: null,          // null | 'light' | 'mid'
+  bgType: 'linear',    // 'linear' | 'solid' | 'mesh'
+  seed: 1,
 };
 
 // Screen corner radius, as a fraction of canvas WIDTH.

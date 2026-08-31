@@ -53,5 +53,7 @@ export function normalise(input = {}) {
       return ((a % 360) + 360) % 360;
     })(),
     template: tpl ? input.template : null,
+    bgType: input.bgType === 'solid' || input.bgType === 'mesh' ? input.bgType : DEFAULTS.bgType,
+    seed: Math.round(num(input.seed, DEFAULTS.seed)),
   };
 }

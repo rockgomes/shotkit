@@ -30,6 +30,10 @@ const CASES = [
   // caption, so without this case a stubbed-out paintCaption would leave
   // every golden untouched and the pixel-diff suite fully green.
   ['caption',    { ratio: '3:2', caption: 'Fieldset — 2026' }, { web: 'samples/fieldset.png', mobile: [] }],
+  // Exercises paintMesh specifically, with a fixed seed so the golden is
+  // reproducible. See test/compose.test.js's "pixel-diff against frozen
+  // renders" suite for the guard that this actually catches a seed change.
+  ['mesh',       { ratio: '3:2', bgType: 'mesh', seed: 7 },   { web: 'samples/fieldset.png', mobile: [] }],
 ];
 
 for (const [name, cfg, files] of CASES) {
