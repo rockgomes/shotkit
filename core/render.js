@@ -65,9 +65,9 @@ function radial(ctx, c, hex, cxPct, cyPct, rxPct, ryPct, stopPct) {
 export function paintGround(ctx, c, stops) {
   const [g1, g2, g3] = stops;
 
-  // linear-gradient(166deg, g1 0%, g2 52%, g3 100%)
+  // linear-gradient(<angle>deg, g1 0%, g2 52%, g3 100%) - 166deg by default.
   // CSS 0deg points up and angles run clockwise.
-  const rad = (166 - 90) * Math.PI / 180;
+  const rad = ((c.angle ?? 166) - 90) * Math.PI / 180;
   const len = Math.abs(c.w * Math.cos(rad)) + Math.abs(c.h * Math.sin(rad));
   const dx = Math.cos(rad) * len / 2, dy = Math.sin(rad) * len / 2;
   const lin = ctx.createLinearGradient(c.w / 2 - dx, c.h / 2 - dy, c.w / 2 + dx, c.h / 2 + dy);

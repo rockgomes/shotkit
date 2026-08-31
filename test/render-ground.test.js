@@ -120,3 +120,47 @@ describe('paintGrain', () => {
     expect(greyCount).toBeLessThan(totalPixels * 0.01);
   });
 });
+
+const GROUND = ['#f7f4ff', '#ece6fb', '#ded3f5'];
+
+function renderGroundCtx(overrides = {}) {
+  const c = normalise({ ratio: '3:2', ...overrides });
+  const cv = createCanvas(c.w, c.h);
+  const ctx = cv.getContext('2d');
+  paintGround(ctx, c, GROUND);
+  return ctx;
+}
+
+function renderGround(overrides = {}) {
+  return renderGroundCtx(overrides).canvas.toBuffer('image/png');
+}
+
+function lum([r, g, b]) {
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+describe('paintGround angle', () => {
+  it('defaults to 166 degrees — byte-identical to the hardcoded original', () => {
+    const a = renderGround({ angle: 166 });
+    const b = renderGround({});                 // angle omitted
+    expect(Buffer.compare(a, b)).toBe(0);
+  });
+
+  it('a different angle changes the render', () => {
+    const a = renderGround({ angle: 166 });
+    const b = renderGround({ angle: 20 });
+    expect(Buffer.compare(a, b)).not.toBe(0);
+  });
+
+  it('90 degrees puts the light source up the left edge, not the top-left', () => {
+    // sanity check that the angle actually rotates the linear stop, in the
+    // direction CSS uses: 0deg points up, angles run clockwise. At 90deg
+    // ("to right"), CSS puts the FIRST stop (g1, the lightest of the three
+    // ground colours) at the left edge and the LAST stop (g3, the darkest)
+    // at the right edge, so the left edge should read brighter.
+    const ctx = renderGroundCtx({ angle: 90 });
+    const left = lum(px(ctx, 20, 600));
+    const right = lum(px(ctx, 1780, 600));
+    expect(left).toBeGreaterThan(right);
+  });
+});
