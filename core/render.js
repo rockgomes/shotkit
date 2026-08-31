@@ -291,3 +291,68 @@ export function paintWeb(ctx, c, box, image) {
   ctx.stroke();
   ctx.restore();
 }
+
+/**
+ * The phone: dark body, inset screen (cover-fit, top center), inset hairline,
+ * floating shadow. Ported from frame.html's `.phone`, `.phone::after` and
+ * `makePhone()`. `box` comes from layout.js's phoneBox() and already carries
+ * `frame` (bezel thickness) and `innerRadius` (screen corner radius) -
+ * computed there as `radius - frame`, matching makePhone()'s
+ * `scr.style.borderRadius = px(rad - frame)`.
+ *
+ * Shadow alphas are frame.html's makePhone() light-mode values UNCHANGED:
+ * 0.22 / 0.10. See the doc comment on paintShadow above (and the longer one
+ * on paintWeb) before ever touching these - a prior pass tuned them up to
+ * compensate for @napi-rs/canvas rendering shadows faintly, and that tuning
+ * had to be reverted because it made the browser (the only surface that
+ * ships) render up to 65 RGB levels too dark. Do not repeat that mistake
+ * here.
+ */
+export function paintPhone(ctx, c, box, image) {
+  paintShadow(ctx, box, box.h * 0.055, box.h * 0.14, 0.22, 0.10);
+
+  // body
+  ctx.save();
+  roundRect(ctx, box.x, box.y, box.w, box.h, box.radius);
+  ctx.clip();
+  ctx.fillStyle = '#111318';                       // --phone-frame
+  ctx.fillRect(box.x, box.y, box.w, box.h);
+  ctx.restore();
+
+  // screen, inset by the bezel. Always cover, anchored top center.
+  const inner = {
+    x: box.x + box.frame,
+    y: box.y + box.frame,
+    w: box.w - box.frame * 2,
+    h: box.h - box.frame * 2,
+  };
+  ctx.save();
+  roundRect(ctx, inner.x, inner.y, inner.w, inner.h, box.innerRadius);
+  ctx.clip();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(inner.x, inner.y, inner.w, inner.h);
+  drawFitted(ctx, inner, image, 'cover');
+  ctx.restore();
+
+  // inset 0 0 0 1px rgba(255,255,255,0.10)
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, box.x + 0.5, box.y + 0.5, box.w - 1, box.h - 1, box.radius);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * The caption: a single line of translucent ink, bottom-left of the safe box.
+ * Ported from frame.html's `.caption` rule and the caption block in the IIFE.
+ */
+export function paintCaption(ctx, c, cap, text) {
+  ctx.save();
+  ctx.font = `${cap.fontSize}px Inter, -apple-system, "Segoe UI", Roboto, sans-serif`;
+  ctx.textBaseline = 'alphabetic';
+  ctx.globalAlpha = 0.55;
+  ctx.fillStyle = '#101218';                       // --ink
+  ctx.fillText(text, cap.x, cap.y);
+  ctx.restore();
+}
