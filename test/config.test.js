@@ -52,4 +52,26 @@ describe('normalise', () => {
   it('accepts an explicit layout over the inference', () => {
     expect(normalise({ hasWeb: true, mobileCount: 1, layout: 'web' }).layout).toBe('web');
   });
+
+  it('resolves insetX/insetY to null when absent, and passes numbers through when given', () => {
+    const absent = normalise({});
+    expect(absent.insetX).toBeNull();
+    expect(absent.insetY).toBeNull();
+
+    const given = normalise({ insetX: 12, insetY: 34 });
+    expect(given.insetX).toBe(12);
+    expect(given.insetY).toBe(34);
+  });
+
+  it('accepts fit "cover" and falls back to "contain" for anything else', () => {
+    expect(normalise({ fit: 'cover' }).fit).toBe('cover');
+    expect(normalise({ fit: 'nonsense' }).fit).toBe('contain');
+    expect(normalise({}).fit).toBe('contain');
+  });
+
+  it('resolves tone to "light" or "mid" when given, and null otherwise', () => {
+    expect(normalise({ tone: 'light' }).tone).toBe('light');
+    expect(normalise({ tone: 'mid' }).tone).toBe('mid');
+    expect(normalise({}).tone).toBeNull();
+  });
 });
