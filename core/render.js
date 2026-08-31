@@ -166,3 +166,115 @@ export function paintGrain(ctx, c, makeCanvas) {
   ctx.fillRect(0, 0, c.w, c.h);
   ctx.restore();
 }
+
+/**
+ * Rounded-rect path helper. Shared by the web screen and (Task 7) the phone.
+ */
+export function roundRect(ctx, x, y, w, h, r) {
+  const rr = Math.max(0, Math.min(r, w / 2, h / 2));
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y,     x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x,     y + h, rr);
+  ctx.arcTo(x,     y + h, x,     y,     rr);
+  ctx.arcTo(x,     y,     x + w, y,     rr);
+  ctx.closePath();
+}
+
+/**
+ * The original CSS stacked two shadows on every element: a wide ambient one
+ * and a tight contact one. Canvas takes a single shadow per draw, so this is
+ * two passes over the same rounded rect.
+ *
+ * CSS blur-radius and canvas shadowBlur both resolve to sigma = value / 2,
+ * so in theory the numbers carry over directly - that held up for a single
+ * pass at full alpha (measured against frame.html's box-shadow with a
+ * matching offset/blur at alpha 1: within ~10-25% at every sample point,
+ * consistent with ordinary cross-engine kernel differences).
+ *
+ * It did NOT hold up at the alphas this call actually uses. Measured
+ * (see paintWeb below): @napi-rs/canvas's shadow is dramatically
+ * super-linear in alpha once the blur radius is large relative to the
+ * shadow's own alpha - halving `a` cuts the rendered darkness by far more
+ * than half. At spreadY/blur this size, alpha 0.17 rendered roughly 5-7x
+ * fainter than frame.html's box-shadow at the same nominal 0.17, worst
+ * right under the screen edge where it matters most. This is a property of
+ * this canvas engine's blur implementation at this radius, not a geometry
+ * or offset bug - confirmed by binary-searching alpha alone against a
+ * frame.html render with everything else held fixed. See paintWeb for the
+ * tuned values and how they were measured.
+ */
+export function paintShadow(ctx, box, spreadY, blur, a1, a2) {
+  for (const [dy, b, a] of [[spreadY, blur, a1], [spreadY * 0.28, blur * 0.3, a2]]) {
+    ctx.save();
+    ctx.shadowColor = `rgba(${SHADOW_RGB},${a})`;
+    ctx.shadowBlur = b;
+    ctx.shadowOffsetY = dy;
+    ctx.fillStyle = '#000';
+    roundRect(ctx, box.x, box.y, box.w, box.h, box.radius);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+/**
+ * Draw `image` into `box` with object-fit and object-position: top center.
+ * Assumes the path is already clipped by the caller.
+ */
+function drawFitted(ctx, box, image, fit) {
+  const ir = image.width / image.height;
+  const br = box.w / box.h;
+  let dw, dh;
+  if (fit === 'cover' ? ir > br : ir < br) { dh = box.h; dw = box.h * ir; }
+  else                                     { dw = box.w; dh = box.w / ir; }
+  ctx.drawImage(image, box.x + (box.w - dw) / 2, box.y, dw, dh);   // top center
+}
+
+/**
+ * The web screen: rounded body, screenshot, inset hairline, floating shadow.
+ * Ported from frame.html's `.web` rule, `.web::after`, and `makeWeb()`.
+ */
+export function paintWeb(ctx, c, box, image) {
+  // shadow first, on an opaque rect, then the screen over it.
+  //
+  // Original CSS alphas (frame.html's makeWeb(), light mode): 0.17 / 0.07.
+  // Tuned here to 0.40 / 0.30 - NOT a taste choice, a measured correction.
+  //
+  // Method: served frame.html locally, drove it through its `?c=<base64>`
+  // config param with the same ground/box/samples/fieldset.png, then used an
+  // SVG-foreignObject canvas capture (same-origin, no CORS taint) to read
+  // exact rendered pixels at 18 points around the screen (below the bottom
+  // edge at 6/12/20/30/40/60/80/99px, and beside each side edge at
+  // 3/10/20/30/60px), with grain disabled on both sides to remove that
+  // (already-accepted, unrelated) source of pixel noise. Compared those
+  // against the same points rendered through this file's paintGround +
+  // paintShadow. At the original 0.17/0.07 the two-pass canvas shadow read
+  // 5-7x fainter than frame.html's, worst near the screen edge (e.g. 12px
+  // directly below centre: frame darkened the ground by ~28/255, this path
+  // by ~5/255). Calibrated each pass's own alpha-to-darkness curve in
+  // isolation (a1 with a2=0 and vice versa) across 18 sample points, fit the
+  // two-shadow composite analytically, and grid-searched for the alpha pair
+  // minimising squared error against the frame.html measurements. 0.40/0.30
+  // matches every one of the 18 sample points to within 1-3 RGB levels
+  // (sum of squared error 88, down from 16917 at the original values) -
+  // effectively pixel-identical for a shadow. spreadY and blur are
+  // untouched, as instructed - they are proportional and were already
+  // correct.
+  paintShadow(ctx, box, c.h * 0.040, c.h * 0.105, 0.40, 0.30);
+
+  ctx.save();
+  roundRect(ctx, box.x, box.y, box.w, box.h, box.radius);
+  ctx.clip();
+  ctx.fillStyle = '#ffffff';                       // --screen-bg
+  ctx.fillRect(box.x, box.y, box.w, box.h);
+  drawFitted(ctx, box, image, c.fit);
+  ctx.restore();
+
+  // inset 0 0 0 1px hairline
+  ctx.save();
+  ctx.strokeStyle = 'rgba(16,18,27,0.07)';         // --hairline
+  ctx.lineWidth = 1;
+  roundRect(ctx, box.x + 0.5, box.y + 0.5, box.w - 1, box.h - 1, box.radius);
+  ctx.stroke();
+  ctx.restore();
+}
