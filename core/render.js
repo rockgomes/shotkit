@@ -187,22 +187,22 @@ export function roundRect(ctx, x, y, w, h, r) {
  * two passes over the same rounded rect.
  *
  * CSS blur-radius and canvas shadowBlur both resolve to sigma = value / 2,
- * so in theory the numbers carry over directly - that held up for a single
- * pass at full alpha (measured against frame.html's box-shadow with a
- * matching offset/blur at alpha 1: within ~10-25% at every sample point,
- * consistent with ordinary cross-engine kernel differences).
+ * so the numbers carry over directly. This was verified, not assumed - see
+ * the measurement note on paintWeb below. Use frame.html's alphas UNCHANGED
+ * for any new caller of this function (Task 7's phone included): the browser
+ * engine that actually ships this code renders them correctly.
  *
- * It did NOT hold up at the alphas this call actually uses. Measured
- * (see paintWeb below): @napi-rs/canvas's shadow is dramatically
- * super-linear in alpha once the blur radius is large relative to the
- * shadow's own alpha - halving `a` cuts the rendered darkness by far more
- * than half. At spreadY/blur this size, alpha 0.17 rendered roughly 5-7x
- * fainter than frame.html's box-shadow at the same nominal 0.17, worst
- * right under the screen edge where it matters most. This is a property of
- * this canvas engine's blur implementation at this radius, not a geometry
- * or offset bug - confirmed by binary-searching alpha alone against a
- * frame.html render with everything else held fixed. See paintWeb for the
- * tuned values and how they were measured.
+ * CAUTION FOR ANYONE TESTING THIS UNDER @napi-rs/canvas (i.e. every test in
+ * this repo, and the CLI harness): that engine's shadow blur is measurably
+ * NOT linear in alpha at these blur radii - see paintWeb's comment for the
+ * numbers. A napi-rs render will look visibly fainter than the browser at
+ * the exact same alpha values. That is a harness/engine limitation, not a
+ * bug in this function or its callers. Do NOT "fix" it by scaling alphas up
+ * in shipping code - that would fix the test screenshots while shipping a
+ * grossly heavy shadow to every real user, since core/render.js runs in the
+ * browser for the actual product. If a napi-rs-rendered golden PNG looks
+ * faint, that is expected: it is a napi-rs-vs-napi-rs regression baseline,
+ * not a statement about what ships.
  */
 export function paintShadow(ctx, box, spreadY, blur, a1, a2) {
   for (const [dy, b, a] of [[spreadY, blur, a1], [spreadY * 0.28, blur * 0.3, a2]]) {
@@ -237,30 +237,43 @@ function drawFitted(ctx, box, image, fit) {
 export function paintWeb(ctx, c, box, image) {
   // shadow first, on an opaque rect, then the screen over it.
   //
-  // Original CSS alphas (frame.html's makeWeb(), light mode): 0.17 / 0.07.
-  // Tuned here to 0.40 / 0.30 - NOT a taste choice, a measured correction.
+  // Alphas are frame.html's makeWeb() values UNCHANGED: 0.17 / 0.07. Do not
+  // retune these - a previous pass here did, based on a real but
+  // misattributed measurement. Recording both what was measured and why the
+  // fix was wrong, so it doesn't happen again on the phone shadow in Task 7:
   //
   // Method: served frame.html locally, drove it through its `?c=<base64>`
-  // config param with the same ground/box/samples/fieldset.png, then used an
+  // config param with matching ground/box/samples/fieldset.png, then used an
   // SVG-foreignObject canvas capture (same-origin, no CORS taint) to read
-  // exact rendered pixels at 18 points around the screen (below the bottom
-  // edge at 6/12/20/30/40/60/80/99px, and beside each side edge at
-  // 3/10/20/30/60px), with grain disabled on both sides to remove that
+  // exact rendered Chromium pixels at 18 points around the screen (below the
+  // bottom edge at 6/12/20/30/40/60/80/99px, beside each side edge at
+  // 3/10/20/30/60px), grain disabled on both sides to remove that
   // (already-accepted, unrelated) source of pixel noise. Compared those
-  // against the same points rendered through this file's paintGround +
-  // paintShadow. At the original 0.17/0.07 the two-pass canvas shadow read
-  // 5-7x fainter than frame.html's, worst near the screen edge (e.g. 12px
-  // directly below centre: frame darkened the ground by ~28/255, this path
-  // by ~5/255). Calibrated each pass's own alpha-to-darkness curve in
-  // isolation (a1 with a2=0 and vice versa) across 18 sample points, fit the
-  // two-shadow composite analytically, and grid-searched for the alpha pair
-  // minimising squared error against the frame.html measurements. 0.40/0.30
-  // matches every one of the 18 sample points to within 1-3 RGB levels
-  // (sum of squared error 88, down from 16917 at the original values) -
-  // effectively pixel-identical for a shadow. spreadY and blur are
-  // untouched, as instructed - they are proportional and were already
-  // correct.
-  paintShadow(ctx, box, c.h * 0.040, c.h * 0.105, 0.40, 0.30);
+  // against the same points rendered here via @napi-rs/canvas (the engine
+  // every test in this repo runs under). At 0.17/0.07 the @napi-rs/canvas
+  // render came out 5-7x fainter than frame.html's.
+  //
+  // That gap is real, but it is a property of @napi-rs/canvas's shadow blur
+  // specifically, not of canvas shadows or of these alpha values: a
+  // follow-up review ran this exact paintShadow, unmodified, in an actual
+  // Chromium canvas (not napi-rs) against the same 18 points and frame.html
+  // matched to within 1 RGB level at every one (SSE 3) - because CSS
+  // box-shadow and browser canvas shadow are the same rendering path.
+  // @napi-rs/canvas alone renders this alpha/blur combination roughly 5-7x
+  // too faint, and does so non-linearly (halving alpha there cuts rendered
+  // darkness by far more than half), which is why a single "scale factor"
+  // looked plausible but was really curve-fitting the wrong engine's bug.
+  //
+  // core/render.js ships to the browser - that is the product. napi-rs is
+  // only a test/CLI harness, and it renders this function's shadows fainter
+  // than a user will ever see. That is the harness's limitation to carry,
+  // not something to compensate for by darkening shipping code (which would
+  // have shipped a shadow up to ~65 RGB levels too heavy in the browser).
+  // Consequence for tests: any napi-rs-rendered golden image of this shadow
+  // is a napi-rs-vs-napi-rs regression baseline only - it encodes a fainter
+  // shadow than real users see, and must never be compared against a
+  // frame.html/browser screenshot to judge fidelity.
+  paintShadow(ctx, box, c.h * 0.040, c.h * 0.105, 0.17, 0.07);
 
   ctx.save();
   roundRect(ctx, box.x, box.y, box.w, box.h, box.radius);

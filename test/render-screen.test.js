@@ -4,6 +4,8 @@ import { normalise } from '../core/config.js';
 import { layout } from '../core/layout.js';
 import { paintGround, paintWeb } from '../core/render.js';
 
+const GROUND = ['#f7f4ff', '#ece6fb', '#ded3f5'];
+
 function px(ctx, x, y) {
   const d = ctx.getImageData(Math.round(x), Math.round(y), 1, 1).data;
   return [d[0], d[1], d[2]];
@@ -15,17 +17,44 @@ async function scene(overrides = {}) {
   const lay = layout(c, { web: img.width / img.height, mobile: [] });
   const cv = createCanvas(c.w, c.h);
   const ctx = cv.getContext('2d');
-  paintGround(ctx, c, ['#f7f4ff', '#ece6fb', '#ded3f5']);
+  paintGround(ctx, c, GROUND);
   paintWeb(ctx, c, lay.web, img);
   return { c, lay, ctx, img };
 }
 
+function groundOnly(c) {
+  const cv = createCanvas(c.w, c.h);
+  const ctx = cv.getContext('2d');
+  paintGround(ctx, c, GROUND);
+  return ctx;
+}
+
 describe('paintWeb', () => {
   it('paints inside the screen box', async () => {
-    const { lay, ctx } = await scene();
-    const before = px(ctx, 10, 10);              // ground, untouched
-    const inside = px(ctx, lay.web.x + lay.web.w / 2, lay.web.y + lay.web.h / 2);
-    expect(inside).not.toEqual(before);
+    const { c, lay, ctx } = await scene();
+
+    // Comparing two DIFFERENT points (e.g. (10,10) vs the screen centre)
+    // cannot prove paintWeb did anything - the ground gradient itself
+    // varies by position with or without a screen painted over it, so that
+    // comparison would still pass with paintWeb deleted entirely. Instead,
+    // sample the SAME coordinate from a ground-only render and require the
+    // painted canvas to differ from it there.
+    const gctx = groundOnly(c);
+    const x = lay.web.x + lay.web.w / 2;
+    const y = lay.web.y + lay.web.h / 2;
+    const inside = px(ctx, x, y);
+    const groundAtSamePoint = px(gctx, x, y);
+
+    expect(inside).not.toEqual(groundAtSamePoint);
+
+    // Stronger, content-specific check: fieldset.png's UI is white at this
+    // coordinate (verified against the fixture), while the ground gradient
+    // never reaches near-white this far from its highlight corner. So the
+    // screen interior being near-white specifically requires the screenshot
+    // to have been drawn here, not just some incidental pixel change (a
+    // shadow, a stray stroke, off-by-one geometry, etc).
+    expect(Math.min(...inside)).toBeGreaterThanOrEqual(250);
+    expect(Math.min(...groundAtSamePoint)).toBeLessThan(250);
   });
 
   it('leaves the corners rounded, not square', async () => {
@@ -36,16 +65,34 @@ describe('paintWeb', () => {
     expect(corner).not.toEqual(centre);
   });
 
-  it('darkens the ground below the screen with a shadow', async () => {
+  it('darkens the ground below the screen with a shadow, by a bounded amount', async () => {
     const { c, lay, ctx } = await scene();
-    const cv2 = createCanvas(c.w, c.h);
-    const ctx2 = cv2.getContext('2d');
-    paintGround(ctx2, c, ['#f7f4ff', '#ece6fb', '#ded3f5']);
+    const gctx = groundOnly(c);
 
     const y = Math.min(c.h - 2, lay.web.y + lay.web.h + 12);
     const x = lay.web.x + lay.web.w / 2;
     const sum = a => a.reduce((p, q) => p + q, 0);
-    expect(sum(px(ctx, x, y))).toBeLessThan(sum(px(ctx2, x, y)));
+    const diff = sum(px(gctx, x, y)) - sum(px(ctx, x, y));
+
+    // Some darkening must be present...
+    expect(diff).toBeGreaterThan(0);
+
+    // ...but bounded to a measured range. Under @napi-rs/canvas (the engine
+    // this suite runs on) at frame.html's own alphas (0.17 / 0.07), this
+    // exact point darkens by ~16 (sum of R+G+B delta, measured directly).
+    // The bounds below have headroom for minor engine/version drift, but
+    // must still catch:
+    //   - a doubled alpha pair (0.34/0.14 measures ~54 here) - this is the
+    //     regression this test exists to catch, per the round-1 incident
+    //     where the alphas were wrongly tuned up to compensate for a
+    //     napi-rs-only rendering quirk and all tests stayed green;
+    //   - a near-zero regression (e.g. an accidentally tiny or zeroed
+    //     alpha measures ~0-6 here).
+    // See core/render.js's paintShadow/paintWeb comments for why alphas
+    // must stay at frame.html's values and never be retuned against a
+    // napi-rs measurement.
+    expect(diff).toBeGreaterThan(8);
+    expect(diff).toBeLessThan(30);
   });
 
   it('is deterministic', async () => {
