@@ -129,3 +129,215 @@ describe('caption', () => {
     expect(layout(cfg(), { web: 1.6, mobile: [] }).caption).toBeNull();
   });
 });
+
+// --- Frame regression baseline -------------------------------------------
+//
+// core/layout.js was closed, fully tested, and the only task across two
+// plans to come back from review with zero findings - its numbers were
+// verified line-by-line against frame.html, and five frozen golden PNGs
+// encode its current output. This block is the guard for that: every value
+// below was captured by literally running `layout()` on the UNMODIFIED
+// file (commit db689d3, before any frame code existed) with
+//
+//   node -e "import('./core/config.js').then(async ({normalise}) => {
+//     const { layout } = await import('./core/layout.js');
+//     ... layout(normalise({ layout, ratio }), { web: 1.6, mobile: [...] })
+//   })"
+//
+// and confirmed to pass against that unmodified file BEFORE any frame code
+// was written. It is deep equality (toEqual), not spot checks, against
+// every field the pre-frame layout() produced, across every layout mode and
+// every ratio - so any accidental change to the "frameKind: 'none'" path
+// (a leaked default, a reordered calculation, a changed constant) turns
+// this red. The only field these objects don't carry is `chrome` on `web`,
+// which is asserted separately as `null` since it did not exist before this
+// task added it.
+const PRE_FRAME_BASELINE = {
+  'web:3:2': {
+    safe: { x: 62.4, y: 62.4, w: 1675.2, h: 1075.2 },
+    web: { x: 62.4, y: 76.50000000000003, w: 1675.2, h: 1047, radius: 24 },
+    phones: [],
+    caption: null,
+  },
+  'mobile:3:2': {
+    safe: { x: 62.4, y: 62.4, w: 1675.2, h: 1075.2 },
+    web: null,
+    phones: [
+      { x: 296.8127999999999, y: 153.60000000000002, w: 443.52000000000004, h: 960, frame: 8.42688, radius: 55.440000000000005, innerRadius: 47.01312 },
+      { x: 678.24, y: 78, w: 443.52000000000004, h: 960, frame: 8.42688, radius: 55.440000000000005, innerRadius: 47.01312 },
+      { x: 1059.6672, y: 153.60000000000002, w: 443.52000000000004, h: 960, frame: 8.42688, radius: 55.440000000000005, innerRadius: 47.01312 },
+    ],
+    caption: null,
+  },
+  'webmobile:3:2': {
+    safe: { x: 62.4, y: 62.4, w: 1675.2, h: 1075.2 },
+    web: { x: 62.4, y: 76.50000000000003, w: 1675.2, h: 1047, radius: 24 },
+    phones: [
+      { x: 1279.88736, y: 204, w: 476.78400000000005, h: 1032, frame: 9.058896, radius: 59.598000000000006, innerRadius: 50.53910400000001 },
+    ],
+    caption: null,
+  },
+  'web:4:3': {
+    safe: { x: 78, y: 78, w: 1844, h: 1344 },
+    web: { x: 78, y: 173.75, w: 1844, h: 1152.5, radius: 27 },
+    phones: [],
+    caption: null,
+  },
+  'mobile:4:3': {
+    safe: { x: 78, y: 78, w: 1844, h: 1344 },
+    web: null,
+    phones: [
+      { x: 246.01600000000002, y: 192, w: 554.4, h: 1200, frame: 10.5336, radius: 69.3, innerRadius: 58.7664 },
+      { x: 722.8, y: 97.5, w: 554.4, h: 1200, frame: 10.5336, radius: 69.3, innerRadius: 58.7664 },
+      { x: 1199.584, y: 192, w: 554.4, h: 1200, frame: 10.5336, radius: 69.3, innerRadius: 58.7664 },
+    ],
+    caption: null,
+  },
+  'webmobile:4:3': {
+    safe: { x: 78, y: 78, w: 1844, h: 1344 },
+    web: { x: 78, y: 173.75, w: 1844, h: 1152.5, radius: 27 },
+    phones: [
+      { x: 1349.8592, y: 255, w: 595.98, h: 1290, frame: 11.32362, radius: 74.4975, innerRadius: 63.173880000000004 },
+    ],
+    caption: null,
+  },
+  'web:16:9': {
+    safe: { x: 56.16, y: 56.16, w: 1807.68, h: 967.6800000000001 },
+    web: { x: 185.8559999999999, y: 56.16, w: 1548.2880000000002, h: 967.6800000000001, radius: 26 },
+    phones: [],
+    caption: null,
+  },
+  'mobile:16:9': {
+    safe: { x: 56.16, y: 56.16, w: 1807.68, h: 967.6800000000001 },
+    web: null,
+    phones: [
+      { x: 417.13151999999997, y: 138.24, w: 399.168, h: 864, frame: 7.584192, radius: 49.896, innerRadius: 42.311808 },
+      { x: 760.4159999999999, y: 70.19999999999999, w: 399.168, h: 864, frame: 7.584192, radius: 49.896, innerRadius: 42.311808 },
+      { x: 1103.7004799999997, y: 138.24, w: 399.168, h: 864, frame: 7.584192, radius: 49.896, innerRadius: 42.311808 },
+    ],
+    caption: null,
+  },
+  'webmobile:16:9': {
+    safe: { x: 56.16, y: 56.16, w: 1807.68, h: 967.6800000000001 },
+    web: { x: 185.8559999999999, y: 56.16, w: 1548.2880000000002, h: 967.6800000000001, radius: 26 },
+    phones: [
+      { x: 1451.8986240000002, y: 183.60000000000002, w: 429.1056, h: 928.8, frame: 8.153006399999999, radius: 53.6382, innerRadius: 45.4851936 },
+    ],
+    caption: null,
+  },
+  'web:1:1': {
+    safe: { x: 78, y: 78, w: 1344, h: 1344 },
+    web: { x: 78, y: 330, w: 1344, h: 840, radius: 20 },
+    phones: [],
+    caption: null,
+  },
+  'mobile:1:1': {
+    safe: { x: 78, y: 78, w: 1344, h: 1344 },
+    web: null,
+    phones: [
+      { x: -3.9839999999999804, y: 192, w: 554.4, h: 1200, frame: 10.5336, radius: 69.3, innerRadius: 58.7664 },
+      { x: 472.8, y: 97.5, w: 554.4, h: 1200, frame: 10.5336, radius: 69.3, innerRadius: 58.7664 },
+      { x: 949.5840000000001, y: 192, w: 554.4, h: 1200, frame: 10.5336, radius: 69.3, innerRadius: 58.7664 },
+    ],
+    caption: null,
+  },
+  'webmobile:1:1': {
+    safe: { x: 78, y: 78, w: 1344, h: 1344 },
+    web: { x: 78, y: 330, w: 1344, h: 840, radius: 20 },
+    phones: [
+      { x: 849.8592000000001, y: 255, w: 595.98, h: 1290, frame: 11.32362, radius: 74.4975, innerRadius: 63.173880000000004 },
+    ],
+    caption: null,
+  },
+};
+
+describe('frame: none (the existing behaviour)', () => {
+  const RATIOS = ['3:2', '4:3', '16:9', '1:1'];
+
+  // Strip `web.chrome` from the live output before comparing to the
+  // baseline, which predates that field entirely - and assert separately
+  // that it's null, per this task's contract for frameKind === 'none'.
+  function webWithoutChrome(web) {
+    if (web === null) return null;
+    expect(web.chrome).toBeNull();
+    const { chrome, ...rest } = web;
+    return rest;
+  }
+
+  for (const ratio of RATIOS) {
+    it(`produces exactly the same web-layout output as before, at ${ratio}`, () => {
+      const c = normalise({ layout: 'web', ratio });
+      const out = layout(c, { web: 1.6, mobile: [] });
+      expect({ ...out, web: webWithoutChrome(out.web) }).toEqual(PRE_FRAME_BASELINE[`web:${ratio}`]);
+    });
+
+    it(`produces exactly the same mobile-layout output as before, at ${ratio}`, () => {
+      const c = normalise({ layout: 'mobile', ratio });
+      const out = layout(c, { web: null, mobile: [0.462, 0.462, 0.462] });
+      expect(out.web).toBeNull();
+      expect(out).toEqual(PRE_FRAME_BASELINE[`mobile:${ratio}`]);
+    });
+
+    it(`produces exactly the same web+mobile-layout output as before, at ${ratio}`, () => {
+      const c = normalise({ layout: 'web+mobile', ratio });
+      const out = layout(c, { web: 1.6, mobile: [0.462] });
+      expect({ ...out, web: webWithoutChrome(out.web) }).toEqual(PRE_FRAME_BASELINE[`webmobile:${ratio}`]);
+    });
+  }
+});
+
+describe('frame: browser', () => {
+  it('adds a chrome block above the screenshot', () => {
+    const c = normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser' });
+    const { web } = layout(c, { web: 1.6, mobile: [] });
+    expect(web.chrome).not.toBeNull();
+    expect(web.chrome.barH).toBeGreaterThan(0);
+  });
+
+  it('shrinks the screenshot area by exactly the bar height', () => {
+    const c = normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser' });
+    const { web } = layout(c, { web: 1.6, mobile: [] });
+    expect(web.chrome.screen.h).toBeCloseTo(web.h - web.chrome.barH, 6);
+    expect(web.chrome.screen.y).toBeCloseTo(web.y + web.chrome.barH, 6);
+    expect(web.chrome.screen.w).toBeCloseTo(web.w, 6);
+  });
+
+  it('scales the bar with the canvas, not with fixed pixels', () => {
+    // NB: the brief's illustrative snippet for this test omitted
+    // `layout: 'web'`, so normalise() would have inferred `layout: 'mobile'`
+    // (no `hasWeb` given) and `sources.web` would never have been used -
+    // `small.web`/`big.web` would both be null. Added explicitly here so
+    // the web branch actually runs.
+    const small = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser' }), { web: 1.6, mobile: [] });
+    const big = layout(normalise({ layout: 'web', template: 'dribbble', frameKind: 'browser' }), { web: 1.6, mobile: [] });
+    const ratioSmall = small.web.chrome.barH / small.web.w;
+    const ratioBig = big.web.chrome.barH / big.web.w;
+    expect(ratioSmall).toBeCloseTo(ratioBig, 6);
+  });
+
+  it('keeps the outer frame inside the safe box', () => {
+    const c = normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser' });
+    const { safe, web } = layout(c, { web: 1.6, mobile: [] });
+    expect(web.x).toBeGreaterThanOrEqual(safe.x - 1e-6);
+    expect(web.y + web.h).toBeLessThanOrEqual(safe.y + safe.h + 1e-6);
+  });
+});
+
+describe('frame: macos', () => {
+  it('has a bar, and a shorter one than the browser frame', () => {
+    // Same fix as above: `layout: 'web'` added so sources.web is honoured.
+    const b = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser' }), { web: 1.6, mobile: [] });
+    const m = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'macos' }), { web: 1.6, mobile: [] });
+    expect(m.web.chrome.barH).toBeGreaterThan(0);
+    expect(m.web.chrome.barH).toBeLessThan(b.web.chrome.barH);
+  });
+});
+
+describe('frame: iphone', () => {
+  it('has no title bar and uses the phone corner radius', () => {
+    const c = normalise({ layout: 'web', ratio: '3:2', frameKind: 'iphone' });
+    const { web } = layout(c, { web: 0.462, mobile: [] });
+    expect(web.chrome.barH).toBe(0);
+    expect(web.chrome.radius / web.w).toBeCloseTo(0.125, 3);
+  });
+});

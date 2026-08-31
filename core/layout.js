@@ -1,4 +1,12 @@
-import { PHONE_FALLBACK_RATIO } from './presets.js';
+import {
+  PHONE_FALLBACK_RATIO,
+  PHONE_RADIUS_RATIO,
+  PHONE_BEZEL_RATIO,
+  PHONE_BEZEL_MIN,
+  BROWSER_BAR_RATIO,
+  MACOS_BAR_RATIO,
+  BROWSER_RADIUS_RATIO,
+} from './presets.js';
 
 /**
  * Everything here is proportional to the canvas. Padding, radius, shadow
@@ -19,6 +27,54 @@ function safeBox(c) {
   return { x: pad, y: pad, w: c.w - pad * 2, h: c.h - pad * 2 };
 }
 
+function chromeFor(c, web) {
+  // The outer frame takes exactly the box the screenshot used to occupy
+  // (computed above, untouched by frameKind) - so a framed shot is never
+  // larger or smaller than an unframed one at the same settings. The
+  // screenshot itself moves inside that same box, shorter by the bar
+  // height: `screen` is carved out of `web`, not the other way around. This
+  // must run strictly after the box above is finalised, and must take no
+  // other branch when frameKind is 'none', so the pre-frame output stays
+  // provably untouched.
+  if (c.frameKind === 'none') return null;
+
+  const w = web.w;
+
+  if (c.frameKind === 'iphone') {
+    // No title bar - the phone's whole body is screen. Reuses the exact
+    // same corner-radius and bezel math as phoneBox() below, so an iPhone
+    // frame around a web shot looks like the same device as the mobile
+    // layout's phones.
+    const radius = w * PHONE_RADIUS_RATIO;
+    const bezel = Math.max(PHONE_BEZEL_MIN, w * PHONE_BEZEL_RATIO);
+    return {
+      kind: 'iphone',
+      barH: 0,
+      screen: { x: web.x, y: web.y, w: web.w, h: web.h },
+      radius,
+      innerRadius: radius - bezel,
+    };
+  }
+
+  // browser / macos: a title bar sits above the screenshot. Bar height and
+  // frame radius are fractions of the frame's own width (see presets.js for
+  // the mockup arithmetic behind each ratio).
+  const barH = w * (c.frameKind === 'macos' ? MACOS_BAR_RATIO : BROWSER_BAR_RATIO);
+  const radius = w * BROWSER_RADIUS_RATIO;
+  return {
+    kind: c.frameKind,
+    barH,
+    screen: { x: web.x, y: web.y + barH, w: web.w, h: web.h - barH },
+    radius,
+    // The mockup's screenshot area sits flush against the frame body - no
+    // padding between the image-slot and its parent - so there is no bezel
+    // to subtract here, unlike the phone. innerRadius equals the outer
+    // radius; Task 5's painter is responsible for only rounding the bottom
+    // corners, since the top ones are flush with the bar.
+    innerRadius: radius,
+  };
+}
+
 function webBox(c, box, ratio) {
   // In "contain" the screen takes the image's own ratio so NOTHING is ever
   // cropped. "cover" fills the box and accepts the crop.
@@ -27,19 +83,18 @@ function webBox(c, box, ratio) {
     if (ratio > box.w / box.h) { w = box.w; h = box.w / ratio; }
     else                       { h = box.h; w = box.h * ratio; }
   }
-  return {
-    x: box.x + (box.w - w) / 2,
-    y: box.y + (box.h - h) / 2,
-    w, h,
-    radius: c.radius,
-  };
+  const x = box.x + (box.w - w) / 2;
+  const y = box.y + (box.h - h) / 2;
+  const web = { x, y, w, h, radius: c.radius };
+  web.chrome = chromeFor(c, web);
+  return web;
 }
 
 function phoneBox(ratio, h, cx, cy) {
   // phone width follows the source ratio, so the screenshot is never squashed
   const w = h * (ratio || PHONE_FALLBACK_RATIO);
-  const frame = Math.max(3, w * 0.019);   // bezel thickness
-  const radius = w * 0.125;               // phone corner radius
+  const frame = Math.max(PHONE_BEZEL_MIN, w * PHONE_BEZEL_RATIO);   // bezel thickness
+  const radius = w * PHONE_RADIUS_RATIO;                            // phone corner radius
   return { x: cx - w / 2, y: cy - h / 2, w, h, frame, radius, innerRadius: radius - frame };
 }
 

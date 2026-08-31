@@ -1,4 +1,4 @@
-import { RATIOS, HUES, DEFAULTS, RADIUS_RATIO, TEMPLATES, DEFAULT_ANGLE, SCALES, FORMATS } from './presets.js';
+import { RATIOS, HUES, DEFAULTS, RADIUS_RATIO, TEMPLATES, DEFAULT_ANGLE, SCALES, FORMATS, FRAME_KINDS } from './presets.js';
 
 function num(v, fallback) {
   if (v === undefined || v === null || v === '') return fallback;
@@ -55,5 +55,7 @@ export function normalise(input = {}) {
     template: tpl ? input.template : null,
     bgType: input.bgType === 'solid' || input.bgType === 'mesh' ? input.bgType : DEFAULTS.bgType,
     seed: Math.round(num(input.seed, DEFAULTS.seed)),
+    frameKind: FRAME_KINDS.includes(input.frameKind) ? input.frameKind : 'none',
+    chromeTheme: input.chromeTheme === 'light' ? 'light' : 'dark',
   };
 }

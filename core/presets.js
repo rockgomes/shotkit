@@ -32,6 +32,97 @@ export const RADIUS_RATIO = 0.0133;
 // Fallback aspect ratio for a phone whose image failed to measure.
 export const PHONE_FALLBACK_RATIO = 0.462;
 
+// Phone corner radius, as a fraction of the phone's own width. Pulled out of
+// layout.js's phoneBox() (it used to be an inline 0.125 literal there) so
+// the iPhone device frame below can share the exact same, already-verified
+// value instead of duplicating it.
+export const PHONE_RADIUS_RATIO = 0.125;
+
+// Phone bezel thickness, as a fraction of the phone's own width, floored at
+// 3px. Also pulled out of phoneBox() for the same reason: the iPhone frame's
+// innerRadius reuses this exact bezel math.
+export const PHONE_BEZEL_RATIO = 0.019;
+export const PHONE_BEZEL_MIN = 3;
+
+// Valid `frameKind` values for normalise(). 'none' means no device frame —
+// the screenshot renders exactly as it always has.
+export const FRAME_KINDS = ['none', 'browser', 'macos', 'iphone'];
+
+// --- Device frame geometry ----------------------------------------------
+// Source: design_handoff_backdrop_1a/Backdrop Mockups.dc.html, section
+// id="1a" ("Obsidian" — the only in-scope screen per that folder's README;
+// 1b/1c are explicitly out of scope, and were checked anyway: neither
+// renders a browser frame at a different, disagreeing scale worth using,
+// and neither renders a macOS or iPhone frame at all).
+//
+// The canvas artboard in 1a is 560x420px, and the browser frame inside it
+// is sized to `width:76%` of that artboard (README: "Inside, browser frame
+// at 76% width"). So the frame's own width in mockup pixels is:
+//   frameW = 560 * 0.76 = 425.6
+// Every ratio below is <measured mockup px> / 425.6 — a fraction of the
+// FRAME's own width, the same convention phoneBox() already uses for the
+// phone's bezel (w * 0.019) and corner radius (w * 0.125), so a frame drawn
+// at any canvas size keeps identical proportions.
+
+// Bar (title bar) height. HTML line ~101:
+//   <div style="...height:32px;padding:0 11px;background:{{ fBg }};...">
+// 32 / 425.6 = 10/133.
+export const BROWSER_BAR_RATIO = 10 / 133; // ≈ 0.075188
+
+// Outer frame corner radius (also the browser body's own radius — both are
+// `border-radius:10px` on the same wrapper). HTML line ~100:
+//   <div style="width:76%;border-radius:10px;...">
+// 10 / 425.6 = 25/1064.
+export const BROWSER_RADIUS_RATIO = 25 / 1064; // ≈ 0.023496
+
+// Traffic-light dot diameter. HTML line ~102:
+//   <span style="width:8px;height:8px;border-radius:50%;...">
+// 8 / 425.6 = 5/266.
+export const CHROME_DOT_RATIO = 5 / 266; // ≈ 0.018797
+
+// Gap between the three traffic-light dots. HTML line ~102:
+//   <div style="display:flex;gap:5px">...
+// 5 / 425.6 = 25/2128.
+export const CHROME_DOT_GAP_RATIO = 25 / 2128; // ≈ 0.011749
+
+// Bar's own left/right padding. HTML line ~101: `padding:0 11px`.
+// 11 / 425.6 = 55/2128.
+export const CHROME_BAR_PADDING_RATIO = 55 / 2128; // ≈ 0.025847
+
+// Gap between the dot group and the URL pill. HTML line ~101: `gap:8px` on
+// the bar itself (coincidentally the same 8px as the dot diameter, but a
+// distinct measurement — the bar's own flex gap, not the dot size).
+// 8 / 425.6 = 5/266.
+export const CHROME_BAR_GAP_RATIO = 5 / 266; // ≈ 0.018797
+
+// URL pill height. HTML line ~103:
+//   <div style="flex:1;height:18px;border-radius:5px;...">
+// 18 / 425.6 = 45/1064.
+export const URL_PILL_HEIGHT_RATIO = 45 / 1064; // ≈ 0.042293
+
+// URL pill corner radius. Same element, `border-radius:5px`.
+// 5 / 425.6 = 25/2128 (coincidentally equal to CHROME_DOT_GAP_RATIO — both
+// are a real, distinct 5px measurement in the mockup).
+export const URL_PILL_RADIUS_RATIO = 25 / 2128; // ≈ 0.011749
+
+// Frame's hairline border. HTML line ~100: `border:1px solid {{fBorder}}`.
+// 1 / 425.6 = 5/2128. NOT used to inset the screenshot area (see layout.js
+// chromeFor(): the screenshot sits flush against the frame body in the
+// mockup, with no padding between the image-slot and its parent), so this
+// is a stroke width for Task 5's painter, not a geometry offset here.
+export const BROWSER_BORDER_RATIO = 5 / 2128; // ≈ 0.002350
+
+// macOS window bar height — NOT extracted from the mockup. id="1a" (the
+// only in-scope screen) renders exactly one frame: the "browser" chrome
+// above. "macOS" and "iPhone" exist only as FRAME chips (inert labels) in
+// the inspector, at lines ~141-142; no macOS or iPhone frame is drawn
+// anywhere in this handoff, including the out-of-scope 1b/1c sections
+// (checked). This value is a placeholder chosen only to satisfy this task's
+// explicit requirement that "macOS has a shorter bar than the browser" —
+// it is an assumption, not a measurement, and should be replaced once a
+// real macOS-frame mockup exists.
+export const MACOS_BAR_RATIO = 15 / 266; // ≈ 0.056391 (assumed: 0.75 * BROWSER_BAR_RATIO)
+
 // Named export sizes. Real platform dimensions, not ratios — a Dribbble shot is
 // 2800x2100 (4:3 at @2x), which is what the site actually wants.
 export const TEMPLATES = {
