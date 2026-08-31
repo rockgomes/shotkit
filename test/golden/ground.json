@@ -1,0 +1,74 @@
+{
+ "fieldset.png": {
+  "ground": [
+   "#f7f8fa",
+   "#e7e9f1",
+   "#d4d7e7"
+  ],
+  "dark": false,
+  "lum": 0.973,
+  "hue": 228.8,
+  "chroma": 1.0,
+  "darkUI": false
+ },
+ "karaoke-mobile-2.png": {
+  "ground": [
+   "#e1d4d9",
+   "#d0bdc6",
+   "#c3a8b4"
+  ],
+  "dark": false,
+  "lum": 0.146,
+  "hue": 333.2,
+  "chroma": 0.937,
+  "darkUI": true
+ },
+ "karaoke-mobile.png": {
+  "ground": [
+   "#e1d4d9",
+   "#d0bdc6",
+   "#c3a8b4"
+  ],
+  "dark": false,
+  "lum": 0.14,
+  "hue": 333.2,
+  "chroma": 0.956,
+  "darkUI": true
+ },
+ "karaoke-web.png": {
+  "ground": [
+   "#d6d4e1",
+   "#c1bdd0",
+   "#ada8c3"
+  ],
+  "dark": false,
+  "lum": 0.096,
+  "hue": 250.9,
+  "chroma": 1.0,
+  "darkUI": true
+ },
+ "moveoutsale.png": {
+  "ground": [
+   "#f7f7fa",
+   "#e8e7f1",
+   "#d5d4e7"
+  ],
+  "dark": false,
+  "lum": 0.876,
+  "hue": 244.4,
+  "chroma": 0.996,
+  "darkUI": false
+ },
+ "template.png": {
+  "ground": [
+   "#f7f8fa",
+   "#e7ebf1",
+   "#d4dbe7"
+  ],
+  "dark": false,
+  "lum": 0.888,
+  "hue": 217.3,
+  "chroma": 1.0,
+  "darkUI": false
+ }
+}
