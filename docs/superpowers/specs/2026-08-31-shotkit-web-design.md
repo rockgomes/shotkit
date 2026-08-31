@@ -392,8 +392,14 @@ Note: Dribbble's 2800×2100 is 4:3 at @2x. shotkit's current default is 3:2 at
 
 ### Device frames
 
-The largest addition, and the most invasive. **None / Browser / macOS / iPhone**,
-each with a **chrome theme** (dark: chrome `#1b1d22`, body `#101114`; light:
+The largest addition, and the most invasive. **None / Browser / iPhone**, each
+with a **chrome theme**
+
+> **Amended 2026-09-01: macOS dropped from v1.** The handoff specifies macOS as a
+> feature but contains no macOS frame anywhere — all three of its image slots sit
+> inside the same browser chrome, and "macOS" appears only as an inert inspector
+> chip. Rather than ship an invented bar height, v1 offers three frames. macOS
+> returns when it is designed. (dark: chrome `#1b1d22`, body `#101114`; light:
 chrome `#f6f7f9`, body `#fff`, borders `#e3e5ea`).
 
 **This changes geometry, not only paint.** A browser or macOS chrome bar sits

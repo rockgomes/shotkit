@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Extend the finished `core/` library with named export templates, export scale, a gradient angle, mesh backgrounds, and device frames (browser / macOS / iPhone), so the app can later be built once against a complete library.
+**Goal:** Extend the finished `core/` library with named export templates, export scale, a gradient angle, mesh backgrounds, and device frames (browser / iPhone), so the app can later be built once against a complete library.
 
 **Architecture:** `core/` is a zero-dependency ES-module library that paints Dribbble shots onto a canvas 2D context, running in both the browser (the product) and `@napi-rs/canvas` (tests, future CLI). It is complete for shotkit's original feature set: `presets.js`, `config.js`, `ground.js`, `layout.js`, `render.js`, `index.js`, 80 passing tests. This plan adds to it without disturbing what exists — every new capability defaults OFF, so all 80 existing tests must stay green unmodified.
 
@@ -361,7 +361,8 @@ git commit -m "feat(core): add solid and seeded mesh background types"
 - Modify: `test/layout.test.js`
 
 **Interfaces:**
-- `normalise()` gains `frameKind`: `'none'` (default) | `'browser'` | `'macos'` | `'iphone'`, and `chromeTheme`: `'dark'` (default) | `'light'`.
+- `normalise()` gains `frameKind`: `'none'` (default) | `'browser'` | `'iphone'`, and `chromeTheme`
+  (**amended 2026-09-01: `'macos'` dropped from v1 — no design exists in the handoff. An unrecognised kind falls back to `'none'`.**): `'dark'` (default) | `'light'`.
 - `layout()`'s `web` object gains a `chrome` field: `null` when `frameKind === 'none'`, otherwise `{kind, barH, screen: {x, y, w, h}, radius, innerRadius}` where `screen` is where the screenshot goes **inside** the frame.
 - When `frameKind === 'none'`, `layout()` output must be **identical** to today's, field for field.
 
@@ -412,7 +413,10 @@ describe('frame: browser', () => {
   });
 });
 
-describe('frame: macos', () => {
+// AMENDED 2026-09-01 — this block is REMOVED. macOS is dropped from v1; there is no
+// macOS frame anywhere in the handoff and its bar height would have to be invented.
+// Kept here struck through so the plan's history stays readable.
+describe.skip('frame: macos — REMOVED, see amendment', () => {
   it('has a bar, and a shorter one than the browser frame', () => {
     const b = layout(normalise({ ratio: '3:2', frameKind: 'browser' }), { web: 1.6, mobile: [] });
     const m = layout(normalise({ ratio: '3:2', frameKind: 'macos' }), { web: 1.6, mobile: [] });
@@ -460,14 +464,14 @@ git commit -m "feat(core): compute device-frame geometry in layout"
 
 ---
 
-### Task 5: Browser and macOS chrome painters
+### Task 5: Browser chrome painter
 
 **Files:**
 - Modify: `core/render.js`
 - Create: `test/render-frames.test.js`
 
 **Interfaces:**
-- `paintChrome(ctx, c, box, theme)` — dispatches on `box.chrome.kind`, draws the bar, traffic dots and (browser only) the URL pill.
+- `paintChrome(ctx, c, box, theme)` — dispatches on `box.chrome.kind`, draws the bar, traffic dots and the URL pill. **macOS was dropped from v1** (no design exists in the handoff), so the kinds are `browser` and, from Task 6, `iphone`.
 - `paintWeb(ctx, c, box, image)` grows a chrome branch: when `box.chrome` is non-null it paints the frame body, the chrome, then the screenshot into `box.chrome.screen`; when null it behaves exactly as today.
 
 **Read the mockup for every colour.** Dark: chrome `#1b1d22`, body `#101114`, border `rgba(255,255,255,.09)`, URL pill `rgba(255,255,255,.07)` with mono text `#9ba1ab`. Light: chrome `#f6f7f9`, body `#fff`, borders `#e3e5ea`. Traffic dots `#ff5f57 #febc2e #28c840`. Confirm each against the HTML.
@@ -496,7 +500,7 @@ Expected: PASS, three goldens byte-identical.
 
 ```bash
 git add core/render.js test/render-frames.test.js
-git commit -m "feat(core): paint browser and macOS window chrome"
+git commit -m "feat(core): paint browser window chrome"
 ```
 
 ---
@@ -524,7 +528,7 @@ Reuse `paintPhone`'s bezel arithmetic where it genuinely applies rather than dup
 
 - [ ] **Step 4: Freeze the new goldens**
 
-Add cases for browser-dark, browser-light, macos-dark and iphone. Regenerate.
+Add cases for browser-dark, browser-light and iphone. (macOS was dropped from v1.) Regenerate.
 
 Then **prove the new goldens guard**: change the chrome bar height, then a traffic-dot colour, and confirm each fails the pixel-diff. Report the ratios. A golden that does not fail on a real change is decoration — a previous baseline in this project missed a doubled shadow alpha entirely.
 
@@ -551,7 +555,7 @@ git commit -m "feat(core): add the iPhone frame and wire frames through compose(
 | Angle parameter | 1, 2 |
 | Mesh (and solid) background | 3 |
 | Device frames — geometry | 4 |
-| Device frames — browser / macOS paint | 5 |
+| Device frames — browser paint | 5 |
 | Device frames — iPhone, chrome theme, wiring | 6 |
 | Background panel ordering (auto → presets → manual → mesh) | UI concern; the config surface all four need lands in 1 and 3 |
 | Obsidian tokens, four-pane shell, inspector | the app plan, written after this one |

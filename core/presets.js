@@ -45,8 +45,13 @@ export const PHONE_BEZEL_RATIO = 0.019;
 export const PHONE_BEZEL_MIN = 3;
 
 // Valid `frameKind` values for normalise(). 'none' means no device frame —
-// the screenshot renders exactly as it always has.
-export const FRAME_KINDS = ['none', 'browser', 'macos', 'iphone'];
+// the screenshot renders exactly as it always has. macOS is deliberately
+// absent: every image-slot in the mockup sits inside the same "browser"
+// chrome, and "macOS" appears only as an inert inspector chip with no
+// rendered frame anywhere in the handoff — shipping a bar-height constant
+// for it would mean inventing a value the mockup doesn't contain. It comes
+// back once it has an actual design.
+export const FRAME_KINDS = ['none', 'browser', 'iphone'];
 
 // --- Device frame geometry ----------------------------------------------
 // Source: design_handoff_backdrop_1a/Backdrop Mockups.dc.html, section
@@ -111,17 +116,6 @@ export const URL_PILL_RADIUS_RATIO = 25 / 2128; // ≈ 0.011749
 // mockup, with no padding between the image-slot and its parent), so this
 // is a stroke width for Task 5's painter, not a geometry offset here.
 export const BROWSER_BORDER_RATIO = 5 / 2128; // ≈ 0.002350
-
-// macOS window bar height — NOT extracted from the mockup. id="1a" (the
-// only in-scope screen) renders exactly one frame: the "browser" chrome
-// above. "macOS" and "iPhone" exist only as FRAME chips (inert labels) in
-// the inspector, at lines ~141-142; no macOS or iPhone frame is drawn
-// anywhere in this handoff, including the out-of-scope 1b/1c sections
-// (checked). This value is a placeholder chosen only to satisfy this task's
-// explicit requirement that "macOS has a shorter bar than the browser" —
-// it is an assumption, not a measurement, and should be replaced once a
-// real macOS-frame mockup exists.
-export const MACOS_BAR_RATIO = 15 / 266; // ≈ 0.056391 (assumed: 0.75 * BROWSER_BAR_RATIO)
 
 // Named export sizes. Real platform dimensions, not ratios — a Dribbble shot is
 // 2800x2100 (4:3 at @2x), which is what the site actually wants.
