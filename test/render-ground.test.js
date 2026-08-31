@@ -74,4 +74,49 @@ describe('paintGrain', () => {
     paintGrain(ctx, c, (w, h) => createCanvas(w, h));
     expect(Array.from(ctx.getImageData(0, 0, 200, 200).data)).toEqual(before);
   });
+
+  it('blends into the ground instead of overwriting it', () => {
+    // Guards against a real regression: a putImageData-based paintGrain
+    // changes every pixel too, so the "changes the canvas" test above
+    // passes for that broken version as well. putImageData ignores
+    // globalAlpha and globalCompositeOperation, so a broken version stamps
+    // opaque greyscale noise straight over the ground instead of soft-light
+    // blending into it. These two properties are true of a genuine blend
+    // and false of an opaque overwrite:
+    //   1. the ground's own gradient is still visible underneath (top-left
+    //      is still lighter than bottom-right, same as paintGround alone).
+    //   2. the perturbation grain introduces is small and not grey - an
+    //      opaque noise stamp would swing pixels by up to ~255 and land
+    //      almost every one of them exactly on R===G===B.
+    // Thresholds below are measured on this exact config (see the task-5
+    // report for the numbers), with headroom on top.
+    const c = normalise({ ratio: '1:1', grain: 0.34 });
+    const cv = createCanvas(c.w, c.h);
+    const ctx = cv.getContext('2d');
+    paintGround(ctx, c, ['#f7f4ff', '#ece6fb', '#ded3f5']);
+    const before = Uint8ClampedArray.from(ctx.getImageData(0, 0, c.w, c.h).data);
+    paintGrain(ctx, c, (w, h) => createCanvas(w, h));
+    const after = ctx.getImageData(0, 0, c.w, c.h).data;
+
+    // Property 1: the gradient survives underneath the grain.
+    const tl = px(ctx, 40, 40).reduce((a, b) => a + b, 0);
+    const br = px(ctx, c.w - 40, c.h - 40).reduce((a, b) => a + b, 0);
+    expect(tl).toBeGreaterThan(br);
+
+    // Property 2: the perturbation is small and not grey.
+    let maxDelta = 0;
+    let greyCount = 0;
+    const totalPixels = c.w * c.h;
+    for (let i = 0; i < after.length; i += 4) {
+      for (let k = 0; k < 3; k++) {
+        maxDelta = Math.max(maxDelta, Math.abs(after[i + k] - before[i + k]));
+      }
+      if (after[i] === after[i + 1] && after[i + 1] === after[i + 2]) greyCount++;
+    }
+    // Measured on this config: max per-channel delta 11/255, 0 grey pixels
+    // out of 2.25M. A putImageData overwrite instead swings pixels by up to
+    // ~255 and lands the overwhelming majority of them exactly on grey.
+    expect(maxDelta).toBeLessThan(40);
+    expect(greyCount).toBeLessThan(totalPixels * 0.01);
+  });
 });
