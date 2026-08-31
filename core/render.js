@@ -353,6 +353,11 @@ export function paintCaption(ctx, c, cap, text) {
   ctx.textBaseline = 'alphabetic';
   ctx.globalAlpha = 0.55;
   ctx.fillStyle = '#101218';                       // --ink
+  // letter-spacing: -0.01em, relative to this element's own font-size (the
+  // CSS `em` unit here), not the canvas's default tracking. Both
+  // @napi-rs/canvas (>=0.1.100) and Chromium support ctx.letterSpacing;
+  // verified it actually shifts measureText() before relying on it here.
+  ctx.letterSpacing = `${cap.fontSize * -0.01}px`;
   ctx.fillText(text, cap.x, cap.y);
   ctx.restore();
 }

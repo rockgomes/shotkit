@@ -15,6 +15,10 @@ async function run(config, files) {
   return { target, meta };
 }
 
+function pngBytes(target) {
+  return target.toBuffer('image/png');
+}
+
 describe('composeWithMeta', () => {
   it('sizes the target from the ratio', async () => {
     const { target } = await run({ ratio: '4:3' }, { web: 'samples/fieldset.png' });
@@ -31,21 +35,44 @@ describe('composeWithMeta', () => {
   });
 
   it('renders the mobile layout', async () => {
-    const { target } = await run(
-      { layout: 'mobile', ratio: '3:2' },
-      { mobile: ['samples/karaoke-mobile.png', 'samples/karaoke-mobile-2.png'] },
-    );
-    expect(target.width).toBe(1800);
-    const ctx = target.getContext('2d');
-    expect(ctx.getImageData(900, 600, 1, 1).data[3]).toBe(255);
+    const files = { mobile: ['samples/karaoke-mobile.png', 'samples/karaoke-mobile-2.png'] };
+    const withPhones = await run({ layout: 'mobile', ratio: '3:2' }, files);
+    // Comparing against `mobile: []` would be contaminated: composeWithMeta
+    // feeds every supplied mobile image into groundFor's colour sampling
+    // regardless of layout, so dropping the images would also shift the
+    // ground tint - the buffers would differ even with paintPhone fully
+    // stubbed out, for a reason that has nothing to do with the phone.
+    // `layout: 'none'` keeps the exact same images (so the exact same
+    // sampled ground tint) but matches none of layout()'s branches, so
+    // `lay.phones` stays empty and nothing but ground+grain gets painted -
+    // an apples-to-apples "no phone" baseline. Verified: with paintPhone
+    // stubbed to a no-op, this comparison collapses to byte-identical
+    // (renders are proven deterministic above), so it can only pass for
+    // real when the phone was actually painted.
+    const withoutPhones = await run({ layout: 'none', ratio: '3:2' }, files);
+    expect(withPhones.target.width).toBe(1800);
+    // A pixel-alpha check at a point inside the ground (e.g. 900,600) proves
+    // nothing here - paintGround alone already fills the whole canvas
+    // opaquely, phones or not.
+    expect(Buffer.compare(pngBytes(withPhones.target), pngBytes(withoutPhones.target))).not.toBe(0);
   });
 
   it('renders web+mobile', async () => {
-    const { target } = await run(
-      { layout: 'web+mobile', ratio: '3:2' },
-      { web: 'samples/karaoke-web.png', mobile: ['samples/karaoke-mobile.png'] },
-    );
-    expect(target.width).toBe(1800);
+    const files = { web: 'samples/karaoke-web.png', mobile: ['samples/karaoke-mobile.png'] };
+    const withPhone = await run({ layout: 'web+mobile', ratio: '3:2' }, files);
+    // `mobile: []` would again be contaminated (see above) - it changes the
+    // ground sample set AND stops the web box from getting a phone drawn
+    // over part of it, conflating two effects. `layout: 'web'` keeps the
+    // exact same images (same ground tint) and paints the exact same web
+    // box (webBox() is computed identically in both the 'web' and
+    // 'web+mobile' branches of layout()), but never pushes a phone. So this
+    // isolates the phone specifically: with paintPhone stubbed, this
+    // comparison collapses to byte-identical (verified), so a real
+    // difference can only come from the phone having been painted over the
+    // web screen.
+    const withoutPhone = await run({ layout: 'web', ratio: '3:2' }, files);
+    expect(withPhone.target.width).toBe(1800);
+    expect(Buffer.compare(pngBytes(withPhone.target), pngBytes(withoutPhone.target))).not.toBe(0);
   });
 
   it('is byte-identical across two runs', async () => {
@@ -54,12 +81,20 @@ describe('composeWithMeta', () => {
     expect(Buffer.compare(a.target.toBuffer('image/png'), b.target.toBuffer('image/png'))).toBe(0);
   });
 
-  it('draws a caption without throwing', async () => {
-    const { target } = await run(
-      { ratio: '3:2', caption: 'Fieldset — 2026' },
-      { web: 'samples/fieldset.png' },
-    );
-    expect(target.width).toBe(1800);
+  it('draws a caption that actually paints pixels', async () => {
+    const config = { ratio: '3:2', caption: 'Fieldset — 2026' };
+    const files = { web: 'samples/fieldset.png' };
+    const withCaption = await run(config, files);
+    const withoutCaption = await run({ ...config, caption: null }, files);
+    expect(withCaption.target.width).toBe(1800);
+    // Same config and image apart from the caption text - if paintCaption
+    // painted nothing (or were a no-op), these two buffers would be
+    // byte-identical, per the determinism proven above. A real difference
+    // can only come from the caption actually being drawn.
+    expect(Buffer.compare(
+      withCaption.target.toBuffer('image/png'),
+      withoutCaption.target.toBuffer('image/png'),
+    )).not.toBe(0);
   });
 });
 
@@ -82,6 +117,7 @@ describe('pixel-diff against frozen renders', () => {
     ['web',        { ratio: '3:2' },                       { web: 'samples/fieldset.png' }],
     ['mobile',     { layout: 'mobile', ratio: '3:2' },     { mobile: ['samples/karaoke-mobile.png', 'samples/karaoke-mobile-2.png'] }],
     ['web-mobile', { layout: 'web+mobile', ratio: '3:2' }, { web: 'samples/karaoke-web.png', mobile: ['samples/karaoke-mobile.png'] }],
+    ['caption',    { ratio: '3:2', caption: 'Fieldset — 2026' }, { web: 'samples/fieldset.png' }],
   ];
 
   for (const [name, cfg, files] of CASES) {
@@ -96,8 +132,20 @@ describe('pixel-diff against frozen renders', () => {
 
       const a = target.getContext('2d').getImageData(0, 0, target.width, target.height);
       const b = rc.getContext('2d').getImageData(0, 0, ref.width, ref.height);
-      const diff = pixelmatch(a.data, b.data, null, ref.width, ref.height, { threshold: 0.1 });
-      expect(diff / (ref.width * ref.height)).toBeLessThan(0.001);
+      // threshold: 0 - exact per-pixel comparison, no perceptual tolerance.
+      // Renders are byte-deterministic (see "is byte-identical across two
+      // runs" above), so a genuine match should differ by ~0 pixels; this
+      // budget only exists to absorb incidental cross-machine/cross-version
+      // antialiasing noise, not to tolerate real rendering changes. The
+      // original threshold: 0.1 / <0.001 budget was too loose: a review
+      // swept four real rendering regressions (doubled phone-shadow alpha,
+      // a 1-alpha-step nudge, a phone body colour change, a halved phone
+      // corner radius) against it and every single one passed undetected -
+      // three with zero reported differing pixels. Confirmed the tightened
+      // bound below now fails all four; exact diff ratios recorded in the
+      // Task 7 fix-round report.
+      const diff = pixelmatch(a.data, b.data, null, ref.width, ref.height, { threshold: 0 });
+      expect(diff / (ref.width * ref.height)).toBeLessThan(1e-5);
     });
   }
 });

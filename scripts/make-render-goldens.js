@@ -26,6 +26,10 @@ const CASES = [
   ['web',        { ratio: '3:2' },                     { web: 'samples/fieldset.png', mobile: [] }],
   ['mobile',     { layout: 'mobile', ratio: '3:2' },   { web: null, mobile: ['samples/karaoke-mobile.png', 'samples/karaoke-mobile-2.png'] }],
   ['web-mobile', { layout: 'web+mobile', ratio: '3:2' }, { web: 'samples/karaoke-web.png', mobile: ['samples/karaoke-mobile.png'] }],
+  // Exercises paintCaption specifically - none of the other three cases set a
+  // caption, so without this case a stubbed-out paintCaption would leave
+  // every golden untouched and the pixel-diff suite fully green.
+  ['caption',    { ratio: '3:2', caption: 'Fieldset — 2026' }, { web: 'samples/fieldset.png', mobile: [] }],
 ];
 
 for (const [name, cfg, files] of CASES) {
