@@ -1,4 +1,7 @@
-import { RATIOS, HUES, DEFAULTS, RADIUS_RATIO, TEMPLATES, DEFAULT_ANGLE, SCALES, FORMATS, FRAME_KINDS } from './presets.js';
+import {
+  RATIOS, HUES, DEFAULTS, RADIUS_RATIO, TEMPLATES, DEFAULT_ANGLE, SCALES, FRAME_KINDS,
+  LAYOUTS, FITS, TONES, BG_TYPES, CHROME_THEMES,
+} from './presets.js';
 
 function num(v, fallback) {
   if (v === undefined || v === null || v === '') return fallback;
@@ -26,7 +29,11 @@ export function normalise(input = {}) {
     if (Number.isFinite(parsed)) forceHue = parsed;
   }
 
-  let layout = input.layout || null;
+  // Only a recognised layout string is honoured verbatim; anything else
+  // (an unrelated typo, a stale 'none' sentinel, undefined) is treated as
+  // absent so it falls through to the same inference an app with no layout
+  // opinion gets - never a silently blank composition.
+  let layout = LAYOUTS.includes(input.layout) ? input.layout : null;
   if (!layout) {
     const hasWeb = !!input.hasWeb;
     const mobileCount = num(input.mobileCount, 0);
@@ -35,7 +42,7 @@ export function normalise(input = {}) {
 
   return {
     w, h, layout,
-    fit: input.fit === 'cover' ? 'cover' : DEFAULTS.fit,
+    fit: FITS.includes(input.fit) ? input.fit : DEFAULTS.fit,
     pad: num(input.pad, DEFAULTS.pad),
     radius: num(input.radius, Math.round(w * RADIUS_RATIO)),
     grain: num(input.grain, DEFAULTS.grain),
@@ -45,17 +52,20 @@ export function normalise(input = {}) {
     insetY: input.insetY === undefined ? null : num(input.insetY, null),
     caption: input.caption ? String(input.caption) : DEFAULTS.caption,
     forceHue,
-    tone: input.tone === 'light' || input.tone === 'mid' ? input.tone : DEFAULTS.tone,
+    tone: TONES.includes(input.tone) ? input.tone : DEFAULTS.tone,
+    // `scale` renders the composition at `scale` times its `w`x`h` - see
+    // composeWithMeta in index.js, the only reader of this field. w/h above
+    // stay the unscaled composition size regardless: this reports what was
+    // asked for, not what gets exported.
     scale: SCALES.includes(num(input.scale, 1)) ? num(input.scale, 1) : 1,
-    format: FORMATS.includes(input.format) ? input.format : 'png',
     angle: (() => {
       const a = num(input.angle, DEFAULT_ANGLE);
       return ((a % 360) + 360) % 360;
     })(),
     template: tpl ? input.template : null,
-    bgType: input.bgType === 'solid' || input.bgType === 'mesh' ? input.bgType : DEFAULTS.bgType,
+    bgType: BG_TYPES.includes(input.bgType) ? input.bgType : DEFAULTS.bgType,
     seed: Math.round(num(input.seed, DEFAULTS.seed)),
     frameKind: FRAME_KINDS.includes(input.frameKind) ? input.frameKind : 'none',
-    chromeTheme: input.chromeTheme === 'light' ? 'light' : 'dark',
+    chromeTheme: CHROME_THEMES.includes(input.chromeTheme) ? input.chromeTheme : 'dark',
   };
 }

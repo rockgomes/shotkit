@@ -11,8 +11,8 @@ async function run(config, files) {
   const mobile = [];
   for (const m of files.mobile || []) mobile.push(await loadImage(m));
   const first = createCanvas(10, 10);
-  const { target, meta } = composeWithMeta(first, config, { web, mobile }, mk);
-  return { target, meta };
+  const { target, meta, config: resolved, layout } = composeWithMeta(first, config, { web, mobile }, mk);
+  return { target, meta, config: resolved, layout };
 }
 
 function pngBytes(target) {
@@ -42,14 +42,20 @@ describe('composeWithMeta', () => {
     // regardless of layout, so dropping the images would also shift the
     // ground tint - the buffers would differ even with paintPhone fully
     // stubbed out, for a reason that has nothing to do with the phone.
-    // `layout: 'none'` keeps the exact same images (so the exact same
-    // sampled ground tint) but matches none of layout()'s branches, so
-    // `lay.phones` stays empty and nothing but ground+grain gets painted -
-    // an apples-to-apples "no phone" baseline. Verified: with paintPhone
-    // stubbed to a no-op, this comparison collapses to byte-identical
-    // (renders are proven deterministic above), so it can only pass for
-    // real when the phone was actually painted.
-    const withoutPhones = await run({ layout: 'none', ratio: '3:2' }, files);
+    // `layout: 'web'` keeps the exact same images (so the exact same
+    // sampled ground tint - composeWithMeta samples web+mobile before
+    // layout() ever runs), but with no `web` image supplied, layout()'s
+    // 'web' branch never fires (it requires sources.web) and its 'mobile'
+    // branch doesn't match `c.layout`, so `lay.web` and `lay.phones` both
+    // stay empty and nothing but ground+grain gets painted - an
+    // apples-to-apples "no phone" baseline. (A bare invalid string like the
+    // former `layout: 'none'` no longer reaches layout() at all - config.js
+    // now validates `layout` and falls back to inference for anything
+    // unrecognised - so this is the legitimate way to ask for it.) Verified:
+    // with paintPhone stubbed to a no-op, this comparison collapses to
+    // byte-identical (renders are proven deterministic above), so it can
+    // only pass for real when the phone was actually painted.
+    const withoutPhones = await run({ layout: 'web', ratio: '3:2' }, files);
     expect(withPhones.target.width).toBe(1800);
     // A pixel-alpha check at a point inside the ground (e.g. 900,600) proves
     // nothing here - paintGround alone already fills the whole canvas
@@ -95,6 +101,73 @@ describe('composeWithMeta', () => {
       withCaption.target.toBuffer('image/png'),
       withoutCaption.target.toBuffer('image/png'),
     )).not.toBe(0);
+  });
+});
+
+describe('composeWithMeta - scale', () => {
+  it('renders the target at scale × the composition size, not just at c.w/c.h', async () => {
+    const { target, config } = await run({ ratio: '3:2', scale: 2 }, { web: 'samples/fieldset.png' });
+    // config (normalise()'s output) reports the unscaled composition, exactly
+    // as test/config.test.js pins - the assertion here is on the TARGET,
+    // which is where scale is actually meant to land.
+    expect(config).toMatchObject({ w: 1800, h: 1200 });
+    expect(target.width).toBe(1800 * 2);
+    expect(target.height).toBe(1200 * 2);
+  });
+
+  it('is a faithful enlargement at scale 2 - ground and grain both, not just canvas size', async () => {
+    // No images at all: with no `web` and no `mobile`, layout() paints
+    // nothing but ground+grain (same "no image" mechanism used above for the
+    // mobile-layout isolation test), so every sampled pixel below is testing
+    // exactly the two things Fix 1 is about - the gradient and the grain -
+    // with nothing else (screenshot edges, shadows, AA) able to contaminate
+    // the comparison.
+    const at1x = await run({ ratio: '3:2' }, {});
+    const at2x = await run({ ratio: '3:2', scale: 2 }, {});
+    expect(at2x.target.width).toBe(at1x.target.width * 2);
+    expect(at2x.target.height).toBe(at1x.target.height * 2);
+
+    const ctx1 = at1x.target.getContext('2d');
+    const ctx2 = at2x.target.getContext('2d');
+
+    // Points picked well inside the canvas (never on a canvas edge or an
+    // exact 2/4/8px grain-cell boundary) at a spread of relative positions,
+    // so the ground gradient's own lightening (top-left to bottom-right) is
+    // exercised alongside the grain. For each, the scale-2 canvas is sampled
+    // at EXACTLY double the scale-1 pixel coordinate - not by re-deriving
+    // the coordinate from the relative fraction against the (twice as big)
+    // canvas width, which would round differently and could land on a
+    // different grain cell by construction, not because of a real bug.
+    const points1x = [[181, 151], [900, 601], [1493, 853], [559, 793], [1651, 101]];
+
+    for (const [x1, y1] of points1x) {
+      const [x2, y2] = [x1 * 2, y1 * 2];
+      const p1 = ctx1.getImageData(x1, y1, 1, 1).data;
+      const p2 = ctx2.getImageData(x2, y2, 1, 1).data;
+      for (let k = 0; k < 3; k++) {
+        // A genuinely-scaled render reproduces the same octave grid index at
+        // exactly double the coordinate (see noiseTile's `baseSize` doc
+        // comment in core/render.js), so per-channel drift here should be
+        // ~0 (small float/AA slop only). The bug this guards against - a
+        // fixed 240px grain tile reused unscaled at 2x - would instead
+        // compare two effectively independent noise samples, which
+        // routinely differ by far more than this budget.
+        expect(Math.abs(p1[k] - p2[k])).toBeLessThanOrEqual(6);
+      }
+    }
+  });
+
+  it('scales box geometry (position, size, radius) exactly with the canvas', async () => {
+    const files = { web: 'samples/fieldset.png' };
+    const at1x = await run({ ratio: '3:2', layout: 'web' }, files);
+    const at2x = await run({ ratio: '3:2', layout: 'web', scale: 2 }, files);
+
+    const w1 = at1x.layout.web, w2 = at2x.layout.web;
+    expect(w2.x).toBeCloseTo(w1.x * 2, 6);
+    expect(w2.y).toBeCloseTo(w1.y * 2, 6);
+    expect(w2.w).toBeCloseTo(w1.w * 2, 6);
+    expect(w2.h).toBeCloseTo(w1.h * 2, 6);
+    expect(w2.radius).toBeCloseTo(w1.radius * 2, 6);
   });
 });
 

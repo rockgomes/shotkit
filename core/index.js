@@ -39,23 +39,38 @@ export function composeWithMeta(target, rawConfig, images, makeCanvas) {
     ? groundFor(samples, c.forceHue, c.tone)
     : groundFor([{ width: 1, height: 1, data: [128, 128, 128, 255] }], c.forceHue, c.tone);
 
-  const lay = layout(c, {
+  // `scale` renders this SAME composition at `c.scale` times the canvas
+  // size, rather than inflating the composition itself (c.w/c.h above stay
+  // what normalise() reported - the size the caller asked for). Every
+  // geometric quantity core/ computes is a fraction of the canvas passed to
+  // it (or, for `radius`, a fraction of that fraction) - w, h and radius are
+  // the only ones expressed as raw numbers - so re-deriving layout() against
+  // a config scaled on exactly those three fields reproduces the 1x
+  // composition faithfully at the larger size: geometry follows for free.
+  // paintGrain (below) is the one exception that needed its own fix, since
+  // it tiles a fixed-size noise pattern rather than a canvas-relative one -
+  // see its doc comment in render.js.
+  const rc = c.scale === 1
+    ? c
+    : { ...c, w: c.w * c.scale, h: c.h * c.scale, radius: c.radius * c.scale };
+
+  const lay = layout(rc, {
     web: web ? web.width / web.height : null,
     mobile: mobile.map(m => m.width / m.height),
   });
 
-  target.width = c.w;
-  target.height = c.h;
+  target.width = rc.w;
+  target.height = rc.h;
   const ctx = target.getContext('2d');
-  ctx.clearRect(0, 0, c.w, c.h);
+  ctx.clearRect(0, 0, rc.w, rc.h);
 
-  paintGround(ctx, c, meta.ground);
-  if (lay.web && web) paintWeb(ctx, c, lay.web, web);
+  paintGround(ctx, rc, meta.ground);
+  if (lay.web && web) paintWeb(ctx, rc, lay.web, web);
   // lay.phones and mobile are always the same length and index-aligned (see
   // the filtering note above), so no `|| mobile[0]` fallback is needed here.
-  lay.phones.forEach((box, i) => paintPhone(ctx, c, box, mobile[i]));
-  paintGrain(ctx, c, makeCanvas);
-  if (lay.caption) paintCaption(ctx, c, lay.caption, c.caption);
+  lay.phones.forEach((box, i) => paintPhone(ctx, rc, box, mobile[i]));
+  paintGrain(ctx, rc, makeCanvas);
+  if (lay.caption) paintCaption(ctx, rc, lay.caption, c.caption);
 
   return { target, meta, config: c, layout: lay };
 }
@@ -65,4 +80,7 @@ export function compose(target, rawConfig, images, makeCanvas) {
 }
 
 export { normalise, layout, groundFor };
-export { RATIOS, HUES, DEFAULTS } from './presets.js';
+export {
+  RATIOS, HUES, DEFAULTS, TEMPLATES, FRAME_KINDS, SCALES, DEFAULT_ANGLE,
+  LAYOUTS, FITS, TONES, BG_TYPES, CHROME_THEMES,
+} from './presets.js';

@@ -39,8 +39,8 @@ function chromeFor(c, web) {
   // `screen` is genuinely the interior for every kind - the rect where the
   // screenshot goes, after both the bar and the bezel are subtracted - and
   // `frame` (the bezel thickness used to compute it) is always present on
-  // the returned object, even when it's 0, so Task 5 never has to branch on
-  // which fields exist for which kind.
+  // the returned object, even when it's 0, so render.js never has to branch
+  // on which fields exist for which kind.
   if (c.frameKind === 'none') return null;
 
   const w = web.w;
@@ -50,8 +50,9 @@ function chromeFor(c, web) {
   // below so an iPhone frame around a web shot looks like the same device
   // as the mobile layout's phones. The browser frame has none: the
   // mockup's screenshot area sits flush inside the frame wrapper, with no
-  // padding between the image-slot and its parent (see BROWSER_BORDER_RATIO
-  // in presets.js for why the 1px hairline there doesn't count as one).
+  // padding between the image-slot and its parent (the frame's own 1px
+  // hairline border is a stroke drawn by render.js's paintWebChrome, not a
+  // geometry offset counted here).
   const frame = c.frameKind === 'iphone' ? Math.max(PHONE_BEZEL_MIN, w * PHONE_BEZEL_RATIO) : 0;
 
   return {

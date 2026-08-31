@@ -110,13 +110,6 @@ export const URL_PILL_HEIGHT_RATIO = 45 / 1064; // ≈ 0.042293
 // are a real, distinct 5px measurement in the mockup).
 export const URL_PILL_RADIUS_RATIO = 25 / 2128; // ≈ 0.011749
 
-// Frame's hairline border. HTML line ~100: `border:1px solid {{fBorder}}`.
-// 1 / 425.6 = 5/2128. NOT used to inset the screenshot area (see layout.js
-// chromeFor(): the screenshot sits flush against the frame body in the
-// mockup, with no padding between the image-slot and its parent), so this
-// is a stroke width for Task 5's painter, not a geometry offset here.
-export const BROWSER_BORDER_RATIO = 5 / 2128; // ≈ 0.002350
-
 // Named export sizes. Real platform dimensions, not ratios — a Dribbble shot is
 // 2800x2100 (4:3 at @2x), which is what the site actually wants.
 export const TEMPLATES = {
@@ -132,4 +125,23 @@ export const TEMPLATES = {
 export const DEFAULT_ANGLE = 166;
 
 export const SCALES = [1, 2, 3];
-export const FORMATS = ['png', 'jpeg', 'webp'];
+
+// Valid `layout` values for normalise(). Anything else is treated as absent
+// and falls back to the existing web/mobile/web+mobile inference.
+export const LAYOUTS = ['web', 'mobile', 'web+mobile'];
+
+// Valid `fit` values. Anything else falls back to DEFAULTS.fit ('contain').
+export const FITS = ['contain', 'cover'];
+
+// Valid `tone` overrides for the ground's light/dark call. Anything else
+// falls back to DEFAULTS.tone (null - infer from the screenshot's own
+// luminance).
+export const TONES = ['light', 'mid'];
+
+// Valid `bgType` values - which ground painter core/render.js's paintGround
+// dispatches to. Anything else falls back to DEFAULTS.bgType ('linear').
+export const BG_TYPES = ['linear', 'solid', 'mesh'];
+
+// Valid `chromeTheme` values for a 'browser' frameKind. Anything else falls
+// back to 'dark'.
+export const CHROME_THEMES = ['dark', 'light'];

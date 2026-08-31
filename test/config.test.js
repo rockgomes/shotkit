@@ -53,6 +53,17 @@ describe('normalise', () => {
     expect(normalise({ hasWeb: true, mobileCount: 1, layout: 'web' }).layout).toBe('web');
   });
 
+  it('falls back to inference for an unrecognised layout, rather than passing it through', () => {
+    // Only 'web' | 'mobile' | 'web+mobile' are real layouts. Anything else -
+    // a typo, a stale sentinel from an old caller, garbage from a jobs.json -
+    // must be treated as though `layout` were never given, not passed
+    // through to layout.js (which would match none of its branches and
+    // silently render a blank ground with no error).
+    expect(normalise({ layout: 'none', hasWeb: true, mobileCount: 0 }).layout).toBe('web');
+    expect(normalise({ layout: 'nonsense', hasWeb: false, mobileCount: 2 }).layout).toBe('mobile');
+    expect(normalise({ layout: 'macos', hasWeb: true, mobileCount: 1 }).layout).toBe('web+mobile');
+  });
+
   it('resolves insetX/insetY to null when absent, and passes numbers through when given', () => {
     const absent = normalise({});
     expect(absent.insetX).toBeNull();
@@ -101,8 +112,8 @@ describe('templates', () => {
 });
 
 describe('export settings', () => {
-  it('defaults to scale 1 and png', () => {
-    expect(normalise({})).toMatchObject({ scale: 1, format: 'png' });
+  it('defaults to scale 1', () => {
+    expect(normalise({}).scale).toBe(1);
   });
 
   it('accepts scale 2 and 3', () => {
@@ -115,14 +126,11 @@ describe('export settings', () => {
     expect(normalise({ scale: 'big' }).scale).toBe(1);
   });
 
-  it('accepts the three formats and rejects others', () => {
-    expect(normalise({ format: 'jpeg' }).format).toBe('jpeg');
-    expect(normalise({ format: 'webp' }).format).toBe('webp');
-    expect(normalise({ format: 'gif' }).format).toBe('png');
-  });
-
-  it('scale does NOT change the canvas size', () => {
-    // scale is applied at export, not by inflating the composition
+  it('normalise() reports the unscaled composition size, regardless of scale', () => {
+    // scale renders the SAME composition at `scale` times the canvas size -
+    // see composeWithMeta in core/index.js, the only place that reads it.
+    // normalise() itself never inflates w/h: it reports what the caller
+    // asked to compose, not what an export ends up sized as.
     expect(normalise({ ratio: '3:2', scale: 3 })).toMatchObject({ w: 1800, h: 1200 });
   });
 });

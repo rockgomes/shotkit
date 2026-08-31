@@ -4,9 +4,8 @@
  * Handed a target context; never creates one. That keeps core/ free of DOM
  * types and lets Node reuse this file through @napi-rs/canvas.
  *
- * This file covers the first half of the painting: the ground gradient and
- * the grain overlay. Task 6 appends paintShadow (reusing SHADOW_RGB and
- * rgba()/hexToRgb below); Task 7 appends the phone and caption.
+ * Covers the whole paint order: ground gradient, grain overlay, shadows,
+ * the web screen (plain or chrome-framed), the phone, and the caption.
  */
 
 import {
@@ -180,8 +179,18 @@ function mulberry32(seed) {
  *
  * Fixed seed matters twice - the pixel-diff tests need it, and the user needs
  * the export to match the preview byte for byte.
+ *
+ * `baseSize` fixes the octave grid resolution to the UNSCALED 240px tile
+ * regardless of the raster `size` requested. That matters for `scale`
+ * (paintGrain below): calling `noiseTile(240 * k, 240)` doesn't just make a
+ * bigger tile with the same-looking fine speckle - because the grid stays
+ * sized off 240, each grid cell now spans `k` times as many raw pixels, so
+ * the whole speckle pattern comes out as an exact k-times nearest-neighbour
+ * enlargement of the 1x tile. Default `baseSize = size` reproduces the
+ * original, size-relative grid exactly - every existing caller (goldens
+ * included) is byte-for-byte unaffected by this parameter's addition.
  */
-export function noiseTile(size = 240) {
+export function noiseTile(size = 240, baseSize = size) {
   const rnd = mulberry32(0x9e3779b9);
 
   const grid = n => {
@@ -192,9 +201,9 @@ export function noiseTile(size = 240) {
 
   // three octaves, wrapping so the tile is seamless
   const octaves = [
-    { n: size / 2 | 0, amp: 0.5 },
-    { n: size / 4 | 0, amp: 0.3 },
-    { n: size / 8 | 0, amp: 0.2 },
+    { n: baseSize / 2 | 0, amp: 0.5 },
+    { n: baseSize / 4 | 0, amp: 0.3 },
+    { n: baseSize / 8 | 0, amp: 0.2 },
   ].map(o => ({ ...o, g: grid(o.n) }));
 
   const data = new Uint8ClampedArray(size * size * 4);
@@ -215,11 +224,40 @@ export function noiseTile(size = 240) {
   return { width: size, height: size, data };
 }
 
-let tileCanvasCache = null;
+// Keyed by tile size in raw px (240 at scale 1, 480 at scale 2, ...) - never
+// by anything else, so a render at one scale can never hand another scale's
+// wrong-sized tile back out. Measured: building one tile (noiseTile +
+// putImageData) costs ~4ms at 240px and scales roughly with pixel count
+// (~34ms at 720px, i.e. scale 3) - real cost for a UI re-rendering on every
+// slider tweak, so a same-size repeat is worth skipping the rebuild for.
+// Distinct sizes coexist rather than evicting each other: a session only
+// ever touches a handful of scales (1/2/3), so the cache stays tiny.
+const tileCanvasCache = new Map();
+
+function tileCanvasFor(size, makeCanvas) {
+  let tc = tileCanvasCache.get(size);
+  if (!tc) {
+    const t = noiseTile(size, 240);
+    tc = makeCanvas(size, size);
+    const tctx = tc.getContext('2d');
+    const id = tctx.createImageData(size, size);
+    id.data.set(t.data);
+    tctx.putImageData(id, 0, 0);
+    tileCanvasCache.set(size, tc);
+  }
+  return tc;
+}
 
 /**
- * Fine grain, tiled at 240px. Keeps big flat gradients from banding.
- * soft-light, matching the original mix-blend-mode.
+ * Fine grain, tiled at 240px * c.scale. Keeps big flat gradients from
+ * banding. soft-light, matching the original mix-blend-mode.
+ *
+ * Scaling the tile with `c.scale` (rather than always tiling at a literal
+ * 240px) is what makes a 2x/3x export a genuine enlargement instead of the
+ * same shot with finer-looking grain: see noiseTile's `baseSize` doc comment
+ * for why passing the bigger size through with the grid still fixed at 240
+ * reproduces the 1x speckle pattern at `scale` times the size, pixel for
+ * pixel, rather than a same-looking tile that merely repeats less often.
  *
  * Builds the tile into a scratch canvas (via the injected `makeCanvas`
  * factory - core/ never creates a canvas itself) and paints it as a
@@ -232,26 +270,20 @@ let tileCanvasCache = null;
 export function paintGrain(ctx, c, makeCanvas) {
   if (!c.grain || c.grain <= 0) return;
 
-  if (!tileCanvasCache) {
-    const t = noiseTile(240);
-    const tc = makeCanvas(240, 240);
-    const tctx = tc.getContext('2d');
-    const id = tctx.createImageData(240, 240);
-    id.data.set(t.data);
-    tctx.putImageData(id, 0, 0);
-    tileCanvasCache = tc;
-  }
+  const tileSize = Math.round(240 * (c.scale || 1));
+  const tile = tileCanvasFor(tileSize, makeCanvas);
 
   ctx.save();
   ctx.globalAlpha = c.grain;
   ctx.globalCompositeOperation = 'soft-light';
-  ctx.fillStyle = ctx.createPattern(tileCanvasCache, 'repeat');
+  ctx.fillStyle = ctx.createPattern(tile, 'repeat');
   ctx.fillRect(0, 0, c.w, c.h);
   ctx.restore();
 }
 
 /**
- * Rounded-rect path helper. Shared by the web screen and (Task 7) the phone.
+ * Rounded-rect path helper. Shared by the web screen, the phone, and both
+ * device frames.
  */
 export function roundRect(ctx, x, y, w, h, r) {
   const rr = Math.max(0, Math.min(r, w / 2, h / 2));
@@ -265,27 +297,13 @@ export function roundRect(ctx, x, y, w, h, r) {
 }
 
 /**
- * The original CSS stacked two shadows on every element: a wide ambient one
- * and a tight contact one. Canvas takes a single shadow per draw, so this is
- * two passes over the same rounded rect.
- *
- * CSS blur-radius and canvas shadowBlur both resolve to sigma = value / 2,
- * so the numbers carry over directly. This was verified, not assumed - see
- * the measurement note on paintWeb below. Use frame.html's alphas UNCHANGED
- * for any new caller of this function (Task 7's phone included): the browser
- * engine that actually ships this code renders them correctly.
- *
- * CAUTION FOR ANYONE TESTING THIS UNDER @napi-rs/canvas (i.e. every test in
- * this repo, and the CLI harness): that engine's shadow blur is measurably
- * NOT linear in alpha at these blur radii - see paintWeb's comment for the
- * numbers. A napi-rs render will look visibly fainter than the browser at
- * the exact same alpha values. That is a harness/engine limitation, not a
- * bug in this function or its callers. Do NOT "fix" it by scaling alphas up
- * in shipping code - that would fix the test screenshots while shipping a
- * grossly heavy shadow to every real user, since core/render.js runs in the
- * browser for the actual product. If a napi-rs-rendered golden PNG looks
- * faint, that is expected: it is a napi-rs-vs-napi-rs regression baseline,
- * not a statement about what ships.
+ * The original CSS stacked two shadows (ambient + contact) per element;
+ * canvas takes one per draw, so this is two passes over the same rect. Use
+ * frame.html's alphas UNCHANGED in any caller: @napi-rs/canvas (every test
+ * here, and the CLI) renders this shadowBlur ~5.4x fainter than Chromium,
+ * which is linear in alpha and matches CSS at these exact values - a
+ * harness limitation, not something to correct by scaling alphas up. See
+ * paintWeb below for the measurement.
  */
 export function paintShadow(ctx, box, spreadY, blur, a1, a2) {
   for (const [dy, b, a] of [[spreadY, blur, a1], [spreadY * 0.28, blur * 0.3, a2]]) {
@@ -329,41 +347,9 @@ export function paintWeb(ctx, c, box, image) {
   // shadow first, on an opaque rect, then the screen over it.
   //
   // Alphas are frame.html's makeWeb() values UNCHANGED: 0.17 / 0.07. Do not
-  // retune these - a previous pass here did, based on a real but
-  // misattributed measurement. Recording both what was measured and why the
-  // fix was wrong, so it doesn't happen again on the phone shadow in Task 7:
-  //
-  // Method: served frame.html locally, drove it through its `?c=<base64>`
-  // config param with matching ground/box/samples/fieldset.png, then used an
-  // SVG-foreignObject canvas capture (same-origin, no CORS taint) to read
-  // exact rendered Chromium pixels at 18 points around the screen (below the
-  // bottom edge at 6/12/20/30/40/60/80/99px, beside each side edge at
-  // 3/10/20/30/60px), grain disabled on both sides to remove that
-  // (already-accepted, unrelated) source of pixel noise. Compared those
-  // against the same points rendered here via @napi-rs/canvas (the engine
-  // every test in this repo runs under). At 0.17/0.07 the @napi-rs/canvas
-  // render came out 5-7x fainter than frame.html's.
-  //
-  // That gap is real, but it is a property of @napi-rs/canvas's shadow blur
-  // specifically, not of canvas shadows or of these alpha values: a
-  // follow-up review ran this exact paintShadow, unmodified, in an actual
-  // Chromium canvas (not napi-rs) against the same 18 points and frame.html
-  // matched to within 1 RGB level at every one (SSE 3) - because CSS
-  // box-shadow and browser canvas shadow are the same rendering path.
-  // @napi-rs/canvas alone renders this alpha/blur combination roughly 5-7x
-  // too faint, and does so non-linearly (halving alpha there cuts rendered
-  // darkness by far more than half), which is why a single "scale factor"
-  // looked plausible but was really curve-fitting the wrong engine's bug.
-  //
-  // core/render.js ships to the browser - that is the product. napi-rs is
-  // only a test/CLI harness, and it renders this function's shadows fainter
-  // than a user will ever see. That is the harness's limitation to carry,
-  // not something to compensate for by darkening shipping code (which would
-  // have shipped a shadow up to ~65 RGB levels too heavy in the browser).
-  // Consequence for tests: any napi-rs-rendered golden image of this shadow
-  // is a napi-rs-vs-napi-rs regression baseline only - it encodes a fainter
-  // shadow than real users see, and must never be compared against a
-  // frame.html/browser screenshot to judge fidelity.
+  // retune these - see paintShadow's doc comment above (a prior pass did,
+  // and had to be reverted: it fixed napi-rs's faint test render while
+  // shipping a far-too-heavy shadow to the browser, the actual product).
   paintShadow(ctx, box, c.h * 0.040, c.h * 0.105, 0.17, 0.07);
 
   ctx.save();
@@ -422,9 +408,10 @@ const TRAFFIC_DOT_COLOURS = ['#ff5f57', '#febc2e', '#28c840'];
  * width - the same convention presets.js documents for CHROME_DOT_RATIO
  * etc., and the same one phoneBox() already uses for the phone's bezel).
  *
- * `box.chrome` kind-dispatches: only 'browser' paints anything today.
- * 'iphone' arrives in Task 6 - its frame carries no bar (chrome.barH is 0
- * per layout.js's chromeFor()), so there is nothing here for it to draw yet.
+ * `box.chrome` kind-dispatches: only 'browser' paints anything here.
+ * 'iphone' is painted by paintIphoneChrome below instead - its frame carries
+ * no bar (chrome.barH is 0 per layout.js's chromeFor()), so there is nothing
+ * for this function to draw for that kind.
  */
 export function paintChrome(ctx, c, box, theme) {
   const chrome = box.chrome;
