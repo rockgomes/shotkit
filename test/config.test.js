@@ -142,3 +142,37 @@ describe('angle', () => {
     expect(normalise({ angle: 'sideways' }).angle).toBe(166);
   });
 });
+
+describe('frameKind', () => {
+  it('defaults to none', () => {
+    expect(normalise({}).frameKind).toBe('none');
+  });
+
+  it('accepts browser and iphone', () => {
+    expect(normalise({ frameKind: 'browser' }).frameKind).toBe('browser');
+    expect(normalise({ frameKind: 'iphone' }).frameKind).toBe('iphone');
+  });
+
+  it('falls back to none for any unrecognised value, including "macos"', () => {
+    // macOS was removed as a product decision (v1 ships none/browser/iphone
+    // only - every image-slot in the design handoff sits inside the same
+    // "browser" chrome, and "macOS" appears only as an inert inspector
+    // chip with no frame ever rendered for it). An unrecognised kind - a
+    // stale "macos" from an old jobs.json, a typo, anything else - must
+    // fall back to 'none' rather than throw or silently pass through.
+    expect(normalise({ frameKind: 'macos' }).frameKind).toBe('none');
+    expect(normalise({ frameKind: 'made-up' }).frameKind).toBe('none');
+    expect(normalise({ frameKind: undefined }).frameKind).toBe('none');
+  });
+});
+
+describe('chromeTheme', () => {
+  it('defaults to dark', () => {
+    expect(normalise({}).chromeTheme).toBe('dark');
+  });
+
+  it('accepts light, falls back to dark otherwise', () => {
+    expect(normalise({ chromeTheme: 'light' }).chromeTheme).toBe('light');
+    expect(normalise({ chromeTheme: 'nonsense' }).chromeTheme).toBe('dark');
+  });
+});

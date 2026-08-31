@@ -323,21 +323,58 @@ describe('frame: browser', () => {
   });
 });
 
-describe('frame: macos', () => {
-  it('has a bar, and a shorter one than the browser frame', () => {
-    // Same fix as above: `layout: 'web'` added so sources.web is honoured.
-    const b = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser' }), { web: 1.6, mobile: [] });
-    const m = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'macos' }), { web: 1.6, mobile: [] });
-    expect(m.web.chrome.barH).toBeGreaterThan(0);
-    expect(m.web.chrome.barH).toBeLessThan(b.web.chrome.barH);
-  });
-});
-
 describe('frame: iphone', () => {
   it('has no title bar and uses the phone corner radius', () => {
     const c = normalise({ layout: 'web', ratio: '3:2', frameKind: 'iphone' });
     const { web } = layout(c, { web: 0.462, mobile: [] });
     expect(web.chrome.barH).toBe(0);
     expect(web.chrome.radius / web.w).toBeCloseTo(0.125, 3);
+  });
+});
+
+// --- Fix round 1: `screen` must be the genuine interior for every kind ---
+//
+// A reviewer caught that `chrome.screen` for 'iphone' was the FULL web box
+// with no bezel inset, even though `innerRadius = radius - bezel` implied a
+// bezel existed - Task 5 would have had to either paint under the bezel or
+// re-derive `w * PHONE_BEZEL_RATIO` by hand. Fixed by exposing the bezel as
+// `chrome.frame` (matching phoneBox()'s own field name) for every frame
+// kind - 0 for 'browser', since the mockup shows the screenshot flush
+// inside the wrapper - and insetting `screen` by it on every side.
+describe('frame: screen is the genuine interior, for every kind', () => {
+  const CASES = [
+    ['browser', 1.6],
+    ['iphone', 0.462],
+  ];
+
+  for (const [frameKind, sourceRatio] of CASES) {
+    it(`${frameKind}: screen sits fully inside the outer web box`, () => {
+      const c = normalise({ layout: 'web', ratio: '3:2', frameKind });
+      const { web } = layout(c, { web: sourceRatio, mobile: [] });
+      const { screen } = web.chrome;
+      expect(screen.x).toBeGreaterThanOrEqual(web.x);
+      expect(screen.y).toBeGreaterThanOrEqual(web.y + web.chrome.barH);
+      expect(screen.x + screen.w).toBeLessThanOrEqual(web.x + web.w + 1e-6);
+      expect(screen.y + screen.h).toBeLessThanOrEqual(web.y + web.h + 1e-6);
+    });
+
+    it(`${frameKind}: screen.h === web.h - barH - 2*frame (the exact inset relation)`, () => {
+      const c = normalise({ layout: 'web', ratio: '3:2', frameKind });
+      const { web } = layout(c, { web: sourceRatio, mobile: [] });
+      const { barH, frame, screen } = web.chrome;
+      // Fails if `screen` were left as the full box (frame unsubtracted):
+      // for 'iphone' that would make screen.h === web.h, not web.h - 2*frame.
+      expect(screen.h).toBeCloseTo(web.h - barH - frame * 2, 6);
+      expect(screen.w).toBeCloseTo(web.w - frame * 2, 6);
+      expect(screen.x).toBeCloseTo(web.x + frame, 6);
+      expect(screen.y).toBeCloseTo(web.y + barH + frame, 6);
+    });
+  }
+
+  it('iphone has a non-zero frame; browser has none (per the mockup)', () => {
+    const iphone = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'iphone' }), { web: 0.462, mobile: [] });
+    const browser = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser' }), { web: 1.6, mobile: [] });
+    expect(iphone.web.chrome.frame).toBeGreaterThan(0);
+    expect(browser.web.chrome.frame).toBe(0);
   });
 });
