@@ -116,43 +116,63 @@ describe('composeWithMeta - scale', () => {
   });
 
   it('is a faithful enlargement at scale 2 - ground and grain both, not just canvas size', async () => {
-    // No images at all: with no `web` and no `mobile`, layout() paints
-    // nothing but ground+grain (same "no image" mechanism used above for the
-    // mobile-layout isolation test), so every sampled pixel below is testing
-    // exactly the two things Fix 1 is about - the gradient and the grain -
-    // with nothing else (screenshot edges, shadows, AA) able to contaminate
-    // the comparison.
-    const at1x = await run({ ratio: '3:2' }, {});
-    const at2x = await run({ ratio: '3:2', scale: 2 }, {});
+    // The EXACT property (grain at matching coordinates comes from the same
+    // octave grid cell when the tile is genuinely scaled) is proven at the
+    // pixel level, unconditionally, by the noiseTile unit tests in
+    // test/render-ground.test.js. This test instead proves it survives the
+    // full composited pipeline - ground, soft-light blending, scale - and
+    // that it is a MEANINGFUL survival, not a coincidence of where it's
+    // measured.
+    //
+    // A first version of this test sampled a handful of points on the
+    // default pale, near-white ground at the default grain (0.34). That
+    // config does not discriminate: soft-light's sensitivity to the blend
+    // value is `2*b*(1-b)` (b = base lightness 0-1), which goes to ~0 as
+    // b->1, so on a near-white ground a genuine per-pixel grain difference
+    // and a reverted-to-unscaled-tile bug both compress to a couple of RGB
+    // levels - a reviewer confirmed a deliberately-reverted `paintGrain`
+    // (hardcoded 240px tile regardless of `c.scale`, the exact "same shot,
+    // finer grain" bug this is meant to catch) still passed that version.
+    //
+    // `bgType: 'solid'` + `tone: 'mid'` gives a flat, genuinely mid-lightness
+    // fill (b roughly 0.7-0.85, materially further from 1 than the default
+    // pale ground's ~0.87-0.98) where soft-light is far more sensitive, and
+    // `grain: 1` maximises the blend's own contribution. Measured directly,
+    // 228 points spread across the canvas (see below), scale 1 vs scale 2:
+    // this (correct) implementation: max per-channel drift 7, avg 1.22.
+    // The same reverted `paintGrain` (fixed 240px tile at both scales): max
+    // 53, avg 11.99. 20 sits with real margin on both sides of that gap.
+    const config = { ratio: '3:2', bgType: 'solid', tone: 'mid', grain: 1 };
+    const at1x = await run(config, {});
+    const at2x = await run({ ...config, scale: 2 }, {});
     expect(at2x.target.width).toBe(at1x.target.width * 2);
     expect(at2x.target.height).toBe(at1x.target.height * 2);
 
     const ctx1 = at1x.target.getContext('2d');
     const ctx2 = at2x.target.getContext('2d');
 
-    // Points picked well inside the canvas (never on a canvas edge or an
-    // exact 2/4/8px grain-cell boundary) at a spread of relative positions,
-    // so the ground gradient's own lightening (top-left to bottom-right) is
-    // exercised alongside the grain. For each, the scale-2 canvas is sampled
-    // at EXACTLY double the scale-1 pixel coordinate - not by re-deriving
-    // the coordinate from the relative fraction against the (twice as big)
-    // canvas width, which would round differently and could land on a
-    // different grain cell by construction, not because of a real bug.
-    const points1x = [[181, 151], [900, 601], [1493, 853], [559, 793], [1651, 101]];
+    // A grid spread across the whole canvas, margined off the edges, at a
+    // step (97px) that isn't a multiple of the grain tile's octave cell
+    // sizes (2/4/8px) or of common canvas fractions, so sample points land
+    // at a genuine mix of grid-cell interiors and boundaries rather than
+    // all landing on the same lucky (or unlucky) phase.
+    const points1x = [];
+    for (let y = 20; y < at1x.target.height - 20; y += 97) {
+      for (let x = 20; x < at1x.target.width - 20; x += 97) points1x.push([x, y]);
+    }
+    expect(points1x.length).toBeGreaterThan(100);
 
     for (const [x1, y1] of points1x) {
+      // The scale-2 canvas is sampled at EXACTLY double the scale-1 pixel
+      // coordinate - not re-derived from the relative fraction against the
+      // (twice as big) canvas width, which would round differently and
+      // could land on a different grain cell by construction, not because
+      // of a real bug.
       const [x2, y2] = [x1 * 2, y1 * 2];
       const p1 = ctx1.getImageData(x1, y1, 1, 1).data;
       const p2 = ctx2.getImageData(x2, y2, 1, 1).data;
       for (let k = 0; k < 3; k++) {
-        // A genuinely-scaled render reproduces the same octave grid index at
-        // exactly double the coordinate (see noiseTile's `baseSize` doc
-        // comment in core/render.js), so per-channel drift here should be
-        // ~0 (small float/AA slop only). The bug this guards against - a
-        // fixed 240px grain tile reused unscaled at 2x - would instead
-        // compare two effectively independent noise samples, which
-        // routinely differ by far more than this budget.
-        expect(Math.abs(p1[k] - p2[k])).toBeLessThanOrEqual(6);
+        expect(Math.abs(p1[k] - p2[k])).toBeLessThanOrEqual(20);
       }
     }
   });

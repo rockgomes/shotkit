@@ -51,6 +51,57 @@ describe('noiseTile', () => {
     for (let i = 0; i < t.data.length; i += 4) vals.add(t.data[i]);
     expect(vals.size).toBeGreaterThan(20);
   });
+
+  // `baseSize` is what makes `scale` (core/config.js) a genuine enlargement
+  // rather than a same-looking tile that merely repeats less often (see the
+  // doc comment on noiseTile in core/render.js): holding the octave grid
+  // fixed at 240 regardless of the raster `size` requested means a bigger
+  // tile is an exact nearest-neighbour enlargement of the 240px one, pixel
+  // for pixel. This is the property paintGrain's `scale` fix depends on -
+  // exercised here directly, at the pixel level, where it is exact (not
+  // through a composited render, where soft-light blending on a bright
+  // ground compresses genuine noise differences down to 1-2 RGB levels and
+  // can pass even a reverted, unscaled implementation - see
+  // test/compose.test.js's "faithful enlargement" test for that half of the
+  // guard).
+  //
+  // Sampled directly: `noiseTile(240,240)` at (x,y) against
+  // `noiseTile(240*k,240)` at (k*x,k*y) must be EXACTLY equal, all 4
+  // channels - not a tolerance. Confirmed this is the correct assertion (not
+  // an aspiration) by measuring it first: maxDiff was 0 at every point
+  // tried, for both k=2 and k=3.
+  function pixelAt(tile, x, y) {
+    const i = (y * tile.width + x) * 4;
+    return [tile.data[i], tile.data[i + 1], tile.data[i + 2], tile.data[i + 3]];
+  }
+
+  // A spread across the whole tile, not just corners: every 17px in x and y
+  // covers ~14x14 = 196 points at k=1, landing at a mix of octave-grid cell
+  // interiors and boundaries (cells are 2/4/8px wide - see noiseTile's doc
+  // comment), so a break in the fixed-grid property can't hide between
+  // sample points.
+  function spreadPoints(max, step = 17) {
+    const pts = [];
+    for (let y = 0; y < max; y += step) {
+      for (let x = 0; x < max; x += step) pts.push([x, y]);
+    }
+    return pts;
+  }
+
+  for (const k of [2, 3]) {
+    it(`is an exact ${k}x nearest-neighbour enlargement when baseSize is held fixed`, () => {
+      const small = noiseTile(240, 240);
+      const big = noiseTile(240 * k, 240);
+      expect(big.width).toBe(240 * k);
+
+      const points = spreadPoints(240);
+      expect(points.length).toBeGreaterThan(100);   // meaningfully spread, not a token few
+
+      for (const [x, y] of points) {
+        expect(pixelAt(big, x * k, y * k)).toEqual(pixelAt(small, x, y));
+      }
+    });
+  }
 });
 
 describe('paintGrain', () => {
@@ -73,6 +124,32 @@ describe('paintGrain', () => {
     const before = Array.from(ctx.getImageData(0, 0, 200, 200).data);
     paintGrain(ctx, c, (w, h) => createCanvas(w, h));
     expect(Array.from(ctx.getImageData(0, 0, 200, 200).data)).toEqual(before);
+  });
+
+  // The exact-enlargement property above lives in noiseTile itself - it says
+  // nothing about whether paintGrain actually ASKS for a bigger tile when
+  // `c.scale` grows. That's a separate, plausible regression (e.g. reverting
+  // just the `tileSize = Math.round(240 * (c.scale || 1))` line back to a
+  // literal `240`, leaving noiseTile's own math untouched) that a noiseTile-
+  // only test structurally cannot see, since it never calls paintGrain.
+  // Spies on the injected `makeCanvas` to catch exactly that: the tile
+  // canvas paintGrain builds must be sized for the scale it was given, not a
+  // fixed 240px regardless of it. A fresh `scale: 3` (unused by any earlier
+  // test in this file) guarantees the per-file tile cache has no 720px entry
+  // yet, so a real `makeCanvas(720, 720)` call is forced, not skipped by a
+  // cache hit.
+  it('sizes the grain tile it requests for c.scale, not a fixed 240px', () => {
+    const c = normalise({ ratio: '1:1', grain: 0.34, scale: 3 });
+    const cv = createCanvas(c.w, c.h);
+    const ctx = cv.getContext('2d');
+    const requestedSizes = [];
+    const spyMakeCanvas = (w, h) => {
+      requestedSizes.push([w, h]);
+      return createCanvas(w, h);
+    };
+    paintGrain(ctx, c, spyMakeCanvas);
+    expect(requestedSizes).toContainEqual([720, 720]);   // 240 * scale(3)
+    expect(requestedSizes.some(([w, h]) => w === 240 && h === 240)).toBe(false);
   });
 
   it('blends into the ground instead of overwriting it', () => {
