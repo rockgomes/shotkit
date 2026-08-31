@@ -318,10 +318,12 @@ function drawFitted(ctx, box, image, fit) {
  * Ported from frame.html's `.web` rule, `.web::after`, and `makeWeb()`.
  */
 export function paintWeb(ctx, c, box, image) {
-  // A device frame (browser today, iPhone from Task 6) replaces everything
-  // below with paintWebChrome. box.chrome is null for frameKind: 'none' -
-  // the only branch this line adds - so every line below it is completely
-  // untouched, reached exactly as before whenever there is no frame.
+  // A device frame replaces everything below with a chrome-specific
+  // painter: browser goes to paintWebChrome, iphone to paintIphoneChrome.
+  // box.chrome is null for frameKind: 'none' - the only branch this adds -
+  // so every line below it is completely untouched, reached exactly as
+  // before whenever there is no frame.
+  if (box.chrome?.kind === 'iphone') return paintIphoneChrome(ctx, c, box, image);
   if (box.chrome) return paintWebChrome(ctx, c, box, image);
 
   // shadow first, on an opaque rect, then the screen over it.
@@ -488,6 +490,10 @@ export function paintChrome(ctx, c, box, theme) {
  * radius from the handoff - BROWSER_RADIUS_RATIO in presets.js - which is
  * deliberately not box.radius, the plain frameless-screen radius the
  * unframed path above uses).
+ *
+ * Only ever called for chrome.kind === 'browser' - paintWeb below dispatches
+ * 'iphone' to paintIphoneChrome instead, so this function's body is exactly
+ * what it was before the iPhone frame existed.
  */
 function paintWebChrome(ctx, c, box, image) {
   const chrome = box.chrome;
@@ -524,6 +530,77 @@ function paintWebChrome(ctx, c, box, image) {
 }
 
 /**
+ * Shared device-body shape: an opaque dark-grey fill clipped to the outer
+ * rounded rect, and the inset 1px translucent-white "inner highlight"
+ * stroked just inside its edge. This is exactly paintPhone's body+hairline
+ * below, pulled out so the iPhone frame (paintIphoneChrome, next) can use
+ * the identical shape at a different scale instead of copying it. paintPhone
+ * itself is rewired to call these two helpers in the same order it used to
+ * inline them, so its own output is unchanged.
+ */
+function paintDeviceBody(ctx, box) {
+  ctx.save();
+  roundRect(ctx, box.x, box.y, box.w, box.h, box.radius);
+  ctx.clip();
+  ctx.fillStyle = '#111318';                       // --phone-frame
+  ctx.fillRect(box.x, box.y, box.w, box.h);
+  ctx.restore();
+}
+
+function paintDeviceHairline(ctx, box) {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, box.x + 0.5, box.y + 0.5, box.w - 1, box.h - 1, box.radius);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * The iPhone frame: a web screenshot wrapped in the same body-and-hairline
+ * shape paintPhone draws for the mobile layout's own phones (paintDeviceBody
+ * / paintDeviceHairline above), at the frame's own scale. No title bar
+ * (chrome.barH is 0, per layout.js's chromeFor()) and a bezel on all four
+ * sides (chrome.frame, chrome.innerRadius - the exact same
+ * PHONE_BEZEL_RATIO/PHONE_RADIUS_RATIO math phoneBox() uses, computed once
+ * in layout.js so this file never duplicates it). No notch, no dynamic
+ * island, no home indicator: none of those are in the handoff, and inventing
+ * one would repeat the mistake that got the macOS bar height dropped.
+ *
+ * Unlike paintPhone's mobile screenshots (always `cover`-fit, because a
+ * phone box's own ratio need not match its screenshot's), chrome.screen here
+ * is sized FROM the source image's own ratio by layout.js's frameRatio(), so
+ * the interior gets a plain drawImage - no fit/cover/contain maths belongs
+ * here, exactly as paintWebChrome's own doc comment says for the browser
+ * frame.
+ *
+ * The outer shadow reuses paintWebChrome's own alphas/spread (0.17/0.07,
+ * c.h-based) rather than paintPhone's (0.22/0.10, box.h-based): both this and
+ * paintWebChrome are shadowing the SAME kind of thing - a web-box-sized card
+ * dropped onto the ground - just with a different body drawn inside it. The
+ * 0.22/0.10 pairing stays reserved for an actual mobile-layout phone box, per
+ * the doc comment on paintPhone below - do not blend the two.
+ */
+function paintIphoneChrome(ctx, c, box, image) {
+  const chrome = box.chrome;
+  const outer = { x: box.x, y: box.y, w: box.w, h: box.h, radius: chrome.radius };
+
+  paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07);
+
+  paintDeviceBody(ctx, outer);
+
+  ctx.save();
+  roundRect(ctx, chrome.screen.x, chrome.screen.y, chrome.screen.w, chrome.screen.h, chrome.innerRadius);
+  ctx.clip();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(chrome.screen.x, chrome.screen.y, chrome.screen.w, chrome.screen.h);
+  ctx.drawImage(image, chrome.screen.x, chrome.screen.y, chrome.screen.w, chrome.screen.h);
+  ctx.restore();
+
+  paintDeviceHairline(ctx, outer);
+}
+
+/**
  * The phone: dark body, inset screen (cover-fit, top center), inset hairline,
  * floating shadow. Ported from frame.html's `.phone`, `.phone::after` and
  * `makePhone()`. `box` comes from layout.js's phoneBox() and already carries
@@ -542,13 +619,11 @@ function paintWebChrome(ctx, c, box, image) {
 export function paintPhone(ctx, c, box, image) {
   paintShadow(ctx, box, box.h * 0.055, box.h * 0.14, 0.22, 0.10);
 
-  // body
-  ctx.save();
-  roundRect(ctx, box.x, box.y, box.w, box.h, box.radius);
-  ctx.clip();
-  ctx.fillStyle = '#111318';                       // --phone-frame
-  ctx.fillRect(box.x, box.y, box.w, box.h);
-  ctx.restore();
+  // body - shared with the iPhone frame's paintIphoneChrome via
+  // paintDeviceBody, defined above. Same fill, same clip, same order as
+  // before this was pulled out - this call is byte-for-byte what used to be
+  // inlined here.
+  paintDeviceBody(ctx, box);
 
   // screen, inset by the bezel. Always cover, anchored top center.
   const inner = {
@@ -565,13 +640,9 @@ export function paintPhone(ctx, c, box, image) {
   drawFitted(ctx, inner, image, 'cover');
   ctx.restore();
 
-  // inset 0 0 0 1px rgba(255,255,255,0.10)
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
-  ctx.lineWidth = 1;
-  roundRect(ctx, box.x + 0.5, box.y + 0.5, box.w - 1, box.h - 1, box.radius);
-  ctx.stroke();
-  ctx.restore();
+  // inset 0 0 0 1px rgba(255,255,255,0.10) - shared via paintDeviceHairline,
+  // same as the body above.
+  paintDeviceHairline(ctx, box);
 }
 
 /**

@@ -178,3 +178,73 @@ describe('paintWeb - screenshot placement inside chrome.screen', () => {
     expect(px(ctx, x, yInBar)).not.toEqual(px(octx, x, yInBar));
   });
 });
+
+describe('paintWeb - iPhone frame', () => {
+  it('paints the same phone-body colour paintPhone uses, not a browser bar', async () => {
+    const { lay, ctx } = await scene({ frameKind: 'iphone' });
+    const { web } = lay;
+    // A few px inside the bezel, away from both the screenshot and the
+    // rounded corner - plain body fill only. Exact match, not `close()`:
+    // the browser-theme dark body (#101114) that this render used to fall
+    // through to is only 1-4 RGB levels off #111318 at every channel, close
+    // enough to slip past a tolerant comparison undetected.
+    const bodyPx = px(ctx, web.x + 4, web.y + web.h / 2);
+    expect(bodyPx).toEqual([17, 19, 24]); // #111318, paintPhone's --phone-frame
+  });
+
+  it('has no title bar: chrome.barH is 0, so the top edge is body colour, not a bar fill', async () => {
+    const { lay, ctx } = await scene({ frameKind: 'iphone' });
+    const { web } = lay;
+    expect(web.chrome.barH).toBe(0);
+    const topPx = px(ctx, web.x + web.w / 2, web.y + 2);
+    const bodyPx = px(ctx, web.x + 4, web.y + web.h / 2);
+    expect(topPx).toEqual(bodyPx);
+  });
+
+  it('ignores chromeTheme - an iPhone body looks the same dark vs light', async () => {
+    const dark = await scene({ frameKind: 'iphone', chromeTheme: 'dark' });
+    const light = await scene({ frameKind: 'iphone', chromeTheme: 'light' });
+    const darkPx = px(dark.ctx, dark.lay.web.x + 4, dark.lay.web.y + dark.lay.web.h / 2);
+    const lightPx = px(light.ctx, light.lay.web.x + 4, light.lay.web.y + light.lay.web.h / 2);
+    expect(darkPx).toEqual(lightPx);
+  });
+
+  it('lands the screenshot inside chrome.screen with a plain drawImage - no fit/cover maths', async () => {
+    const img = await loadImage('samples/fieldset.png');
+    const c = normalise({ layout: 'web', ratio: '3:2', frameKind: 'iphone' });
+    const lay = layout(c, { web: img.width / img.height, mobile: [] });
+    const { chrome } = lay.web;
+
+    const cv = createCanvas(c.w, c.h);
+    const ctx = cv.getContext('2d');
+    paintGround(ctx, c, GROUND);
+    paintWeb(ctx, c, lay.web, img);
+
+    // Independent oracle, exactly as the browser-frame test above: a plain
+    // drawImage into chrome.screen on a blank canvas, no bezel, no clipping.
+    const oracle = createCanvas(c.w, c.h);
+    const octx = oracle.getContext('2d');
+    octx.drawImage(img, chrome.screen.x, chrome.screen.y, chrome.screen.w, chrome.screen.h);
+
+    const x = chrome.screen.x + chrome.screen.w / 2;
+    const yInside = chrome.screen.y + 4;
+    expect(px(ctx, x, yInside)).toEqual(px(octx, x, yInside));
+
+    // Inside the bezel itself: body colour, not screenshot content, and the
+    // oracle (which never draws outside chrome.screen) has nothing there.
+    const yInBezel = lay.web.y + chrome.frame / 2;
+    expect(px(ctx, x, yInBezel)).not.toEqual(px(octx, x, yInBezel));
+  });
+
+  it('draws the inset highlight hairline in the phone colour, rgba(255,255,255,0.10)', async () => {
+    // Same hairline paintPhone strokes around its own body - sampled just
+    // inside the frame's rounded edge, away from any corner arc.
+    const { lay, ctx } = await scene({ frameKind: 'iphone' });
+    const { web } = lay;
+    const withHairline = px(ctx, web.x + 1, web.y + web.h / 2);
+    const bodyOnly = px(ctx, web.x + 4, web.y + web.h / 2);
+    // The hairline is a thin white-ish stroke blended over the dark body -
+    // brighter than plain body fill at that exact 1px edge.
+    expect(withHairline[0]).toBeGreaterThan(bodyOnly[0]);
+  });
+});

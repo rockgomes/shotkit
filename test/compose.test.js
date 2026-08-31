@@ -98,6 +98,57 @@ describe('composeWithMeta', () => {
   });
 });
 
+// Every frameKind x chromeTheme combination composeWithMeta can produce.
+// frameKind: 'none' never builds a chrome object at all (layout.js's
+// chromeFor() returns null before ever reading chromeTheme), and the iPhone
+// frame's body/hairline are the same phone colours regardless of theme (see
+// core/render.js's paintIphoneChrome) - by design, exactly like the mobile
+// layout's own phones never take a theme. So chromeTheme only has a visible
+// effect for frameKind: 'browser', and the "differs from its neighbours"
+// assertions below are scoped to the pairs that are actually expected to
+// differ, rather than asserting a false inequality for 'none' or 'iphone'
+// across themes.
+describe('composeWithMeta - frameKind x chromeTheme matrix', () => {
+  const FRAME_KINDS = ['none', 'browser', 'iphone'];
+  const THEMES = ['dark', 'light'];
+
+  it('renders every combination without throwing, at the right canvas size', async () => {
+    for (const frameKind of FRAME_KINDS) {
+      for (const chromeTheme of THEMES) {
+        const { target } = await run({ ratio: '3:2', frameKind, chromeTheme }, { web: 'samples/fieldset.png' });
+        expect(target.width).toBe(1800);
+        expect(target.height).toBe(1200);
+      }
+    }
+  });
+
+  it('differs across frameKind, at each theme (none vs browser vs iphone)', async () => {
+    for (const chromeTheme of THEMES) {
+      const renders = {};
+      for (const frameKind of FRAME_KINDS) {
+        renders[frameKind] = (await run({ ratio: '3:2', frameKind, chromeTheme }, { web: 'samples/fieldset.png' })).target;
+      }
+      expect(Buffer.compare(pngBytes(renders.none), pngBytes(renders.browser))).not.toBe(0);
+      expect(Buffer.compare(pngBytes(renders.browser), pngBytes(renders.iphone))).not.toBe(0);
+      expect(Buffer.compare(pngBytes(renders.none), pngBytes(renders.iphone))).not.toBe(0);
+    }
+  });
+
+  it('differs across chromeTheme for frameKind: browser, the one kind with a theme', async () => {
+    const dark = await run({ ratio: '3:2', frameKind: 'browser', chromeTheme: 'dark' }, { web: 'samples/fieldset.png' });
+    const light = await run({ ratio: '3:2', frameKind: 'browser', chromeTheme: 'light' }, { web: 'samples/fieldset.png' });
+    expect(Buffer.compare(pngBytes(dark.target), pngBytes(light.target))).not.toBe(0);
+  });
+
+  it('frameKind: none and iphone are theme-invariant (documented, not accidental)', async () => {
+    for (const frameKind of ['none', 'iphone']) {
+      const dark = await run({ ratio: '3:2', frameKind, chromeTheme: 'dark' }, { web: 'samples/fieldset.png' });
+      const light = await run({ ratio: '3:2', frameKind, chromeTheme: 'light' }, { web: 'samples/fieldset.png' });
+      expect(Buffer.compare(pngBytes(dark.target), pngBytes(light.target))).toBe(0);
+    }
+  });
+});
+
 // The PNGs under test/golden/render were produced by
 // scripts/make-render-goldens.js, running under @napi-rs/canvas - the same
 // engine this test file runs under. As documented on paintShadow and
@@ -119,6 +170,12 @@ describe('pixel-diff against frozen renders', () => {
     ['web-mobile', { layout: 'web+mobile', ratio: '3:2' }, { web: 'samples/karaoke-web.png', mobile: ['samples/karaoke-mobile.png'] }],
     ['caption',    { ratio: '3:2', caption: 'Fieldset — 2026' }, { web: 'samples/fieldset.png' }],
     ['mesh',       { ratio: '3:2', bgType: 'mesh', seed: 7 },   { web: 'samples/fieldset.png' }],
+    // Task 6: the browser chrome in both themes, and the iPhone frame - the
+    // last three cases before core/ is done. macOS is deliberately absent
+    // (see FRAME_KINDS in core/presets.js): no design exists for it in v1.
+    ['browser-dark',  { ratio: '3:2', frameKind: 'browser', chromeTheme: 'dark' },  { web: 'samples/fieldset.png' }],
+    ['browser-light', { ratio: '3:2', frameKind: 'browser', chromeTheme: 'light' }, { web: 'samples/fieldset.png' }],
+    ['iphone',        { ratio: '3:2', frameKind: 'iphone' },                        { web: 'samples/fieldset.png' }],
   ];
 
   for (const [name, cfg, files] of CASES) {

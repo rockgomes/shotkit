@@ -34,6 +34,15 @@ const CASES = [
   // reproducible. See test/compose.test.js's "pixel-diff against frozen
   // renders" suite for the guard that this actually catches a seed change.
   ['mesh',       { ratio: '3:2', bgType: 'mesh', seed: 7 },   { web: 'samples/fieldset.png', mobile: [] }],
+  // Task 6: browser chrome in both themes, and the iPhone frame. Without
+  // these, a stubbed-out paintChrome/iPhone painter would leave every
+  // existing golden above untouched (none of them set frameKind), and the
+  // pixel-diff suite would stay fully green - see test/compose.test.js's
+  // "pixel-diff against frozen renders" comment for why that already
+  // happened once with a doubled shadow alpha.
+  ['browser-dark',  { ratio: '3:2', frameKind: 'browser', chromeTheme: 'dark' },  { web: 'samples/fieldset.png', mobile: [] }],
+  ['browser-light', { ratio: '3:2', frameKind: 'browser', chromeTheme: 'light' }, { web: 'samples/fieldset.png', mobile: [] }],
+  ['iphone',        { ratio: '3:2', frameKind: 'iphone' },                        { web: 'samples/fieldset.png', mobile: [] }],
 ];
 
 for (const [name, cfg, files] of CASES) {
