@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="_ds/fieldset-design-system-ed5a5ecd-8916-4fa6-9c6c-4b9ce259eb90/tokens/colors.css">
+<link rel="stylesheet" href="_ds/fieldset-design-system-ed5a5ecd-8916-4fa6-9c6c-4b9ce259eb90/tokens/typography.css">
+<link rel="stylesheet" href="_ds/fieldset-design-system-ed5a5ecd-8916-4fa6-9c6c-4b9ce259eb90/tokens/spacing.css">
+<link rel="stylesheet" href="_ds/fieldset-design-system-ed5a5ecd-8916-4fa6-9c6c-4b9ce259eb90/tokens/effects.css">
+<link rel="stylesheet" href="_ds/fieldset-design-system-ed5a5ecd-8916-4fa6-9c6c-4b9ce259eb90/styles.css">
+<script src="_ds/fieldset-design-system-ed5a5ecd-8916-4fa6-9c6c-4b9ce259eb90/_ds_bundle.js"></script>
+<script src="image-slot.js"></script>
+<style>
+body{margin:0;background:#e9e8e3;font-family:system-ui,sans-serif}
+a{color:#2a78d6}a:hover{color:#1d5ea8}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}
+.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}
+.dv-tname{font:600 13px/1.2 system-ui,sans-serif;color:#1a1a1a}
+.dv-note{margin:0 0 24px;max-width:760px;font:400 12px/1.55 system-ui,sans-serif;color:rgba(0,0,0,.55)}
+.dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11.5px/1.3 system-ui,sans-serif;color:rgba(0,0,0,.6)}
+.dv-card{max-width:100%;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:12px;box-shadow:0 2px 14px rgba(0,0,0,.1);overflow:hidden}
+.dv-opt:target .dv-oid{background:#2a78d6;color:#fff}
+.dv-next{margin:26px 0 0;font:12px/1.5 system-ui,sans-serif;color:rgba(0,0,0,.5)}
+</style>
+</helmet>
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Backdrop — a Mac app for exporting dribbble-ready shots</span></div>
+<p class="dv-note">Assumptions: desktop-first frameless Mac window; the core loop is drop screenshot → pick template → tune background + frame → export. Three directions: <a class="dv-oid" href="#1a">1a</a> dark "tech" three-pane (closest to your reference), <a class="dv-oid" href="#1b">1b</a> the same app on the Fieldset design system (light, dense, indigo), <a class="dv-oid" href="#1c">1c</a> a full-bleed canvas with floating panels + batch/CLI flavor. The screenshot areas are live drop targets — drag your own UI shot onto any of them. Gradient + frame theme are tweakable (Tweaks panel).</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a" data-screen-label="1a Obsidian — dark three-pane">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Obsidian — dark, dense, tech</div>
+<div class="dv-card" style="width:1180px;background:#0b0c0e;border:1px solid #26282e">
+<div style="display:flex;flex-direction:column;height:764px;font-family:Geist,system-ui,sans-serif;color:#e8eaee;background:#0b0c0e">
+  <div style="display:flex;align-items:center;gap:14px;height:48px;padding:0 14px;border-bottom:1px solid #1b1d22;flex:none">
+    <div style="display:flex;gap:7px;flex:none"><span style="width:12px;height:12px;border-radius:50%;background:#ff5f57;display:block"></span><span style="width:12px;height:12px;border-radius:50%;background:#febc2e;display:block"></span><span style="width:12px;height:12px;border-radius:50%;background:#28c840;display:block"></span></div>
+    <div style="width:1px;height:18px;background:#1f2126"></div>
+    <div style="display:flex;align-items:baseline;gap:8px;font-size:12.5px">
+      <span style="font-weight:600">Backdrop</span>
+      <span style="color:#4b4f58">/</span>
+      <span style="color:#9ba1ab;font-family:'Geist Mono',monospace;font-size:11.5px">onboarding-flow.png</span>
+    </div>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="display:flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:1px solid #26282e;border-radius:7px;font-family:'Geist Mono',monospace;font-size:11px;color:#9ba1ab"><span>−</span><span style="color:#e8eaee">72%</span><span>+</span></div>
+      <div style="height:28px;padding:0 11px;display:flex;align-items:center;border:1px solid #26282e;border-radius:7px;font-size:12px;color:#c6cad2">Copy</div>
+      <div style="height:28px;padding:0 13px;display:flex;align-items:center;border-radius:7px;background:#f2f3f5;color:#0b0c0e;font-size:12px;font-weight:600">Export</div>
+    </div>
+  </div>
+  <div style="display:flex;flex:1;min-height:0">
+    <div style="width:52px;flex:none;border-right:1px solid #1b1d22;display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:6px">
+      <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#5b6cff,#a24ff0);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;margin-bottom:10px">B</div>
+      <div style="width:32px;height:32px;border-radius:8px;background:#1a1c20;color:#e8eaee;display:flex;align-items:center;justify-content:center;font-size:14px">◫</div>
+      <div style="width:32px;height:32px;border-radius:8px;color:#6b7078;display:flex;align-items:center;justify-content:center;font-size:14px">▤</div>
+      <div style="width:32px;height:32px;border-radius:8px;color:#6b7078;display:flex;align-items:center;justify-content:center;font-size:14px">✦</div>
+      <div style="width:32px;height:32px;border-radius:8px;color:#6b7078;display:flex;align-items:center;justify-content:center;font-size:14px">⌘</div>
+      <div style="flex:1"></div>
+      <div style="width:32px;height:32px;border-radius:8px;color:#6b7078;display:flex;align-items:center;justify-content:center;font-size:14px">⚙</div>
+    </div>
+    <div style="width:226px;flex:none;border-right:1px solid #1b1d22;display:flex;flex-direction:column;padding:12px;gap:4px;overflow:hidden">
+      <div style="height:30px;display:flex;align-items:center;gap:7px;padding:0 10px;border:1px solid #1f2126;border-radius:8px;color:#6b7078;font-size:12px;margin-bottom:8px"><span>⌕</span>Search templates…</div>
+      <div style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.12em;color:#6b7078;padding:6px 4px 4px">TEMPLATES</div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <div style="display:flex;justify-content:space-between;align-items:center;height:32px;padding:0 10px;border-radius:8px;background:#17191d;border:1px solid #26282e;font-size:12.5px;font-weight:500"><span>Dribbble shot</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:#8a8f98">2800×2100</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;height:32px;padding:0 10px;border-radius:8px;color:#9ba1ab;font-size:12.5px"><span>Twitter post</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:#565b64">1600×900</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;height:32px;padding:0 10px;border-radius:8px;color:#9ba1ab;font-size:12.5px"><span>Twitter header</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:#565b64">1500×500</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;height:32px;padding:0 10px;border-radius:8px;color:#9ba1ab;font-size:12.5px"><span>App Store</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:#565b64">2880×1800</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;height:32px;padding:0 10px;border-radius:8px;color:#9ba1ab;font-size:12.5px"><span>Open Graph</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:#565b64">2400×1260</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;height:32px;padding:0 10px;border-radius:8px;color:#9ba1ab;font-size:12.5px"><span>Instagram</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:#565b64">2160×2160</span></div>
+        <div style="display:flex;align-items:center;justify-content:center;height:32px;border:1px dashed #2c2f36;border-radius:8px;color:#6b7078;font-size:12px;margin-top:4px">+ Custom size</div>
+      </div>
+      <div style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.12em;color:#6b7078;padding:14px 4px 4px">PRESETS</div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 10px;border-radius:8px;color:#c6cad2;font-size:12.5px"><span style="width:14px;height:14px;border-radius:4px;background:linear-gradient(135deg,#2563eb,#ec4899);flex:none"></span>Aurora blur</div>
+        <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 10px;border-radius:8px;color:#c6cad2;font-size:12.5px"><span style="width:14px;height:14px;border-radius:4px;background:linear-gradient(135deg,#3f4451,#16181d);flex:none"></span>Studio gray</div>
+        <div style="display:flex;align-items:center;gap:9px;height:30px;padding:0 10px;border-radius:8px;color:#c6cad2;font-size:12.5px"><span style="width:14px;height:14px;border-radius:4px;background:linear-gradient(135deg,#f97316,#db2777);flex:none"></span>Candy pop</div>
+      </div>
+      <div style="flex:1"></div>
+      <div style="border:1px solid #1f2126;border-radius:10px;padding:10px 11px;display:flex;flex-direction:column;gap:6px">
+        <div style="font-family:'Geist Mono',monospace;font-size:10.5px;color:#8a8f98">$ backdrop watch ./shots</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#9ba1ab"><span style="width:6px;height:6px;border-radius:50%;background:#28c840;display:block"></span>CLI connected</div>
+      </div>
+    </div>
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#0e0f12">
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;background-image:radial-gradient(circle,#1c1e23 1px,transparent 1px);background-size:22px 22px;position:relative">
+        <div style="width:560px;height:420px;border-radius:10px;background:{{ grad }};position:relative;display:flex;align-items:center;justify-content:center;box-shadow:0 20px 60px rgba(0,0,0,.55);overflow:hidden">
+          <div style="position:absolute;inset:0;opacity:.16;pointer-events:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22160%22 height=%22160%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%222%22/></filter><rect width=%22160%22 height=%22160%22 filter=%22url(%23n)%22 opacity=%220.5%22/></svg>')"></div>
+          <div style="width:76%;border-radius:10px;overflow:hidden;background:{{ fBodyBg }};border:1px solid {{ fBorder }};box-shadow:0 24px 50px rgba(6,8,16,.45)">
+            <div style="display:flex;align-items:center;gap:8px;height:32px;padding:0 11px;background:{{ fBg }};border-bottom:1px solid {{ fBorder }}">
+              <div style="display:flex;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#ff5f57;display:block"></span><span style="width:8px;height:8px;border-radius:50%;background:#febc2e;display:block"></span><span style="width:8px;height:8px;border-radius:50%;background:#28c840;display:block"></span></div>
+              <div style="flex:1;height:18px;border-radius:5px;background:{{ fUrlBg }};display:flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-size:9.5px;color:{{ fUrlTxt }}">app.acme.dev</div>
+            </div>
+            <div style="height:264px"><image-slot id="shot-1a" shape="rect" placeholder="Drop your UI screenshot"></image-slot></div>
+          </div>
+        </div>
+        <div style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);font-family:'Geist Mono',monospace;font-size:10.5px;color:#6b7078">2800 × 2100 · dribbble shot · @2x</div>
+      </div>
+    </div>
+    <div style="width:266px;flex:none;border-left:1px solid #1b1d22;display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:14px 14px 16px;border-bottom:1px solid #1b1d22;display:flex;flex-direction:column;gap:12px">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.12em;color:#6b7078">BACKGROUND</div>
+        <div style="display:flex;border:1px solid #26282e;border-radius:8px;overflow:hidden;height:28px">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:11.5px;color:#8a8f98">Solid</div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:11.5px;background:#22252b;color:#fff;font-weight:500">Linear</div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:11.5px;color:#8a8f98">Mesh</div>
+        </div>
+        <div style="display:flex;gap:7px">
+          <div style="width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#2563eb,#ec4899);outline:2px solid #e8eaee;outline-offset:2px"></div>
+          <div style="width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#f97316,#db2777)"></div>
+          <div style="width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#0ea5e9,#312e81)"></div>
+          <div style="width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#10b981,#0d9488)"></div>
+          <div style="width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#3f4451,#16181d)"></div>
+          <div style="width:26px;height:26px;border-radius:7px;border:1px dashed #2c2f36;display:flex;align-items:center;justify-content:center;color:#6b7078;font-size:12px">+</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;justify-content:space-between;font-size:11.5px;color:#9ba1ab"><span>Angle</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:#e8eaee">135°</span></div>
+          <div style="height:3px;border-radius:2px;background:#26282e;position:relative"><div style="position:absolute;top:0;bottom:0;left:0;width:62%;background:#e8eaee;border-radius:2px"></div><div style="position:absolute;top:50%;left:62%;width:11px;height:11px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(0,0,0,.6)"></div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;justify-content:space-between;font-size:11.5px;color:#9ba1ab"><span>Noise</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:#e8eaee">16%</span></div>
+          <div style="height:3px;border-radius:2px;background:#26282e;position:relative"><div style="position:absolute;top:0;bottom:0;left:0;width:16%;background:#e8eaee;border-radius:2px"></div><div style="position:absolute;top:50%;left:16%;width:11px;height:11px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(0,0,0,.6)"></div></div>
+        </div>
+      </div>
+      <div style="padding:14px 14px 16px;border-bottom:1px solid #1b1d22;display:flex;flex-direction:column;gap:12px">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.12em;color:#6b7078">FRAME</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <div style="height:24px;padding:0 10px;display:flex;align-items:center;border-radius:12px;border:1px solid #26282e;color:#8a8f98;font-size:11.5px">None</div>
+          <div style="height:24px;padding:0 10px;display:flex;align-items:center;border-radius:12px;background:#f2f3f5;color:#0b0c0e;font-size:11.5px;font-weight:600">Browser</div>
+          <div style="height:24px;padding:0 10px;display:flex;align-items:center;border-radius:12px;border:1px solid #26282e;color:#8a8f98;font-size:11.5px">macOS</div>
+          <div style="height:24px;padding:0 10px;display:flex;align-items:center;border-radius:12px;border:1px solid #26282e;color:#8a8f98;font-size:11.5px">iPhone</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:#9ba1ab"><span>Chrome theme</span>
+          <div style="display:flex;border:1px solid #26282e;border-radius:7px;overflow:hidden;height:24px"><div style="padding:0 10px;display:flex;align-items:center;font-size:11px;background:#22252b;color:#fff">Dark</div><div style="padding:0 10px;display:flex;align-items:center;font-size:11px;color:#8a8f98">Light</div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;justify-content:space-between;font-size:11.5px;color:#9ba1ab"><span>Padding</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:#e8eaee">64</span></div>
+          <div style="height:3px;border-radius:2px;background:#26282e;position:relative"><div style="position:absolute;top:0;bottom:0;left:0;width:40%;background:#e8eaee;border-radius:2px"></div><div style="position:absolute;top:50%;left:40%;width:11px;height:11px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(0,0,0,.6)"></div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;justify-content:space-between;font-size:11.5px;color:#9ba1ab"><span>Shadow</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:#e8eaee">40%</span></div>
+          <div style="height:3px;border-radius:2px;background:#26282e;position:relative"><div style="position:absolute;top:0;bottom:0;left:0;width:40%;background:#e8eaee;border-radius:2px"></div><div style="position:absolute;top:50%;left:40%;width:11px;height:11px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(0,0,0,.6)"></div></div>
+        </div>
+      </div>
+      <div style="padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.12em;color:#6b7078">EXPORT</div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1;height:28px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;border:1px solid #26282e;border-radius:7px;font-size:12px;color:#c6cad2"><span>PNG</span><span style="color:#6b7078">▾</span></div>
+          <div style="display:flex;border:1px solid #26282e;border-radius:7px;overflow:hidden;height:28px"><div style="padding:0 9px;display:flex;align-items:center;font-family:'Geist Mono',monospace;font-size:10.5px;color:#8a8f98">1x</div><div style="padding:0 9px;display:flex;align-items:center;font-family:'Geist Mono',monospace;font-size:10.5px;background:#22252b;color:#fff">2x</div><div style="padding:0 9px;display:flex;align-items:center;font-family:'Geist Mono',monospace;font-size:10.5px;color:#8a8f98">3x</div></div>
+        </div>
+        <div style="height:34px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:#f2f3f5;color:#0b0c0e;font-size:12.5px;font-weight:600">Export PNG · 2800×2100</div>
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;color:#565b64;text-align:center">~1.4 MB · saves to ~/Exports</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1b" data-screen-label="1b Fieldset — light design system">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Fieldset — light, indigo, dense (attached design system)</div>
+<div class="dv-card" style="width:1180px">
+<div style="display:flex;flex-direction:column;height:764px;font-family:var(--font-sans);color:var(--ink-1);background:var(--page)">
+  <div style="display:flex;align-items:center;gap:12px;height:50px;padding:0 14px;background:var(--surface);border-bottom:1px solid var(--border-1);flex:none">
+    <div style="display:flex;gap:7px;flex:none"><span style="width:12px;height:12px;border-radius:50%;background:#ff5f57;display:block"></span><span style="width:12px;height:12px;border-radius:50%;background:#febc2e;display:block"></span><span style="width:12px;height:12px;border-radius:50%;background:#28c840;display:block"></span></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-left:6px">
+      <div style="width:22px;height:22px;border-radius:6px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:700;font-size:12px">B</div>
+      <span style="font-weight:700;font-size:13.5px">Backdrop</span>
+      <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-5);margin-left:2px">demo</span>
+    </div>
+    <div style="width:1px;height:20px;background:var(--border-1);margin:0 4px"></div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <x-import component-from-global-scope="FieldsetDesignSystem_ed5a5e.Chip" kind="view" selected="{{ t }}" hint-size="auto,28px">onboarding-flow.png</x-import>
+      <x-import component-from-global-scope="FieldsetDesignSystem_ed5a5e.Chip" kind="view" hint-size="auto,28px">billing-table.png</x-import>
+      <x-import component-from-global-scope="FieldsetDesignSystem_ed5a5e.Button" variant="dashed" size="sm" hint-size="auto,26px">+ add shot</x-import>
+    </div>
+    <div style="flex:1"></div>
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--ink-4)">4 of 4 layers visible</span>
+    <x-import component-from-global-scope="FieldsetDesignSystem_ed5a5e.Button" variant="outline" hint-size="auto,28px">Copy to clipboard</x-import>
+    <x-import component-from-global-scope="FieldsetDesignSystem_ed5a5e.Button" variant="primary" hint-size="auto,28px">Export PNG</x-import>
+  </div>
+  <div style="display:flex;flex:1;min-height:0">
+    <div style="width:240px;flex:none;background:var(--surface);border-right:1px solid var(--border-1);display:flex;flex-direction:column;padding:12px;gap:3px;overflow:hidden">
+      <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--ink-4);padding:2px 4px 6px">TEMPLATES</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;height:30px;padding:0 9px;border-radius:7px;background:var(--accent-tint);border:1px solid var(--accent-border);color:var(--accent);font-size:12.5px;font-weight:600"><span>Dribbble shot</span><span style="font-family:var(--font-mono);font-size:10.5px;font-weight:400">2,800×2,100</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;height:30px;padding:0 9px;border-radius:7px;color:var(--ink-2);font-size:12.5px"><span>Twitter post</span><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-5)">1,600×900</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;height:30px;padding:0 9px;border-radius:7px;color:var(--ink-2);font-size:12.5px"><span>Twitter header</span><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-5)">1,500×500</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;height:30px;padding:0 9px;border-radius:7px;color:var(--ink-2);font-size:12.5px"><span>App Store</span><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-5)">2,880×1,800</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;height:30px;padding:0 9px;border-radius:7px;color:var(--ink-2);font-size:12.5px"><span>Open Graph</span><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-5)">2,400×1,260</span></div>
+      <div style="margin-top:4px"><x-import component-from-global-scope="FieldsetDesignSystem_ed5a5e.Button" variant="dashed" size="sm" style="{{ wFull }}" hint-size="100%,26px">+ custom size</x-import></div>
+      <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--ink-4);padding:16px 4px 6px">PRESETS</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;height:30px;padding:0 9px;border-radius:7px;color:var(--ink-2);font-size:12.5px"><span style="display:flex;align-items:center;gap:8px"><span style="width:13px;height:13px;border-radius:3px;background:linear-gradient(135deg,#4c5fd5,#a24ff0)"></span>Aurora blur</span><span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-5)">×12</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;height:30px;padding:0 9px;border-radius:7px;color:var(--ink-2);font-size:12.5px"><span style="display:flex;align-items:center;gap:8px"><span style="width:13px;height:13px;border-radius:3px;background:linear-gradient(135deg,#46516b,#232936)"></span>Studio gray</span><span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-5)">×4</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;height:30px;padding:0 9px;border-radius:7px;color:var(--ink-2);font-size:12.5px"><span style="display:flex;align-items:center;gap:8px"><span style="width:13px;height:13px;border-radius:3px;background:linear-gradient(135deg,#f97316,#db2777)"></span>Candy pop</span><span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-5)">×2</span></div>
+      <div style="flex:1"></div>
+      <div style="background:var(--surface-2);border:1px solid var(--border-2);border-radius:10px;padding:10px 11px;display:flex;flex-direction:column;gap:6px">
+        <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3)">$ backdrop export --watch</div>
+        <div style="display:flex;align-items:center;gap:6px"><span style="background:var(--green-bg);color:var(--green-text);font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:9px">CLI connected</span></div>
+      </div>
+    </div>
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;position:relative">
+        <div style="width:560px;height:420px;border-radius:10px;background:{{ grad }};border:1px solid var(--border-1);box-shadow:var(--shadow-card,0 1px 3px rgba(35,41,54,.1));position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden">
+          <div style="position:absolute;inset:0;opacity:.12;pointer-events:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22160%22 height=%22160%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%222%22/></filter><rect width=%22160%22 height=%22160%22 filter=%22url(%23n)%22 opacity=%220.5%22/></svg>')"></div>
+          <div style="width:76%;border-radius:10px;overflow:hidden;background:{{ fBodyBg }};border:1px solid {{ fBorder }};box-shadow:0 24px 50px rgba(20,24,40,.35)">
+            <div style="display:flex;align-items:center;gap:8px;height:32px;padding:0 11px;background:{{ fBg }};border-bottom:1px solid {{ fBorder }}">
+              <div style="display:flex;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#ff5f57;display:block"></span><span style="width:8px;height:8px;border-radius:50%;background:#febc2e;display:block"></span><span style="width:8px;height:8px;border-radius:50%;background:#28c840;display:block"></span></div>
+              <div style="flex:1;height:18px;border-radius:5px;background:{{ fUrlBg }};display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:9.5px;color:{{ fUrlTxt }}">app.acme.dev</div>
+            </div>
+            <div style="height:264px;color:#9ba1ab"><image-slot id="shot-1b" shape="rect" placeholder="Drop your UI screenshot"></image-slot></div>
+          </div>
+        </div>
+        <div style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-family:var(--font-mono);font-size:10.5px;color:var(--ink-4)">sort: none · zoom 72% · grid off</div>
+      </div>
+      <div style="height:32px;flex:none;border-top:1px solid var(--border-1);background:var(--surface);display:flex;align-items:center;gap:14px;padding:0 14px;font-family:var(--font-mono);font-size:10.5px;color:var(--ink-4)">
+        <span>2,800 × 2,100 px</span><span>·</span><span>png @2x</span><span>·</span><span>~1.4 MB estimated</span>
+        <span style="flex:1"></span>
+        <span>4 layers · frame: browser</span>
+      </div>
+    </div>
+    <div style="width:270px;flex:none;background:var(--surface);border-left:1px solid var(--border-1);display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:14px 14px 16px;border-bottom:1px solid var(--border-2);display:flex;flex-direction:column;gap:11px">
+        <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--ink-4)">BACKGROUND</div>
+        <x-import component-from-global-scope="FieldsetDesignSystem_ed5a5e.SegmentedControl" options="{{ bgOpts }}" value="linear" hint-size="160px,26px"></x-import>
+        <div style="display:flex;gap:7px">
+          <div style="width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,#4c5fd5,#a24ff0);outline:2px solid var(--accent-border);outline-offset:2px"></div>
+          <div style="width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,#2563eb,#ec4899)"></div>
+          <div style="width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,#0ea5e9,#312e81)"></div>
+          <div style="width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,#f97316,#db2777)"></div>
+          <div style="width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,#46516b,#232936)"></div>
+          <div style="width:26px;height:26px;border-radius:6px;border:1px dashed var(--border-dashed);display:flex;align-items:center;justify-content:center;color:var(--ink-4);font-size:12px">+</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--ink-3)"><span>Angle</span><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-1)">135°</span></div>
+          <div style="height:3px;border-radius:2px;background:var(--border-1);position:relative"><div style="position:absolute;top:0;bottom:0;left:0;width:62%;background:var(--accent);border-radius:2px"></div><div style="position:absolute;top:50%;left:62%;width:12px;height:12px;border-radius:50%;background:#fff;border:1px solid var(--accent-border);transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(35,41,54,.25)"></div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--ink-3)"><span>Noise</span><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-1)">16%</span></div>
+          <div style="height:3px;border-radius:2px;background:var(--border-1);position:relative"><div style="position:absolute;top:0;bottom:0;left:0;width:16%;background:var(--accent);border-radius:2px"></div><div style="position:absolute;top:50%;left:16%;width:12px;height:12px;border-radius:50%;background:#fff;border:1px solid var(--accent-border);transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(35,41,54,.25)"></div></div>
+        </div>
+      </div>
+      <div style="padding:14px 14px 16px;border-bottom:1px solid var(--border-2);display:flex;flex-direction:column;gap:11px">
+        <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--ink-4)">FRAME</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <x-import component-from-global-scope="FieldsetDesignSystem_ed5a5e.Chip" hint-size="auto,24px">none</x-import>
+          <x-import component-from-global-scope="FieldsetDesignSystem_ed5a5e.Chip" selected="{{ t }}" hint-size="auto,24px">browser</x-import>
+          <x-import component-from-global-scope="FieldsetDesignSystem_ed5a5e.Chip" hint-size="auto,24px">macos</x-import>
+          <x-import component-from-global-scope="FieldsetDesignSystem_ed5a5e.Chip" hint-size="auto,24px">iphone</x-import>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--ink-3)"><span>Chrome theme</span><x-import component-from-global-scope="FieldsetDesignSystem_ed5a5e.SegmentedControl" options="{{ themeOpts }}" value="dark" mono="{{ t }}" hint-size="90px,26px"></x-import></div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--ink-3)"><span>Padding</span><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-1)">64</span></div>
+          <div style="height:3px;border-radius:2px;background:var(--border-1);position:relative"><div style="position:absolute;top:0;bottom:0;left:0;width:40%;background:var(--accent);border-radius:2px"></div><div style="position:absolute;top:50%;left:40%;width:12px;height:12px;border-radius:50%;background:#fff;border:1px solid var(--accent-border);transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(35,41,54,.25)"></div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--ink-3)"><span>Shadow</span><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-1)">40%</span></div>
+          <div style="height:3px;border-radius:2px;background:var(--border-1);position:relative"><div style="position:absolute;top:0;bottom:0;left:0;width:40%;background:var(--accent);border-radius:2px"></div><div style="position:absolute;top:50%;left:40%;width:12px;height:12px;border-radius:50%;background:#fff;border:1px solid var(--accent-border);transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(35,41,54,.25)"></div></div>
+        </div>
+      </div>
+      <div style="padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--ink-4)">EXPORT</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <x-import component-from-global-scope="FieldsetDesignSystem_ed5a5e.Select" options="{{ fmtOpts }}" hint-size="80px,26px"></x-import>
+          <x-import component-from-global-scope="FieldsetDesignSystem_ed5a5e.SegmentedControl" options="{{ scaleOpts }}" value="2x" mono="{{ t }}" hint-size="100px,26px"></x-import>
+        </div>
+        <x-import component-from-global-scope="FieldsetDesignSystem_ed5a5e.Button" variant="primary" size="lg" style="{{ wFullCenter }}" hint-size="100%,38px">Export png · 2,800×2,100</x-import>
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--ink-5);text-align:center">saves to ~/Exports · last export 2 min ago</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1c" data-screen-label="1c Stage — full-bleed canvas, floating panels">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Stage — full-bleed canvas, floating panels, batch + CLI flavor</div>
+<div class="dv-card" style="width:1240px;background:#08090b;border:1px solid #26282e">
+<div style="position:relative;height:720px;font-family:Geist,system-ui,sans-serif;color:#e8eaee;background:{{ grad }};overflow:hidden">
+  <div style="position:absolute;inset:0;opacity:.14;pointer-events:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22160%22 height=%22160%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%222%22/></filter><rect width=%22160%22 height=%22160%22 filter=%22url(%23n)%22 opacity=%220.5%22/></svg>')"></div>
+  <div style="position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 90% at 50% 45%,transparent 55%,rgba(4,5,8,.55) 100%)"></div>
+  <div style="position:absolute;top:0;left:0;right:0;height:52px;display:flex;align-items:center;gap:12px;padding:0 16px">
+    <div style="display:flex;align-items:center;gap:12px;height:36px;padding:0 14px 0 12px;border-radius:18px;background:rgba(10,11,14,.72);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1)">
+      <div style="display:flex;gap:6px"><span style="width:11px;height:11px;border-radius:50%;background:#ff5f57;display:block"></span><span style="width:11px;height:11px;border-radius:50%;background:#febc2e;display:block"></span><span style="width:11px;height:11px;border-radius:50%;background:#28c840;display:block"></span></div>
+      <span style="font-size:12.5px;font-weight:600">Backdrop</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:#9ba1ab">dribbble shot · 2800×2100</span>
+    </div>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:8px;height:36px;padding:0 6px 0 14px;border-radius:18px;background:rgba(10,11,14,.72);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1)">
+      <span style="font-family:'Geist Mono',monospace;font-size:11px;color:#9ba1ab">72%</span>
+      <div style="height:26px;padding:0 12px;display:flex;align-items:center;border-radius:14px;background:#f2f3f5;color:#0b0c0e;font-size:12px;font-weight:600">Export</div>
+    </div>
+  </div>
+  <div style="position:absolute;left:16px;top:74px;width:118px;display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:14px;background:rgba(10,11,14,.72);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1)">
+    <div style="font-family:'Geist Mono',monospace;font-size:9.5px;letter-spacing:.12em;color:#8a8f98;padding:0 2px">TEMPLATE</div>
+    <div style="border-radius:8px;overflow:hidden;outline:2px solid #f2f3f5;outline-offset:1px"><div style="height:66px;background:linear-gradient(135deg,#2563eb,#ec4899);display:flex;align-items:center;justify-content:center"><div style="width:60%;height:60%;border-radius:4px;background:rgba(16,17,20,.85)"></div></div><div style="font-family:'Geist Mono',monospace;font-size:9px;color:#c6cad2;text-align:center;padding:4px 0;background:rgba(16,17,20,.9)">dribbble 4:3</div></div>
+    <div style="border-radius:8px;overflow:hidden;opacity:.75"><div style="height:52px;background:linear-gradient(135deg,#0ea5e9,#312e81);display:flex;align-items:center;justify-content:center"><div style="width:64%;height:52%;border-radius:3px;background:rgba(16,17,20,.85)"></div></div><div style="font-family:'Geist Mono',monospace;font-size:9px;color:#c6cad2;text-align:center;padding:4px 0;background:rgba(16,17,20,.9)">twitter 16:9</div></div>
+    <div style="border-radius:8px;overflow:hidden;opacity:.75"><div style="height:52px;background:linear-gradient(135deg,#f97316,#db2777);display:flex;align-items:center;justify-content:center"><div style="width:44%;height:62%;border-radius:3px;background:rgba(16,17,20,.85)"></div></div><div style="font-family:'Geist Mono',monospace;font-size:9px;color:#c6cad2;text-align:center;padding:4px 0;background:rgba(16,17,20,.9)">app store</div></div>
+  </div>
+  <div style="position:absolute;left:50%;top:47%;transform:translate(-50%,-50%);width:520px;border-radius:12px;overflow:hidden;background:{{ fBodyBg }};border:1px solid {{ fBorder }};box-shadow:0 40px 90px rgba(4,6,12,.6)">
+    <div style="display:flex;align-items:center;gap:8px;height:34px;padding:0 12px;background:{{ fBg }};border-bottom:1px solid {{ fBorder }}">
+      <div style="display:flex;gap:5px"><span style="width:9px;height:9px;border-radius:50%;background:#ff5f57;display:block"></span><span style="width:9px;height:9px;border-radius:50%;background:#febc2e;display:block"></span><span style="width:9px;height:9px;border-radius:50%;background:#28c840;display:block"></span></div>
+      <div style="flex:1;height:19px;border-radius:5px;background:{{ fUrlBg }};display:flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-size:10px;color:{{ fUrlTxt }}">app.acme.dev/onboarding</div>
+    </div>
+    <div style="height:296px"><image-slot id="shot-1c" shape="rect" placeholder="Drop your UI screenshot"></image-slot></div>
+  </div>
+  <div style="position:absolute;right:16px;top:74px;width:224px;display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:14px;background:rgba(10,11,14,.72);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1)">
+    <div style="font-family:'Geist Mono',monospace;font-size:9.5px;letter-spacing:.12em;color:#8a8f98">BACKGROUND</div>
+    <div style="display:flex;gap:6px">
+      <div style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#2563eb,#ec4899);outline:2px solid #f2f3f5;outline-offset:2px"></div>
+      <div style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#f97316,#db2777)"></div>
+      <div style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#0ea5e9,#312e81)"></div>
+      <div style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#10b981,#0d9488)"></div>
+      <div style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#3f4451,#16181d)"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:5px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#9ba1ab"><span>Noise</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:#e8eaee">14%</span></div>
+      <div style="height:3px;border-radius:2px;background:rgba(255,255,255,.14);position:relative"><div style="position:absolute;top:0;bottom:0;left:0;width:14%;background:#f2f3f5;border-radius:2px"></div><div style="position:absolute;top:50%;left:14%;width:10px;height:10px;border-radius:50%;background:#fff;transform:translate(-50%,-50%)"></div></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:5px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#9ba1ab"><span>Shadow</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:#e8eaee">55%</span></div>
+      <div style="height:3px;border-radius:2px;background:rgba(255,255,255,.14);position:relative"><div style="position:absolute;top:0;bottom:0;left:0;width:55%;background:#f2f3f5;border-radius:2px"></div><div style="position:absolute;top:50%;left:55%;width:10px;height:10px;border-radius:50%;background:#fff;transform:translate(-50%,-50%)"></div></div>
+    </div>
+    <div style="height:1px;background:rgba(255,255,255,.09)"></div>
+    <div style="font-family:'Geist Mono',monospace;font-size:9.5px;letter-spacing:.12em;color:#8a8f98">FRAME</div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px">
+      <div style="height:22px;padding:0 9px;display:flex;align-items:center;border-radius:11px;border:1px solid rgba(255,255,255,.16);color:#9ba1ab;font-size:11px">None</div>
+      <div style="height:22px;padding:0 9px;display:flex;align-items:center;border-radius:11px;background:#f2f3f5;color:#0b0c0e;font-size:11px;font-weight:600">Browser</div>
+      <div style="height:22px;padding:0 9px;display:flex;align-items:center;border-radius:11px;border:1px solid rgba(255,255,255,.16);color:#9ba1ab;font-size:11px">iPhone</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#9ba1ab"><span>Theme</span><div style="display:flex;border:1px solid rgba(255,255,255,.16);border-radius:6px;overflow:hidden;height:22px"><div style="padding:0 9px;display:flex;align-items:center;font-size:10.5px;background:rgba(255,255,255,.16);color:#fff">Dark</div><div style="padding:0 9px;display:flex;align-items:center;font-size:10.5px;color:#9ba1ab">Light</div></div></div>
+  </div>
+  <div style="position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:flex;align-items:center;gap:14px;height:56px;padding:0 10px 0 12px;border-radius:16px;background:rgba(10,11,14,.78);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1)">
+    <div style="display:flex;gap:7px;align-items:center">
+      <div style="width:52px;height:36px;border-radius:6px;background:linear-gradient(135deg,#2563eb,#ec4899);outline:2px solid #f2f3f5;outline-offset:1px"></div>
+      <div style="width:52px;height:36px;border-radius:6px;background:linear-gradient(135deg,#0ea5e9,#312e81);opacity:.8"></div>
+      <div style="width:52px;height:36px;border-radius:6px;background:linear-gradient(135deg,#3f4451,#16181d);opacity:.8"></div>
+      <div style="width:36px;height:36px;border-radius:6px;border:1px dashed rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;color:#9ba1ab;font-size:14px">+</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <span style="font-size:11.5px;font-weight:500">3 shots queued</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:#8a8f98">$ backdrop export --queue --scale 2x</span>
+    </div>
+    <div style="height:34px;padding:0 15px;display:flex;align-items:center;border-radius:10px;background:#f2f3f5;color:#0b0c0e;font-size:12px;font-weight:600">Export all</div>
+  </div>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "merge <a class="dv-oid" href="#1a">1a</a>'s inspector into <a class="dv-oid" href="#1c">1c</a>'s canvas" · "show <a class="dv-oid" href="#1a">1a</a> with a light canvas" · "add the files-library screen" · "iPhone frame instead of browser"</p>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;gradient&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Aurora&quot;,&quot;options&quot;:[&quot;Aurora&quot;,&quot;Sunset&quot;,&quot;Ocean&quot;,&quot;Graphite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Canvas&quot;},&quot;frameTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Dark&quot;,&quot;options&quot;:[&quot;Dark&quot;,&quot;Light&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Canvas&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const g = {
+      Aurora: 'linear-gradient(135deg,#2563eb 0%,#7c3aed 48%,#ec4899 100%)',
+      Sunset: 'linear-gradient(135deg,#f97316 0%,#db2777 55%,#7c3aed 100%)',
+      Ocean: 'linear-gradient(135deg,#0ea5e9 0%,#2563eb 55%,#312e81 100%)',
+      Graphite: 'linear-gradient(135deg,#3f4451 0%,#16181d 100%)'
+    };
+    const grad = g[this.props.gradient ?? 'Aurora'] ?? g.Aurora;
+    const dark = (this.props.frameTheme ?? 'Dark') === 'Dark';
+    return {
+      grad, t: true,
+      fBg: dark ? '#1b1d22' : '#f6f7f9',
+      fBorder: dark ? 'rgba(255,255,255,.09)' : '#e3e5ea',
+      fUrlBg: dark ? 'rgba(255,255,255,.07)' : '#ffffff',
+      fUrlTxt: dark ? '#9ba1ab' : '#5c6470',
+      fBodyBg: dark ? '#101114' : '#ffffff',
+      bgOpts: ['solid', 'linear', 'mesh'],
+      themeOpts: ['dark', 'light'],
+      scaleOpts: ['1x', '2x', '3x'],
+      fmtOpts: ['png', 'jpeg', 'webp'],
+      wFull: { width: '100%', justifyContent: 'center' },
+      wFullCenter: { width: '100%', justifyContent: 'center' }
+    };
+  }
+}
+</script>
+</body>
+</html>

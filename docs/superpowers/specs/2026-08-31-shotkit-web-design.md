@@ -305,3 +305,126 @@ arithmetic alone. CSS `box-shadow` and canvas `shadowBlur` do not use the same
 blur kernel, so the two-pass shadow will need tuning by eye against the current
 output before the reference PNGs are frozen. Budget for that; do not assume
 the first numbers match.
+
+---
+
+# Amendment 1 — Backdrop handoff, expanded scope
+
+Date: 2026-08-31, after Task 7. Tasks 1–7 are complete and unaffected; `core/` as
+built stands. This amendment supersedes the original "Out of scope" list and the
+plan's Tasks 8–12, which were written before the visual direction existed.
+
+## What changed
+
+Two things arrived after the original spec was approved.
+
+1. A **visual direction** was chosen from six candidates: the three-column editor
+   layout, judged on the requirement that the app read as *software* — a photo
+   editor, Figma, pen.dev — not a marketing page.
+2. A **high-fidelity design handoff** (`design_handoff_backdrop_1a/`) landed,
+   specifying that direction properly: a four-pane dark editor called "Obsidian",
+   with a complete token system, control patterns, and a feature set larger than
+   shotkit's.
+
+The handoff describes a **macOS desktop app** ("Backdrop") built in SwiftUI,
+Electron or Tauri. shotkit is a browser app with a finished `core/` library. The
+*visual* specification is adopted faithfully; the *platform* instructions are not.
+
+## Adopted from the handoff
+
+**The token system, verbatim.** Surfaces `#0b0c0e` window · `#0e0f12` canvas ·
+`#17191d` / `#1a1c20` raised · `#22252b` active control. Borders `#26282e` strong ·
+`#1b1d22` / `#1f2126` hairline · `#2c2f36` dashed. Text `#e8eaee` primary ·
+`#c6cad2` secondary · `#9ba1ab` muted · `#8a8f98` / `#6b7078` faint · `#565b64`
+disabled. Inverse primary `#f2f3f5` on `#0b0c0e`. Type: Geist 400–700 for UI
+(11.5–13px), Geist Mono for every number, size and meta label (9.5–11px; section
+labels 10px at .12em, uppercase). Radii 7–8 controls, 10 cards, 12 pills. Spacing
+rhythm 4/6/8/10/12/14.
+
+**The four-pane shell.** Toolbar (48) → icon rail (52) · sidebar (226) · canvas ·
+inspector (266). Sidebar carries templates and presets; inspector carries
+BACKGROUND, FRAME and EXPORT.
+
+**The control patterns.** Segmented control (h28, active cell `#22252b`), slider
+rows (label + mono value, 3px track `#26282e`, fill `#e8eaee`, 11px white thumb),
+pill chips (h24, selected inverse).
+
+## Rejected from the handoff
+
+- **Platform instructions.** No SwiftUI/AppKit/Electron/Tauri. This is the
+  existing Vite app over the existing `core/`.
+- **Desktop window chrome.** No frameless 1180×764 window, no traffic lights in
+  the app's own toolbar. Painting macOS chrome inside a browser tab is fake
+  chrome. (Traffic lights inside the *rendered mockup's* browser frame are a
+  different thing and are in scope — see Device frames.)
+- **`image-slot.js`** — prototype scaffolding, explicitly do-not-ship. The app has
+  its own decode path.
+- **CLI watch-folder card, Library / Integrations nav, saved user presets.**
+  Deferred. The nav rail renders the items; only Canvas is live.
+
+## New feature scope
+
+### Background panel — auto first, manual after
+
+The handoff's BACKGROUND section lets the user pick a gradient. shotkit's thesis
+is the opposite: **the ground is sampled from the product's own accent**, which is
+what `core/ground.js` exists for. Both survive, in this order:
+
+1. **Sampled** — the default. Its three stops shown as swatches with the measured
+   hue. This is the top of the panel, not one option among many.
+2. **Presets** — the eight named hues already in `core/presets.js`.
+3. **Manual** — hue slider, and now an **angle** slider (`frame.html` hardcodes
+   166°; it becomes a parameter).
+4. **Mesh** — a new background type. New painter in `core/render.js`.
+
+`tone` (auto / light / mid) stays, since the dark-UI mid-tone rule is load-bearing.
+
+### Export — templates AND ratios
+
+Both, not one. Named templates carry real pixel sizes (Dribbble shot 2800×2100,
+Twitter post 1600×900, Twitter header 1500×500, App Store 2880×1800, Open Graph
+2400×1260, Instagram 2160×2160) alongside the existing bare ratios (3:2, 4:3,
+16:9, 1:1) and a custom size. Export gains **scale 1x/2x/3x** and format
+PNG/JPEG/WebP.
+
+Note: Dribbble's 2800×2100 is 4:3 at @2x. shotkit's current default is 3:2 at
+1800×1200. The named template is the more correct default for its stated purpose.
+
+### Device frames
+
+The largest addition, and the most invasive. **None / Browser / macOS / iPhone**,
+each with a **chrome theme** (dark: chrome `#1b1d22`, body `#101114`; light:
+chrome `#f6f7f9`, body `#fff`, borders `#e3e5ea`).
+
+**This changes geometry, not only paint.** A browser or macOS chrome bar sits
+above the screenshot *inside* the frame, so the screen box shrinks by the bar
+height, the corner radius applies to the frame rather than the screenshot, and the
+shadow attaches to the frame. That reaches into `core/layout.js`, which is
+currently closed and fully tested — its existing behaviour must remain exactly
+correct when `frame: 'none'`, which is the current behaviour and stays the default
+for every existing test.
+
+### Canvas surround
+
+Already decided, still in scope, and distinct from theming: three **neutral**
+steps (dark, mid, light) behind the shot, so a pale ground can be judged honestly.
+
+**Hard constraint: the surround is chrome, never pixels.** It must not reach the
+exported PNG. Because the preview canvas *is* the export canvas, the surround must
+be a separate element behind that canvas — `core/render.js` never learns it
+exists. Proven by test: exporting at two surround settings yields byte-identical
+PNGs.
+
+## Still deferred
+
+Saved user presets and persistence · the CLI · a full light theme for the app
+chrome (handoff option 1b "Fieldset" is the likely source when it happens) ·
+bleed layout · MP4 export · npm publish · Claude Code skill · Tauri desktop.
+
+## Sequencing
+
+**`core/` first, then the app.** Mesh, device frames, templates, scale and angle
+all land in `core/` while its golden-test infrastructure is fresh, and the shell is
+then built once against a finished library rather than revisited each time `core/`
+grows. This was an explicit decision; the alternative was a working app sooner at
+the cost of building the inspector twice.
