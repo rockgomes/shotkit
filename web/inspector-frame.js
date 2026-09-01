@@ -66,6 +66,28 @@ export function setChromeTheme(config, theme) {
   config.chromeTheme = theme;
 }
 
+/**
+ * ONE rule for BOTH secondary Frame controls (chrome theme and the url
+ * field): visible only for `frameKind === 'browser'`.
+ *
+ * Fix round 1 (Task 6): chrome theme originally had its OWN, looser rule
+ * (visible for 'phone' too, reasoned as a legitimate pre-set for later).
+ * A reviewer rendered a phone frame at both chrome themes and found the
+ * output byte-identical — `paintPhoneChrome` (core/render.js) never
+ * receives `theme` at all, and `paintDeviceBody`/`paintDeviceHairline`
+ * hardcode their own colours regardless of it. So the control visibly
+ * toggled while nothing it claims to control moved: a segmented control
+ * that appears to work and doesn't. `core/render.js` only ever consults
+ * `chromeTheme`/`url` along the browser-only code path (`paintWebChrome`/
+ * `paintChrome`) — `paintPhoneChrome` receives neither — so this file now
+ * gates both the same way too, extracted as one pure, directly-testable
+ * function instead of two inline conditions that could drift apart again.
+ * See test/inspector-frame.test.js.
+ */
+export function showsBrowserOnlyControls(config) {
+  return activeFrameKind(config) === 'browser';
+}
+
 /** The browser URL pill's own text (core/config.js's `url`, Task 6's
  *  authorised core/ change). Raw pass-through, on purpose: normalise()
  *  already coerces an empty string to null (the same treatment `caption`
@@ -181,20 +203,10 @@ const FRAME_LABELS = { none: 'None', browser: 'Browser', phone: 'Phone' };
  * The Frame section: frameKind chips, the chrome-theme mini-segmented, and
  * the browser URL text field.
  *
- * Two independent visibility rules, both via the global `[hidden]` (Task
- * 5's rule — no per-element hidden CSS here):
- *   - chrome theme: hidden only for frameKind 'none' — shown for 'phone'
- *     too, even though a phone frame ignores it (see
- *     test/compose.test.js's "frameKind: none and phone are theme-invariant
- *     (documented, not accidental)"). That's deliberate, not a dead
- *     control: `chromeTheme` is a real, always-normalised field, and a
- *     user who sets it while on 'phone' then switches to 'browser' gets
- *     exactly what they picked, not a value that silently reset.
- *   - the url field: hidden for anything OTHER than 'browser', because
- *     unlike chromeTheme it has no such pre-set story — core/render.js's
- *     paintChrome only ever reads `c.url` inside its `chrome.kind ===
- *     'browser'` branch, so showing this control for 'phone' would be a
- *     field with genuinely nowhere to go, not a merely-inert one.
+ * Both secondary controls are hidden via `showsBrowserOnlyControls` above
+ * (Task 5's global `[hidden]` rule — no per-element hidden CSS here); see
+ * that function's own header comment for the fix-round-1 history of why
+ * this is now ONE rule instead of two.
  */
 export function initFrameInspector() {
   const section = document.getElementById('frameSection');
@@ -271,7 +283,8 @@ export function initFrameInspector() {
       btn.classList.toggle('is-selected', active);
       btn.setAttribute('aria-pressed', String(active));
     });
-    themeRow.hidden = kind === 'none';
+    const showsSecondary = showsBrowserOnlyControls(state.config);
+    themeRow.hidden = !showsSecondary;
 
     const theme = activeChromeTheme(state.config);
     themeButtons.forEach((btn) => {
@@ -280,7 +293,7 @@ export function initFrameInspector() {
       btn.setAttribute('aria-pressed', String(active));
     });
 
-    urlRow.hidden = kind !== 'browser';
+    urlRow.hidden = !showsSecondary;
   }
 
   function syncUrlUI() {

@@ -7,6 +7,7 @@ import {
   setFrameKind,
   activeChromeTheme,
   setChromeTheme,
+  showsBrowserOnlyControls,
   activeUrl,
   setUrl,
   activeFit,
@@ -58,6 +59,23 @@ describe('chromeTheme', () => {
     expect(activeChromeTheme(config)).toBe('light');
     setChromeTheme(config, 'nonsense');
     expect(activeChromeTheme(config)).toBe('light'); // unchanged, not reset to dark
+  });
+});
+
+// Fix round 1 (Task 6): a reviewer found the chrome-theme control visible
+// (and toggleable) for frameKind 'phone', even though core/render.js's
+// paintPhoneChrome never receives `theme` at all - a segmented control
+// that appears to work and does nothing. This is the regression test for
+// that fix: ONE visibility rule for both browser-only secondary controls
+// (chrome theme and url), asserted directly against the pure helper
+// web/inspector-frame.js's DOM layer actually calls, not just eyeballed
+// in a browser.
+describe('showsBrowserOnlyControls - the chrome-theme/url visibility gate', () => {
+  it('is true ONLY for frameKind browser - false for phone and none alike', () => {
+    expect(showsBrowserOnlyControls({ frameKind: 'browser' })).toBe(true);
+    expect(showsBrowserOnlyControls({ frameKind: 'phone' })).toBe(false);
+    expect(showsBrowserOnlyControls({ frameKind: 'none' })).toBe(false);
+    expect(showsBrowserOnlyControls({})).toBe(false); // unset -> 'none' via activeFrameKind
   });
 });
 
