@@ -222,7 +222,16 @@
         <div id="canvas" class="canvas-surface" data-surround="mid">
           <canvas id="renderCanvas" class="render-canvas" aria-label="Shot preview"></canvas>
 
+          <!-- The empty state IS the app with no file open — an empty frame
+               at the current ratio, not a marketing panel (see task-7-brief.md:
+               that reading was rejected twice during direction exploration).
+               web/main.js sizes this box to the canvas's own effective
+               width/height (core/index.js's normalise()) every time the
+               ratio/template changes, so its proportions always match what a
+               dropped file would actually render at. #dropzoneDims is the
+               dimension label a photo editor prints on an empty canvas. -->
           <div id="dropzone" class="dropzone" role="button" tabindex="0" aria-label="Drop a screenshot here, or press Enter to browse for a file">
+            <p id="dropzoneDims" class="dropzone-dims mono" aria-hidden="true"></p>
             <svg class="icon icon-lg" aria-hidden="true"><use href="#icon-upload"></use></svg>
             <p class="dropzone-title">Drop a screenshot to get started</p>
             <p class="dropzone-sub">or click to browse</p>
@@ -240,8 +249,17 @@
              The design handoff's own markup here put a gradient-swatch
              picker first; that is deliberately NOT reproduced — the
              screenshot's own sampled ground leads, manual hue is an
-             override. -->
-        <section class="inspector-section" id="backgroundSection">
+             override.
+
+             `inert` by default (Task 7): these are properties OF a loaded
+             shot, so with none loaded they read the way a photo editor's
+             properties panel does before any document is open — present,
+             greyed, not operable. web/main.js's syncContentUI() removes
+             this the moment a screenshot decodes and restores it if the
+             app is ever back to zero images. Templates/Ratios/Ground in
+             the SIDEBAR are deliberately not covered by this — they
+             configure what a drop will produce and stay live throughout. -->
+        <section class="inspector-section" id="backgroundSection" inert>
           <h2 class="section-label">Background</h2>
         </section>
 
@@ -255,11 +273,11 @@
              FRAME_KINDS, core/presets.js) and "iPhone" was Task 5b's
              `phone` rename — reproducing either literal label here would
              just reintroduce what those two decisions already closed. -->
-        <section class="inspector-section" id="frameSection">
+        <section class="inspector-section" id="frameSection" inert>
           <h2 class="section-label">Frame</h2>
         </section>
 
-        <section class="inspector-section" id="finishSection">
+        <section class="inspector-section" id="finishSection" inert>
           <h2 class="section-label">Finish</h2>
         </section>
 

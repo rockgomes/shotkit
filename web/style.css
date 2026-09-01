@@ -483,6 +483,8 @@ input {
 
 .sidebar-search:focus-within {
   border-color: var(--border-strong);
+  outline: 2px solid var(--text-primary);
+  outline-offset: 1px;
 }
 
 .section-label {
@@ -746,6 +748,15 @@ input {
   background-color: var(--surface-canvas);
   background-image: radial-gradient(circle, var(--dot-grid-dot) 1px, transparent 1px);
   background-size: 22px 22px;
+  /* Part of the ONE authored moment (Task 7): when `.has-content`/
+     `data-surround` flip on file-drop, this is what makes the neutral
+     empty-canvas colour "bloom" into the surround colour instead of
+     snapping - the whole transition is exactly this one declaration, no
+     JS choreography needed for it. Also fires on a later Dark/Mid/Light
+     surround click post-load, which is a feature, not a leak: a smooth
+     surround change is no less a colour transition needing the same
+     reduced-motion fallback below. */
+  transition: background-color 420ms ease;
 }
 
 /* Once a shot is loaded the surround takes over as the backdrop and the
@@ -785,14 +796,74 @@ input {
   display: block;
 }
 
+/* -------------------------------------------------------------------------
+   The one authored moment (Task 7): drop zone gives way -> ground blooms in
+   (the `.canvas-surface` background-color transition above) -> shot settles.
+   web/main.js's `playArrival()` is the only place these classes are ever
+   added, and only across a genuine empty -> loaded transition (never a
+   replace-while-already-loaded drop, and never at all under
+   prefers-reduced-motion — see that function's own comment and the
+   reduced-motion block at the end of this file, which is the belt to this
+   JS branch's suspenders: even if a class slipped through, the animations
+   themselves are neutralised there too).
+   ---------------------------------------------------------------------- */
+
+@keyframes dropzone-exit {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+.dropzone.is-leaving {
+  animation: dropzone-exit 220ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+
+@keyframes shot-settle {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+    box-shadow: none;
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    box-shadow: var(--shadow-settle);
+  }
+}
+
+.render-canvas.is-settling {
+  animation: shot-settle 420ms 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* The dropzone IS the empty frame — an outlined box at the canvas's own
+   current ratio, sized in pixels by web/main.js's `updateEmptyFrame()`
+   (read from core/index.js's `normalise()`, the exact same effective
+   width/height a real render would use) rather than a fixed CSS size. This
+   is what makes the empty state read as "a document at this size, not yet
+   filled" instead of a floating call-to-action card — see task-7-brief.md.
+   `min-width`/`min-height` are a legibility floor for the icon/copy inside,
+   not a design target; `updateEmptyFrame()` always clamps its own output to
+   the stage's available space first, so this floor is never the thing that
+   causes the box to overflow the stage — see that function's comment. */
 .dropzone {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  width: min(420px, 84%);
-  padding: 48px 24px;
+  min-width: 160px;
+  min-height: 120px;
+  max-width: 100%;
+  max-height: 100%;
+  padding: 24px;
+  box-sizing: border-box;
   border: 1px dashed var(--border-dashed);
   border-radius: var(--radius-lg);
   color: var(--text-fainter);
@@ -808,6 +879,20 @@ input {
 .dropzone:focus-visible {
   outline: 2px solid var(--text-primary);
   outline-offset: 3px;
+}
+
+/* The dimension label a photo editor prints on an empty canvas — "1800 ×
+   1200" — kept to the frame's own top-left corner so it reads as a
+   property OF the frame, not more dropzone copy. web/main.js fills its
+   text and keeps the box's own aria-label in sync with the same numbers. */
+.dropzone-dims {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  margin: 0;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-fainter);
 }
 
 .dropzone-title {
@@ -867,6 +952,21 @@ input {
 .inspector-section--export {
   padding: 14px;
   border-bottom: none;
+}
+
+/* Properties greyed while no file is loaded (Task 7) — `[inert]` is applied
+   by attribute, not per-element id, matching the `[hidden]` convention
+   already established at the top of this file: one rule covers whichever
+   of the three inspector sections index.html marks `inert` (see that
+   file's own comment on #backgroundSection), and covers any future one
+   without a rule to add. `[inert]` already removes these from the tab
+   order and the accessibility tree (main.js toggles the attribute itself);
+   this only supplies the missing VISUAL cue, since inert alone leaves an
+   element rendered at full opacity. The Export section is deliberately not
+   part of this list — the format/scale pickers stay live and only the
+   Export button itself disables (see index.html's static `disabled`). */
+.inspector-section[inert] {
+  opacity: 0.42;
 }
 
 .inline-control-row {
@@ -1273,5 +1373,24 @@ input {
   .btn,
   .icon-btn {
     transition: none;
+  }
+
+  /* The one authored moment (Task 7), fully neutralised: no drop-zone
+     exit, no ground-bloom colour transition, no shot-settle — a drop just
+     snaps straight to its end state. web/main.js already avoids adding
+     `.is-leaving`/`.is-settling` under this same media query, so these
+     rules are the belt-and-suspenders guarantee this file's own comment
+     above promises, not the only thing standing between reduced motion
+     and an animation actually playing. */
+  .canvas-surface {
+    transition: none;
+  }
+
+  .dropzone.is-leaving {
+    animation: none;
+  }
+
+  .render-canvas.is-settling {
+    animation: none;
   }
 }

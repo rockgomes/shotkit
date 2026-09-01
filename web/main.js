@@ -11,6 +11,12 @@ import { exportShot } from './export.js';
 import { initSidebar } from './sidebar.js';
 import { initBackgroundInspector } from './inspector-background.js';
 import { initFrameInspector, initFinishInspector } from './inspector-frame.js';
+// `normalise` only — read-only, to learn the canvas's EFFECTIVE size for the
+// empty-state frame below (Task 7). Never used to decide what to write; see
+// updateEmptyFrame()'s own comment. Same read-only pattern web/sidebar.js's
+// "+ Custom size" prefill and web/inspector-frame.js's radius display
+// already established.
+import { normalise } from '../core/index.js';
 
 /** Toggle `.is-active`/aria-pressed among sibling cells of a single-select
  *  group (segmented controls, chips, swatches all follow this shape). */
@@ -259,23 +265,158 @@ const stage = document.getElementById('stage');
 const canvasSurface = document.getElementById('canvas');
 const renderCanvas = document.getElementById('renderCanvas');
 const dropzone = document.getElementById('dropzone');
+const dropzoneDims = document.getElementById('dropzoneDims');
 const dropError = document.getElementById('dropError');
 const fileInput = document.getElementById('fileInput');
 const toolbarFileSlot = document.querySelector('#toolbarFile .file-slot');
 const exportFootnote = document.querySelector('.export-footnote');
+const sidebarEl = document.getElementById('sidebar');
+
+// The three inspector sections that describe properties OF a loaded shot —
+// greyed and `inert` (index.html's static default) until one exists. The
+// Export section is deliberately not in this list; see index.html's and
+// style.css's own comments on why it's handled differently (the button
+// disables, the format/scale pickers don't).
+const propertySections = ['backgroundSection', 'frameSection', 'finishSection'].map((id) =>
+  document.getElementById(id),
+);
 
 bindCanvas(renderCanvas);
 
+const isReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Matches style.css's `dropzone-exit` animation duration exactly — this is
+// the ONE place that number is authored twice, so a future change to one
+// without the other would show up immediately as a visible flash (the
+// dropzone hidden mid-animation, or hanging around after it finishes)
+// rather than silently drifting.
+const DROPZONE_EXIT_MS = 220;
+
+/** Restart a CSS animation by removing its class, forcing a reflow, then
+ *  re-adding it — the standard technique for "play this animation again"
+ *  when merely re-adding an already-present class is a no-op. Shared by
+ *  the arrival sequence below and a later replace-while-loaded drop. */
+function restartAnimation(el, className) {
+  el.classList.remove(className);
+  void el.offsetWidth; // force reflow
+  el.classList.add(className);
+}
+
+/** The one authored moment (Task 7): the drop zone gives way, the ground
+ *  blooms in (a pure-CSS `background-color` transition on `.canvas-surface`
+ *  itself — see style.css — needs no JS timing at all), the shot settles.
+ *  Called from `syncContentUI()` below on the ONE transition that matters —
+ *  `hasContent()` going from false to true — never on a later drop that
+ *  replaces an already-loaded shot (see `resettleCanvas()` for that case).
+ *
+ *  Reduced motion is handled here, not just left to style.css's
+ *  `@media (prefers-reduced-motion: reduce)` block: that block is the
+ *  belt-and-suspenders guarantee (an animation class that slipped through
+ *  would still be neutralised there), but the actual, primary fix is this
+ *  function never adding `.is-leaving`/`.is-settling` at all when reduced
+ *  motion is on, and hiding the dropzone immediately instead of on a
+ *  timer — there is no animation to wait for. */
+function playArrival() {
+  renderCanvas.classList.add('is-visible');
+
+  if (isReducedMotion()) {
+    dropzone.hidden = true;
+    dropzone.classList.remove('is-leaving');
+    renderCanvas.classList.remove('is-settling');
+    return;
+  }
+
+  dropzone.classList.add('is-leaving');
+  restartAnimation(renderCanvas, 'is-settling');
+  setTimeout(() => {
+    dropzone.hidden = true;
+    dropzone.classList.remove('is-leaving');
+  }, DROPZONE_EXIT_MS);
+}
+
+/** A later drop that REPLACES an already-loaded shot: the drop zone is long
+ *  gone, so there's nothing for it to give way from, but the new shot still
+ *  gets its own "settles" beat — same animation, restarted, never under
+ *  reduced motion (style.css's media block would neutralise it anyway, but
+ *  there's no reason to even ask for a restart that has to be thrown away). */
+function resettleCanvas() {
+  if (isReducedMotion()) return;
+  restartAnimation(renderCanvas, 'is-settling');
+}
+
+/** The empty-state frame's size and dimension label (Task 7) — kept in sync
+ *  with whatever ratio/template/custom-size the SIDEBAR currently has
+ *  selected, even with nothing loaded yet and render() a no-op (see
+ *  web/state.js). `normalise()` (core/index.js) is a read-only lookup of
+ *  the canvas's EFFECTIVE size, the exact same pattern web/sidebar.js's
+ *  "+ Custom size" prefill and web/inspector-frame.js's radius display
+ *  already use — never used here to decide what to write.
+ *
+ *  Sized in JS, not left to a pure-CSS `aspect-ratio`: the box has to fit
+ *  BOTH axes of whatever room `.canvas-surface` has left after its own
+ *  padding, and CSS has no built-in "shrink to fit both width and height,
+ *  preserving a ratio" behaviour for an arbitrary element the way replaced
+ *  elements (img/canvas/video) get for free from `width:auto;height:auto`
+ *  plus max-width/max-height — that's exactly how `.render-canvas` itself
+ *  gets away with no JS sizing at all. The 160/120 floor trades EXACT
+ *  proportionality for a still-usable box at an extreme ratio or a very
+ *  narrow viewport; re-clamping to `availW`/`availH` right after is what
+ *  stops that floor from ever being the thing that causes the
+ *  horizontal-scroll failure Step 4 checks for. */
+function updateEmptyFrame() {
+  if (hasContent() || !dropzoneDims) return;
+
+  const eff = normalise(state.config);
+  dropzoneDims.textContent = `${eff.w} × ${eff.h}`;
+  dropzone.setAttribute(
+    'aria-label',
+    `Drop a screenshot here, or press Enter to browse for a file. Canvas ${eff.w} by ${eff.h} pixels.`,
+  );
+
+  const rect = canvasSurface.getBoundingClientRect();
+  const stagePad = 28 * 2; // .canvas-surface's own padding (style.css)
+  const availW = Math.max(1, rect.width - stagePad);
+  const availH = Math.max(1, rect.height - stagePad);
+  const ratio = eff.w / eff.h;
+
+  let w = Math.min(availW, availH * ratio);
+  let h = w / ratio;
+  w = Math.min(availW, Math.max(160, w));
+  h = Math.min(availH, Math.max(120, h));
+
+  dropzone.style.width = `${Math.round(w)}px`;
+  dropzone.style.height = `${Math.round(h)}px`;
+}
+
 /** Reflect `state.images`/`hasContent()` into the parts of the shell that
  *  aren't the canvas itself: which of canvas/dropzone is showing, the
- *  toolbar's filename slot, the export footnote. Export/Copy stay disabled
- *  here on purpose — wiring them up is Task 3's job, not this one's. */
+ *  toolbar's filename slot, the export footnote, the inspector's greyed
+ *  "Properties" state (Task 7), and the arrival animation. */
 function syncContentUI() {
   const loaded = hasContent();
+  const wasLoaded = renderCanvas.classList.contains('is-visible');
 
-  dropzone.hidden = loaded;
-  renderCanvas.classList.toggle('is-visible', loaded);
+  if (loaded) {
+    if (wasLoaded) resettleCanvas();
+    else playArrival();
+  } else {
+    // Not a path state.js's own logic can currently reach (images are only
+    // ever added, never cleared) — kept correct anyway rather than assumed
+    // unreachable, exactly like showDropErrors() below being written to
+    // handle zero errors even though most callers only ever pass one.
+    dropzone.hidden = false;
+    dropzone.classList.remove('is-leaving');
+    renderCanvas.classList.remove('is-visible', 'is-settling');
+    updateEmptyFrame();
+  }
+
   canvasSurface.classList.toggle('has-content', loaded);
+
+  for (const section of propertySections) {
+    if (!section) continue;
+    if (loaded) section.removeAttribute('inert');
+    else section.setAttribute('inert', '');
+  }
 
   if (toolbarFileSlot) {
     const names = [];
@@ -302,6 +443,24 @@ function syncContentUI() {
     }
   }
 }
+
+// The empty frame tracks the sidebar's Templates/Ratios/"+ Custom size"
+// controls even though none of those write through `scheduleRender()`'s
+// normal path in any way this file can hook directly (web/sidebar.js owns
+// that wiring, and Task 7's brief scopes this file to web/index.html,
+// web/style.css and web/main.js only — not a second file to touch for one
+// more call). A `click`/`keydown` listener on `#sidebar` itself, scoped to
+// only matter while there's nothing loaded, is what keeps this synced
+// without reaching into that file: every one of those controls' own
+// handlers already runs (and finishes mutating `state.config`) before the
+// same event finishes bubbling up here.
+sidebarEl?.addEventListener('click', () => {
+  if (!hasContent()) updateEmptyFrame();
+});
+sidebarEl?.addEventListener('keydown', (event) => {
+  if ((event.key === 'Enter' || event.key === ' ') && !hasContent()) updateEmptyFrame();
+});
+window.addEventListener('resize', updateEmptyFrame);
 
 /** A bad drop is an inline message, never a wiped canvas — addFiles() never
  *  touches state.images for files it couldn't decode, so whatever was last
