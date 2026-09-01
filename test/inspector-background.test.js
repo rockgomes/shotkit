@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { HUES, TONES, BG_TYPES, normalise, groundFor } from '../core/index.js';
+import { HUES, normalise, groundFor } from '../core/index.js';
 import { state, bindCanvas, render } from '../web/state.js';
 import { selectGround, activeGroundKey } from '../web/sidebar.js';
 import {
@@ -17,6 +17,8 @@ import {
   setTone,
   activeToneUi,
   computeSampledMeta,
+  sampledMetaFor,
+  createSampledCache,
 } from '../web/inspector-background.js';
 
 const mkCanvas = (w, h) => createCanvas(w, h);
@@ -121,7 +123,11 @@ describe('angle, background type, seed and tone helpers', () => {
     expect(config.bgType).toBeUndefined();
     setBgType(config, 'mesh');
     expect(config.bgType).toBe('mesh');
-    expect(BG_TYPES).toContain('mesh');
+    // Rejects a value that looks plausible but was never a member of
+    // BG_TYPES, and does not clobber the last good value while doing so —
+    // this exercises setBgType's own guard, not BG_TYPES' own contents.
+    setBgType(config, 'gradient');
+    expect(config.bgType).toBe('mesh');
   });
 
   it('clampSeed/setSeed keep the seed inside [SEED_MIN, SEED_MAX]', () => {
@@ -138,11 +144,14 @@ describe('angle, background type, seed and tone helpers', () => {
     expect(activeToneUi(config)).toBe('auto');
     setTone(config, 'mid');
     expect(config.tone).toBe('mid');
-    expect(TONES).toContain('mid');
     expect(activeToneUi(config)).toBe('mid');
     setTone(config, 'auto');
     expect(config.tone).toBeNull(); // NOT the string 'auto' — core/config.js's TONES is only ['light','mid']
     expect(activeToneUi(config)).toBe('auto');
+    // Rejects a value that isn't a real tone at all — falls back to auto,
+    // not to whatever was there a moment ago.
+    setTone(config, 'not-a-tone');
+    expect(config.tone).toBeNull();
   });
 
   it('BREAK IT: if setTone stored the string "auto" instead of null, core would silently ignore it AND keep it forever', () => {
@@ -250,6 +259,144 @@ describe('computeSampledMeta reproduces the real unforced reading, independent o
     const sampled = computeSampledMeta({ web: null, mobile: [] }, mkCanvas);
     const direct = groundFor([{ width: 1, height: 1, data: [128, 128, 128, 255] }], null, null);
     expect(sampled).toEqual(direct);
+  });
+});
+
+// ---------------------------------------------------------------------
+// FIX ROUND 1: the first version of this file ran computeSampledMeta (a
+// real analyse() pass, ~90-300ms) unconditionally on every image load,
+// duplicating work render() (web/state.js) had just finished doing for the
+// SAME image whenever the ground was auto — the common case. sampledMetaFor
+// is the fix: reuse `state.meta` when auto (an already-known, exact
+// answer), only pay for an independent analysis once a hue is actually
+// forced. These tests were absent from the original 18 — the caching
+// wrapper (createSampledCache) was unexported and untested, which is
+// exactly how the redundant analysis slipped through review.
+// ---------------------------------------------------------------------
+
+describe('sampledMetaFor: reuse state.meta when auto, analyse independently only when forced', () => {
+  it('auto + a currentMeta present: returns that EXACT object — proven by a canvas factory that throws if an analysis is attempted', () => {
+    const explodingCanvas = () => {
+      throw new Error('computeSampledMeta ran even though the ground is auto — the whole point of this fix is that it must not');
+    };
+    const currentMeta = { lum: 0.5, hue: 123, chroma: 0.4, ground: ['#111', '#222', '#333'], darkUI: false };
+    const result = sampledMetaFor({ web: null, mobile: [] }, { ground: null }, currentMeta, explodingCanvas);
+    expect(result).toBe(currentMeta); // reference identity: the SAME object, not a recomputed copy
+  });
+
+  it('a forced hue: ignores currentMeta entirely and falls back to an independent computeSampledMeta', async () => {
+    const web = await loadImage('samples/fieldset.png');
+    // Deliberately implausible, so if this leaked through it could not be
+    // mistaken for a coincidentally-correct real analysis.
+    const staleForcedMeta = { lum: 0, hue: 999, chroma: 0, ground: ['#000000', '#000000', '#000000'], darkUI: true };
+    const result = sampledMetaFor({ web, mobile: [] }, { ground: 'rose' }, staleForcedMeta, mkCanvas);
+    expect(result).not.toBe(staleForcedMeta);
+    expect(result).toEqual(computeSampledMeta({ web, mobile: [] }, mkCanvas));
+  });
+
+  it('auto but no currentMeta yet (panel init before any real render has happened): falls back to the independent path', () => {
+    const direct = computeSampledMeta({ web: null, mobile: [] }, mkCanvas);
+    const result = sampledMetaFor({ web: null, mobile: [] }, {}, null, mkCanvas);
+    expect(result).toEqual(direct);
+  });
+
+  it('BREAK IT: trusting currentMeta even when forced would leak the override into "Sampled"', async () => {
+    const web = await loadImage('samples/karaoke-web.png');
+    const trueHue = computeSampledMeta({ web, mobile: [] }, mkCanvas).hue;
+    // Simulate what `state.meta` looks like right after a forced-hue
+    // render — this is a REAL shape (hue overwritten by tail()), not a
+    // fabricated one.
+    const forcedMeta = { lum: 0.097, hue: HUES.rose, chroma: 1, ground: ['#e1d4d8', '#d0bdc4', '#c3a8b1'], darkUI: true };
+    // The bug: `sampledMetaFor` that trusted `currentMeta` unconditionally.
+    const buggyResult = forcedMeta;
+    expect(buggyResult.hue).not.toBeCloseTo(trueHue, 0); // this IS the leak, if it happened
+    // The real function does not do this — it recognises `ground: 'rose'`
+    // as forced and analyses independently instead:
+    const correctResult = sampledMetaFor({ web, mobile: [] }, { ground: 'rose' }, forcedMeta, mkCanvas);
+    expect(correctResult.hue).toBeCloseTo(trueHue, 0);
+  });
+
+  it('in the real render pipeline, reusing state.meta while auto costs nothing extra — proven by object identity', async () => {
+    const web = await loadImage('samples/fieldset.png');
+    web.__id = 'fix-round-1-fieldset';
+    const target = createCanvas(10, 10);
+    bindCanvas(target, mkCanvas);
+    state.config = {};
+    state.images = { web, mobile: [] };
+    state.meta = null;
+    state.surround = 'mid';
+
+    render(); // auto — state.meta IS the unforced reading already
+    const cache = createSampledCache();
+    const sampled = cache.refresh(state.images, state.config, state.meta, mkCanvas);
+    expect(sampled).toBe(state.meta); // the literal object render() produced — zero extra analysis
+  });
+});
+
+describe('createSampledCache: only recomputes when the loaded image SET changes', () => {
+  it('reuses the cached value across calls with the same image identity, even once the ground is forced and currentMeta would otherwise mislead it', () => {
+    const web = { width: 10, height: 10, __id: 'same-image' };
+    const cache = createSampledCache();
+    const autoMeta = { lum: 0.5, hue: 42, chroma: 0.3 };
+    const first = cache.refresh({ web, mobile: [] }, { ground: null }, autoMeta);
+    expect(first).toBe(autoMeta);
+
+    // Same image, but now forced — a currentMeta with the override baked
+    // in. Because the image identity hasn't changed, the cache must NOT
+    // re-derive anything from this (untrustworthy, once forced) meta — it
+    // returns the value it already cached while auto.
+    const forcedMeta = { lum: 0.5, hue: 340, chroma: 0.3 };
+    const second = cache.refresh({ web, mobile: [] }, { ground: 'rose' }, forcedMeta);
+    expect(second).toBe(first);
+    expect(second).not.toBe(forcedMeta);
+  });
+
+  it('recomputes once the image identity actually changes', () => {
+    const webA = { width: 10, height: 10, __id: 'image-a' };
+    const webB = { width: 10, height: 10, __id: 'image-b' };
+    const cache = createSampledCache();
+    const metaA = { lum: 0.5, hue: 1, chroma: 0.1 };
+    const metaB = { lum: 0.6, hue: 2, chroma: 0.2 };
+
+    const first = cache.refresh({ web: webA, mobile: [] }, {}, metaA);
+    const second = cache.refresh({ web: webB, mobile: [] }, {}, metaB);
+
+    expect(first).toBe(metaA);
+    expect(second).toBe(metaB); // a genuinely new image, auto — reuses the NEW currentMeta
+    expect(second).not.toBe(first);
+  });
+
+  it('invalidate() forces the next refresh() to recompute even though the image key is unchanged', () => {
+    const web = { width: 10, height: 10, __id: 'invalidate-me' };
+    const cache = createSampledCache();
+    const metaA = { lum: 0.1, hue: 10, chroma: 0.1 };
+    const metaB = { lum: 0.2, hue: 20, chroma: 0.2 };
+
+    expect(cache.refresh({ web, mobile: [] }, {}, metaA)).toBe(metaA);
+    // Same key, not invalidated: the cache stays on metaA, ignoring metaB.
+    expect(cache.refresh({ web, mobile: [] }, {}, metaB)).toBe(metaA);
+
+    cache.invalidate();
+    // Now it re-evaluates and picks up the freshly-passed metaB.
+    expect(cache.refresh({ web, mobile: [] }, {}, metaB)).toBe(metaB);
+  });
+
+  it('BREAK IT: a cache that recomputed on every call would re-run the expensive path needlessly', async () => {
+    // Forced ground + a real image: computeSampledMeta's sampleOf() step
+    // calls `makeCanvas` for its 800px thumbnail — counting those calls is
+    // a direct measure of how many times the expensive path actually ran.
+    const web = await loadImage('samples/fieldset.png');
+    let calls = 0;
+    const countingCanvas = (w, h) => {
+      calls++;
+      return mkCanvas(w, h);
+    };
+    const cache = createSampledCache();
+    const config = { ground: 'rose' }; // forced — every refresh() would hit computeSampledMeta if uncached
+    const first = cache.refresh({ web, mobile: [] }, config, null, countingCanvas);
+    const second = cache.refresh({ web, mobile: [] }, config, null, countingCanvas);
+    expect(first).toEqual(second);
+    expect(calls).toBe(1); // would be 2 if the cache recomputed on the second, unchanged-key call
   });
 });
 

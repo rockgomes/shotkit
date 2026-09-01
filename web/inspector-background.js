@@ -133,24 +133,31 @@ export function activeToneUi(config) {
 // "Sampled": the TRUE, unforced ground reading for the loaded image(s) —
 // independent of whatever override (if any) is currently active.
 //
-// Why this can't just read `state.meta`: state.meta is composeWithMeta's
-// (core/index.js) own return value, and once a hue is forced, `meta.hue`
-// IS the forced value — core/ground.js's tail() overwrites it before
-// returning (see that function's own comment). There is nowhere else in
-// the running app that remembers what the screenshot's OWN accent hue was
-// once an override has been applied, because nothing needed to until this
-// panel had to show it ANYWAY, permanently, right at the top, regardless
-// of override state. So this module keeps its own reading, computed the
-// exact same way core/index.js's composeWithMeta computes its own
-// UNFORCED meta (same 800px thumbnail step, same groundFor call with
-// forceHue=null/mode=null) — just cached independently, keyed on image
-// identity ONLY (never on config.ground/config.tone), so an override can
-// never touch it.
+// Why this can't just ALWAYS read `state.meta`: state.meta is
+// composeWithMeta's (core/index.js) own return value, and once a hue is
+// forced, `meta.hue` IS the forced value — core/ground.js's tail()
+// overwrites it before returning (see that function's own comment). There
+// is nowhere else in the running app that remembers what the screenshot's
+// OWN accent hue was once an override has been applied.
 //
-// `computeSampledMeta` takes an injectable `makeCanvas` (default: a real
-// DOM canvas) for the exact reason web/state.js's `bindCanvas` does: it
-// lets test/inspector-background.test.js drive this with @napi-rs/canvas
-// under Node, against real decoded images, instead of a browser `document`.
+// But `state.meta` is not USELESS here either — when the ground is auto
+// (no override), it already holds exactly this reading, for free. So this
+// is a two-tier read, not a second independent analysis on principle:
+//   - auto: reuse `state.meta` — zero extra cost (`sampledMetaFor` below).
+//   - forced: fall back to `computeSampledMeta`, a genuine from-scratch
+//     analyse() pass, computed the exact same way core/index.js's
+//     composeWithMeta computes its own UNFORCED meta (same 800px thumbnail
+//     step, same groundFor call with forceHue=null/mode=null).
+// `createSampledCache` (below) wraps whichever path applies in a cache
+// keyed on image identity ONLY (never on config.ground/config.tone), so
+// neither path re-runs on every hue/tone/type/angle tick — only when the
+// loaded image SET actually changes.
+//
+// `computeSampledMeta`/`sampledMetaFor` take an injectable `makeCanvas`
+// (default: a real DOM canvas) for the exact reason web/state.js's
+// `bindCanvas` does: it lets test/inspector-background.test.js drive this
+// with @napi-rs/canvas under Node, against real decoded images, instead of
+// a browser `document`.
 // ---------------------------------------------------------------------
 
 function sampleOf(image, makeCanvas) {
@@ -174,8 +181,12 @@ function defaultMakeCanvas(w, h) {
  *  exactly core/index.js's own no-override path (including its "nothing
  *  loaded yet" neutral-grey fallback, reproduced verbatim below so the
  *  Sampled swatch shows exactly what an empty canvas would, not an
- *  invented placeholder colour). Exported so tests can call it directly
- *  with a real image and a Node canvas factory. */
+ *  invented placeholder colour). This is a REAL analyse() pass
+ *  (core/ground.js) — the same ~90-300ms a cold render pays — so it is the
+ *  expensive fallback, not the common path; see `sampledMetaFor` below for
+ *  the cheap path that avoids calling this at all whenever it can. Exported
+ *  so tests can call it directly with a real image and a Node canvas
+ *  factory. */
 export function computeSampledMeta(images, makeCanvas = defaultMakeCanvas) {
   const list = [images.web, ...(images.mobile || [])].filter(Boolean);
   const samples = list.length
@@ -184,25 +195,79 @@ export function computeSampledMeta(images, makeCanvas = defaultMakeCanvas) {
   return groundFor(samples, null, null);
 }
 
-let sampledMeta = null;
-let sampledKey = null;
+/**
+ * FIX ROUND 1: the first version of this file called `computeSampledMeta`
+ * (a full, independent analyse() pass) unconditionally on every image load
+ * — ~90-300ms of work duplicating what `render()` (web/state.js) had, in
+ * the common case, JUST finished computing moments earlier for the SAME
+ * image, at the moment the user is already waiting on a load.
+ *
+ * The insight: when the ground is auto (the default — `isAutoGround`,
+ * above), `render()`'s own `currentMeta` (`state.meta`) already IS the
+ * unforced reading — core/index.js ran `groundFor` with `forceHue: null`
+ * to produce it, because there is no override to apply. There is nothing
+ * left to compute; the two readings are not merely similar, they are the
+ * SAME arithmetic result. Only once a hue is actually forced does
+ * `currentMeta.hue` disagree with the truth (core/ground.js's `tail()`
+ * overwrites it with the forced value — see this file's "Sampled" header
+ * comment above) — and ONLY THEN is an independent, from-scratch analysis
+ * genuinely necessary.
+ *
+ * `currentMeta` is trusted here ONLY at the one call site that invalidates
+ * this cache (`refreshSampled()`, called by web/main.js right after
+ * `addFiles()` — which calls `render()` SYNCHRONOUSLY, not through
+ * `scheduleRender()`'s rAF debounce, so `state.meta` is guaranteed to
+ * already reflect `state.config` exactly as it stands at that instant; see
+ * web/sidebar.js's `refreshGrounds` header comment for the same guarantee
+ * it already relies on). Every OTHER call in this file (a hue drag, a
+ * preset click, a tone toggle, Sampled's own click) reads the cache via
+ * `createSampledCache().refresh` below WITHOUT invalidating it first, so it
+ * never re-evaluates this trust at a moment `state.meta` could be
+ * momentarily stale — it just returns whatever was cached at the last
+ * image load, cheaply, every time.
+ */
+export function sampledMetaFor(images, config, currentMeta, makeCanvas = defaultMakeCanvas) {
+  if (isAutoGround(config) && currentMeta) return currentMeta;
+  return computeSampledMeta(images, makeCanvas);
+}
 
 function sampledKeyFor(images) {
   const mobileIds = (images.mobile || []).map((m) => m.__id).join(',');
   return `${images.web ? images.web.__id : ''}|${mobileIds}`;
 }
 
-/** Recomputes `sampledMeta` only when the loaded image SET actually
- *  changed — this is a real analyse() pass (core/ground.js), the same
- *  ~87-200ms cost as a cold render, so it must not run on every panel
- *  redraw, only when there is genuinely a new screenshot to read. */
-function refreshSampledCache() {
-  const key = sampledKeyFor(state.images);
-  if (sampledKey !== key || !sampledMeta) {
-    sampledMeta = computeSampledMeta(state.images);
-    sampledKey = key;
-  }
-  return sampledMeta;
+/**
+ * A tiny factory for the "only recompute when the loaded image SET
+ * changed" cache around `sampledMetaFor` — a factory, not one shared
+ * module-level cache, so `test/inspector-background.test.js` can create an
+ * independent instance per test case (no cross-test pollution from shared
+ * mutable state) and so a future second inspector instance wouldn't have
+ * to share one either. `initBackgroundInspector()` below creates exactly
+ * one, for the app's one real inspector panel.
+ */
+export function createSampledCache() {
+  let meta = null;
+  let key = null;
+  return {
+    /** Returns the current sampled meta, recomputing (via `sampledMetaFor`)
+     *  only when `images` identifies a different image set than last time —
+     *  a hue/tone/type/angle change alone never gets here at all. */
+    refresh(images, config, currentMeta, makeCanvas = defaultMakeCanvas) {
+      const k = sampledKeyFor(images);
+      if (key !== k || !meta) {
+        meta = sampledMetaFor(images, config, currentMeta, makeCanvas);
+        key = k;
+      }
+      return meta;
+    },
+    /** Forces the NEXT `refresh()` call to recompute, regardless of
+     *  whether the image key actually changed — used when the caller
+     *  already knows there's a new image (web/main.js's `refreshSampled`
+     *  handshake) rather than waiting for the key comparison to notice. */
+    invalidate() {
+      key = null;
+    },
+  };
 }
 
 // ---------------------------------------------------------------------
@@ -227,6 +292,8 @@ function syncSliderFill(input, valueEl, text) {
 export function initBackgroundInspector() {
   const section = document.getElementById('backgroundSection');
   if (!section) return null;
+
+  const sampledCache = createSampledCache();
 
   section.innerHTML = '<h2 class="section-label">Background</h2>';
 
@@ -399,7 +466,7 @@ export function initBackgroundInspector() {
   function syncGroundUI() {
     const cfg = state.config;
     const auto = isAutoGround(cfg);
-    const meta = refreshSampledCache();
+    const meta = sampledCache.refresh(state.images, cfg, state.meta);
 
     // Sampled swatches: tone-aware (groundFromMeta with the CURRENT tone,
     // so the preview matches what clicking "Sampled" would actually
@@ -529,7 +596,7 @@ export function initBackgroundInspector() {
   // (see web/main.js's `handleFiles`).
   return {
     refreshSampled: () => {
-      sampledKey = null; // force refreshSampledCache() to recompute below
+      sampledCache.invalidate(); // force the next refresh() below to recompute
       syncGroundUI();
     },
   };

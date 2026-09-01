@@ -10,6 +10,24 @@
   box-sizing: border-box;
 }
 
+/* `[hidden]` means hidden, full stop — no exceptions, no per-element
+   one-offs. Without this, any author rule that gives an element `display`
+   of its own (`.dropzone { display: flex }`, `.inline-control-row {
+   display: flex }`, a future flex/grid row) ties the UA stylesheet's own
+   `[hidden] { display: none }` on specificity (one class, one attribute
+   selector), and an author rule wins a tie regardless of source order — so
+   `el.hidden = true` silently does nothing and the element stays visible.
+   This hit `#dropzone` (Task 2) and `#backgroundSeedRow` (Task 5)
+   independently, each fixed with its own id+attribute override; a Node
+   test suite structurally can't see a CSS specificity tie, so both cost a
+   real browser session to catch. One global, `!important` rule closes the
+   whole bug CLASS instead of the two instances found so far — every future
+   `[hidden]` toggle in this file is covered for free, with nothing to
+   remember. */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   height: 100%;
@@ -782,16 +800,6 @@ input {
   text-align: center;
 }
 
-/* `.dropzone { display: flex }` above and the UA stylesheet's `[hidden] {
-   display: none }` have equal specificity (one class, one attribute
-   selector) - without this, the author rule wins on source order alone and
-   `dropzone.hidden = true` (set once a shot loads - see main.js) would do
-   nothing visible. The id+attribute selector here outranks the plain class
-   rule regardless of order, so `hidden` always wins. */
-#dropzone[hidden] {
-  display: none;
-}
-
 .dropzone:hover {
   border-color: var(--border-strong);
   color: var(--text-muted);
@@ -821,11 +829,7 @@ input {
    underneath happens to be showing (the default empty-state dark, or any of
    the three surround steps). A translucent banner layered over the canvas
    surface measured as low as 2.2:1 against the mid/light surrounds - well
-   under the 4.5:1 AA text threshold - which is what moved it here instead.
-   No `display` set here on purpose: a <p> is block by default, so the
-   `[hidden]` UA rule (`display: none`) is never fighting an equal-specificity
-   author rule for it, the way `.dropzone`'s did (see the #dropzone[hidden]
-   comment above). */
+   under the 4.5:1 AA text threshold - which is what moved it here instead. */
 .drop-error {
   flex: none;
   margin: 0;
@@ -871,17 +875,6 @@ input {
   align-items: center;
   font-size: 11.5px;
   color: var(--text-muted);
-}
-
-/* Same fix as #dropzone[hidden] above (see that rule's comment): the seed
-   stepper row (web/inspector-background.js) is only shown for `bgType:
-   'mesh'`, toggled via the `hidden` property. `.inline-control-row`'s own
-   `display: flex` ties the UA `[hidden] { display: none }` rule on
-   specificity, and an author rule wins a tie regardless of source order -
-   without this, `seedRow.hidden = true` would silently do nothing and the
-   Seed control would stay visible for Linear/Solid too. */
-#backgroundSeedRow[hidden] {
-  display: none;
 }
 
 /* -------------------------------------------------------------------------
@@ -1162,73 +1155,13 @@ input {
   outline-offset: 2px;
 }
 
-/* -------------------------------------------------------------------------
-   Background swatches (built on the same selectable-cell idea as chips)
-   ---------------------------------------------------------------------- */
-
-.swatch-row {
-  display: flex;
-  gap: 7px;
-}
-
-.swatch {
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-sm);
-  border: none;
-  cursor: pointer;
-  flex: none;
-}
-
-.swatch--1 {
-  background: linear-gradient(135deg, var(--color-blue), var(--color-pink));
-}
-
-.swatch--2 {
-  background: linear-gradient(135deg, var(--color-orange), var(--color-magenta));
-}
-
-.swatch--3 {
-  background: linear-gradient(135deg, var(--color-cyan), var(--color-indigo));
-}
-
-.swatch--4 {
-  background: linear-gradient(135deg, var(--color-green), var(--color-teal));
-}
-
-.swatch--5 {
-  background: linear-gradient(135deg, var(--color-slate), var(--color-charcoal));
-}
-
-.swatch.is-selected {
-  outline: 2px solid var(--text-primary);
-  outline-offset: 2px;
-}
-
-.swatch--add {
-  border: 1px dashed var(--border-dashed);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-fainter);
-  font-size: 12px;
-  background: none;
-}
-
-.swatch--add:hover {
-  color: var(--text-muted);
-  border-color: var(--text-fainter);
-}
-
-.swatch:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.swatch:focus-visible {
-  outline: 2px solid var(--text-primary);
-  outline-offset: 2px;
-}
+/* `.swatch-row`/`.swatch`/`.swatch--*` (the design handoff's gradient-colour
+   picker, "built on the same selectable-cell idea as chips") lived here —
+   removed with the markup that used it (Task 5 replaced the whole
+   Background section, see web/inspector-background.js and
+   web/index.html's #backgroundSection); nothing in index.html references
+   these classes any more (confirmed by grep before deleting), so it was
+   dead weight rather than a rule guarding real markup. */
 
 /* -------------------------------------------------------------------------
    Select control (Export format)
