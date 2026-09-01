@@ -305,9 +305,20 @@ export function roundRect(ctx, x, y, w, h, r) {
  * which is linear in alpha and matches CSS at these exact values - a
  * harness limitation, not something to correct by scaling alphas up. See
  * paintWeb below for the measurement.
+ *
+ * `scale` (Task 6b, default 1) is a MULTIPLIER applied ON TOP of `a1`/`a2`
+ * below - it is not, and must never become, a way to retune them. At scale
+ * 1 the product is exactly `a1`/`a2` unchanged, so every existing caller
+ * that omits it renders byte-identically to before this parameter existed.
+ * `core/config.js`'s `shadowScale` is the only source of a non-1 value in
+ * this codebase (bounded by `SHADOW_SCALE_RANGE` in presets.js, itself
+ * outside [0,1]), so the clamp below is a second, defensive line - the
+ * product actually painted can never exceed a real alpha regardless of what
+ * a caller passes.
  */
-export function paintShadow(ctx, box, spreadY, blur, a1, a2) {
-  for (const [dy, b, a] of [[spreadY, blur, a1], [spreadY * 0.28, blur * 0.3, a2]]) {
+export function paintShadow(ctx, box, spreadY, blur, a1, a2, scale = 1) {
+  for (const [dy, b, baseAlpha] of [[spreadY, blur, a1], [spreadY * 0.28, blur * 0.3, a2]]) {
+    const a = Math.min(1, Math.max(0, baseAlpha * scale));
     ctx.save();
     ctx.shadowColor = `rgba(${SHADOW_RGB},${a})`;
     ctx.shadowBlur = b;
@@ -351,7 +362,9 @@ export function paintWeb(ctx, c, box, image) {
   // retune these - see paintShadow's doc comment above (a prior pass did,
   // and had to be reverted: it fixed napi-rs's faint test render while
   // shipping a far-too-heavy shadow to the browser, the actual product).
-  paintShadow(ctx, box, c.h * 0.040, c.h * 0.105, 0.17, 0.07);
+  // `c.shadowScale` (Task 6b, default 1) multiplies ON TOP of these -
+  // the alphas themselves stay exactly as written here.
+  paintShadow(ctx, box, c.h * 0.040, c.h * 0.105, 0.17, 0.07, c.shadowScale);
 
   ctx.save();
   roundRect(ctx, box.x, box.y, box.w, box.h, box.radius);
@@ -519,8 +532,9 @@ function paintWebChrome(ctx, c, box, image) {
 
   // Same alphas/spread maths as the unframed screen's shadow above - only
   // the shadowed box changes (the outer frame, not the bare screenshot).
-  // Do NOT retune: see the doc comment above paintShadow.
-  paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07);
+  // Do NOT retune: see the doc comment above paintShadow. `c.shadowScale`
+  // multiplies on top, same as every other paintShadow call site.
+  paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07, c.shadowScale);
 
   ctx.save();
   roundRect(ctx, outer.x, outer.y, outer.w, outer.h, outer.radius);
@@ -604,7 +618,10 @@ function paintPhoneChrome(ctx, c, box, image) {
   const chrome = box.chrome;
   const outer = { x: box.x, y: box.y, w: box.w, h: box.h, radius: chrome.radius };
 
-  paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07);
+  // Same alphas as paintWebChrome's own outer shadow (see this function's
+  // doc comment above); `c.shadowScale` multiplies on top, same as every
+  // other paintShadow call site.
+  paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07, c.shadowScale);
 
   paintDeviceBody(ctx, outer);
 
@@ -633,10 +650,11 @@ function paintPhoneChrome(ctx, c, box, image) {
  * compensate for @napi-rs/canvas rendering shadows faintly, and that tuning
  * had to be reverted because it made the browser (the only surface that
  * ships) render up to 65 RGB levels too dark. Do not repeat that mistake
- * here.
+ * here. `c.shadowScale` (Task 6b) multiplies on top of 0.22/0.10 - it does
+ * not change them.
  */
 export function paintPhone(ctx, c, box, image) {
-  paintShadow(ctx, box, box.h * 0.055, box.h * 0.14, 0.22, 0.10);
+  paintShadow(ctx, box, box.h * 0.055, box.h * 0.14, 0.22, 0.10, c.shadowScale);
 
   // body - shared with the phone frame's paintPhoneChrome via
   // paintDeviceBody, defined above. Same fill, same clip, same order as

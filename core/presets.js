@@ -26,7 +26,21 @@ export const DEFAULTS = {
   tone: null,          // null | 'light' | 'mid'
   bgType: 'linear',    // 'linear' | 'solid' | 'mesh'
   seed: 1,
+  shadowScale: 1,      // 1 = frame.html's own alphas, unchanged - see
+                        // SHADOW_SCALE_RANGE below and core/render.js's
+                        // paintShadow doc comment.
 };
+
+// Task 6b: `shadowScale` is a MULTIPLIER applied on top of paintShadow's
+// verified alphas (0.17/0.07 web+browser, 0.22/0.10 phone) - it is not, and
+// must never become, a replacement for them. 1 (DEFAULTS.shadowScale above)
+// reproduces frame.html's own values exactly; the range is bounded well
+// past 1 in both directions purely so a UI slider has somewhere to go, not
+// because either bound is itself a verified value. Exported here (rather
+// than left as a magic 0/2 in core/config.js and web/inspector-frame.js) so
+// both share the exact same bounds instead of two literals that could drift
+// apart.
+export const SHADOW_SCALE_RANGE = [0, 2];
 
 // Screen corner radius, as a fraction of canvas WIDTH.
 export const RADIUS_RATIO = 0.0133;

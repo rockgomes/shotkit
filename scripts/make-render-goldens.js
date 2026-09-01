@@ -54,6 +54,14 @@ const CASES = [
   // against frozen renders" comment for why the other 9 stay byte-identical
   // here: none of them set `url`, and DEFAULTS.url is null).
   ['browser-url',   { ratio: '3:2', frameKind: 'browser', chromeTheme: 'dark', url: 'app.acme.dev' }, { web: 'samples/fieldset.png', mobile: [] }],
+  // Task 6b: shadowScale at a clearly non-default value (1.6, well clear of
+  // the default 1 and the [0,2] range's midpoint) - exercises paintShadow's
+  // new scale parameter specifically. Without this case a stubbed-out scale
+  // multiplier (or one that silently no-ops) would leave every golden above
+  // untouched, since none of them sets shadowScale away from its default 1 -
+  // see test/compose.test.js's matching "pixel-diff against frozen renders"
+  // comment for the injection proof that this golden actually discriminates.
+  ['shadow-heavy',  { ratio: '3:2', shadowScale: 1.6 }, { web: 'samples/fieldset.png', mobile: [] }],
 ];
 
 for (const [name, cfg, files] of CASES) {

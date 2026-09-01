@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { normalise } from '../core/config.js';
+import { SHADOW_SCALE_RANGE } from '../core/presets.js';
 
 describe('normalise', () => {
   it('defaults to 3:2 at 1800x1200', () => {
@@ -209,5 +210,33 @@ describe('url', () => {
 
   it('coerces a non-string to a string, same as caption does', () => {
     expect(normalise({ url: 404 }).url).toBe('404');
+  });
+});
+
+// Task 6b: shadowScale is a MULTIPLIER over paintShadow's verified alphas
+// (core/render.js), never a replacement for them - see that file's doc
+// comment and presets.js's SHADOW_SCALE_RANGE. These tests only cover
+// normalise()'s own resolve/clamp job; the actual darkening effect is
+// covered directly in test/render-screen.test.js and via the golden in
+// test/compose.test.js.
+describe('shadowScale', () => {
+  it('defaults to 1 - frame.html\'s own alphas, unchanged', () => {
+    expect(normalise({}).shadowScale).toBe(1);
+  });
+
+  it('accepts a value inside the range verbatim', () => {
+    expect(normalise({ shadowScale: 1.6 }).shadowScale).toBeCloseTo(1.6, 6);
+    expect(normalise({ shadowScale: 0 }).shadowScale).toBe(0);
+    expect(normalise({ shadowScale: SHADOW_SCALE_RANGE[1] }).shadowScale).toBe(SHADOW_SCALE_RANGE[1]);
+  });
+
+  it('clamps to [SHADOW_SCALE_RANGE[0], SHADOW_SCALE_RANGE[1]] - never negative, never runaway', () => {
+    expect(normalise({ shadowScale: -5 }).shadowScale).toBe(SHADOW_SCALE_RANGE[0]);
+    expect(normalise({ shadowScale: 999 }).shadowScale).toBe(SHADOW_SCALE_RANGE[1]);
+  });
+
+  it('falls back to the default 1 on nonsense, same coercion every other numeric field gets', () => {
+    expect(normalise({ shadowScale: 'heavy' }).shadowScale).toBe(1);
+    expect(normalise({ shadowScale: undefined }).shadowScale).toBe(1);
   });
 });

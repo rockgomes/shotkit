@@ -103,3 +103,52 @@ describe('paintWeb', () => {
     expect(ga).toEqual(gb);
   });
 });
+
+// Task 6b: shadowScale is a MULTIPLIER over the verified 0.17/0.07 alphas
+// above, never a replacement for them - this measures the same point the
+// "darkens...by a bounded amount" test above does, at scale values away
+// from the default 1, to prove the multiplier actually reaches paintShadow
+// (core/render.js) rather than being threaded to a config field nothing
+// reads.
+describe('paintWeb - shadowScale (Task 6b)', () => {
+  function darkeningAt(c, lay, ctx) {
+    const gctx = groundOnly(c);
+    const y = Math.min(c.h - 2, lay.web.y + lay.web.h + 12);
+    const x = lay.web.x + lay.web.w / 2;
+    const sum = (a) => a.reduce((p, q) => p + q, 0);
+    return sum(px(gctx, x, y)) - sum(px(ctx, x, y));
+  }
+
+  it('scale 0 removes the shadow entirely - no darkening at all', async () => {
+    const { c, lay, ctx } = await scene({ shadowScale: 0 });
+    expect(darkeningAt(c, lay, ctx)).toBe(0);
+  });
+
+  it('scale 2 darkens measurably more than the default (scale 1), never less', async () => {
+    // Measured directly (same harness as the bounded-amount test above):
+    // scale 1 darkens by ~16 here, scale 2 by ~54. Quantization keeps this
+    // from being an exact 2x, so the assertion checks direction and a
+    // generous floor rather than a precise ratio - the golden-based guard
+    // in test/compose.test.js is what pins the exact pixels.
+    const atDefault = await scene({ shadowScale: 1 });
+    const atDouble = await scene({ shadowScale: 2 });
+    const defaultDarkening = darkeningAt(atDefault.c, atDefault.lay, atDefault.ctx);
+    const doubleDarkening = darkeningAt(atDouble.c, atDouble.lay, atDouble.ctx);
+
+    expect(defaultDarkening).toBeGreaterThan(8);
+    expect(defaultDarkening).toBeLessThan(30); // same bound as the test above
+    expect(doubleDarkening).toBeGreaterThan(defaultDarkening);
+    expect(doubleDarkening).toBeGreaterThan(40);
+  });
+
+  it('an out-of-range scale is clamped by normalise(), never reaching paintShadow unclamped', async () => {
+    // core/config.js clamps to SHADOW_SCALE_RANGE ([0, 2]) before paintShadow
+    // ever sees it - a caller asking for 999 gets exactly the scale-2
+    // darkening above, not something far more extreme.
+    const atDouble = await scene({ shadowScale: 2 });
+    const atRunaway = await scene({ shadowScale: 999 });
+    const doubleDarkening = darkeningAt(atDouble.c, atDouble.lay, atDouble.ctx);
+    const runawayDarkening = darkeningAt(atRunaway.c, atRunaway.lay, atRunaway.ctx);
+    expect(runawayDarkening).toBe(doubleDarkening);
+  });
+});

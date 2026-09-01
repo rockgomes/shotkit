@@ -24,12 +24,17 @@
 // touched a control.
 //
 // PERFORMANCE: none of frameKind/chromeTheme/url/fit/pad/radius/grain/
-// caption is part of web/state.js's `groundKeyFor` (images + config.ground +
-// config.tone only) — every control in this file hits the warm ~3ms colour
-// cache, never groundFor's ~90-200ms analysis. See
-// test/inspector-frame.test.js's "throwing canvas" guard for the proof, and
-// task-6-report.md for measured timings.
-import { FRAME_KINDS, CHROME_THEMES, FITS, DEFAULTS, normalise } from '../core/index.js';
+// caption/shadowScale is part of web/state.js's `groundKeyFor` (images +
+// config.ground + config.tone only) — every control in this file hits the
+// warm ~3ms colour cache, never groundFor's ~90-200ms analysis. shadowScale
+// (Task 6b) has nothing to do with the sampled ground even in principle — a
+// shadow multiplier over a fixed rgba colour — so it belongs in this list
+// for the same reason grain does. See test/inspector-frame.test.js's
+// "throwing canvas" guard for the proof, and task-6-report.md /
+// task-6b-report.md for measured timings.
+import {
+  FRAME_KINDS, CHROME_THEMES, FITS, DEFAULTS, normalise, SHADOW_SCALE_RANGE,
+} from '../core/index.js';
 import { state, scheduleRender } from './state.js';
 
 // ---------------------------------------------------------------------
@@ -140,6 +145,26 @@ export function setGrainPercent(config, pct) {
   const n = Number(pct);
   if (!Number.isFinite(n)) return;
   config.grain = Math.min(100, Math.max(0, n)) / 100;
+}
+
+// Shadow strength (Task 6b) — the one authorised core/ field this task adds.
+// `config.shadowScale` is a MULTIPLIER over paintShadow's verified alphas
+// (core/render.js), 1 == frame.html's own values unchanged; SHADOW_SCALE_RANGE
+// (core/presets.js, [0, 2]) is the bound this slider works to, imported
+// rather than hardcoded here so the UI and normalise()'s own clamp can never
+// drift apart. The percent round-trip below is the exact same *100/*0.01
+// pattern grain and padding already use, just over a wider [0,200] range —
+// 100% reads back as the untouched default.
+export function activeShadowPercent(config) {
+  const scale = Number.isFinite(config.shadowScale) ? config.shadowScale : DEFAULTS.shadowScale;
+  return Math.round(scale * 100);
+}
+
+export function setShadowPercent(config, pct) {
+  const n = Number(pct);
+  if (!Number.isFinite(n)) return;
+  const [min, max] = SHADOW_SCALE_RANGE;
+  config.shadowScale = Math.min(max * 100, Math.max(min * 100, n)) / 100;
 }
 
 // Corner radius is the one field here that ISN'T stored as a fraction —
@@ -331,10 +356,13 @@ export function initFrameInspector() {
 const FIT_LABELS = { contain: 'Contain', cover: 'Cover' };
 
 /**
- * The Finish section: fit, padding, corner radius, grain, caption — the
- * task brief's own order. None of these five touches `config.ground` or
- * `config.tone`, so none of them busts web/state.js's ground-meta cache;
- * see this file's header comment and test/inspector-frame.test.js.
+ * The Finish section: fit, padding, corner radius, grain, shadow, caption —
+ * the task brief's own order for the first four and last one, with Shadow
+ * (Task 6b) slotted in right after Grain: both are "material" finishing
+ * touches over the composed shot rather than layout, and neither touches
+ * `config.ground` or `config.tone`, so none of these six busts
+ * web/state.js's ground-meta cache; see this file's header comment and
+ * test/inspector-frame.test.js.
  */
 export function initFinishInspector() {
   const section = document.getElementById('finishSection');
@@ -409,6 +437,25 @@ export function initFinishInspector() {
   const grainValueEl = grainRow.querySelector('.slider-value');
   section.appendChild(grainRow);
 
+  // --- shadow (Task 6b) --------------------------------------------------
+  // A STRENGTH, not a colour — see setShadowPercent's header comment above
+  // for why this multiplies core/render.js's already-verified shadow
+  // alphas instead of picking a new one. 0–200%, default 100% (== exactly
+  // frame.html's own values, unchanged).
+  const shadowRow = document.createElement('div');
+  shadowRow.className = 'slider-row';
+  shadowRow.innerHTML = '<div class="slider-label"><span>Shadow</span><span class="mono slider-value"></span></div>';
+  const shadowInput = document.createElement('input');
+  shadowInput.type = 'range';
+  shadowInput.className = 'slider';
+  shadowInput.min = '0';
+  shadowInput.max = String(SHADOW_SCALE_RANGE[1] * 100);
+  shadowInput.step = '1';
+  shadowInput.setAttribute('aria-label', 'Shadow strength, as a percentage of the default');
+  shadowRow.appendChild(shadowInput);
+  const shadowValueEl = shadowRow.querySelector('.slider-value');
+  section.appendChild(shadowRow);
+
   // --- caption ----------------------------------------------------------
   const captionRow = document.createElement('div');
   captionRow.className = 'slider-row';
@@ -450,6 +497,12 @@ export function initFinishInspector() {
     syncSliderFill(grainInput, grainValueEl, `${pct}%`);
   }
 
+  function syncShadowUI() {
+    const pct = activeShadowPercent(state.config);
+    shadowInput.value = String(pct);
+    syncSliderFill(shadowInput, shadowValueEl, `${pct}%`);
+  }
+
   function syncCaptionUI() {
     if (document.activeElement !== captionInput) captionInput.value = activeCaption(state.config);
   }
@@ -480,6 +533,12 @@ export function initFinishInspector() {
     scheduleRender();
   });
 
+  shadowInput.addEventListener('input', () => {
+    setShadowPercent(state.config, shadowInput.value);
+    syncShadowUI();
+    scheduleRender();
+  });
+
   captionInput.addEventListener('input', () => {
     setCaption(state.config, captionInput.value);
     scheduleRender();
@@ -489,7 +548,8 @@ export function initFinishInspector() {
   syncPadUI();
   syncRadiusUI();
   syncGrainUI();
+  syncShadowUI();
   syncCaptionUI();
 
-  return { syncFitUI, syncPadUI, syncRadiusUI, syncGrainUI, syncCaptionUI };
+  return { syncFitUI, syncPadUI, syncRadiusUI, syncGrainUI, syncShadowUI, syncCaptionUI };
 }

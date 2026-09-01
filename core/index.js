@@ -99,5 +99,5 @@ export function compose(target, rawConfig, images, makeCanvas) {
 export { normalise, layout, groundFor, groundFromMeta };
 export {
   RATIOS, HUES, DEFAULTS, TEMPLATES, FRAME_KINDS, SCALES, DEFAULT_ANGLE,
-  LAYOUTS, FITS, TONES, BG_TYPES, CHROME_THEMES,
+  LAYOUTS, FITS, TONES, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
 } from './presets.js';

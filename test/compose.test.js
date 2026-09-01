@@ -283,6 +283,13 @@ describe('pixel-diff against frozen renders', () => {
     // whether or not this line exists. See scripts/make-render-goldens.js's
     // matching comment for the regeneration proof.
     ['browser-url',   { ratio: '3:2', frameKind: 'browser', chromeTheme: 'dark', url: 'app.acme.dev' }, { web: 'samples/fieldset.png' }],
+    // Task 6b: shadowScale at a clearly non-default value. Every case above
+    // omits shadowScale (default 1, byte-identical to before this field
+    // existed - proven by every case above staying green), so this is the
+    // only golden in the suite that would catch paintShadow's new scale
+    // parameter being a no-op or silently clamped away. See the "actually
+    // discriminates" check right after this loop for the injection proof.
+    ['shadow-heavy',  { ratio: '3:2', shadowScale: 1.6 }, { web: 'samples/fieldset.png' }],
   ];
 
   for (const [name, cfg, files] of CASES) {
@@ -335,6 +342,31 @@ describe('pixel-diff against frozen renders', () => {
     const b = rc.getContext('2d').getImageData(0, 0, ref.width, ref.height);
     const diff = pixelmatch(a.data, b.data, null, ref.width, ref.height, { threshold: 0 });
     expect(diff / (ref.width * ref.height)).toBeGreaterThan(1e-3);
+  });
+
+  // Task 6b, the same "break it and watch it go red" discipline: the loop
+  // above only proves shadow-heavy.png matches ITSELF at shadowScale 1.6.
+  // This proves the golden actually GUARDS that value - rendering the exact
+  // same config at the DEFAULT scale (1) instead must fail the identical
+  // byte comparison, and by a wide margin. This is precisely the quantity
+  // the task brief warns about: a prior golden in this project sat at a
+  // threshold so loose it passed a doubled shadow alpha undetected (see
+  // test/render-screen.test.js's matching comment) - shadowScale is the
+  // adjustable version of that exact same quantity, so this suite proves,
+  // rather than assumes, that this golden would have caught it.
+  // Measured: 378,076 of 2,160,000 pixels differ (ratio ~0.175, ~175x the
+  // <1e-5 pass threshold every case in the loop above uses) - recorded here
+  // so a future loosening of the bound below can't silently pass.
+  it('the shadow-heavy golden actually discriminates on shadowScale, not just presence', async () => {
+    const { target } = await run({ ratio: '3:2', shadowScale: 1 }, { web: 'samples/fieldset.png' });
+    const ref = await loadImage('test/golden/render/shadow-heavy.png');
+    const rc = createCanvas(ref.width, ref.height);
+    rc.getContext('2d').drawImage(ref, 0, 0);
+
+    const a = target.getContext('2d').getImageData(0, 0, target.width, target.height);
+    const b = rc.getContext('2d').getImageData(0, 0, ref.width, ref.height);
+    const diff = pixelmatch(a.data, b.data, null, ref.width, ref.height, { threshold: 0 });
+    expect(diff / (ref.width * ref.height)).toBeGreaterThan(0.05);
   });
 });
 

@@ -1,6 +1,6 @@
 import {
   RATIOS, HUES, DEFAULTS, RADIUS_RATIO, TEMPLATES, DEFAULT_ANGLE, SCALES, FRAME_KINDS,
-  LAYOUTS, FITS, TONES, BG_TYPES, CHROME_THEMES,
+  LAYOUTS, FITS, TONES, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
 } from './presets.js';
 
 function num(v, fallback) {
@@ -72,5 +72,15 @@ export function normalise(input = {}) {
     seed: Math.round(num(input.seed, DEFAULTS.seed)),
     frameKind: FRAME_KINDS.includes(input.frameKind) ? input.frameKind : 'none',
     chromeTheme: CHROME_THEMES.includes(input.chromeTheme) ? input.chromeTheme : 'dark',
+    // Task 6b: a MULTIPLIER over paintShadow's verified alphas, never a
+    // replacement for them - see SHADOW_SCALE_RANGE's comment in presets.js
+    // and the doc comment on paintShadow itself (core/render.js). Clamped
+    // here (the same defensive clamp core/render.js also applies to the
+    // final alpha product) so an out-of-range value from a stale jobs.json
+    // or a runaway slider can never reach the canvas unclamped.
+    shadowScale: Math.min(
+      SHADOW_SCALE_RANGE[1],
+      Math.max(SHADOW_SCALE_RANGE[0], num(input.shadowScale, DEFAULTS.shadowScale)),
+    ),
   };
 }

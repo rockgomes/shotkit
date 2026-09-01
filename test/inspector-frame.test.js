@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { DEFAULTS, normalise } from '../core/index.js';
+import { DEFAULTS, normalise, SHADOW_SCALE_RANGE } from '../core/index.js';
 import { state, bindCanvas, render } from '../web/state.js';
 import {
   activeFrameKind,
@@ -17,6 +17,8 @@ import {
   PAD_PERCENT_MAX,
   activeGrainPercent,
   setGrainPercent,
+  activeShadowPercent,
+  setShadowPercent,
   activeRadiusPercent,
   setRadiusPercent,
   RADIUS_PERCENT_MAX,
@@ -153,6 +155,41 @@ describe('grain percent <-> config.grain fraction', () => {
   });
 });
 
+// Task 6b: shadowScale is a MULTIPLIER over paintShadow's verified alphas
+// (core/render.js) - this file only covers the percent<->fraction round
+// trip and its clamp; the actual darkening effect is covered directly in
+// test/render-screen.test.js and via the golden in test/compose.test.js.
+describe('shadow percent <-> config.shadowScale fraction (Task 6b)', () => {
+  it('an unset config reads back 100% - the shipped default, unchanged', () => {
+    expect(activeShadowPercent({})).toBe(100);
+    expect(activeShadowPercent({})).toBe(DEFAULTS.shadowScale * 100);
+  });
+
+  it('setShadowPercent writes a plain fraction normalise() reads directly', () => {
+    const config = {};
+    setShadowPercent(config, 160);
+    expect(config.shadowScale).toBeCloseTo(1.6, 6);
+    expect(activeShadowPercent(config)).toBe(160);
+    expect(normalise(config).shadowScale).toBeCloseTo(1.6, 6);
+  });
+
+  it('clamps to [0, 200]% - matching SHADOW_SCALE_RANGE, never negative or runaway', () => {
+    const config = {};
+    setShadowPercent(config, -10);
+    expect(config.shadowScale).toBe(SHADOW_SCALE_RANGE[0]);
+    setShadowPercent(config, 999);
+    expect(config.shadowScale).toBe(SHADOW_SCALE_RANGE[1]);
+  });
+
+  it('0% removes the shadow entirely (shadowScale 0), 200% is the range ceiling', () => {
+    const config = {};
+    setShadowPercent(config, 0);
+    expect(config.shadowScale).toBe(0);
+    setShadowPercent(config, 200);
+    expect(config.shadowScale).toBe(2);
+  });
+});
+
 // Corner radius is the one field here that ISN'T a stored fraction (see
 // web/inspector-frame.js's header comment on RADIUS_PERCENT_MAX) - these
 // tests go through normalise() (real, unmodified) on both sides of the
@@ -194,9 +231,9 @@ describe('caption', () => {
 
 // ---------------------------------------------------------------------
 // PERFORMANCE: none of the fields this file writes (frameKind, chromeTheme,
-// url, fit, pad, radius, grain, caption) is part of web/state.js's
-// `groundKeyFor` - see that file's own comment for the exact field list.
-// This drives the REAL web/state.js render(), the same harness
+// url, fit, pad, radius, grain, shadowScale, caption) is part of
+// web/state.js's `groundKeyFor` - see that file's own comment for the exact
+// field list. This drives the REAL web/state.js render(), the same harness
 // test/web-export.test.js already established, and proves it with a
 // throwing canvas factory rather than a timing number: if any Frame/Finish
 // control ever needed a genuinely new scratch canvas (a fresh sample
@@ -212,7 +249,7 @@ beforeEach(() => {
 });
 
 describe('Task 6: Frame/Finish fields hit the warm colour cache, never groundFor', () => {
-  it('a full sweep of frameKind/chromeTheme/url/fit/pad/radius/grain/caption allocates zero new scratch canvases', async () => {
+  it('a full sweep of frameKind/chromeTheme/url/fit/pad/radius/grain/shadow/caption allocates zero new scratch canvases', async () => {
     const web = await loadImage('samples/fieldset.png');
     let armed = false;
     const guardedFactory = (w, h) => {
@@ -241,6 +278,7 @@ describe('Task 6: Frame/Finish fields hit the warm colour cache, never groundFor
     setPadPercent(state.config, 10); render();
     setRadiusPercent(state.config, 3); render();
     setGrainPercent(state.config, 80); render();
+    setShadowPercent(state.config, 160); render();
     setCaption(state.config, 'Fieldset — 2026'); render();
 
     // Structural, not just "didn't throw": the ground key genuinely never
@@ -263,6 +301,60 @@ describe('Task 6: Frame/Finish fields hit the warm colour cache, never groundFor
     const before = target.toBuffer('image/png');
 
     setFrameKind(state.config, 'browser');
+    render();
+    const after = target.toBuffer('image/png');
+
+    expect(Buffer.compare(before, after)).not.toBe(0);
+  });
+
+  // Task 6b's own explicit ask: prove, in isolation, that dragging the
+  // Shadow slider alone never busts the colour cache. The sweep above
+  // already includes setShadowPercent among eight other controls; this
+  // isolates it so a future change that only breaks shadowScale can't hide
+  // behind the other seven passing.
+  it('a shadow-only drag never constructs a new scratch canvas (throwing-canvas proof)', async () => {
+    const web = await loadImage('samples/fieldset.png');
+    let armed = false;
+    const guardedFactory = (w, h) => {
+      if (armed) {
+        throw new Error(
+          `setShadowPercent asked for a NEW ${w}x${h} scratch canvas - shadow has ` +
+          'nothing to do with the sampled ground, so it should have hit the warm ' +
+          "colour cache instead (see web/state.js's groundKeyFor)",
+        );
+      }
+      return mkCanvas(w, h);
+    };
+
+    const target = createCanvas(10, 10);
+    bindCanvas(target, guardedFactory);
+    state.images.web = web;
+    render(); // cold: builds the sample thumbnail and the grain tile once
+
+    const keyAfterFirst = state._groundKey;
+    expect(keyAfterFirst).toBeTruthy();
+    armed = true; // any further canvas allocation now throws
+
+    setShadowPercent(state.config, 0); render();
+    setShadowPercent(state.config, 160); render();
+    setShadowPercent(state.config, 200); render();
+
+    expect(state._groundKey).toBe(keyAfterFirst);
+  });
+
+  // Break-it check, matching the frameKind one above: proves the warm cache
+  // in the test just above isn't hiding a shadowScale that render() stopped
+  // reading - the pixels actually move when shadowScale changes even though
+  // groundFor never reruns.
+  it('a shadow-only drag still actually changes the rendered pixels', async () => {
+    const web = await loadImage('samples/fieldset.png');
+    const target = createCanvas(10, 10);
+    bindCanvas(target, mkCanvas);
+    state.images.web = web;
+    render();
+    const before = target.toBuffer('image/png');
+
+    setShadowPercent(state.config, 200);
     render();
     const after = target.toBuffer('image/png');
 
