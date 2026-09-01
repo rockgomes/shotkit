@@ -208,13 +208,28 @@
       </aside>
 
       <main id="stage" aria-label="Canvas">
-        <div id="canvas" class="canvas-surface">
+        <div class="canvas-toolbar">
+          <span class="canvas-toolbar-label mono">Surround</span>
+          <div class="segmented segmented--mini surround-control" role="group" aria-label="Canvas surround">
+            <button type="button" class="segmented-cell surround-cell" data-surround="dark" aria-pressed="false">Dark</button>
+            <button type="button" class="segmented-cell surround-cell is-active" data-surround="mid" aria-pressed="true">Mid</button>
+            <button type="button" class="segmented-cell surround-cell" data-surround="light" aria-pressed="false">Light</button>
+          </div>
+        </div>
+
+        <p id="dropError" class="drop-error" role="alert" hidden></p>
+
+        <div id="canvas" class="canvas-surface" data-surround="mid">
+          <canvas id="renderCanvas" class="render-canvas" aria-label="Shot preview"></canvas>
+
           <div id="dropzone" class="dropzone" role="button" tabindex="0" aria-label="Drop a screenshot here, or press Enter to browse for a file">
             <svg class="icon icon-lg" aria-hidden="true"><use href="#icon-upload"></use></svg>
             <p class="dropzone-title">Drop a screenshot to get started</p>
             <p class="dropzone-sub">or click to browse</p>
           </div>
         </div>
+
+        <input type="file" id="fileInput" class="visually-hidden" accept="image/*" multiple tabindex="-1" aria-hidden="true" />
       </main>
 
       <aside id="inspector" aria-label="Background, frame and export settings">

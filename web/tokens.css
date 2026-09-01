@@ -70,6 +70,26 @@
   /* --- Canvas chrome (the editor's own décor, not core/'s rendered output) */
   --dot-grid-dot: #1c1e23;        /* stage dot-grid pattern (line 97) */
 
+  /* --- Canvas surround (Task 2) --------------------------------------
+     Three neutral steps behind a rendered shot, so a pale ground can be
+     judged honestly - functional chrome with no handoff source, so these
+     are new values rather than reused surface tokens: the app's own dark
+     chrome (--surface-canvas etc.) is a design choice for the EMPTY-state
+     décor, not a neutral backdrop meant to test a ground colour against.
+     This is pure CSS on the stage element behind the <canvas> - core/ never
+     sees it (see web/state.js). */
+  --surround-dark: #131417;
+  --surround-mid: #4b4e55;
+  --surround-light: #e9eaed;
+
+  /* --- Status: error (Task 2's inline "not an image" message) -----------
+     Both opaque and deliberately paired for THEIR OWN contrast (7.9:1) -
+     this banner sits in a fixed strip with a fixed background (see
+     .drop-error in style.css), never composited over the canvas surround,
+     so this pair only ever has to work against itself. */
+  --color-danger: #ff8f8a;
+  --surface-danger: #2a1414;
+
   /* --- Shadows (compound values; kept here so no other file holds a color) */
   --shadow-thumb: 0 1px 3px rgba(0, 0, 0, 0.6); /* slider thumb (line 129) */
   --shadow-drawer: -8px 0 32px rgba(0, 0, 0, 0.5); /* our own addition: the

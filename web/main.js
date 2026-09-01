@@ -1,11 +1,12 @@
-// shotkit editor shell — Task 1 wiring.
+// shotkit editor shell — Task 1 wiring, plus Task 2's pipeline.
 //
-// This is chrome-only interaction: it makes the control primitives behave
-// like the components they are (a segmented control has one active cell, a
-// slider shows its own value, a drawer opens and closes) without touching
-// any application data. There is no document, template, background, frame,
-// or export model here — that arrives in Task 2. Nothing below persists,
-// renders to #canvas, or survives a reload.
+// The top section (unchanged from Task 1) is chrome-only interaction: it
+// makes the control primitives behave like the components they are without
+// touching any application data. The bottom section (marked "Task 2") is
+// where a drop/browse/surround click actually reaches `state` and the
+// on-page canvas — see web/state.js for the render() pipeline itself.
+
+import { state, SURROUNDS, bindCanvas, addFiles, hasContent } from './state.js';
 
 /** Toggle `.is-active`/aria-pressed among sibling cells of a single-select
  *  group (segmented controls, chips, swatches all follow this shape). */
@@ -219,3 +220,139 @@ window.addEventListener('resize', reconcileForViewport);
 
 // Initial state on load, whichever side of the breakpoint we start on.
 allDrawers.forEach((drawer) => settleInertState(drawer));
+
+/* -------------------------------------------------------------------------
+   Task 2: the pipeline (drop a file, see a shot) and the canvas surround.
+
+   Everything that touches `state` or calls into core/ lives in state.js —
+   this section is DOM wiring only: turning drops/clicks/keypresses into
+   `addFiles()`/`render()` calls, and reflecting the result (a canvas to
+   show, an error to say, a surround to paint) back into the page.
+   ---------------------------------------------------------------------- */
+
+const stage = document.getElementById('stage');
+const canvasSurface = document.getElementById('canvas');
+const renderCanvas = document.getElementById('renderCanvas');
+const dropzone = document.getElementById('dropzone');
+const dropError = document.getElementById('dropError');
+const fileInput = document.getElementById('fileInput');
+const toolbarFileSlot = document.querySelector('#toolbarFile .file-slot');
+const exportFootnote = document.querySelector('.export-footnote');
+
+bindCanvas(renderCanvas);
+
+/** Reflect `state.images`/`hasContent()` into the parts of the shell that
+ *  aren't the canvas itself: which of canvas/dropzone is showing, the
+ *  toolbar's filename slot, the export footnote. Export/Copy stay disabled
+ *  here on purpose — wiring them up is Task 3's job, not this one's. */
+function syncContentUI() {
+  const loaded = hasContent();
+
+  dropzone.hidden = loaded;
+  renderCanvas.classList.toggle('is-visible', loaded);
+  canvasSurface.classList.toggle('has-content', loaded);
+
+  if (toolbarFileSlot) {
+    const names = [];
+    if (state.images.web) names.push(state.images.web.__name);
+    for (const m of state.images.mobile) names.push(m.__name);
+    toolbarFileSlot.textContent = loaded ? names.join(' + ') : 'No screenshot loaded';
+    toolbarFileSlot.classList.toggle('file-slot--empty', !loaded);
+  }
+
+  if (exportFootnote) {
+    exportFootnote.textContent = loaded ? 'Ready to export' : 'No screenshot loaded yet';
+  }
+}
+
+/** A bad drop is an inline message, never a wiped canvas — addFiles() never
+ *  touches state.images for files it couldn't decode, so whatever was last
+ *  rendered stays exactly as it was; this just surfaces what went wrong. */
+function showDropErrors(errors) {
+  if (!errors.length) {
+    dropError.hidden = true;
+    dropError.textContent = '';
+    return;
+  }
+  dropError.hidden = false;
+  dropError.textContent = errors.length === 1
+    ? errors[0]
+    : `${errors.length} files were skipped — ${errors.join(' ')}`;
+}
+
+async function handleFiles(fileList) {
+  if (!fileList || !fileList.length) return;
+  const errors = await addFiles(fileList);
+  showDropErrors(errors);
+  syncContentUI();
+}
+
+/** Drop anywhere on the stage — not just the dropzone box — so a shot can be
+ *  replaced (or a phone added) after the first one loads, once the dropzone
+ *  overlay itself is no longer showing. `dragenter`/`dragleave` fire on
+ *  every element the pointer crosses, including children, so a plain depth
+ *  counter is what keeps the drag-over highlight from flickering off while
+ *  the pointer passes over the dropzone or the canvas inside the stage. */
+let dragDepth = 0;
+const isFileDrag = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
+
+stage.addEventListener('dragover', (event) => {
+  if (!isFileDrag(event)) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'copy';
+});
+
+stage.addEventListener('dragenter', (event) => {
+  if (!isFileDrag(event)) return;
+  event.preventDefault();
+  dragDepth += 1;
+  canvasSurface.classList.add('is-drag-over');
+});
+
+stage.addEventListener('dragleave', (event) => {
+  if (!isFileDrag(event)) return;
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) canvasSurface.classList.remove('is-drag-over');
+});
+
+stage.addEventListener('drop', (event) => {
+  if (!isFileDrag(event)) return;
+  event.preventDefault();
+  dragDepth = 0;
+  canvasSurface.classList.remove('is-drag-over');
+  handleFiles(event.dataTransfer.files);
+});
+
+/** The accessible equivalent of a drop: the dropzone is a real button
+ *  (role="button", tabindex="0" — set in index.html) that opens a native
+ *  file picker, reachable and operable with only a keyboard. */
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  event.preventDefault();
+  fileInput.click();
+});
+
+fileInput.addEventListener('change', () => {
+  handleFiles(fileInput.files);
+  fileInput.value = '';
+});
+
+/** The canvas surround: three neutral steps behind the shot, so a pale
+ *  ground can be judged honestly. This sets ONLY `canvasSurface`'s own
+ *  background (via `data-surround`, read by style.css) and `state.surround`
+ *  — core/ never sees this value; see state.js's header comment and
+ *  test/web-export.test.js. The segmented control's own `.is-active`/
+ *  aria-pressed toggling is already handled by the generic
+ *  `wireSingleSelectGroup` wiring above (`.surround-control` is a
+ *  `.segmented`), so this only needs to react to the resulting click. */
+document.querySelector('.surround-control')?.addEventListener('click', (event) => {
+  const cell = event.target.closest('.surround-cell');
+  if (!cell) return;
+  const value = cell.dataset.surround;
+  if (!SURROUNDS.includes(value)) return;
+  state.surround = value;
+  canvasSurface.dataset.surround = value;
+});
+
+syncContentUI();

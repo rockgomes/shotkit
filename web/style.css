@@ -585,15 +585,80 @@ input {
   flex-direction: column;
 }
 
+/* -------------------------------------------------------------------------
+   Canvas toolbar (Task 2): currently just the surround control. Its own
+   strip, not part of the app-wide #toolbar - it's a property of the stage,
+   not of the whole editor.
+   ---------------------------------------------------------------------- */
+
+.canvas-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  flex: none;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.canvas-toolbar-label {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-fainter);
+}
+
 .canvas-surface {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 14px;
   min-width: 0;
+  min-height: 0;
+  padding: 28px;
+  box-sizing: border-box;
   background-color: var(--surface-canvas);
   background-image: radial-gradient(circle, var(--dot-grid-dot) 1px, transparent 1px);
   background-size: 22px 22px;
+}
+
+/* Once a shot is loaded the surround takes over as the backdrop and the
+   empty-state dot grid steps aside - the whole point of the surround is to
+   judge the rendered ground against a flat, neutral field, not a pattern. */
+.canvas-surface.has-content {
+  background-image: none;
+}
+
+.canvas-surface.has-content[data-surround='dark'] {
+  background-color: var(--surround-dark);
+}
+
+.canvas-surface.has-content[data-surround='mid'] {
+  background-color: var(--surround-mid);
+}
+
+.canvas-surface.has-content[data-surround='light'] {
+  background-color: var(--surround-light);
+}
+
+.canvas-surface.is-drag-over {
+  outline: 2px dashed var(--border-strong);
+  outline-offset: -10px;
+}
+
+.render-canvas {
+  display: none;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  border-radius: 3px;
+}
+
+.render-canvas.is-visible {
+  display: block;
 }
 
 .dropzone {
@@ -609,6 +674,16 @@ input {
   color: var(--text-fainter);
   cursor: pointer;
   text-align: center;
+}
+
+/* `.dropzone { display: flex }` above and the UA stylesheet's `[hidden] {
+   display: none }` have equal specificity (one class, one attribute
+   selector) - without this, the author rule wins on source order alone and
+   `dropzone.hidden = true` (set once a shot loads - see main.js) would do
+   nothing visible. The id+attribute selector here outranks the plain class
+   rule regardless of order, so `hidden` always wins. */
+#dropzone[hidden] {
+  display: none;
 }
 
 .dropzone:hover {
@@ -631,6 +706,29 @@ input {
   margin: 0;
   font-size: 11.5px;
   color: var(--text-fainter);
+}
+
+/* A full-width strip between the canvas toolbar and the stage, not a toast
+   floating over the canvas surface - deliberately so its contrast is fixed
+   and calculable (opaque fill, one background it is ever painted against)
+   rather than depending on whichever of the four backdrops the surface
+   underneath happens to be showing (the default empty-state dark, or any of
+   the three surround steps). A translucent banner layered over the canvas
+   surface measured as low as 2.2:1 against the mid/light surrounds - well
+   under the 4.5:1 AA text threshold - which is what moved it here instead.
+   No `display` set here on purpose: a <p> is block by default, so the
+   `[hidden]` UA rule (`display: none`) is never fighting an equal-specificity
+   author rule for it, the way `.dropzone`'s did (see the #dropzone[hidden]
+   comment above). */
+.drop-error {
+  flex: none;
+  margin: 0;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-hairline);
+  background: var(--surface-danger);
+  color: var(--color-danger);
+  font-size: 11.5px;
+  text-align: center;
 }
 
 /* -------------------------------------------------------------------------
