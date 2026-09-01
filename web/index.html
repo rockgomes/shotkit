@@ -106,7 +106,7 @@
           </button>
         </div>
         <button type="button" class="btn btn-ghost" disabled>Copy</button>
-        <button type="button" class="btn btn-primary" disabled>Export</button>
+        <button type="button" id="exportBtnToolbar" class="btn btn-primary" disabled>Export</button>
       </div>
 
       <button
@@ -286,16 +286,16 @@
         <section class="inspector-section inspector-section--export">
           <h2 class="section-label">Export</h2>
           <div class="export-row">
-            <button type="button" class="select-control" aria-haspopup="listbox">
+            <button type="button" id="exportFormatSelect" class="select-control" aria-label="Export format: PNG. Click to change.">
               PNG <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-chevron-down"></use></svg>
             </button>
-            <div class="segmented segmented--mini" role="group" aria-label="Export scale">
+            <div id="exportScaleControl" class="segmented segmented--mini" role="group" aria-label="Export scale">
               <button type="button" class="segmented-cell" aria-pressed="false">1x</button>
               <button type="button" class="segmented-cell is-active" aria-pressed="true">2x</button>
               <button type="button" class="segmented-cell" aria-pressed="false">3x</button>
             </div>
           </div>
-          <button type="button" class="btn btn-primary btn-block" disabled>Export PNG</button>
+          <button type="button" id="exportBtnPanel" class="btn btn-primary btn-block" disabled>Export PNG</button>
           <p class="export-footnote mono">No screenshot loaded yet</p>
         </section>
       </aside>

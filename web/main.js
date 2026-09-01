@@ -7,6 +7,7 @@
 // on-page canvas — see web/state.js for the render() pipeline itself.
 
 import { state, SURROUNDS, bindCanvas, addFiles, hasContent } from './state.js';
+import { exportShot } from './export.js';
 
 /** Toggle `.is-active`/aria-pressed among sibling cells of a single-select
  *  group (segmented controls, chips, swatches all follow this shape). */
@@ -263,6 +264,19 @@ function syncContentUI() {
   if (exportFootnote) {
     exportFootnote.textContent = loaded ? 'Ready to export' : 'No screenshot loaded yet';
   }
+
+  // Export stays disabled until there's a shot to export - but never fight
+  // an export actually in flight (setExportBusy below owns `disabled` for
+  // the duration of one): syncContentUI can run mid-export (e.g. a drop
+  // replacing the source image while a previous export's encode is still
+  // pending), and re-enabling here on top of setExportBusy's freeze would
+  // let a second export start against a render() that's about to be
+  // stomped by the first export's own restore-scale call in its `finally`.
+  if (!exporting) {
+    for (const btn of [exportBtnToolbar, exportBtnPanel]) {
+      if (btn) btn.disabled = !loaded;
+    }
+  }
 }
 
 /** A bad drop is an inline message, never a wiped canvas — addFiles() never
@@ -355,4 +369,108 @@ document.querySelector('.surround-control')?.addEventListener('click', (event) =
   canvasSurface.dataset.surround = value;
 });
 
+/* -------------------------------------------------------------------------
+   Task 3: export. Reads the format/scale the inspector's export controls
+   are currently showing, hands them to web/export.js's exportShot() (the
+   only thing in the app allowed to touch state.config.scale or call
+   render() for a purpose other than the live preview), and reflects the
+   in-flight state back onto both Export buttons - the generic one in the
+   toolbar and the format-specific one at the foot of the inspector's Export
+   section. Neither button, nor export.js, ever calls composeWithMeta
+   directly; see export.js's header comment.
+   ---------------------------------------------------------------------- */
+
+const exportBtnToolbar = document.getElementById('exportBtnToolbar');
+const exportBtnPanel = document.getElementById('exportBtnPanel');
+const exportFormatSelect = document.getElementById('exportFormatSelect');
+const exportScaleControl = document.getElementById('exportScaleControl');
+
+const FORMAT_ORDER = ['png', 'jpeg', 'webp'];
+const FORMAT_LABELS = { png: 'PNG', jpeg: 'JPEG', webp: 'WEBP' };
+let exportFormat = 'png';
+let exporting = false;
+
+/** Every control an in-flight export must freeze - not just whichever
+ *  button was clicked. Format and scale are read fresh at the moment
+ *  Export is pressed (see handleExportClick), so letting either change
+ *  mid-export would make "what got exported" disagree with what these
+ *  controls now show; freezing all four for the duration is what keeps
+ *  that from ever happening. */
+function exportControls() {
+  return [
+    exportBtnToolbar,
+    exportBtnPanel,
+    exportFormatSelect,
+    ...(exportScaleControl ? exportScaleControl.querySelectorAll('.segmented-cell') : []),
+  ].filter(Boolean);
+}
+
+/** `select-control` is chrome-only markup from Task 1 (a static "PNG ▾"
+ *  label, no working dropdown behind it). Rather than build a full listbox
+ *  popup for a fixed 3-item set - more surface area than this control needs,
+ *  and not what "reuse Task 1's primitives" asks for - clicking it simply
+ *  cycles PNG → JPEG → WebP → PNG, updating its own leading text node (the
+ *  chevron <svg> after it is untouched) and the panel Export button's label
+ *  to match. */
+function updateFormatUI() {
+  const label = FORMAT_LABELS[exportFormat];
+  const textNode = Array.from(exportFormatSelect?.childNodes ?? []).find(
+    (node) => node.nodeType === Node.TEXT_NODE,
+  );
+  if (textNode) textNode.data = `${label} `;
+  exportFormatSelect?.setAttribute('aria-label', `Export format: ${label}. Click to change.`);
+  if (exportBtnPanel && !exporting) exportBtnPanel.textContent = `Export ${label}`;
+}
+
+exportFormatSelect?.addEventListener('click', () => {
+  const next = FORMAT_ORDER[(FORMAT_ORDER.indexOf(exportFormat) + 1) % FORMAT_ORDER.length];
+  exportFormat = next;
+  updateFormatUI();
+});
+
+/** The 1x/2x/3x segmented control's `.is-active` toggling is already
+ *  handled by the generic `wireSingleSelectGroup` wiring at the top of this
+ *  file (`#exportScaleControl` is a `.segmented`) - this just reads back
+ *  whichever cell that left active, at the moment Export is pressed. */
+function selectedScale() {
+  const cell = exportScaleControl?.querySelector('.segmented-cell.is-active');
+  const n = cell ? parseInt(cell.textContent, 10) : 2;
+  return Number.isFinite(n) ? n : 2;
+}
+
+/** aria-busy plus a visible "Exporting…" label on both Export buttons, and
+ *  every export control disabled for the duration - a 3x export is a real,
+ *  human-perceptible wait (see export.js), not something a click should be
+ *  able to fire twice into or race a format/scale change against. */
+function setExportBusy(busy) {
+  for (const btn of [exportBtnToolbar, exportBtnPanel]) {
+    if (!btn) continue;
+    btn.setAttribute('aria-busy', String(busy));
+    btn.classList.toggle('is-loading', busy);
+  }
+  if (exportBtnPanel) {
+    exportBtnPanel.textContent = busy ? 'Exporting…' : `Export ${FORMAT_LABELS[exportFormat]}`;
+  }
+  for (const el of exportControls()) el.disabled = busy || !hasContent();
+}
+
+async function handleExportClick() {
+  if (exporting || !hasContent()) return;
+  exporting = true;
+  setExportBusy(true);
+  try {
+    await exportShot(renderCanvas, { format: exportFormat, scale: selectedScale() });
+    showDropErrors([]);
+  } catch (err) {
+    showDropErrors([`Export failed: ${err.message || err}.`]);
+  } finally {
+    exporting = false;
+    setExportBusy(false);
+  }
+}
+
+exportBtnToolbar?.addEventListener('click', handleExportClick);
+exportBtnPanel?.addEventListener('click', handleExportClick);
+
+updateFormatUI();
 syncContentUI();

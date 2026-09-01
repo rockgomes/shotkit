@@ -273,6 +273,45 @@ input {
   font-size: 12.5px;
 }
 
+/* Export in flight (web/main.js's setExportBusy, Task 3): a spinning ring
+   ahead of the "Exporting…" label. `border: 2px solid currentColor` with a
+   transparent top edge means this never needs a color of its own - it just
+   inherits whichever button it's drawn in (dark ink on --surface-inverse for
+   .btn-primary), so it stays inside the "no hex outside tokens.css" rule for
+   free. Reduced-motion gets a static ring instead of losing the affordance
+   outright - the disabled/aria-busy state and "Exporting…" text still carry
+   the meaning on their own even without the spin. */
+.btn.is-loading {
+  gap: 7px;
+  cursor: progress;
+}
+
+.btn.is-loading::before {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  opacity: 0.75;
+  animation: btn-spin 700ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn.is-loading::before {
+    animation: none;
+    opacity: 0.4;
+  }
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .icon-btn {
   display: inline-flex;
   align-items: center;
