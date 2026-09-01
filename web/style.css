@@ -537,13 +537,73 @@ input {
   outline-offset: -2px;
 }
 
+/* "+ Custom size" (Task 4): the disclosure form under the dashed toggle
+   row. Same dashed border token as the toggle itself, so the two read as
+   one control while it's open. */
+.custom-size-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 10px;
+  border: 1px dashed var(--border-dashed);
+  border-radius: var(--radius-md);
+}
+
+.custom-size-fields {
+  display: flex;
+  gap: 8px;
+}
+
+.custom-size-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-fainter);
+}
+
+.custom-size-input {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.custom-size-input:hover {
+  border-color: var(--text-fainter);
+}
+
+.custom-size-input:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 1px;
+}
+
+.custom-size-apply {
+  width: 100%;
+}
+
 .preset-row {
   display: flex;
   align-items: center;
   gap: 9px;
   height: 30px;
   padding: 0 10px;
-  border: none;
+  /* transparent 1px border (not `border: none`) so .is-selected below only
+     ever changes border-color, never border-WIDTH — that's what keeps
+     selecting a row from nudging its own content by a pixel, the same
+     convention .template-row already uses. */
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: none;
   color: var(--text-secondary);
@@ -552,8 +612,15 @@ input {
   text-align: left;
 }
 
-.preset-row:hover {
+.preset-row:hover:not(.is-selected) {
   background: var(--border-hairline);
+}
+
+.preset-row.is-selected {
+  background: var(--surface-raised-1);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+  font-weight: 500;
 }
 
 .preset-swatch {

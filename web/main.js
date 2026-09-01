@@ -8,6 +8,7 @@
 
 import { state, SURROUNDS, bindCanvas, addFiles, hasContent } from './state.js';
 import { exportShot } from './export.js';
+import { initSidebar } from './sidebar.js';
 
 /** Toggle `.is-active`/aria-pressed among sibling cells of a single-select
  *  group (segmented controls, chips, swatches all follow this shape). */
@@ -38,10 +39,12 @@ wireSingleSelectGroup(document.querySelector('.swatch-row'), {
   selector: '.swatch:not(.swatch--add)',
 });
 
-wireSingleSelectGroup(document.querySelector('.template-list'), {
-  activeClass: 'is-selected',
-  selector: '.template-row:not(.template-row--add)',
-});
+// Templates/Ratios/Ground presets (Task 4) are NOT wired with the generic
+// wireSingleSelectGroup helper above: those rows carry real application
+// state (state.config.template/ratio/ground), not just a CSS toggle, and
+// need to funnel through scheduleRender() — see web/sidebar.js's header
+// comment for why that file owns its own click handling instead.
+initSidebar();
 
 /** Sliders: keep the mono value label and the track fill in sync with the
  *  input's own value. Angle gets a ° suffix; everything else gets %. */
