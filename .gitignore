@@ -5,3 +5,4 @@ dist/
 .venv/
 .venv-goldens/
 .claude/launch.json
+.netlify/
