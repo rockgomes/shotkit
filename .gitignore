@@ -4,3 +4,4 @@ dist/
 .DS_Store
 .venv/
 .venv-goldens/
+.claude/launch.json

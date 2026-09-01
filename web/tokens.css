@@ -33,7 +33,20 @@
   --text-muted: #9ba1ab;          /* filename, zoom label, muted rows (lines 53,57,77) */
   --text-faint: #8a8f98;          /* secondary meta, inactive segmented text (lines 76,115) */
   --text-fainter: #6b7078;        /* section labels, inactive rail icons (lines 66,74) */
-  --text-disabled: #565b64;       /* unselected sizes, footnotes (lines 77,163) */
+  /* DEPARTS FROM THE HANDOFF — do not "restore" this to #565b64 (lines
+     77,163). #565b64 measures 2.87:1 on #0b0c0e and 2.47:1 on
+     #1b1d22 (the .template-row hover background, its lightest surface and
+     the binding constraint), both well under the 4.5:1 AA text threshold —
+     and this token carries real information (export dimensions like
+     2880×1800) at 10.5px, not decoration. #7e8590 is the minimum lift:
+     same hue (~0.607) and saturation (~0.075) as the original, lightness
+     raised only as far as the threshold requires. It clears 4.5:1 against
+     the lightest background it sits on (4.53:1 on #1b1d22; 5.26:1 on
+     #0b0c0e) — the step below it (#7e8490) measures 4.49:1 and fails.
+     #6b7078 and #4b4f58 are NOT changed: they sit on icons/placeholders/a
+     separator, where the 3:1 UI-component threshold applies, and they
+     already clear it. */
+  --text-disabled: #7e8590;
   --text-subtle: #4b4f58;         /* breadcrumb "/" separator (line 52) */
   --color-white: #ffffff;         /* app-mark glyph, slider thumb, active segmented text (lines 64,116,129) */
 
