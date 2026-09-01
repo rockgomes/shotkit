@@ -332,6 +332,54 @@ git commit -m "feat: frame and finish inspector, and a url field for the browser
 
 ---
 
+### Task 6b: The Shadow control — a multiplier, not a retune
+
+**Authorised `core/` change** (the fifth, and the last planned). The handoff specifies a Shadow slider; the panel has none, because `core/`'s shadow alphas are hardcoded constants.
+
+**The design constraint that makes this safe.** A previous task measured `@napi-rs/canvas` rendering shadows ~5.4× fainter than Chromium, "corrected" the alphas upward, and shipped values **65 RGB levels too dark in the browser** with every Node test green. The doc comment above `paintShadow` exists to stop that recurring, and it stays.
+
+So this is **not** a retune. It is a multiplier over the verified values:
+
+- `shadowScale` in `core/config.js`, default **1**, accepted range 0–2.
+- `paintShadow` gains a scale parameter defaulting to 1; every call site passes `c.shadowScale`. The alphas themselves (`0.17/0.07` web and browser frame, `0.22/0.10` phones) are **not touched**.
+- Clamp the product to `[0, 1]` defensively.
+
+**At scale 1 the output must be byte-identical**, which all 10 existing goldens prove. That is the whole safety argument: the default path is unchanged by construction, not by inspection.
+
+**Files:**
+- Modify: `core/config.js`, `core/presets.js`, `core/render.js`
+- Modify: `web/inspector-frame.js`, `scripts/make-render-goldens.js`, tests
+- Create: one golden at a non-default scale
+
+- [ ] **Step 1: Add the field**
+
+`shadowScale` alongside the other numeric config, validated and clamped. `SHADOW_SCALE_RANGE` in `presets.js` so the app does not hardcode the bounds.
+
+- [ ] **Step 2: Thread it through `paintShadow`**
+
+One parameter, defaulting to 1. Update every call site. Do not change an alpha literal.
+
+- [ ] **Step 3: Prove the default did not move**
+
+Run the suite. **All 10 goldens byte-identical.** If any moves, the multiplier leaked into the default path — a defect, never a reason to regenerate.
+
+- [ ] **Step 4: A golden at a non-default scale, proven to guard**
+
+Add one case at a clearly different scale. Then change the scale and confirm the diff fails; report the ratio. A golden that does not fail on a real change is decoration.
+
+- [ ] **Step 5: The slider**
+
+In the Finish section: 0–200%, default 100%, where 100% is `frame.html`'s original values. Label it so it reads as a strength, not a colour. It must hit the colour cache — shadow has nothing to do with the sampled ground, so a shadow drag must not trigger a `groundFor` recompute. Prove it with the throwing-canvas technique already used in Tasks 5 and 6.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add core web test scripts
+git commit -m "feat: shadow strength as a multiplier over the verified alphas"
+```
+
+---
+
 ### Task 7: Empty state, motion, and the verification pass
 
 **Files:**
