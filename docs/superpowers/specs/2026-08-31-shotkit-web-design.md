@@ -434,3 +434,30 @@ all land in `core/` while its golden-test infrastructure is fresh, and the shell
 then built once against a finished library rather than revisited each time `core/`
 grows. This was an explicit decision; the alternative was a working app sooner at
 the cost of building the inspector twice.
+
+
+---
+
+# Amendment 2 — chrome tinting is not part of this product
+
+Date: 2026-09-01, confirmed by the user during Task 7's verification pass.
+
+The original spec described an organising idea for the app's own chrome: **"the app wears the shot's
+colour"** — the accent extracted by `core/ground.js` tinting the panels, focus rings and drop zone, so
+dropping a different screenshot shifted the whole interface.
+
+**That is not this product.** It was the concept behind Direction C ("Chroma"), one of six candidates
+explored. Direction D ("Console") was chosen instead, and the Backdrop handoff that specifies it carries a
+**fixed** token palette. Chrome tinting was therefore superseded twice over, but never explicitly retired —
+so it survived in briefs and instructions describing an app that had stopped working that way.
+
+**The app chrome is fixed.** Every colour comes from `web/tokens.css` and none is derived at runtime from
+the sampled meta.
+
+What *does* vary with the screenshot's hue: the small decorative preview swatches in the sidebar and the
+Background panel. They are `aria-hidden`, and their job is to show what a preset will produce — the honesty
+requirement fixed in the app plan's Task 4.
+
+**Consequence for a future light theme.** The contrast surface is the *fixed* token set, not a generated
+accent at every hue. That makes a second theme a second token set with a finite, checkable set of pairs —
+substantially smaller work than sweeping a runtime-derived accent across 360 degrees.
