@@ -19,6 +19,9 @@ function sampleOf(image, makeCanvas) {
  * Paint a full shot into `target`, and return the colour analysis alongside it.
  * `target` is anything with width, height, and getContext('2d').
  * `makeCanvas(w, h)` supplies scratch canvases; core never creates one itself.
+ * `precomputedMeta` is optional (default null) — see the comment above where
+ * it's used, just below. Omitting it is byte-identical to every call this
+ * function has ever accepted.
  *
  * `images.mobile` entries that failed to load are dropped here (`filter(Boolean)`),
  * matching frame.html's own behaviour (`if (r) mobMeta.push(r)` in its load loop):
@@ -28,16 +31,30 @@ function sampleOf(image, makeCanvas) {
  * this function use always stay the same length and in the same order, so
  * `lay.phones[i]` always corresponds to `mobile[i]` with no gaps to guard against.
  */
-export function composeWithMeta(target, rawConfig, images, makeCanvas) {
+export function composeWithMeta(target, rawConfig, images, makeCanvas, precomputedMeta = null) {
   const web = images.web || null;
   const mobile = (images.mobile || []).filter(Boolean).slice(0, 3);
 
   const c = normalise({ ...rawConfig, hasWeb: !!web, mobileCount: mobile.length });
 
-  const samples = [web, ...mobile].filter(Boolean).map(im => sampleOf(im, makeCanvas));
-  const meta = samples.length
-    ? groundFor(samples, c.forceHue, c.tone)
-    : groundFor([{ width: 1, height: 1, data: [128, 128, 128, 255] }], c.forceHue, c.tone);
+  // `precomputedMeta` is optional and additive: every existing caller omits
+  // it and gets exactly the behaviour above always had — samples built from
+  // the live images, fed to groundFor. A caller that already knows the
+  // images, forceHue and tone are unchanged since it last got a `meta` back
+  // from this function (the app's job to track, not core's) can hand that
+  // `meta` back in here and skip both sample-building and groundFor's own
+  // analysis entirely - measured, groundFor is essentially the whole cost of
+  // a render (~200ms of ~216ms; layout, painting and grain together are
+  // single-digit ms), and none of that cost has anything to do with
+  // layout-only changes like `pad`. See test/compose.test.js's "precomputed
+  // meta" cases for the byte-identity proof, and web/state.js for the one
+  // caller that uses this.
+  const meta = precomputedMeta || (() => {
+    const samples = [web, ...mobile].filter(Boolean).map(im => sampleOf(im, makeCanvas));
+    return samples.length
+      ? groundFor(samples, c.forceHue, c.tone)
+      : groundFor([{ width: 1, height: 1, data: [128, 128, 128, 255] }], c.forceHue, c.tone);
+  })();
 
   // `scale` renders this SAME composition at `c.scale` times the canvas
   // size, rather than inflating the composition itself (c.w/c.h above stay

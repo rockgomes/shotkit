@@ -6,12 +6,12 @@ import { composeWithMeta } from '../core/index.js';
 
 const mk = (w, h) => createCanvas(w, h);
 
-async function run(config, files) {
+async function run(config, files, precomputedMeta) {
   const web = files.web ? await loadImage(files.web) : null;
   const mobile = [];
   for (const m of files.mobile || []) mobile.push(await loadImage(m));
   const first = createCanvas(10, 10);
-  const { target, meta, config: resolved, layout } = composeWithMeta(first, config, { web, mobile }, mk);
+  const { target, meta, config: resolved, layout } = composeWithMeta(first, config, { web, mobile }, mk, precomputedMeta);
   return { target, meta, config: resolved, layout };
 }
 
@@ -299,4 +299,42 @@ describe('pixel-diff against frozen renders', () => {
       expect(diff / (ref.width * ref.height)).toBeLessThan(1e-5);
     });
   }
+});
+
+// Task 2 fix round 1 (authorised core/ change): composeWithMeta accepts an
+// optional 5th argument, a precomputed `meta`, so a caller that already
+// knows the ground hasn't changed (same images, same forceHue, same tone)
+// can skip groundFor's own analysis - measured the dominant cost of a
+// render (~200ms of ~216ms; see web/state.js). This is additive: every
+// existing call site and every golden above omits it and is unaffected.
+describe('composeWithMeta - precomputed meta (Task 2 fix round 1)', () => {
+  it('a render with supplied meta is byte-identical to one without', async () => {
+    const config = { ratio: '3:2' };
+    const files = { web: 'samples/fieldset.png' };
+    const withoutMeta = await run(config, files);
+    const withMeta = await run(config, files, withoutMeta.meta);
+    expect(withMeta.meta).toEqual(withoutMeta.meta);
+    expect(Buffer.compare(
+      withMeta.target.toBuffer('image/png'),
+      withoutMeta.target.toBuffer('image/png'),
+    )).toBe(0);
+  });
+
+  // The test above alone could pass even if `precomputedMeta` were silently
+  // ignored (the "real" and the "supplied" meta happen to be the same
+  // value in that test, by construction). This one proves the parameter is
+  // actually read and actually used: a deliberately wrong `meta` paints
+  // wrong - only possible if composeWithMeta is genuinely skipping its own
+  // groundFor call and trusting what it was handed.
+  it('actually uses the supplied meta rather than silently recomputing it', async () => {
+    const config = { ratio: '3:2' };
+    const files = { web: 'samples/fieldset.png' };
+    const real = await run(config, files);
+    const wrongMeta = { ...real.meta, ground: ['#000000', '#000000', '#000000'] };
+    const withWrongMeta = await run(config, files, wrongMeta);
+    expect(Buffer.compare(
+      withWrongMeta.target.toBuffer('image/png'),
+      real.target.toBuffer('image/png'),
+    )).not.toBe(0);
+  });
 });
