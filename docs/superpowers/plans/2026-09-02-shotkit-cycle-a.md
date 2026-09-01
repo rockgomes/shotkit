@@ -25,6 +25,41 @@ Copied from the spec. Every task's requirements implicitly include these.
 - Run `npx vitest run` before and after every task. Commit only green.
 - After each task, push the branch. Do not merge to `main` mid-cycle.
 
+### THE APPROVAL GATE — read this before starting any task
+
+**Every task that changes anything Rock can see ends by deploying a preview and
+STOPPING.** Not a screenshot in a report — a URL he can open, click and test
+himself.
+
+Round one shipped seven tasks without a single preview link. Rock saw the app
+for the first time when it was finished and deployed, and nineteen pieces of
+feedback arrived at once — several of them ("frame:none draws a stroke", "the
+browser chrome is comically big", "the contrast is bad") things he would have
+caught on day one. That is the cost this gate exists to prevent.
+
+The preview site is **`shotkit-preview`**, Netlify project
+`14e0fc4e-753c-4240-909b-86170921eb3b`, at https://shotkit-preview.netlify.app
+— separate from production (`shotkit-app`), which is never touched mid-cycle.
+
+Deploy with:
+
+```bash
+npm run build
+npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
+```
+
+If that invocation needs the proxy-path form the production deploy used, get a
+fresh one from the Netlify MCP's `deploy-site` operation for that site id.
+
+Then **stop and hand Rock the URL**, saying what changed and what to look at.
+Do not start the next task. Do not assume approval from silence. A task whose
+preview has not been approved is not finished, no matter how green the tests
+are.
+
+**A feature with no way to reach it in the UI cannot be approved.** That is why
+Tasks 5, 7 and 9 below each ship a minimal control alongside the render work —
+see the note on each.
+
 ---
 
 ### Task 1: `frame: none` draws no stroke
