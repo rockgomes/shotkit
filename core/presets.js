@@ -34,24 +34,27 @@ export const PHONE_FALLBACK_RATIO = 0.462;
 
 // Phone corner radius, as a fraction of the phone's own width. Pulled out of
 // layout.js's phoneBox() (it used to be an inline 0.125 literal there) so
-// the iPhone device frame below can share the exact same, already-verified
+// the phone device frame below can share the exact same, already-verified
 // value instead of duplicating it.
 export const PHONE_RADIUS_RATIO = 0.125;
 
 // Phone bezel thickness, as a fraction of the phone's own width, floored at
-// 3px. Also pulled out of phoneBox() for the same reason: the iPhone frame's
+// 3px. Also pulled out of phoneBox() for the same reason: the phone frame's
 // innerRadius reuses this exact bezel math.
 export const PHONE_BEZEL_RATIO = 0.019;
 export const PHONE_BEZEL_MIN = 3;
 
 // Valid `frameKind` values for normalise(). 'none' means no device frame —
-// the screenshot renders exactly as it always has. macOS is deliberately
-// absent: every image-slot in the mockup sits inside the same "browser"
-// chrome, and "macOS" appears only as an inert inspector chip with no
-// rendered frame anywhere in the handoff — shipping a bar-height constant
-// for it would mean inventing a value the mockup doesn't contain. It comes
-// back once it has an actual design.
-export const FRAME_KINDS = ['none', 'browser', 'iphone'];
+// the screenshot renders exactly as it always has. 'phone' describes the
+// SHAPE (a bezelled, all-round-rounded body) rather than a specific device —
+// deliberately not named 'iphone', so it never promises a device-size picker
+// this v1 isn't opening; named devices can extend this frame later without a
+// rename. macOS is deliberately absent: every image-slot in the mockup sits
+// inside the same "browser" chrome, and "macOS" appears only as an inert
+// inspector chip with no rendered frame anywhere in the handoff — shipping a
+// bar-height constant for it would mean inventing a value the mockup doesn't
+// contain. It comes back once it has an actual design.
+export const FRAME_KINDS = ['none', 'browser', 'phone'];
 
 // --- Device frame geometry ----------------------------------------------
 // Source: design_handoff_backdrop_1a/Backdrop Mockups.dc.html, section

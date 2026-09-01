@@ -193,16 +193,16 @@ describe('composeWithMeta - scale', () => {
 
 // Every frameKind x chromeTheme combination composeWithMeta can produce.
 // frameKind: 'none' never builds a chrome object at all (layout.js's
-// chromeFor() returns null before ever reading chromeTheme), and the iPhone
+// chromeFor() returns null before ever reading chromeTheme), and the phone
 // frame's body/hairline are the same phone colours regardless of theme (see
-// core/render.js's paintIphoneChrome) - by design, exactly like the mobile
+// core/render.js's paintPhoneChrome) - by design, exactly like the mobile
 // layout's own phones never take a theme. So chromeTheme only has a visible
 // effect for frameKind: 'browser', and the "differs from its neighbours"
 // assertions below are scoped to the pairs that are actually expected to
-// differ, rather than asserting a false inequality for 'none' or 'iphone'
+// differ, rather than asserting a false inequality for 'none' or 'phone'
 // across themes.
 describe('composeWithMeta - frameKind x chromeTheme matrix', () => {
-  const FRAME_KINDS = ['none', 'browser', 'iphone'];
+  const FRAME_KINDS = ['none', 'browser', 'phone'];
   const THEMES = ['dark', 'light'];
 
   it('renders every combination without throwing, at the right canvas size', async () => {
@@ -215,15 +215,15 @@ describe('composeWithMeta - frameKind x chromeTheme matrix', () => {
     }
   });
 
-  it('differs across frameKind, at each theme (none vs browser vs iphone)', async () => {
+  it('differs across frameKind, at each theme (none vs browser vs phone)', async () => {
     for (const chromeTheme of THEMES) {
       const renders = {};
       for (const frameKind of FRAME_KINDS) {
         renders[frameKind] = (await run({ ratio: '3:2', frameKind, chromeTheme }, { web: 'samples/fieldset.png' })).target;
       }
       expect(Buffer.compare(pngBytes(renders.none), pngBytes(renders.browser))).not.toBe(0);
-      expect(Buffer.compare(pngBytes(renders.browser), pngBytes(renders.iphone))).not.toBe(0);
-      expect(Buffer.compare(pngBytes(renders.none), pngBytes(renders.iphone))).not.toBe(0);
+      expect(Buffer.compare(pngBytes(renders.browser), pngBytes(renders.phone))).not.toBe(0);
+      expect(Buffer.compare(pngBytes(renders.none), pngBytes(renders.phone))).not.toBe(0);
     }
   });
 
@@ -233,8 +233,8 @@ describe('composeWithMeta - frameKind x chromeTheme matrix', () => {
     expect(Buffer.compare(pngBytes(dark.target), pngBytes(light.target))).not.toBe(0);
   });
 
-  it('frameKind: none and iphone are theme-invariant (documented, not accidental)', async () => {
-    for (const frameKind of ['none', 'iphone']) {
+  it('frameKind: none and phone are theme-invariant (documented, not accidental)', async () => {
+    for (const frameKind of ['none', 'phone']) {
       const dark = await run({ ratio: '3:2', frameKind, chromeTheme: 'dark' }, { web: 'samples/fieldset.png' });
       const light = await run({ ratio: '3:2', frameKind, chromeTheme: 'light' }, { web: 'samples/fieldset.png' });
       expect(Buffer.compare(pngBytes(dark.target), pngBytes(light.target))).toBe(0);
@@ -263,12 +263,20 @@ describe('pixel-diff against frozen renders', () => {
     ['web-mobile', { layout: 'web+mobile', ratio: '3:2' }, { web: 'samples/karaoke-web.png', mobile: ['samples/karaoke-mobile.png'] }],
     ['caption',    { ratio: '3:2', caption: 'Fieldset — 2026' }, { web: 'samples/fieldset.png' }],
     ['mesh',       { ratio: '3:2', bgType: 'mesh', seed: 7 },   { web: 'samples/fieldset.png' }],
-    // Task 6: the browser chrome in both themes, and the iPhone frame - the
+    // Task 6: the browser chrome in both themes, and the phone frame - the
     // last three cases before core/ is done. macOS is deliberately absent
     // (see FRAME_KINDS in core/presets.js): no design exists for it in v1.
     ['browser-dark',  { ratio: '3:2', frameKind: 'browser', chromeTheme: 'dark' },  { web: 'samples/fieldset.png' }],
     ['browser-light', { ratio: '3:2', frameKind: 'browser', chromeTheme: 'light' }, { web: 'samples/fieldset.png' }],
-    ['iphone',        { ratio: '3:2', frameKind: 'iphone' },                        { web: 'samples/fieldset.png' }],
+    ['phone',         { ratio: '3:2', frameKind: 'phone' },                         { web: 'samples/fieldset.png' }],
+    // Task 5b: every golden above is 3:2 at 1800x1200 - "everything is
+    // proportional to the canvas" (see the doc comment atop core/layout.js)
+    // has never been pixel-verified at another ratio/size. 1:1 (1500x1500)
+    // is the ratio furthest from 3:2, so a stray fixed-pixel value (a
+    // hardcoded radius, a literal bar height) would show up here most
+    // clearly. Uses the web layout with a browser frame so geometry, chrome
+    // and grain are all exercised together in one image.
+    ['square-browser', { ratio: '1:1', frameKind: 'browser', chromeTheme: 'dark' }, { web: 'samples/fieldset.png' }],
   ];
 
   for (const [name, cfg, files] of CASES) {

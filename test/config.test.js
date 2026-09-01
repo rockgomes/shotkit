@@ -156,13 +156,13 @@ describe('frameKind', () => {
     expect(normalise({}).frameKind).toBe('none');
   });
 
-  it('accepts browser and iphone', () => {
+  it('accepts browser and phone', () => {
     expect(normalise({ frameKind: 'browser' }).frameKind).toBe('browser');
-    expect(normalise({ frameKind: 'iphone' }).frameKind).toBe('iphone');
+    expect(normalise({ frameKind: 'phone' }).frameKind).toBe('phone');
   });
 
   it('falls back to none for any unrecognised value, including "macos"', () => {
-    // macOS was removed as a product decision (v1 ships none/browser/iphone
+    // macOS was removed as a product decision (v1 ships none/browser/phone
     // only - every image-slot in the design handoff sits inside the same
     // "browser" chrome, and "macOS" appears only as an inert inspector
     // chip with no frame ever rendered for it). An unrecognised kind - a

@@ -44,16 +44,16 @@ function chromeFor(c, web) {
   if (c.frameKind === 'none') return null;
 
   const w = web.w;
-  const barH = c.frameKind === 'iphone' ? 0 : w * BROWSER_BAR_RATIO;
-  const radius = c.frameKind === 'iphone' ? w * PHONE_RADIUS_RATIO : w * BROWSER_RADIUS_RATIO;
-  // iPhone has a real bezel, reusing the exact same math as phoneBox()
-  // below so an iPhone frame around a web shot looks like the same device
+  const barH = c.frameKind === 'phone' ? 0 : w * BROWSER_BAR_RATIO;
+  const radius = c.frameKind === 'phone' ? w * PHONE_RADIUS_RATIO : w * BROWSER_RADIUS_RATIO;
+  // phone has a real bezel, reusing the exact same math as phoneBox()
+  // below so a phone frame around a web shot looks like the same device
   // as the mobile layout's phones. The browser frame has none: the
   // mockup's screenshot area sits flush inside the frame wrapper, with no
   // padding between the image-slot and its parent (the frame's own 1px
   // hairline border is a stroke drawn by render.js's paintWebChrome, not a
   // geometry offset counted here).
-  const frame = c.frameKind === 'iphone' ? Math.max(PHONE_BEZEL_MIN, w * PHONE_BEZEL_RATIO) : 0;
+  const frame = c.frameKind === 'phone' ? Math.max(PHONE_BEZEL_MIN, w * PHONE_BEZEL_RATIO) : 0;
 
   return {
     kind: c.frameKind,
@@ -72,7 +72,7 @@ function chromeFor(c, web) {
 
 function frameRatio(frameKind, s) {
   // The closed-form outer-frame ratio such that, once the bar (and for
-  // iphone, the all-round bezel) is subtracted back out by chromeFor(), the
+  // phone, the all-round bezel) is subtracted back out by chromeFor(), the
   // interior `screen` comes back at exactly the source ratio `s`. A frame
   // is sized BY its content - the way a real browser window is - not the
   // other way round. See the fix-round-2 section of the task report for
@@ -81,7 +81,7 @@ function frameRatio(frameKind, s) {
   // browser: only a top bar, spanning the full frame width, so
   //   frameH = screenH + frameW*B  =>  frameRatio = s / (1 + s*B)
   //
-  // iphone: a bezel of thickness frameW*B on every side, so
+  // phone: a bezel of thickness frameW*B on every side, so
   //   frameW = screenW / (1 - 2B)
   //   frameH = screenH + 2*frameW*B
   //   frameRatio = s / (1 + 2*B*(s - 1))
@@ -95,7 +95,7 @@ function frameRatio(frameKind, s) {
   // pathologically small canvas would see a tiny, bounded mismatch between
   // this ratio and the actual bezel - not iterated away, and not expected
   // to occur at any size shotkit actually produces.
-  if (frameKind === 'iphone') {
+  if (frameKind === 'phone') {
     const B = PHONE_BEZEL_RATIO;
     return s / (1 + 2 * B * (s - 1));
   }

@@ -179,9 +179,9 @@ describe('paintWeb - screenshot placement inside chrome.screen', () => {
   });
 });
 
-describe('paintWeb - iPhone frame', () => {
+describe('paintWeb - phone frame', () => {
   it('paints the same phone-body colour paintPhone uses, not a browser bar', async () => {
-    const { lay, ctx } = await scene({ frameKind: 'iphone' });
+    const { lay, ctx } = await scene({ frameKind: 'phone' });
     const { web } = lay;
     // A few px inside the bezel, away from both the screenshot and the
     // rounded corner - plain body fill only. Exact match, not `close()`:
@@ -193,7 +193,7 @@ describe('paintWeb - iPhone frame', () => {
   });
 
   it('has no title bar: chrome.barH is 0, so the top edge is body colour, not a bar fill', async () => {
-    const { lay, ctx } = await scene({ frameKind: 'iphone' });
+    const { lay, ctx } = await scene({ frameKind: 'phone' });
     const { web } = lay;
     expect(web.chrome.barH).toBe(0);
     const topPx = px(ctx, web.x + web.w / 2, web.y + 2);
@@ -201,9 +201,9 @@ describe('paintWeb - iPhone frame', () => {
     expect(topPx).toEqual(bodyPx);
   });
 
-  it('ignores chromeTheme - an iPhone body looks the same dark vs light', async () => {
-    const dark = await scene({ frameKind: 'iphone', chromeTheme: 'dark' });
-    const light = await scene({ frameKind: 'iphone', chromeTheme: 'light' });
+  it('ignores chromeTheme - a phone body looks the same dark vs light', async () => {
+    const dark = await scene({ frameKind: 'phone', chromeTheme: 'dark' });
+    const light = await scene({ frameKind: 'phone', chromeTheme: 'light' });
     const darkPx = px(dark.ctx, dark.lay.web.x + 4, dark.lay.web.y + dark.lay.web.h / 2);
     const lightPx = px(light.ctx, light.lay.web.x + 4, light.lay.web.y + light.lay.web.h / 2);
     expect(darkPx).toEqual(lightPx);
@@ -211,7 +211,7 @@ describe('paintWeb - iPhone frame', () => {
 
   it('lands the screenshot inside chrome.screen with a plain drawImage - no fit/cover maths', async () => {
     const img = await loadImage('samples/fieldset.png');
-    const c = normalise({ layout: 'web', ratio: '3:2', frameKind: 'iphone' });
+    const c = normalise({ layout: 'web', ratio: '3:2', frameKind: 'phone' });
     const lay = layout(c, { web: img.width / img.height, mobile: [] });
     const { chrome } = lay.web;
 
@@ -239,7 +239,7 @@ describe('paintWeb - iPhone frame', () => {
   it('draws the inset highlight hairline in the phone colour, rgba(255,255,255,0.10)', async () => {
     // Same hairline paintPhone strokes around its own body - sampled just
     // inside the frame's rounded edge, away from any corner arc.
-    const { lay, ctx } = await scene({ frameKind: 'iphone' });
+    const { lay, ctx } = await scene({ frameKind: 'phone' });
     const { web } = lay;
     const withHairline = px(ctx, web.x + 1, web.y + web.h / 2);
     const bodyOnly = px(ctx, web.x + 4, web.y + web.h / 2);

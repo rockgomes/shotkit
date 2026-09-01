@@ -337,11 +337,11 @@ function drawFitted(ctx, box, image, fit) {
  */
 export function paintWeb(ctx, c, box, image) {
   // A device frame replaces everything below with a chrome-specific
-  // painter: browser goes to paintWebChrome, iphone to paintIphoneChrome.
+  // painter: browser goes to paintWebChrome, phone to paintPhoneChrome.
   // box.chrome is null for frameKind: 'none' - the only branch this adds -
   // so every line below it is completely untouched, reached exactly as
   // before whenever there is no frame.
-  if (box.chrome?.kind === 'iphone') return paintIphoneChrome(ctx, c, box, image);
+  if (box.chrome?.kind === 'phone') return paintPhoneChrome(ctx, c, box, image);
   if (box.chrome) return paintWebChrome(ctx, c, box, image);
 
   // shadow first, on an opaque rect, then the screen over it.
@@ -409,7 +409,7 @@ const TRAFFIC_DOT_COLOURS = ['#ff5f57', '#febc2e', '#28c840'];
  * etc., and the same one phoneBox() already uses for the phone's bezel).
  *
  * `box.chrome` kind-dispatches: only 'browser' paints anything here.
- * 'iphone' is painted by paintIphoneChrome below instead - its frame carries
+ * 'phone' is painted by paintPhoneChrome below instead - its frame carries
  * no bar (chrome.barH is 0 per layout.js's chromeFor()), so there is nothing
  * for this function to draw for that kind.
  */
@@ -479,8 +479,8 @@ export function paintChrome(ctx, c, box, theme) {
  * unframed path above uses).
  *
  * Only ever called for chrome.kind === 'browser' - paintWeb below dispatches
- * 'iphone' to paintIphoneChrome instead, so this function's body is exactly
- * what it was before the iPhone frame existed.
+ * 'phone' to paintPhoneChrome instead, so this function's body is exactly
+ * what it was before the phone frame existed.
  */
 function paintWebChrome(ctx, c, box, image) {
   const chrome = box.chrome;
@@ -520,7 +520,7 @@ function paintWebChrome(ctx, c, box, image) {
  * Shared device-body shape: an opaque dark-grey fill clipped to the outer
  * rounded rect, and the inset 1px translucent-white "inner highlight"
  * stroked just inside its edge. This is exactly paintPhone's body+hairline
- * below, pulled out so the iPhone frame (paintIphoneChrome, next) can use
+ * below, pulled out so the phone frame (paintPhoneChrome, next) can use
  * the identical shape at a different scale instead of copying it. paintPhone
  * itself is rewired to call these two helpers in the same order it used to
  * inline them, so its own output is unchanged.
@@ -544,7 +544,7 @@ function paintDeviceHairline(ctx, box) {
 }
 
 /**
- * The iPhone frame: a web screenshot wrapped in the same body-and-hairline
+ * The phone frame: a web screenshot wrapped in the same body-and-hairline
  * shape paintPhone draws for the mobile layout's own phones (paintDeviceBody
  * / paintDeviceHairline above), at the frame's own scale. No title bar
  * (chrome.barH is 0, per layout.js's chromeFor()) and a bezel on all four
@@ -552,7 +552,9 @@ function paintDeviceHairline(ctx, box) {
  * PHONE_BEZEL_RATIO/PHONE_RADIUS_RATIO math phoneBox() uses, computed once
  * in layout.js so this file never duplicates it). No notch, no dynamic
  * island, no home indicator: none of those are in the handoff, and inventing
- * one would repeat the mistake that got the macOS bar height dropped.
+ * one would repeat the mistake that got the macOS bar height dropped. This
+ * is deliberately a generic phone SHAPE, not a specific device - see
+ * FRAME_KINDS in presets.js for why it isn't named after one.
  *
  * Unlike paintPhone's mobile screenshots (always `cover`-fit, because a
  * phone box's own ratio need not match its screenshot's), chrome.screen here
@@ -568,7 +570,7 @@ function paintDeviceHairline(ctx, box) {
  * 0.22/0.10 pairing stays reserved for an actual mobile-layout phone box, per
  * the doc comment on paintPhone below - do not blend the two.
  */
-function paintIphoneChrome(ctx, c, box, image) {
+function paintPhoneChrome(ctx, c, box, image) {
   const chrome = box.chrome;
   const outer = { x: box.x, y: box.y, w: box.w, h: box.h, radius: chrome.radius };
 
@@ -606,7 +608,7 @@ function paintIphoneChrome(ctx, c, box, image) {
 export function paintPhone(ctx, c, box, image) {
   paintShadow(ctx, box, box.h * 0.055, box.h * 0.14, 0.22, 0.10);
 
-  // body - shared with the iPhone frame's paintIphoneChrome via
+  // body - shared with the phone frame's paintPhoneChrome via
   // paintDeviceBody, defined above. Same fill, same clip, same order as
   // before this was pulled out - this call is byte-for-byte what used to be
   // inlined here.

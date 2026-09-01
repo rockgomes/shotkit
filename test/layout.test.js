@@ -323,9 +323,9 @@ describe('frame: browser', () => {
   });
 });
 
-describe('frame: iphone', () => {
+describe('frame: phone', () => {
   it('has no title bar and uses the phone corner radius', () => {
-    const c = normalise({ layout: 'web', ratio: '3:2', frameKind: 'iphone' });
+    const c = normalise({ layout: 'web', ratio: '3:2', frameKind: 'phone' });
     const { web } = layout(c, { web: 0.462, mobile: [] });
     expect(web.chrome.barH).toBe(0);
     expect(web.chrome.radius / web.w).toBeCloseTo(0.125, 3);
@@ -334,7 +334,7 @@ describe('frame: iphone', () => {
 
 // --- Fix round 1: `screen` must be the genuine interior for every kind ---
 //
-// A reviewer caught that `chrome.screen` for 'iphone' was the FULL web box
+// A reviewer caught that `chrome.screen` for 'phone' was the FULL web box
 // with no bezel inset, even though `innerRadius = radius - bezel` implied a
 // bezel existed - Task 5 would have had to either paint under the bezel or
 // re-derive `w * PHONE_BEZEL_RATIO` by hand. Fixed by exposing the bezel as
@@ -344,7 +344,7 @@ describe('frame: iphone', () => {
 describe('frame: screen is the genuine interior, for every kind', () => {
   const CASES = [
     ['browser', 1.6],
-    ['iphone', 0.462],
+    ['phone', 0.462],
   ];
 
   for (const [frameKind, sourceRatio] of CASES) {
@@ -363,7 +363,7 @@ describe('frame: screen is the genuine interior, for every kind', () => {
       const { web } = layout(c, { web: sourceRatio, mobile: [] });
       const { barH, frame, screen } = web.chrome;
       // Fails if `screen` were left as the full box (frame unsubtracted):
-      // for 'iphone' that would make screen.h === web.h, not web.h - 2*frame.
+      // for 'phone' that would make screen.h === web.h, not web.h - 2*frame.
       expect(screen.h).toBeCloseTo(web.h - barH - frame * 2, 6);
       expect(screen.w).toBeCloseTo(web.w - frame * 2, 6);
       expect(screen.x).toBeCloseTo(web.x + frame, 6);
@@ -371,10 +371,10 @@ describe('frame: screen is the genuine interior, for every kind', () => {
     });
   }
 
-  it('iphone has a non-zero frame; browser has none (per the mockup)', () => {
-    const iphone = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'iphone' }), { web: 0.462, mobile: [] });
+  it('phone has a non-zero frame; browser has none (per the mockup)', () => {
+    const phone = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'phone' }), { web: 0.462, mobile: [] });
     const browser = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser' }), { web: 1.6, mobile: [] });
-    expect(iphone.web.chrome.frame).toBeGreaterThan(0);
+    expect(phone.web.chrome.frame).toBeGreaterThan(0);
     expect(browser.web.chrome.frame).toBe(0);
   });
 });
@@ -388,14 +388,14 @@ describe('frame: screen is the genuine interior, for every kind', () => {
 // Task 5 to letterbox, crop or stretch the screenshot inside its own frame.
 // A real browser window is sized BY its content: frame width = screenshot
 // width, frame height = screenshot height + bar height (+ bezel, for
-// iphone), and THAT assembly is what gets fitted into the safe box. This
+// phone), and THAT assembly is what gets fitted into the safe box. This
 // block pins the fix: `screen` must always come back at the source ratio.
 describe('frame: screen always matches the source ratio (contain)', () => {
   const CASES = [
     ['browser', 1.6],
     ['browser', 0.5],
-    ['iphone', 0.462],
-    ['iphone', 2.2],
+    ['phone', 0.462],
+    ['phone', 2.2],
   ];
 
   for (const [frameKind, sourceRatio] of CASES) {
@@ -408,7 +408,7 @@ describe('frame: screen always matches the source ratio (contain)', () => {
 });
 
 describe('frame: cover is untouched - the frame still fills the box and the screenshot crops', () => {
-  for (const frameKind of ['browser', 'iphone']) {
+  for (const frameKind of ['browser', 'phone']) {
     it(`${frameKind}: with fit 'cover', the frame fills the safe box exactly (screen may not match the source ratio)`, () => {
       const c = normalise({ layout: 'web', ratio: '3:2', fit: 'cover', frameKind });
       const { safe, web } = layout(c, { web: 2.5, mobile: [] });
@@ -428,7 +428,7 @@ describe('frame: accepted consequence — the visible screenshot is smaller than
   // of sizing the frame by its content instead of the other way round.
   const CASES = [
     ['browser', 1.6],
-    ['iphone', 0.462],
+    ['phone', 0.462],
   ];
 
   for (const [frameKind, sourceRatio] of CASES) {
