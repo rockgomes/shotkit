@@ -74,15 +74,14 @@ export function bindCanvas(el, canvasFactory = defaultMakeCanvas) {
   canvasEl = el;
   makeScratchCanvas = canvasFactory;
   canvasPool.clear();
-  // Also drops any cached ground (see below): rebinding is "start fresh",
-  // and - as important - it's what lets test/web-export.test.js force two
-  // genuinely INDEPENDENT composeWithMeta calls (by rebinding between them)
-  // instead of the second one silently reusing the first's cached meta.
-  // Reusing a cached meta across the two calls a "did the surround leak"
-  // comparison makes would make that comparison pass for the wrong reason
-  // (same cached value both times) rather than for the reason it's supposed
-  // to test (the value doesn't depend on the surround) - see that test's
-  // header comment for the exact failure mode this closes.
+  // Also drops any cached ground: a new canvas/factory is a new session,
+  // and there is no reason a meta cached against whatever was bound before
+  // should survive a rebind. (Fix round 1 originally leaned on this AS THE
+  // way test/web-export.test.js forced two independent composeWithMeta
+  // calls; fix round 2 removed that dependency - the guard no longer needs
+  // any help from bindCanvas to catch a leak, see groundKeyFor's comment
+  // below - so this line now exists purely for its own reason, not as
+  // test choreography.)
   metaCache = null;
 }
 
@@ -100,17 +99,39 @@ export function bindCanvas(el, canvasFactory = defaultMakeCanvas) {
 // fix round 1's authorised core/ change — see core/index.js) and skips its
 // own groundFor call entirely when given one. This is the cache that makes
 // that safe to use: `metaCache` remembers the meta returned by the last
-// render KEYED on exactly the inputs that determine it. render() below only
-// ever hands a cached meta back to composeWithMeta when the key it computes
-// for the CURRENT state matches the key the cache was stored under — so a
-// pad-only change (same key) reuses the ground for free, and an image swap
-// or a hue/tone change (different key) falls through to a real recompute,
-// whose result then becomes the new cache entry.
+// render KEYED on exactly the inputs that determine it.
+//
+// Fix round 2: `groundKeyFor` used to be called as `groundKey(state)`,
+// reading `state.config`/`state.images` independently of what render()
+// actually passed to composeWithMeta a few lines later. That is two sources
+// of truth for the same thing, and a reviewer showed exactly why that is
+// fragile: a version of render() that built a SEPARATE, transformed config
+// object for the compose call (e.g. one that folded `state.surround` into
+// `tone`) left the key computation looking at the untouched original — the
+// leak was invisible to the cache, which kept returning a stale-but-matching
+// meta and made the bug undetectable no matter how the test called render().
+//
+// The fix is not a sharper key, it is not having two objects to disagree in
+// the first place: `images` and `config` below are declared ONCE, passed to
+// groundKeyFor AND to composeWithMeta as the literal same references, with
+// nothing in between that could rebuild either one differently for the two
+// call sites. Any transformation applied while producing them — a real
+// design decision, or a future bug — is read by the key exactly as it will
+// be read by compose, because it is the same read. This is what lets
+// test/web-export.test.js catch a leak with a warm cache and no cooperation
+// from the test itself; see that file's header comment for the proof.
 let metaCache = null; // { key, meta } | null
 
-function groundKey(s) {
-  const mobileIds = s.images.mobile.map((m) => m.__id).join(',');
-  return `${s.images.web ? s.images.web.__id : ''}|${mobileIds}|${s.config.ground ?? ''}|${s.config.tone ?? ''}`;
+/** The only fields that can change what groundFor computes: the images
+ *  themselves (by identity — `__id`, tagged in decode.js) and whichever of
+ *  `config`'s fields normalise() turns into forceHue/tone. Everything else
+ *  in `config` (pad, radius, angle, frame, caption, scale, template, ...)
+ *  is deliberately absent from this key — including any of those would
+ *  bust the cache on every layout-only change and throw away the whole
+ *  point of caching groundFor's result at all. */
+function groundKeyFor(images, config) {
+  const mobileIds = images.mobile.map((m) => m.__id).join(',');
+  return `${images.web ? images.web.__id : ''}|${mobileIds}|${config.ground ?? ''}|${config.tone ?? ''}`;
 }
 
 /**
@@ -123,10 +144,17 @@ export function render() {
   if (!canvasEl) throw new Error('render() called before bindCanvas()');
   if (!state.images.web && state.images.mobile.length === 0) return null;
 
-  const key = groundKey(state);
+  // `images` and `config` are what this render ACTUALLY composes with —
+  // read once, right here, and handed to both groundKeyFor and
+  // composeWithMeta below unchanged. See the comment above metaCache for
+  // why that (not a sharper key) is the fix.
+  const images = state.images;
+  const config = state.config;
+
+  const key = groundKeyFor(images, config);
   const cachedMeta = metaCache && metaCache.key === key ? metaCache.meta : null;
 
-  const { meta } = composeWithMeta(canvasEl, state.config, state.images, pooledCanvas, cachedMeta);
+  const { meta } = composeWithMeta(canvasEl, config, images, pooledCanvas, cachedMeta);
   state.meta = meta;
   state._groundKey = key;
   metaCache = { key, meta };
