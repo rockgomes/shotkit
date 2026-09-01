@@ -1,0 +1,76 @@
+/*
+ * Design tokens for the shotkit editor shell ("Obsidian" — option 1a of the
+ * Backdrop handoff, design_handoff_backdrop_1a/Backdrop Mockups.dc.html).
+ *
+ * THIS IS THE ONLY FILE IN web/ ALLOWED TO CONTAIN A RAW HEX CODE.
+ * Every other stylesheet references these custom properties. One name per
+ * value — a color that appears twice in the mockup gets ONE token, reused.
+ *
+ * Values are taken directly from the mockup's inline styles (id="1a"),
+ * cross-checked against the README's "Design Tokens" section. Where the two
+ * disagreed, the HTML won — see task-1-report.md for the specific cases.
+ */
+
+:root {
+  /* --- Surfaces -------------------------------------------------------- */
+  --surface-window: #0b0c0e;      /* app background (html.dc line 46); also
+                                      doubles as text-on-inverse (line 59) */
+  --surface-canvas: #0e0f12;      /* stage background (line 96) */
+  --surface-raised-1: #17191d;    /* selected template row (line 76) */
+  --surface-raised-2: #1a1c20;    /* active rail item (line 65) */
+  --surface-control-active: #22252b; /* active segmented cell (line 116) */
+  --surface-inverse: #f2f3f5;     /* primary button fill (line 59) */
+
+  /* --- Borders / hairlines ---------------------------------------------- */
+  --border-hairline: #1b1d22;     /* pane separators (lines 47,63,72,111,112,136) */
+  --border-subtle: #1f2126;       /* toolbar divider, search field, CLI card (lines 49,73,91) */
+  --border-strong: #26282e;       /* control borders, slider track (lines 57,58,73(no)...114,129) */
+  --border-dashed: #2c2f36;       /* dashed "add" affordances (lines 82,125) */
+
+  /* --- Text -------------------------------------------------------------- */
+  --text-primary: #e8eaee;        /* body text, slider fill/thumb accents (line 46) */
+  --text-secondary: #c6cad2;      /* ghost button label, preset row label (lines 58,86) */
+  --text-muted: #9ba1ab;          /* filename, zoom label, muted rows (lines 53,57,77) */
+  --text-faint: #8a8f98;          /* secondary meta, inactive segmented text (lines 76,115) */
+  --text-fainter: #6b7078;        /* section labels, inactive rail icons (lines 66,74) */
+  --text-disabled: #565b64;       /* unselected sizes, footnotes (lines 77,163) */
+  --text-subtle: #4b4f58;         /* breadcrumb "/" separator (line 52) */
+  --color-white: #ffffff;         /* app-mark glyph, slider thumb, active segmented text (lines 64,116,129) */
+
+  /* --- Status -------------------------------------------------------------- */
+  --color-status-green: #28c840;  /* CLI-connected dot (line 93) */
+
+  /* --- Brand / gradient stops (sidebar presets + inspector swatches) ---- */
+  --color-brand-start: #5b6cff;   /* app-mark gradient (line 64) */
+  --color-brand-end: #a24ff0;     /* app-mark gradient (line 64) */
+  --color-blue: #2563eb;          /* swatch 1 / "Aurora blur" (lines 86,120) */
+  --color-pink: #ec4899;          /* swatch 1 / "Aurora blur" (lines 86,120) */
+  --color-orange: #f97316;        /* swatch 3 / "Candy pop" (lines 88,121) */
+  --color-magenta: #db2777;       /* swatch 3 / "Candy pop" (lines 88,121) */
+  --color-cyan: #0ea5e9;          /* swatch 2 (line 122) */
+  --color-indigo: #312e81;        /* swatch 2 (line 122) */
+  --color-green: #10b981;         /* swatch 4 (line 123) */
+  --color-teal: #0d9488;          /* swatch 4 (line 123) */
+  --color-slate: #3f4451;         /* swatch 5 / "Studio gray" (lines 87,124) */
+  --color-charcoal: #16181d;      /* swatch 5 / "Studio gray" (lines 87,124) */
+
+  /* --- Canvas chrome (the editor's own décor, not core/'s rendered output) */
+  --dot-grid-dot: #1c1e23;        /* stage dot-grid pattern (line 97) */
+
+  /* --- Shadows (compound values; kept here so no other file holds a color) */
+  --shadow-thumb: 0 1px 3px rgba(0, 0, 0, 0.6); /* slider thumb (line 129) */
+  --shadow-drawer: -8px 0 32px rgba(0, 0, 0, 0.5); /* our own addition: the
+    narrow-viewport drawer's cast shadow — not in the mockup, invented for
+    the <900px collapse (see task-1-report.md) */
+  --overlay-backdrop: rgba(4, 5, 8, 0.6); /* our own addition: drawer backdrop scrim */
+
+  /* --- Radii -------------------------------------------------------------- */
+  --radius-sm: 7px;   /* zoom stepper, ghost/select controls (line 57) */
+  --radius-md: 8px;   /* segmented control, rail items, dropzone (lines 64,114) */
+  --radius-lg: 10px;  /* cards (not used by the shell itself, reserved) */
+  --radius-pill: 12px; /* chips (line 140) */
+
+  /* --- Fonts -------------------------------------------------------------- */
+  --font-ui: 'Geist', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', monospace;
+}
