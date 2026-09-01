@@ -257,6 +257,45 @@ git commit -m "feat(web): background inspector, sampled first"
 
 ---
 
+### Task 5b: `core/` housekeeping — rename `iphone` to `phone`, and a second-size golden
+
+Two small `core/` changes, scheduled here so Task 6 builds its frame panel on the final name. **Authorised `core/` change** (the fourth).
+
+**Files:**
+- Modify: `core/presets.js`, `core/config.js`, `core/layout.js`, `core/render.js`, `core/index.js`
+- Modify: `scripts/make-render-goldens.js`, `test/compose.test.js`, `test/layout.test.js`, `test/render-frames.test.js`
+- Rename: `test/golden/render/iphone.png` → `phone.png`
+- Create: `test/golden/render/<second-size>.png`
+
+- [ ] **Step 1: Rename the frame kind `iphone` → `phone`**
+
+Every occurrence: the `FRAME_KINDS` vocabulary, `chromeFor()`'s branch, `paintIphoneChrome` → `paintPhoneChrome`, tests, and the golden filename.
+
+The reason is not cosmetic. `iphone` promises a specific device, which invites a device-size picker — a gate we are deliberately not opening yet. `phone` describes the shape without the promise, and leaves room to add named devices later without renaming the concept.
+
+This is a pure rename. **No pixel may change.** Regenerate the renamed golden and confirm it is byte-identical to the old `iphone.png` before deletion — same bytes, new name. If a single pixel moves, the rename touched behaviour and that is a defect.
+
+- [ ] **Step 2: Add a golden at a second canvas size**
+
+Every existing golden is 3:2 at 1800×1200. "Everything is proportional to the canvas" is the project's founding principle — it is what makes a row of thumbnails look like one person made them — and it is asserted in `layout` unit tests but has never been pixel-verified at another size.
+
+Add one case at **1:1 (1500×1500)**, chosen because it is the furthest from 3:2 and would expose a stray fixed pixel most clearly. Use the `web` layout with a browser frame so it exercises geometry, chrome and grain together.
+
+- [ ] **Step 3: Prove the new golden guards**
+
+Inject a fixed pixel value where a proportion belongs — hardcode the corner radius, or the chrome bar height — and confirm the 1:1 golden fails. Report the diff ratio. Restore and confirm green.
+
+A golden that does not fail on a real change is decoration. An earlier baseline in this project sat at a threshold so loose it could not detect a doubled shadow alpha.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add core test scripts
+git commit -m "refactor(core): rename the iphone frame to phone, add a 1:1 golden"
+```
+
+---
+
 ### Task 6: Inspector — Frame, Finish, and the URL field
 
 **Files:**
@@ -266,7 +305,7 @@ git commit -m "feat(web): background inspector, sampled first"
 
 - [ ] **Step 1: Frame**
 
-`FRAME_KINDS` as chips: none / browser / iPhone. **macOS is deliberately absent** — no design exists for it; do not add one. Chrome theme (`CHROME_THEMES`) as a mini-segmented, shown only when a frame is active.
+`FRAME_KINDS` as chips: none / browser / phone. (Task 5b renamed `iphone` to `phone`; use the new name.) **macOS is deliberately absent** — no design exists for it; do not add one. Chrome theme (`CHROME_THEMES`) as a mini-segmented, shown only when a frame is active.
 
 - [ ] **Step 2: Finish**
 
@@ -402,9 +441,27 @@ Three items reached the end of the library work unresolved. Two are handled abov
 
 **Deliberately not in this plan, stated rather than hidden:**
 
-- **A full light theme for the app chrome.** Deferred in the spec; the handoff's option 1b ("Fieldset") is the likely source when it happens. The *surround* control ships now and solves the functional problem — judging a pale ground honestly — which is what the light theme was actually asked for.
+- **A full light theme for the app chrome.** Deferred, and **it is planned, not dropped** — see "Future work" below. The *surround* control ships now and solves the functional problem the light theme was originally asked for: judging a pale ground honestly.
 - **Saved user presets, the CLI, the nav rail's Library / Integrations / Settings.** The rail renders them disabled; nothing is wired.
 - **npm publish, the Claude Code skill, the Tauri desktop app.** Each its own cycle.
 - **Zoom** is in the toolbar per the handoff but affects the *view* only — it must never reach `composeWithMeta`. If Task 1 cannot wire it safely as a pure CSS transform, leave it out rather than risk it touching the render.
 
 **One risk worth naming.** The app has almost no automated tests by design — its logic is wiring, and `core/` holds the behaviour. The two things that genuinely need a test are the surround never reaching the export (Task 2) and the URL pill (Task 6), and both are specified. Everything else is verified by hand in Task 7. That is a deliberate trade, not an oversight: an app-level test suite that mocks `core/` would assert that the wiring calls the functions, which is exactly the class of test this project has already thrown away five times.
+
+
+---
+
+## Future work — planned, not dropped
+
+**A light theme for the app chrome.** Decided 2026-09-01: this gets built, after Task 8, as its own cycle.
+
+Two constraints from that decision:
+
+- **It is our own light mode, designed from scratch.** The handoff's option 1b ("Fieldset") is *not* the source — it was a different design that happened to be lighter, not a light variant of Obsidian.
+- The token system from Task 1 is the foundation: `web/tokens.css` is the only file containing raw colour, so a second theme is a second token set rather than a hunt through stylesheets. That boundary has held through four reviews — keep it holding.
+
+Scope when it happens: every token gets a light value; the contrast sweep in Task 7 doubles, since a generated accent must clear 4.5:1 at every hue in **both** themes; and the canvas surround stays independent of the theme, because it answers a different question.
+
+**Named device frames.** Task 5b renamed `iphone` to `phone` deliberately, to avoid promising specific device sizes. If device presets are ever wanted, they extend the `phone` frame rather than replacing it.
+
+**Caption baseline.** `core/` draws the caption on the alphabetic baseline; `frame.html`'s CSS positioned the line-box bottom. The caption therefore sits roughly half a descender low. Decided 2026-09-01: **leave it, note it.** Fixing it properly needs browser font-metric measurement, and no golden guards it. Record it in the README's "not built yet" section.
