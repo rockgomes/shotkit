@@ -161,6 +161,22 @@ git commit -m "fix(core): frame:none draws no stroke"
 git push origin feat/shotkit-web
 ```
 
+- [ ] **Final step: deploy a preview, hand over the link, and STOP**
+
+```bash
+npm run build
+npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
+```
+
+Then give Rock the URL — https://shotkit-preview.netlify.app — and tell him
+what to look at:
+
+> Load a screenshot with Frame set to **None**. There must be no border, edge or hairline of any kind between the ground and the screenshot. Open https://shotkit-app.netlify.app in another tab for the before.
+
+**Then stop.** Do not begin the next task. Silence is not approval. If Rock
+asks for a change, make it, redeploy, and hand the link back before moving on.
+
+
 ---
 
 ### Task 2: Label spacing, and Ground leaves the left rail
@@ -246,6 +262,22 @@ git add web/style.css web/sidebar.js web/index.html test/sidebar.test.js
 git commit -m "fix(web): space template labels, drop the rail's duplicate Ground list"
 git push origin feat/shotkit-web
 ```
+
+- [ ] **Final step: deploy a preview, hand over the link, and STOP**
+
+```bash
+npm run build
+npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
+```
+
+Then give Rock the URL — https://shotkit-preview.netlify.app — and tell him
+what to look at:
+
+> Look at the template and ratio lists: name on the left, dimensions on the right, a clear gap between them, long names truncating with an ellipsis rather than colliding. Then confirm the left rail has no Ground section, and the Background panel still does.
+
+**Then stop.** Do not begin the next task. Silence is not approval. If Rock
+asks for a change, make it, redeploy, and hand the link back before moving on.
+
 
 ---
 
@@ -359,6 +391,22 @@ git commit -m "fix(web): raise text token luminance to clear AA, with an audit t
 git push origin feat/shotkit-web
 ```
 
+- [ ] **Final step: deploy a preview, hand over the link, and STOP**
+
+```bash
+npm run build
+npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
+```
+
+Then give Rock the URL — https://shotkit-preview.netlify.app — and tell him
+what to look at:
+
+> Read every label in the app — rail, toolbar, template rows, section headings, inspector labels, the export dimensions, the empty state. Nothing should require effort to read. Check the empty state too: inert controls must still look inert, not merely dim. If everything now reads at the same weight, say so — the lift went too far.
+
+**Then stop.** Do not begin the next task. Silence is not approval. If Rock
+asks for a change, make it, redeploy, and hand the link back before moving on.
+
+
 ---
 
 ### Task 4: Delete `fit`/`cover` and the caption
@@ -463,6 +511,22 @@ git add -u core web scripts test
 git commit -m "refactor(core): retire fit/cover and the caption"
 git push origin feat/shotkit-web
 ```
+
+- [ ] **Final step: deploy a preview, hand over the link, and STOP**
+
+```bash
+npm run build
+npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
+```
+
+Then give Rock the URL — https://shotkit-preview.netlify.app — and tell him
+what to look at:
+
+> Confirm the **Fit** control and the **Caption** field are gone from the inspector, and that nothing else moved or broke in their place.
+
+**Then stop.** Do not begin the next task. Silence is not approval. If Rock
+asks for a change, make it, redeploy, and hand the link back before moving on.
+
 
 ---
 
@@ -697,6 +761,22 @@ git commit -m "feat(core): parameterised shadow (distance, angle, blur, directio
 git push origin feat/shotkit-web
 ```
 
+- [ ] **Final step: deploy a preview, hand over the link, and STOP**
+
+```bash
+npm run build
+npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
+```
+
+Then give Rock the URL — https://shotkit-preview.netlify.app — and tell him
+what to look at:
+
+> Drag each shadow control and watch the shot: **Distance**, **Angle**, **Blur**, and the **Directional** toggle. With Directional off, Angle should do nothing — that is correct, not a bug. Reset should return the shot to exactly the shadow it has today.
+
+**Then stop.** Do not begin the next task. Silence is not approval. If Rock
+asks for a change, make it, redeploy, and hand the link back before moving on.
+
+
 ---
 
 ### Task 6: Frames become outsets; padding gives way, not the picture
@@ -883,6 +963,22 @@ git add core test scripts
 git commit -m "feat(core): frames grow outward from the screenshot; padding gives way"
 git push origin feat/shotkit-web
 ```
+
+- [ ] **Final step: deploy a preview, hand over the link, and STOP**
+
+```bash
+npm run build
+npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
+```
+
+Then give Rock the URL — https://shotkit-preview.netlify.app — and tell him
+what to look at:
+
+> Load a screenshot and toggle Frame between **None** and **Browser**, then **Phone**. The screenshot itself must stay the same size in all three; the padding around it should visibly shrink to make room. This is the item that motivated the whole cycle — if the screenshot changes size, the task is not done.
+
+**Then stop.** Do not begin the next task. Silence is not approval. If Rock
+asks for a change, make it, redeploy, and hand the link back before moving on.
+
 
 ---
 
@@ -1118,6 +1214,22 @@ git commit -m "feat(core): opt-in strokes — light, glass, custom — as outset
 git push origin feat/shotkit-web
 ```
 
+- [ ] **Final step: deploy a preview, hand over the link, and STOP**
+
+```bash
+npm run build
+npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
+```
+
+Then give Rock the URL — https://shotkit-preview.netlify.app — and tell him
+what to look at:
+
+> Set Stroke to **Light**, then **Glass**, then **Custom** with a colour, dragging the width slider through its range on each. The mat must grow outward — the screenshot must never get smaller or be covered. Take the width to its maximum and confirm nothing inverts.
+
+**Then stop.** Do not begin the next task. Silence is not approval. If Rock
+asks for a change, make it, redeploy, and hand the link back before moving on.
+
+
 ---
 
 ### Task 8: Rebuild the browser chrome
@@ -1292,6 +1404,22 @@ git add core test scripts
 git commit -m "feat(core): rebuild the browser chrome from measured reference proportions"
 git push origin feat/shotkit-web
 ```
+
+- [ ] **Final step: deploy a preview, hand over the link, and STOP**
+
+```bash
+npm run build
+npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
+```
+
+Then give Rock the URL — https://shotkit-preview.netlify.app — and tell him
+what to look at:
+
+> Turn on the Browser frame in both **Dark** and **Light**. The bar should read as a browser at a glance: three small traffic lights at the left, a centred URL pill, and a bar roughly half the height of the one at https://shotkit-app.netlify.app. Set a URL and confirm the pill fills; clear it and confirm the pill stays empty rather than showing invented text.
+
+**Then stop.** Do not begin the next task. Silence is not approval. If Rock
+asks for a change, make it, redeploy, and hand the link back before moving on.
+
 
 ---
 
@@ -1528,6 +1656,22 @@ git add core test scripts
 git commit -m "feat(core): rebuild mesh with real multi-hue stops, spread and seed"
 git push origin feat/shotkit-web
 ```
+
+- [ ] **Final step: deploy a preview, hand over the link, and STOP**
+
+```bash
+npm run build
+npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
+```
+
+Then give Rock the URL — https://shotkit-preview.netlify.app — and tell him
+what to look at:
+
+> Switch Background type to **Mesh** and work the **Stops**, **Spread** and **Seed** controls. Rock's complaint was that mesh had no use: check that spread visibly changes the colour range, that seed gives genuinely different fields rather than noise, and — most importantly — that a wide spread still looks *coloured* rather than grey-brown.
+
+**Then stop.** Do not begin the next task. Silence is not approval. If Rock
+asks for a change, make it, redeploy, and hand the link back before moving on.
+
 
 ---
 
