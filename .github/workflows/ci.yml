@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel an in-flight run when the branch is pushed again — only the newest
+# commit's result is interesting.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    # macos-latest, NOT ubuntu, and deliberately so: test/golden/render/ holds
+    # pixel-exact PNGs compared with pixelmatch at threshold 0, and they were
+    # generated on an arm64 Mac. Canvas rasterisation and font fallback both
+    # vary by platform, so a Linux runner may diff on goldens that are in fact
+    # correct. Public repo, so macOS runner minutes are free.
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches NODE_VERSION in netlify.toml, so CI and the deploy build
+          # cannot diverge on the runtime.
+          node-version: '20'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Tests
+        run: npx vitest run
+
+      - name: Build
+        run: npm run build
+
+      - name: Goldens must be unchanged by the build
+        # A test that silently regenerates a golden instead of comparing to it
+        # would leave the suite green and the guarantee gone. Anything dirty
+        # here means exactly that.
+        run: git diff --exit-code -- test/golden
