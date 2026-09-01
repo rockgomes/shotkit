@@ -44,7 +44,7 @@ wireSingleSelectGroup(document.querySelector('.swatch-row'), {
 // state (state.config.template/ratio/ground), not just a CSS toggle, and
 // need to funnel through scheduleRender() — see web/sidebar.js's header
 // comment for why that file owns its own click handling instead.
-initSidebar();
+const sidebar = initSidebar();
 
 /** Sliders: keep the mono value label and the track fill in sync with the
  *  input's own value. Angle gets a ° suffix; everything else gets %. */
@@ -302,6 +302,12 @@ async function handleFiles(fileList) {
   const errors = await addFiles(fileList);
   showDropErrors(errors);
   syncContentUI();
+  // addFiles() above calls render() synchronously when it decodes anything,
+  // so state.meta already reflects the new image(s) by this point — this is
+  // what tells the Ground group's swatches to stop showing the synthetic
+  // no-image fallback and start previewing the real thing (see
+  // web/sidebar.js's "Ground swatch gradients" header comment).
+  sidebar?.refreshGrounds();
 }
 
 /** Drop anywhere on the stage — not just the dropzone box — so a shot can be

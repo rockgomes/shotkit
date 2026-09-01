@@ -11,6 +11,7 @@ import {
   selectRatio,
   applyCustomSize,
   selectGround,
+  gradientFor,
 } from '../web/sidebar.js';
 
 // ---------------------------------------------------------------------
@@ -179,5 +180,90 @@ describe('sidebar size changes reuse the ground cache; ground changes bust it', 
     expect(state._groundKey).not.toBe(firstKey);
     expect(state.meta).not.toBe(firstMeta);
     expect(state.meta.hue).not.toBe(firstMeta.hue);
+  });
+});
+
+// ---------------------------------------------------------------------
+// FIX ROUND 1: a ground preset swatch must tell the truth about what
+// clicking it will actually produce — including on a DARK screenshot,
+// where core/ground.js's mid-tone branch applies. The first version of
+// gradientFor() always fed groundFor() a synthetic, always-pale sample
+// (HSL(hue, 50%, 70%) — luminance ~0.85-0.97 for every hue), so no swatch
+// could ever preview the mid-tone branch: it rendered the pale-tint
+// preview even for an image whose OWN luminance would force mid-tone once
+// applied. That is a different branch of the algorithm, not sampling
+// noise — see web/sidebar.js's "Ground swatch gradients" header comment
+// for the measured before/after hex values.
+//
+// This drives the REAL app pipeline (decode a real dark image, render it,
+// ask gradientFor() for a swatch, then actually select that preset and
+// re-render) and asserts the swatch's own colours are the exact ones
+// render() then produces — not merely "a" plausible gradient. Confirmed
+// failing against the pre-fix implementation before the fix landed (see
+// task-4-report.md's fix-round-1 section for the run log) — it must fail
+// there, since demonstrating the bug is the entire point of this test.
+// ---------------------------------------------------------------------
+
+describe('ground preset swatches tell the truth about a loaded (dark) image', () => {
+  beforeEach(() => {
+    state.config = { ratio: '3:2' };
+    state.images = { web: null, mobile: [] };
+    state.meta = null;
+    state.surround = 'mid';
+  });
+
+  it('every swatch, computed for the loaded dark image, matches what selecting it actually renders', async () => {
+    const web = await loadImage('samples/karaoke-web.png');
+    const target = createCanvas(10, 10);
+    bindCanvas(target, mkCanvas);
+    state.images.web = web;
+
+    render(); // populates state.meta from the real, dark image
+    // Sanity: this really is a dark-UI sample (lum ~0.097, well under the
+    // 0.34 threshold) — if it weren't, a swatch that ALWAYS previews pale
+    // could accidentally still match, and this test would prove nothing.
+    expect(state.meta.darkUI).toBe(true);
+
+    for (const hueName of Object.keys(HUES)) {
+      const previewed = gradientFor(hueName, state.meta, state.config.tone);
+
+      selectGround(state.config, hueName);
+      render(); // a real, fresh groundFor() call — the ground actually changed
+      const [g0, g1, g2] = state.meta.ground;
+      const actuallyProduced = `linear-gradient(135deg, ${g0}, ${g1}, ${g2})`;
+
+      expect(previewed).toBe(actuallyProduced);
+      // And the branch itself, not just incidental colour equality: a dark
+      // image must stay on the mid-tone branch for every forced hue — the
+      // exact thing the old synthetic-sample implementation could never
+      // reach for ANY hue.
+      expect(state.meta.darkUI).toBe(true);
+    }
+  });
+
+  it('falls back to a synthetic (still non-flat) sample before any image is loaded, and stops the moment one is', async () => {
+    // No image yet: gradientFor must still return a real 3-stop gradient
+    // (never a flat single colour — see web/sidebar.js's own header
+    // comment on why a flat grey sample specifically fails at this), even
+    // though there is no state.meta to draw truth from.
+    expect(state.meta).toBeNull();
+    const beforeImage = gradientFor('rose', state.meta, state.config.tone);
+    expect(beforeImage).toMatch(/^linear-gradient\(135deg, #[0-9a-f]{6}, #[0-9a-f]{6}, #[0-9a-f]{6}\)$/);
+
+    // Load a real dark image — the exact regression this round guards
+    // against is the fallback silently OUTLIVING this moment.
+    const web = await loadImage('samples/karaoke-web.png');
+    const target = createCanvas(10, 10);
+    bindCanvas(target, mkCanvas);
+    state.images.web = web;
+    render();
+
+    const afterImage = gradientFor('rose', state.meta, state.config.tone);
+    // The real image is dark, so its "rose" ground uses the mid-tone
+    // branch; the synthetic pre-image fallback can only ever produce the
+    // pale branch (see header comment). These must therefore differ — if
+    // gradientFor() were still using a cached/stale pre-image value, they
+    // would be identical instead.
+    expect(afterImage).not.toBe(beforeImage);
   });
 });

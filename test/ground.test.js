@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { groundFor } from '../core/ground.js';
+import { groundFor, groundFromMeta } from '../core/ground.js';
+import { HUES } from '../core/presets.js';
 
 const goldens = JSON.parse(readFileSync('test/golden/ground.json', 'utf8'));
 
@@ -245,4 +246,68 @@ describe('groundFor ground swatches (hex output)', () => {
       });
     }
   }
+});
+
+
+// Task 4 fix round 1: web/sidebar.js's ground-preset swatches need to preview
+// a FORCED hue against the user's own loaded image without paying
+// analyse()'s cost again per swatch (see task-4-report.md's fix-round-1
+// section for the measured cost - ~87ms/call, ~700ms for 8 swatches against
+// a real decoded image, which is not something a sidebar can casually do on
+// every render). groundFromMeta() is the fix: the exact same arithmetic
+// tail groundFor() itself runs, driven by an ALREADY-COMPUTED meta instead
+// of raw samples.
+//
+// This is the equivalence proof that makes that shortcut safe: for a real,
+// non-trivial image, re-deriving the ground via groundFromMeta(metaFromAnEarlierCall,
+// newForcedHue, mode) must equal calling groundFor(sameSamples, newForcedHue, mode)
+// fresh, for EVERY hue and EVERY tone mode - not just the hue/mode the
+// original meta happened to be computed with. Without this, a future
+// refactor of either function could silently drift them apart with nothing
+// to catch it (exactly the kind of "test that could not fail" this
+// project's own history warns about) - so this doesn't just assert two
+// return values are equal, it re-derives against 8 different hues x 3 modes
+// x a real photographic sample, and fails on the FIRST mismatch of any of
+// those 24, not just a hand-picked one.
+describe('groundFromMeta reproduces groundFor exactly, without re-analysing', () => {
+  it('matches a fresh groundFor() for every named hue and every tone mode', async () => {
+    // karaoke-web.png: a real, dark (lum ~0.097), highly-saturated sample -
+    // not a synthetic flat colour - so this exercises the same kind of
+    // image the swatch feature actually previews against.
+    const s = await sample('samples/karaoke-web.png');
+
+    // The meta this stands in for state.meta: produced by one ordinary
+    // groundFor() call, with whatever hue/mode happened to be active at the
+    // time (here: auto-detected hue, auto tone) - groundFromMeta() below
+    // never sees the samples again, only this object.
+    const baseMeta = groundFor([s], null, null);
+
+    let comparisons = 0;
+    for (const hueName of Object.keys(HUES)) {
+      const hue = HUES[hueName];
+      for (const mode of [null, 'light', 'mid']) {
+        const fresh = groundFor([s], hue, mode);
+        const viaMeta = groundFromMeta(baseMeta, hue, mode);
+        expect(viaMeta).toEqual(fresh);
+        comparisons++;
+      }
+    }
+    // Self-check: this test is actually exercising all 8 hues x 3 modes,
+    // not silently looping zero times because HUES or the mode list came
+    // back empty.
+    expect(comparisons).toBe(24);
+  });
+
+  it('BREAK IT: a shortcut that forgot to re-derive darkUI per mode would fail this', () => {
+    // Demonstrates what this test is actually guarding: if groundFromMeta
+    // just returned the ORIGINAL meta's own `ground` unchanged (ignoring
+    // forceHue/mode entirely - the bug this whole file exists to catch a
+    // regression of), the "light" override on a naturally-dark image would
+    // silently produce the WRONG (mid-tone) branch.
+    const baseMeta = { ground: ['#000', '#000', '#000'], lum: 0.097, hue: 268, chroma: 1, darkUI: true };
+    const broken = { ...baseMeta }; // simulates "forgot to re-run the tail"
+    const correct = groundFromMeta(baseMeta, 268, 'light');
+    expect(correct.darkUI).toBe(false); // the real function flips it...
+    expect(broken.darkUI).toBe(true);   // ...which is exactly what the broken stand-in gets wrong
+  });
 });

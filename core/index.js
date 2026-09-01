@@ -1,6 +1,6 @@
 import { normalise } from './config.js';
 import { layout } from './layout.js';
-import { groundFor } from './ground.js';
+import { groundFor, groundFromMeta } from './ground.js';
 import { paintGround, paintGrain, paintWeb, paintPhone, paintCaption } from './render.js';
 
 // Sample at 800px, matching ground.py's thumbnail step. Rendering still uses
@@ -96,7 +96,7 @@ export function compose(target, rawConfig, images, makeCanvas) {
   return composeWithMeta(target, rawConfig, images, makeCanvas).target;
 }
 
-export { normalise, layout, groundFor };
+export { normalise, layout, groundFor, groundFromMeta };
 export {
   RATIOS, HUES, DEFAULTS, TEMPLATES, FRAME_KINDS, SCALES, DEFAULT_ANGLE,
   LAYOUTS, FITS, TONES, BG_TYPES, CHROME_THEMES,

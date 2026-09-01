@@ -132,8 +132,22 @@ function analyse(samples) {
   return { lum, hue, chroma };
 }
 
-export function groundFor(samples, forceHue = null, mode = null) {
-  let { lum, hue, chroma } = analyse(samples);
+/**
+ * The pure-arithmetic tail of groundFor(): turn an already-known
+ * `{ lum, hue, chroma }` reading into a ground gradient. No sampling, no
+ * analyse() call - this is every line that runs AFTER analyse() finishes,
+ * factored out so it can be re-run cheaply against a DIFFERENT forced hue
+ * without re-analysing the image. `hue` here is analyse()'s own native
+ * unit, a 0..1 fraction - NOT degrees.
+ *
+ * `forceHue`/`mode` behave exactly as they do in groundFor(), because this
+ * function contains the literal lines that used to live at the top of
+ * groundFor() - see that function below, which is now just
+ * `tail(analyse(samples), ...)`. Nothing about its output changed by this
+ * refactor: test/ground.test.js's existing assertions (goldens, overrides,
+ * the neutral-image fallback) are unmodified and still pass.
+ */
+function tail({ lum, hue, chroma }, forceHue, mode) {
   if (forceHue !== null && forceHue !== undefined) hue = forceHue / 360;
 
   let darkUI = lum < 0.34;
@@ -159,4 +173,36 @@ export function groundFor(samples, forceHue = null, mode = null) {
     chroma: Math.round(chroma * 1000) / 1000,
     darkUI,
   };
+}
+
+export function groundFor(samples, forceHue = null, mode = null) {
+  return tail(analyse(samples), forceHue, mode);
+}
+
+/**
+ * Same output as groundFor(), but skips analyse() entirely - the expensive
+ * part (re-sampling and re-scanning every pixel of the source image; see
+ * groundFor's own callers for measured cost). Takes a PREVIOUSLY-RETURNED
+ * groundFor()/groundFromMeta() meta object instead of raw samples, and
+ * re-runs only the cheap arithmetic tail against a (typically different)
+ * forced hue.
+ *
+ * This exists for exactly one situation: a caller that already ran
+ * groundFor() once for the CURRENT image (e.g. the real render) and wants
+ * to preview what a DIFFERENT forced hue would produce against that SAME
+ * image, without paying analyse()'s cost again for every hue it wants to
+ * preview. `meta.lum`/`meta.chroma` don't depend on forceHue at all - only
+ * `hue` does - so reusing them is exact, not approximate, PROVIDED `meta`
+ * really did come from analysing the image the caller means to preview
+ * against (see web/sidebar.js for the one caller that does this, and its
+ * own comment about the it-has-no-image fallback).
+ *
+ * `meta.hue` is expected in the same unit groundFor()'s RETURN value uses
+ * (degrees, 0-360) - i.e. a caller can hand back a meta object it received
+ * from groundFor() unmodified. See test/ground.test.js's
+ * "groundFromMeta reproduces groundFor" case for the equivalence proof that
+ * makes this shortcut safe to rely on.
+ */
+export function groundFromMeta(meta, forceHue = null, mode = null) {
+  return tail({ lum: meta.lum, hue: (meta.hue ?? 0) / 360, chroma: meta.chroma }, forceHue, mode);
 }

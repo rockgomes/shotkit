@@ -39,7 +39,7 @@
 // not a burden. A bespoke widget buys nothing here and adds real failure
 // surface (wrap-around, Home/End, orientation) for a keyboard user who
 // already has a working, consistent way to reach every row.
-import { TEMPLATES, RATIOS, HUES, groundFor, normalise } from '../core/index.js';
+import { TEMPLATES, RATIOS, HUES, groundFor, groundFromMeta, normalise } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
 
 // ---------------------------------------------------------------------
@@ -104,44 +104,73 @@ export function selectGround(config, key) {
 }
 
 // ---------------------------------------------------------------------
-// Ground swatch gradients — one real groundFor() call per named hue,
-// memoised (HUES never changes at runtime, so this never needs to be
-// recomputed after the first paint).
+// Ground swatch gradients.
 //
-// A swatch has no source image, but groundFor still needs SOME pixel data
-// to read a chroma/luminance from (see analyse() in core/ground.js) —
-// `forceHue` below overrides the OUTPUT hue regardless, so the sample's own
-// hue never leaks into the result. What the sample DOES determine is chroma
-// and luminance. The first version of this fed groundFor the flat mid-grey
-// sample composeWithMeta's own no-images fallback uses
-// ([128,128,128,255]) — that has zero HSV saturation, which trips
-// analyse()'s `total < 1e-6` neutral-fallback branch before a single hue
-// bin is ever populated, forcing chroma to 0 and `sat` to its 0.16 floor.
-// The result technically satisfies "not a flat colour" (it IS a real
-// 3-stop gradient) but fails the actual POINT of a swatch: all eight came
-// out as an almost indistinguishable near-white smear — see
-// task-4-report.md for the measured RGB values.
+// FIX ROUND 1: the first version of this fed groundFor a synthetic sample
+// for EVERY swatch, always - including once a real screenshot was loaded.
+// That produced a plausible-looking preview that could still be flatly
+// WRONG: a synthetic sample built at HSL(hue, 50%, 70%) has luminance
+// ~0.85-0.97 for every hue, comfortably clearing core/ground.js's `lum <
+// 0.34` darkUI threshold every time - so every swatch rendered the PALE
+// branch and none could ever show the mid-tone branch groundFor uses for a
+// dark screenshot (the branch ground.py's own header calls out as the
+// thing that stops dark-on-dark reading as mush). Measured on a real dark
+// image (samples/karaoke-web.png, lum 0.097): the synthetic Lavender swatch
+// showed `#f9f7fa/#ece7f1/#ddd4e7` (the PALE branch); actually SELECTING
+// that preset against the real image produced `#dad4e1/#c6bdd0/#b5a8c3`
+// instead — the MID-TONE branch, correctly chosen because the real image's
+// own luminance (0.097) is well under the 0.34 darkUI threshold. Two
+// different branches of the algorithm, not sampling noise — the swatch was
+// confidently showing the wrong one. See task-4-report.md's fix-round-1
+// section for the full before/after numbers. test/sidebar.test.js's
+// "swatches tell the truth" case guards against this regressing again.
 //
-// Feeding a single, moderately-saturated pixel IN THAT SAME HUE instead
-// (HSL(hue, 50%, 70%)) keeps every one of analyse()'s gates open: HSV
-// saturation works out to ~0.35 for every hue (HSL sat/lightness fixed at
-// 50%/70% means the chroma magnitude is hue-independent — only which
-// channel leads rotates), clearing the 0.22 threshold, and value ~0.85
-// sits inside (0.16, 0.98) — so groundFor derives a real, non-zero chroma
-// (a single flat colour always reads as fully "concentrated", i.e.
-// chroma = 1 — see the `near / total` ratio in analyse()) instead of
-// bailing out to the neutral fallback. Luminance stays safely above the
-// 0.34 darkUI threshold for all eight hues too (the lowest, at hue 240, is
-// ≈0.57 — verified by hand, see the report), so every swatch resolves
-// through the SAME pale-tint branch groundFor uses for a light screenshot —
-// the "real light-tint gradient" the brief asks for — rather than whichever
-// branch a given hue's sample luminance happened to land on.
+// THE FIX: derive each swatch from the user's CURRENTLY LOADED image, with
+// only the hue forced - via groundFromMeta() (core/ground.js), the exact
+// arithmetic tail groundFor() itself runs, fed `state.meta` (already
+// computed by the one real render this app ever does - see web/state.js)
+// instead of raw pixels. Calling the real groundFor() again, per swatch,
+// against the actual decoded image was measured and rejected: 8 calls
+// against samples/karaoke-web.png (800x519, the same thumbnail size
+// composeWithMeta itself analyses) took ~700ms total (~87ms/call) - close
+// to the cost of a full cold render, EIGHT TIMES on every image load. That
+// is core/'s own colour maths (analyse() in core/ground.js) being the
+// expensive part, so the fix does not reimplement it: groundFromMeta()
+// skips analyse() entirely and reruns only the cheap tail (a handful of
+// hslToHex calls) against each of the 8 named hues - see core/ground.js's
+// own comment on that function, and test/ground.test.js's
+// "groundFromMeta reproduces groundFor" case for the proof that this
+// shortcut is exact, not approximate.
+//
+// Nothing here is cached or memoised across calls: gradientFor() reads
+// `state.meta` FRESH every time renderGrounds() runs. That is what keeps
+// the "no image yet" fallback below from silently persisting once a real
+// image loads - there is no stored value that could go stale, because
+// nothing is stored. renderGrounds() itself re-runs on every sidebar
+// interaction (a row click, a search keystroke) AND is explicitly called
+// again the moment a screenshot is decoded (`refreshGrounds()`, returned
+// by initSidebar() and called from web/main.js's handleFiles() - see
+// there), so the fallback is showing until the instant a real image
+// exists, never a frame longer.
+//
+// The one remaining case IS a synthetic, representative sample: before any
+// screenshot is loaded, `state.meta` is null and there genuinely is no
+// truth to preview yet - a flat mid-grey sample fails even at that job
+// (zero HSV saturation trips analyse()'s neutral-fallback branch, pinning
+// chroma to 0 - see this file's git history for the measured near-white
+// smear that produced), so a single, moderately-saturated pixel IN THE
+// SAME HUE (HSL(hue, 50%, 70%)) is used instead - real math, still a
+// genuine 3-stop gradient, just not derived from a real screenshot because
+// there isn't one yet. This path calling groundFor() directly (not
+// groundFromMeta()) is fine performance-wise regardless: analyse()'s cost
+// scales with pixel COUNT, and a 1x1 sample is negligible - measured at
+// microseconds, nothing like the ~87ms/call cost of a real decoded image.
 // ---------------------------------------------------------------------
 
-/** Small, self-contained HSL→RGB conversion for the synthetic swatch
- *  sample above — core/ only exports the reverse (hslToHex, and it isn't
- *  even exported outside core/ground.js), so this doesn't duplicate
- *  anything core/ already does. h in degrees, s/l in [0, 1]. */
+/** Small, self-contained HSL→RGB conversion for the synthetic no-image
+ *  fallback sample below — core/ only exports the reverse (hslToHex, and
+ *  it isn't even exported outside core/ground.js), so this doesn't
+ *  duplicate anything core/ already does. h in degrees, s/l in [0, 1]. */
 function hslToRgbByte(h, s, l) {
   const c = (1 - Math.abs(2 * l - 1)) * s;
   const hp = (((h % 360) + 360) % 360) / 60;
@@ -157,17 +186,18 @@ function hslToRgbByte(h, s, l) {
   return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
 }
 
-const swatchGradients = new Map();
-
-function gradientFor(hueName) {
-  if (!swatchGradients.has(hueName)) {
-    const hueDeg = HUES[hueName];
-    const [r, g, b] = hslToRgbByte(hueDeg, 0.5, 0.7);
-    const sample = [{ width: 1, height: 1, data: [r, g, b, 255] }];
-    const { ground } = groundFor(sample, hueDeg, null);
-    swatchGradients.set(hueName, `linear-gradient(135deg, ${ground[0]}, ${ground[1]}, ${ground[2]})`);
-  }
-  return swatchGradients.get(hueName);
+/** The one hue a caller SEES matches the hue it FORCED, always — `tone`
+ *  is `state.config.tone` (null/'light'/'mid'), the exact same value
+ *  composeWithMeta reads as `c.tone` — so a swatch previews not just the
+ *  right hue but the right BRANCH of groundFor for whatever tone override
+ *  (if any) is currently active, matching exactly what clicking the swatch
+ *  would produce. */
+export function gradientFor(hueName, meta, tone) {
+  const hueDeg = HUES[hueName];
+  const { ground } = meta
+    ? groundFromMeta(meta, hueDeg, tone)
+    : groundFor([{ width: 1, height: 1, data: [...hslToRgbByte(hueDeg, 0.5, 0.7), 255] }], hueDeg, tone);
+  return `linear-gradient(135deg, ${ground[0]}, ${ground[1]}, ${ground[2]})`;
 }
 
 function titleCase(word) {
@@ -398,7 +428,7 @@ export function initSidebar() {
       const swatch = document.createElement('span');
       swatch.className = 'preset-swatch';
       swatch.setAttribute('aria-hidden', 'true');
-      swatch.style.background = gradientFor(name);
+      swatch.style.background = gradientFor(name, state.meta, state.config.tone);
       btn.append(swatch, titleCase(name));
       btn.addEventListener('click', () => {
         selectGround(state.config, name);
@@ -420,4 +450,14 @@ export function initSidebar() {
   searchInput?.addEventListener('input', renderAll);
 
   renderAll();
+
+  // Returned so web/main.js can tell the Ground group to re-derive its
+  // swatches the moment a screenshot decodes — see this file's "Ground
+  // swatch gradients" header comment for why that call matters: it's what
+  // keeps the no-image synthetic fallback from silently outliving the
+  // image that makes it unnecessary. Re-running the full renderAll()
+  // instead would also be correct (Templates/Ratios just don't depend on
+  // `state.images`, so redoing them is harmless) but this is more precise
+  // about which group actually needed the refresh and why.
+  return { refreshGrounds: renderGrounds };
 }
