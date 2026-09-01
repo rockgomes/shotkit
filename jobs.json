@@ -1,7 +1,0 @@
-[
- {"web":"src/fieldset.png","ratio":"3:2","out":"out/fieldset.png"},
- {"web":"src/karaoke-web.png","mobile":"src/karaoke-mobile.png","layout":"web+mobile","ratio":"3:2","out":"out/karaoke.png"},
- {"mobile":"src/karaoke-mobile.png,src/karaoke-mobile-2.png","layout":"mobile","ratio":"3:2","out":"out/karaoke-mobile.png"},
- {"web":"src/moveoutsale.png","ratio":"3:2","out":"out/moveoutsale.png"},
- {"web":"src/template.png","ratio":"3:2","out":"out/template.png"}
-]

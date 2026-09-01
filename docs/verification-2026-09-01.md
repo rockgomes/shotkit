@@ -1,4 +1,11 @@
-# Task 7 verification — empty state, motion, and the verification pass
+# Verification records — 2026-09-01
+
+Two records, in order: **Task 7** (empty state, motion, accessibility) first, and
+**Task 8** (the production build, and retiring the original implementation) at
+the end of this file. Both follow the same rule: every claim either names the
+tool call that produced it, or says plainly that it could not be produced here.
+
+## Task 7 — empty state, motion, and the verification pass
 
 Date: 2026-09-01. Branch `feat/shotkit-web`, on top of `c380e4a`.
 
@@ -391,3 +398,126 @@ reproduce here, consistent with what a reviewer already found.
   manually-dispatched `resize` event instead (§8a).
 - Whatever `--text-subtle`'s zero-current-consumer status implies for a
   future cleanup — flagged, not acted on (§4).
+
+---
+
+## Task 8 — the production build, and retiring the original
+
+Date: 2026-09-01. Branch `feat/shotkit-web`, on top of `f9710d3`.
+
+Task 8 added `netlify.toml`, rewrote `README.md`, and deleted `frame.html`,
+`ground.py`, `shotkit.js` and `jobs.json`. The deletion is irreversible in
+practice — those four files were the reference every constant in `core/` was
+verified against — so the order below matters: everything was proved green
+first, and nothing was deleted until it was.
+
+### 1. Green before deleting anything
+
+`npx vitest run`, before any change in this task:
+
+```
+Test Files  13 passed (13)
+     Tests  254 passed (254)
+```
+
+`npm run build`, before and again after the deletions:
+
+```
+✓ 17 modules transformed.
+../dist/index.html                 14.76 kB │ gzip:  3.93 kB
+../dist/assets/index-BMGLWttt.css  18.24 kB │ gzip:  4.06 kB
+../dist/assets/index-qD2RSkrO.js   44.10 kB │ gzip: 14.83 kB
+```
+
+Identical asset content hashes across both builds — removing the four files
+changed nothing about what the app compiles to, which is the point: they were
+already dead weight, not inputs.
+
+### 2. Export fidelity, dev vs. the production build
+
+The real question behind Step 3 is whether the bundled, minified build can
+produce different pixels from the dev server's unbundled ES modules. It cannot,
+and this is the evidence.
+
+Both servers were driven in a real browser (the Browser pane), with the same
+sequence on each: fetch `fieldset.png` from the origin, wrap it in a real `File`,
+set it on the actual `#fileInput` and dispatch `change` — the same code path
+`main.js`'s listener and `state.js`'s `addFiles()` take for a genuine drop — then
+wait for Export to enable and click the real `#exportBtnPanel`.
+
+| | `npm run dev` (:5188) | `npm run preview` (:4188) |
+|---|---|---|
+| download filename | `fieldset--web@2x.png` | `fieldset--web@2x.png` |
+| blob type | `image/png` | `image/png` |
+| bytes | 3,883,562 | 3,883,562 |
+| decoded | 3600×2400 | 3600×2400 |
+| SHA-256 | `8935b599…c6050a8` | `8935b599…c6050a8` |
+
+Full digest, identical on both:
+`8935b5993ecc8297a3bbb22fc92ede1ddcb2e6665c3e36bf28964cdafc6050a8`
+
+The production build was also screenshotted (renders correctly, ground sampled
+at 228°) and `read_console_messages` reported no errors on it.
+
+**Substitution, stated at the point of the claim.** The bytes were hashed
+in-page, not read back off disk. `URL.createObjectURL` was wrapped to capture
+the exact `Blob` that `downloadBlob()` hands it, and the `<a download>` click was
+suppressed so nothing was written to the filesystem; the captured blob was then
+hashed with `crypto.subtle` and decoded with `createImageBitmap`. These are the
+bytes the download *would* have written, and the anchor's own `download` and the
+blob's `type` were read off the intercepted element to confirm the filename and
+MIME the user would have received. What this does **not** prove is the browser's
+file-writing step itself — no PNG was compared on disk.
+
+**Second substitution.** The sandboxed browser cannot read `samples/` directly,
+so `samples/fieldset.png` was temporarily copied to `web/` and `dist/` to be
+served from each origin. Both copies were deleted before staging, and
+`git status` was checked clean afterwards.
+
+### 3. Retiring the originals
+
+`git rm frame.html ground.py shotkit.js jobs.json`, after a repo-wide grep
+(excluding `node_modules`) for all four names. Nearly every remaining hit is
+provenance prose in `core/`, `test/` and `docs/` — comments recording where a
+constant came from ("frame.html's alphas, unchanged", "Port of ground.py"). Those
+are the audit trail for the port and stay. Two hits are not prose, and both are
+in `scripts/`, which this task was not permitted to modify:
+
+- **`scripts/make-goldens.sh` is destructive, not merely broken.** It regenerated
+  `test/golden/ground.json` from `ground.py` via a heredoc redirected into that
+  file. The shell truncates the redirect target *before* running the command, so
+  the committed golden is emptied first and only then does Python fail on the
+  missing module; `set -euo pipefail` aborts before the `rm -rf .venv-goldens`
+  cleanup line, stranding the virtualenv too. Result: an empty golden and all 32
+  `test/ground.test.js` cases failing.
+
+  **Reproduced on a copy, not on the real file.** The script itself was never
+  run. A structurally identical script (same `set -euo pipefail`, same heredoc
+  redirect, same failing import) was run in a scratch directory against a dummy
+  golden: 23 bytes before, 0 bytes after, exit 1, cleanup skipped, fake venv left
+  behind. `test/golden/ground.json` was confirmed still 1027 bytes and
+  `git status` clean afterwards. Recovery is `git checkout
+  test/golden/ground.json` plus `rm -rf .venv-goldens`, and both are now in the
+  README.
+- **`scripts/make-render-goldens.js` line 16** instructs the reader to re-render
+  `frame.html` to check browser fidelity. That is an actionable instruction that
+  can no longer be followed. Noted in the README; the script is unedited.
+
+### 4. What was NOT verified, stated plainly
+
+- **The download written to disk.** Intercepted in-page instead (§2). The bytes,
+  filename and MIME are the real ones; the filesystem write is not exercised.
+- **`netlify.toml` against a real Netlify build.** The file is config only — no
+  site is connected, no deploy was run, and the build command and publish
+  directory were verified only by running `npm run build` locally and confirming
+  it writes `dist/`. `publish = "dist"` is repo-root-relative while
+  `vite.config.js` sets `root: 'web'` and `outDir: '../dist'`; these agree, but
+  that agreement was checked by reading the config and listing `dist/`, not by
+  observing Netlify resolve it.
+- **The security headers actually being served.** `X-Content-Type-Options` and
+  `Referrer-Policy` are declared in `netlify.toml`; `vite preview` does not apply
+  Netlify's header rules, so no response was ever inspected carrying them.
+- **Any browser other than the Browser pane's Chromium.** Export encoding
+  (`canvas.toBlob`) and decode (`createImageBitmap`) were exercised in one engine
+  only. The byte-identity result above is a dev-vs-production comparison within
+  that engine, not a cross-browser claim.

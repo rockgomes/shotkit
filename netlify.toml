@@ -1,0 +1,21 @@
+# Netlify config for the shotkit web app.
+#
+# The app is a static single page — `web/` built by Vite into `dist/`, with no
+# router, no history API use and no server side at all (every image is decoded
+# and composed in the visitor's own browser). So there is deliberately no
+# catch-all `/* -> /index.html` redirect here: nothing ever requests a path
+# other than `/`, and a catch-all would only turn a genuine 404 into a
+# silently-served index page.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
