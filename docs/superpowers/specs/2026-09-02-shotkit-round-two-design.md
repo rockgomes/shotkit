@@ -41,7 +41,10 @@ App:
 16. Export dropdown must open, not cycle.
 17. Angle made legible.
 18. Per-control Reset, disabled at default.
-19. Raise text readability throughout; bigger, truer preset tiles.
+19. Raise text readability throughout.
+
+Bigger, truer preset tiles are not a separate item: they are part of item 7's
+restructure, and are specified under Background below.
 
 ## Structural decision 1 — the config gains elements
 
@@ -85,8 +88,8 @@ So both are outsets, resolved in one place:
 4. The result is the composite.
 
 **What gives way is the padding, not the picture.** The composite is fitted to
-the canvas less a minimum margin (`MIN_MARGIN_RATIO`, a fraction of the shorter
-canvas side), not to the safe box. Turning on a frame therefore consumes
+the canvas less a minimum margin — `MIN_MARGIN_RATIO = 0.02` of the shorter canvas
+side — not to the safe box. Turning on a frame therefore consumes
 padding and leaves the screenshot alone — which is the visible behaviour Rock
 asked for. This must be stated in the UI copy for padding, because padding
 stops being an absolute promise.
@@ -269,11 +272,11 @@ Every one of these has been verified repeatedly and must still hold:
 ## Three cycles
 
 **A — Render.** Items 1–9, plus three app fixes that touch nothing in the
-inspector and so cannot collide: contrast (18), label spacing (11), Ground
+inspector and so cannot collide: contrast (19), label spacing (11), Ground
 dedup (12). Contrast rides here deliberately rather than waiting two cycles.
 
 **B — Background and selection.** Item 7's restructure, item 10's selection
-model, bigger preset tiles (19), Angle (17), per-control Resets (18).
+model, the rendered preset tiles, Angle (17), per-control Resets (18).
 
 **C — Shell.** Zoom and pan (15), new/close project (14), nameable custom sizes
 (13), export dropdown (16).
