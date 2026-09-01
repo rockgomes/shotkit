@@ -753,10 +753,36 @@ Run: `npx vitest run`
 
 Every whole-shot golden must stay byte-identical: the defaults are unchanged, so the composed output is unchanged. `git status` must show nothing modified under `test/golden/render/`. If one moved, stop and report.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 8: Add the shadow controls so this can be previewed**
+
+In the Finish section of the inspector, add four controls bound to
+`state.config.shadow`:
+
+- **Distance** — slider over `SHADOW_DISTANCE_RANGE`
+- **Angle** — slider 0–360, degrees
+- **Blur** — slider over `SHADOW_BLUR_RANGE`
+- **Directional** — a toggle bound to `shadow.directional`
+
+Angle only has a visible effect when Directional is on. Leave it enabled and
+let that be discoverable — do not disable it, and do not hide it; a control
+that vanishes is more confusing than one that waits.
+
+**These controls are deliberately minimal, and Cycle B will replace them.**
+That is not wasted work: a render feature with no way to invoke it cannot be
+previewed, and a feature Rock cannot test is a feature he cannot approve. Wire
+them into the existing inspector following the pattern already in
+`web/inspector-frame.js` — a labelled row with a slider or segmented control,
+writing to `state.config`, then `scheduleRender()`. Do not invent a new control
+idiom; do not restyle anything around them.
+
+Add matching tests to the existing inspector test file, in the style already
+there — assert the control writes the value, clamps at both ends, and that
+`render()` is scheduled.
+
+- [ ] **Step 9: Commit**
 
 ```bash
-git add core scripts test
+git add core web scripts test
 git commit -m "feat(core): parameterised shadow (distance, angle, blur, directional) with a frozen default golden"
 git push origin feat/shotkit-web
 ```
@@ -1206,10 +1232,38 @@ Run: `node scripts/make-render-goldens.js && npx vitest run`
 
 Only the three new files may appear. Every pre-existing golden must be byte-identical — `STROKE_DEFAULTS.style` is `'none'`, so nothing else can move. If one did, the stroke is being applied when it should not be.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 8: Add the stroke control so this can be previewed**
+
+In the Finish section of the inspector, add:
+
+- **Stroke** — a segmented control over `STROKE_STYLES` (None / Light / Glass /
+  Custom)
+- **Width** — a slider over `STROKE_WIDTH_RANGE`, shown only when the style is
+  not None
+- **Colour** — an `<input type="color">` bound to `stroke.color`, shown only
+  when the style is Custom
+
+Use the same show/hide mechanism `web/inspector-frame.js` already uses for the
+browser-only rows (`showsBrowserOnlyControls`), and remember the global rule:
+`[hidden]` is a single global `display: none !important` — do not add a second
+hiding mechanism.
+
+**These controls are deliberately minimal, and Cycle B will replace them.**
+That is not wasted work: a render feature with no way to invoke it cannot be
+previewed, and a feature Rock cannot test is a feature he cannot approve. Wire
+them into the existing inspector following the pattern already in
+`web/inspector-frame.js` — a labelled row with a slider or segmented control,
+writing to `state.config`, then `scheduleRender()`. Do not invent a new control
+idiom; do not restyle anything around them.
+
+Add matching tests to the existing inspector test file, in the style already
+there — assert the control writes the value, clamps at both ends, and that
+`render()` is scheduled.
+
+- [ ] **Step 9: Commit**
 
 ```bash
-git add core test scripts
+git add core web test scripts
 git commit -m "feat(core): opt-in strokes — light, glass, custom — as outsets"
 git push origin feat/shotkit-web
 ```
@@ -1649,10 +1703,35 @@ overlap, or narrow the default spread — **not** in the threshold. Moving the
 0.75 to make a muddy mesh pass is exactly the failure this gate exists to
 catch.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 9: Add the mesh controls so this can be previewed**
+
+The Background panel already shows a **Seed** stepper when the type is Mesh
+(`#backgroundSeedRow`). Add two more alongside it, on the same show-when-mesh
+condition:
+
+- **Stops** — a stepper over `MESH_STOPS_RANGE` (3–5)
+- **Spread** — a slider over `MESH_SPREAD_RANGE` (0–180 degrees)
+
+Without these, Step 7's three gates cannot be judged by a human at all — spread
+and stop count would be unreachable, which is precisely the state that made
+mesh useless in the first place.
+
+**These controls are deliberately minimal, and Cycle B will replace them.**
+That is not wasted work: a render feature with no way to invoke it cannot be
+previewed, and a feature Rock cannot test is a feature he cannot approve. Wire
+them into the existing inspector following the pattern already in
+`web/inspector-frame.js` — a labelled row with a slider or segmented control,
+writing to `state.config`, then `scheduleRender()`. Do not invent a new control
+idiom; do not restyle anything around them.
+
+Add matching tests to the existing inspector test file, in the style already
+there — assert the control writes the value, clamps at both ends, and that
+`render()` is scheduled.
+
+- [ ] **Step 10: Commit**
 
 ```bash
-git add core test scripts
+git add core web test scripts
 git commit -m "feat(core): rebuild mesh with real multi-hue stops, spread and seed"
 git push origin feat/shotkit-web
 ```
