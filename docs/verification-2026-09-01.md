@@ -529,3 +529,73 @@ in `scripts/`, which this task was not permitted to modify:
   comparison used one image, one layout, one format and one scale. The other
   formats and scales were covered in Task 3 and are unchanged here; this notes the
   limit of *this* comparison, not a gap in the export path.
+
+---
+
+## Deployment — 2026-09-01
+
+Deployed by the user's explicit instruction, after the Task 8 review returned
+APPROVED. Netlify project `shotkit-app`
+(`5271b0a5-a157-497b-8de4-2e4b02a4da0f`), deploy `6a97374c4abd41cc427cadca`,
+live at **https://shotkit-app.netlify.app**.
+
+The bare name `shotkit` was already taken on Netlify by someone else, so the
+project is `shotkit-app`.
+
+This is a **direct upload build**, not a git-connected site: the repo was
+uploaded and built in Netlify's build system from `netlify.toml`. No GitHub
+repository is connected, so pushing to `main` does not currently redeploy.
+
+### Two Task 8 gaps now closed
+
+Both were listed under "What was NOT verified" above; the deploy exercised them
+for real, so they are struck here rather than in place.
+
+**1. `netlify.toml` against a real Netlify build.** Previously the
+`publish = "dist"` / `outDir: '../dist'` agreement had been checked by reading
+the config and listing `dist/` locally. Netlify's own build system has now
+resolved it: the build succeeded and the site serves the app at `/`. The
+`NODE_VERSION = "20"` resolution against vite 7's `engines` range is likewise
+now observed rather than reasoned about — the build did not fail on `npm ERR!
+engine`.
+
+**2. The security headers being served.** Observed on a real response from the
+production origin:
+
+```
+$ curl -sSI https://shotkit-app.netlify.app
+HTTP/2 200
+referrer-policy: strict-origin-when-cross-origin
+x-content-type-options: nosniff
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+```
+
+Both declared headers are present. HSTS is Netlify's own default, not ours.
+
+### Production smoke test
+
+Driven against the live origin, not a local server:
+
+- Empty state renders as app chrome — toolbar, rail, sidebar, inspector, empty
+  ratio frame labelled `1800 x 1200`. Zero console errors.
+- A synthetic 1440x900 PNG was set on the real `#fileInput` and dispatched
+  `change` (the same path a drop takes). Export enabled, the real Export button
+  clicked, and the download blob captured: `synthetic--web@2x.png`,
+  `image/png`, 9,499,433 bytes, decoded **3600x2400** — the correct 2x of the
+  3:2 1800x1200 canvas.
+- The preview canvas was confirmed painted by sampling its backing store
+  (1800x1200, pixel range [14,18,31]–[255,255,255]), not by eye. Worth
+  recording *why*: the first screenshot after load showed an empty canvas, and
+  the backing-store sample is what established that this was the arrival
+  animation mid-flight rather than a render failure. A later screenshot showed
+  the composed shot correctly.
+
+### Still not verified
+
+- **The download written to disk.** Same substitution as §2 — the blob was
+  intercepted in-page. Unchanged by deploying.
+- **Any browser other than Chromium.** The production smoke test used one
+  engine, as every check before it did.
+- **The two real-hardware items from Task 7** — an OS-level Reduce Motion
+  toggle, and a real window drag across the 900px breakpoint. Still worth
+  thirty seconds on the live site.
