@@ -216,9 +216,10 @@ files import `web/` modules and drive the real `render()`, 67 of the 254 tests:
 
 So a change to `web/sidebar.js` or either inspector module can and does turn the
 suite red, and a failure there is a real failure, not collateral from `core/`.
-What genuinely has no automated coverage is the wiring in `web/main.js` and
-`web/state.js` — drag-and-drop, the drawers, the arrival animation, focus and
-contrast. That was verified by hand, and the pass is written up in
+What genuinely has no automated coverage is the wiring: `web/main.js`, plus
+`addFiles()` and `scheduleRender()`'s debounce in `web/state.js` — drag-and-drop,
+the drawers, the arrival animation, focus and contrast. `render()` itself, in
+that same file, is driven by every test in the table above. That was verified by hand, and the pass is written up in
 `docs/verification-2026-09-01.md`.
 
 ### Two dead references in `scripts/`

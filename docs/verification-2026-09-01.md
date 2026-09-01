@@ -521,3 +521,11 @@ in `scripts/`, which this task was not permitted to modify:
   (`canvas.toBlob`) and decode (`createImageBitmap`) were exercised in one engine
   only. The byte-identity result above is a dev-vs-production comparison within
   that engine, not a cross-browser claim.
+- **`NODE_VERSION = "20"` against vite 7's `engines` range.** Vite 7 requires
+  `^20.19.0 || >=22.12.0`. Netlify resolves the bare `"20"` to the latest 20.x,
+  which satisfies it — but that resolution was never observed, and it has its own
+  failure mode (`npm ERR! engine`) distinct from the publish-path assumption above.
+- **Any export format or scale other than PNG at 2x.** The dev-vs-production
+  comparison used one image, one layout, one format and one scale. The other
+  formats and scales were covered in Task 3 and are unchanged here; this notes the
+  limit of *this* comparison, not a gap in the export path.
