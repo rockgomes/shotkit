@@ -1097,30 +1097,65 @@ git push origin feat/shotkit-web
 - Consumes: Task 6's outset layout — changing `BROWSER_BAR_RATIO` must flow through `frameInsets` with no further layout edits. Task 7's stroke wraps the frame.
 - Produces: no signature change. `paintChrome(ctx, c, box, theme)` keeps its shape; only what it draws and the ratios change.
 
-- [ ] **Step 1: Measure, do not guess**
+- [ ] **Step 1: Take the measurements as given — they are already made**
 
-**Reference files, on disk:** `docs/references/browser/`. Measure every image
-in that directory. It contains at least one screenshot of a real macOS Safari
-window; it may also contain stylised mockups of one.
+These were measured from the Figma community file *Apple iOS Browser Mockup —
+Safari & Chrome*, file key `ashXeowHsiwznytlLbuvuS`, symbol
+`Desktop / Safari / Light`, node `1:3179`, via the Figma MCP layer tree. They
+are exact layer geometry, not pixel-counted from a raster, so there is nothing
+left to re-derive.
 
-If that directory is missing or empty, **stop and report** — do not substitute
-an image from anywhere else, do not measure a browser you render yourself, and
-do not proceed on a remembered number. Nothing about this task is doable
-without the files.
+The reference is a careful reconstruction of Safari rather than a screenshot of
+it, and that is **correct for this purpose**: shotkit draws a stylised browser
+for a Dribbble shot, so the idealised form is the right register. A real
+screenshot would carry toolbar clutter, extensions and retina artefacts we
+would then have to strip back out.
 
-Where the directory holds both a real window and a stylised mockup, **the real
-window is authoritative.** Report every measurement from every file, and where
-they disagree say by how much; a mockup is one designer's interpretation and
-may exaggerate. Adopt the real window's proportions unless a disagreement is
-small enough not to matter, and say which you used and why.
+Raw layer geometry, window width 1280:
 
-For each image, measure in pixels: the window's outer width, the chrome bar's
-height, the window's corner radius, the traffic-light dot diameter and their
-spacing, and the URL pill's height and width.
+| Layer | Geometry |
+|---|---|
+| `toolbar` (1:3181) | 1280 × **53**, at y=0 |
+| `Core / Traffic Lights (Big Sur)` (1:3198) | 52 × **12**, at x=**21**, y=20 |
+| `URL Form` (4008:386) | **484** × **28**, at x=**398**, y=12 |
+| `Body` (1:3180) | 1280 × 731, at y=53 |
 
-Express each as a fraction of the **window width** and write the six numbers, with the raw pixel measurements they came from, into the task report. `BROWSER_BAR_RATIO` is currently `10/133 ≈ 0.0752`; the measured value is expected to be roughly half that, but **use what you measure**. Halving the existing number by feel is how a second wrong constant gets shipped.
+Derived, as fractions of the frame width — use these values verbatim:
 
-State in the report which image each measurement came from and how it was taken.
+```
+BROWSER_BAR_RATIO     = 53  / 1280 = 0.04140625   // was 10/133 = 0.0752
+TRAFFIC_DOT_RATIO     = 12  / 1280 = 0.009375     // dot diameter
+TRAFFIC_GAP_RATIO     = 20  / 1280 = 0.015625     // centre-to-centre spacing
+TRAFFIC_INSET_RATIO   = 21  / 1280 = 0.01640625   // left edge to first dot's left edge
+URL_PILL_WIDTH_RATIO  = 484 / 1280 = 0.378125
+URL_PILL_HEIGHT_RATIO = 28  / 1280 = 0.021875
+```
+
+Two facts that are not ratios and matter as much:
+
+- **The pill is horizontally centred in the frame.** 398 + 484/2 = 640, and
+  640 is exactly half of 1280. Our current pill is not centred; centring it is
+  part of this task.
+- **Both the dots and the pill are vertically centred in the bar.** Dots:
+  20 + 12/2 = 26 against a bar centre of 26.5. Pill: 12 + 28/2 = 26. Treat
+  both as centred; do not reproduce the half-pixel.
+
+**Two numbers are NOT settled here and must be obtained before you write code:**
+
+1. **The window corner radius.** `Body` is a rounded rectangle but the layer
+   tree does not expose its radius. `BROWSER_RADIUS_RATIO` is currently
+   `25/1064 = 0.0235`, which at 1280 would be 30px — visibly larger than the
+   reference. Obtain the real value with `get_design_context` on node
+   `1:3180` (load the `figma-design-to-code` guidance first, as that tool
+   requires), or from any equivalent source, and record where you got it.
+2. **The light and dark bar colours.** The existing `CHROME_THEME` table in
+   `core/render.js` came from the Backdrop handoff, not from this reference.
+   Compare them against the Figma file and report whether they agree. Change
+   them only if they visibly disagree — and say so if you do.
+
+If you cannot obtain the corner radius, **stop and report** rather than
+guessing or keeping the old value silently. Everything else in this task can
+proceed on the table above.
 
 - [ ] **Step 2: Write the failing tests**
 
