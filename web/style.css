@@ -873,6 +873,17 @@ input {
   color: var(--text-muted);
 }
 
+/* Same fix as #dropzone[hidden] above (see that rule's comment): the seed
+   stepper row (web/inspector-background.js) is only shown for `bgType:
+   'mesh'`, toggled via the `hidden` property. `.inline-control-row`'s own
+   `display: flex` ties the UA `[hidden] { display: none }` rule on
+   specificity, and an author rule wins a tie regardless of source order -
+   without this, `seedRow.hidden = true` would silently do nothing and the
+   Seed control would stay visible for Linear/Solid too. */
+#backgroundSeedRow[hidden] {
+  display: none;
+}
+
 /* -------------------------------------------------------------------------
    Control primitive: segmented control
    ---------------------------------------------------------------------- */
@@ -1018,6 +1029,92 @@ input {
 .slider:focus-visible {
   outline: 2px solid var(--text-primary);
   outline-offset: 3px;
+}
+
+/* -------------------------------------------------------------------------
+   Control primitive: Sampled row (Task 5, web/inspector-background.js)
+
+   Same shape/tokens as .preset-row (a real <button>, transparent 1px
+   border so selecting it never nudges layout by a pixel) but three small
+   stop chips instead of one gradient chip, and — the one genuinely new
+   rule — a DIMMED-not-hidden state for "this is true, but not what's
+   currently in effect" (an override is forcing a different hue). Opacity
+   is the whole mechanism: nothing about the row's structure or colours
+   changes, so it stays fully legible while reading as inactive.
+   ---------------------------------------------------------------------- */
+
+.sampled-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.sampled-row:hover {
+  background: var(--border-hairline);
+}
+
+.sampled-row.is-active {
+  background: var(--surface-raised-1);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.sampled-row:not(.is-active) {
+  opacity: 0.6;
+}
+
+.sampled-row:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: -2px;
+}
+
+.sampled-stops {
+  display: flex;
+  gap: 3px;
+  flex: none;
+}
+
+.sampled-stop {
+  width: 11px;
+  height: 16px;
+  border-radius: 3px;
+}
+
+.sampled-label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.sampled-hue {
+  font-size: 10px;
+  color: var(--text-fainter);
+}
+
+.sampled-row.is-active .sampled-hue {
+  color: var(--text-faint);
+}
+
+/* Small explanatory line under a control whose rule isn't self-evident
+   from its label alone (currently: Ground tone) — same tone as
+   .export-footnote, left-aligned instead of centred. */
+.control-hint {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--text-fainter);
 }
 
 /* -------------------------------------------------------------------------

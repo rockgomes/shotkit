@@ -9,6 +9,7 @@
 import { state, SURROUNDS, bindCanvas, addFiles, hasContent } from './state.js';
 import { exportShot } from './export.js';
 import { initSidebar } from './sidebar.js';
+import { initBackgroundInspector } from './inspector-background.js';
 
 /** Toggle `.is-active`/aria-pressed among sibling cells of a single-select
  *  group (segmented controls, chips, swatches all follow this shape). */
@@ -34,10 +35,11 @@ wireSingleSelectGroup(document.querySelector('.chip-row'), {
   selector: '.chip',
 });
 
-wireSingleSelectGroup(document.querySelector('.swatch-row'), {
-  activeClass: 'is-selected',
-  selector: '.swatch:not(.swatch--add)',
-});
+// `.swatch-row` (a gradient-colour picker) was part of the design handoff's
+// Background section — Task 5 replaced that whole section with
+// web/inspector-background.js's own markup (Sampled/Presets/Hue first, no
+// swatch-row at all — see that file's header comment for why), so there is
+// no longer a `.swatch-row` anywhere in index.html to wire up here.
 
 // Templates/Ratios/Ground presets (Task 4) are NOT wired with the generic
 // wireSingleSelectGroup helper above: those rows carry real application
@@ -65,6 +67,17 @@ document.querySelectorAll('.slider-row').forEach((row) => {
   input.addEventListener('input', sync);
   sync();
 });
+
+// Background inspector (Task 5) is called AFTER the generic `.slider-row`/
+// `.segmented` wiring above finishes, not before: it builds its own Hue/
+// Angle sliders and Type/Tone segmented controls from scratch, wires its
+// own listeners directly (mutating `state.config` and calling
+// `scheduleRender()` — the generic loops above only ever toggle a CSS
+// class or a --slider-fill percentage, never real state), and needs those
+// elements to NOT be present yet when the generic, one-time
+// `querySelectorAll` passes above ran, so nothing double-wires them. See
+// web/inspector-background.js's own header comment.
+const background = initBackgroundInspector();
 
 /** Rail items marked aria-disabled render dimmed but stay focusable (per
  *  ARIA authoring practice) so keyboard/screen-reader users can discover
@@ -308,6 +321,10 @@ async function handleFiles(fileList) {
   // no-image fallback and start previewing the real thing (see
   // web/sidebar.js's "Ground swatch gradients" header comment).
   sidebar?.refreshGrounds();
+  // Same handshake for the inspector's own "Sampled" swatches (Task 5) —
+  // see web/inspector-background.js's "Sampled" header comment for why it
+  // keeps an independent cache that only this call invalidates.
+  background?.refreshSampled();
 }
 
 /** Drop anywhere on the stage — not just the dropzone box — so a shot can be

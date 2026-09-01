@@ -208,6 +208,46 @@ function matchesQuery(label, query) {
   return !query || label.toLowerCase().includes(query);
 }
 
+/**
+ * Build the eight named-hue preset rows (`.preset-row`/`.preset-swatch`,
+ * the exact markup/gradient logic above) into `listEl` — an already-empty
+ * `<ul>` (or similar) the caller owns. Factored out of this file's own
+ * `renderGrounds()` (below) so web/inspector-background.js's Background
+ * panel (Task 5) can show the SAME eight presets, rendered the SAME way,
+ * without a second implementation of the swatch/gradient logic — the
+ * brief for that task is explicit that this must be reused, not rewritten.
+ *
+ * `onSelect()` runs after `selectGround` has already mutated
+ * `state.config` for the clicked preset — the caller decides what needs to
+ * re-render (this file's own `renderAll()` + `scheduleRender()` for the
+ * sidebar; the Background panel's own sync + `scheduleRender()` there).
+ * `scheduleRender()` itself is NOT called here, on purpose: this module
+ * must not assume which single call site is the last thing that needs to
+ * happen after a click.
+ */
+export function renderGroundSwatches(listEl, onSelect) {
+  listEl.innerHTML = '';
+  const active = activeGroundKey(state.config);
+  for (const name of Object.keys(HUES)) {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'preset-row' + (active === name ? ' is-selected' : '');
+    btn.setAttribute('aria-pressed', String(active === name));
+    const swatch = document.createElement('span');
+    swatch.className = 'preset-swatch';
+    swatch.setAttribute('aria-hidden', 'true');
+    swatch.style.background = gradientFor(name, state.meta, state.config.tone);
+    btn.append(swatch, titleCase(name));
+    btn.addEventListener('click', () => {
+      selectGround(state.config, name);
+      onSelect();
+    });
+    li.appendChild(btn);
+    listEl.appendChild(li);
+  }
+}
+
 // ---------------------------------------------------------------------
 // DOM wiring. Reuses Task 1's existing sidebar markup and CSS classes
 // (.template-list / .template-row / .preset-list / .preset-row /
@@ -417,27 +457,10 @@ export function initSidebar() {
   }
 
   function renderGrounds() {
-    groundList.innerHTML = '';
-    const active = activeGroundKey(state.config);
-    for (const name of Object.keys(HUES)) {
-      const li = document.createElement('li');
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'preset-row' + (active === name ? ' is-selected' : '');
-      btn.setAttribute('aria-pressed', String(active === name));
-      const swatch = document.createElement('span');
-      swatch.className = 'preset-swatch';
-      swatch.setAttribute('aria-hidden', 'true');
-      swatch.style.background = gradientFor(name, state.meta, state.config.tone);
-      btn.append(swatch, titleCase(name));
-      btn.addEventListener('click', () => {
-        selectGround(state.config, name);
-        renderAll();
-        scheduleRender();
-      });
-      li.appendChild(btn);
-      groundList.appendChild(li);
-    }
+    renderGroundSwatches(groundList, () => {
+      renderAll();
+      scheduleRender();
+    });
   }
 
   function renderAll() {

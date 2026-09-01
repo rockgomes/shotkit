@@ -233,29 +233,16 @@
       </main>
 
       <aside id="inspector" aria-label="Background, frame and export settings">
-        <section class="inspector-section">
+        <!-- Task 5 (web/inspector-background.js) owns everything in this
+             section below the heading — Sampled, Presets, Hue, Angle,
+             Type, Seed and Tone, in that order (the product's argument,
+             not a layout preference; see that file's header comment).
+             The design handoff's own markup here put a gradient-swatch
+             picker first; that is deliberately NOT reproduced — the
+             screenshot's own sampled ground leads, manual hue is an
+             override. -->
+        <section class="inspector-section" id="backgroundSection">
           <h2 class="section-label">Background</h2>
-          <div class="segmented" role="group" aria-label="Background type">
-            <button type="button" class="segmented-cell" aria-pressed="false">Solid</button>
-            <button type="button" class="segmented-cell is-active" aria-pressed="true">Linear</button>
-            <button type="button" class="segmented-cell" aria-pressed="false">Mesh</button>
-          </div>
-          <div class="swatch-row" role="group" aria-label="Gradient color">
-            <button type="button" class="swatch swatch--1 is-selected" aria-label="Blue to pink" aria-pressed="true"></button>
-            <button type="button" class="swatch swatch--2" aria-label="Orange to magenta" aria-pressed="false"></button>
-            <button type="button" class="swatch swatch--3" aria-label="Cyan to indigo" aria-pressed="false"></button>
-            <button type="button" class="swatch swatch--4" aria-label="Green to teal" aria-pressed="false"></button>
-            <button type="button" class="swatch swatch--5" aria-label="Slate to charcoal" aria-pressed="false"></button>
-            <button type="button" class="swatch swatch--add" aria-label="Add custom color">+</button>
-          </div>
-          <div class="slider-row">
-            <div class="slider-label"><span>Angle</span><span class="mono slider-value">135°</span></div>
-            <input type="range" class="slider" min="0" max="360" value="135" aria-label="Gradient angle" />
-          </div>
-          <div class="slider-row">
-            <div class="slider-label"><span>Noise</span><span class="mono slider-value">16%</span></div>
-            <input type="range" class="slider" min="0" max="100" value="16" aria-label="Noise amount" />
-          </div>
         </section>
 
         <section class="inspector-section">
