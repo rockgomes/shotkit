@@ -1099,7 +1099,24 @@ git push origin feat/shotkit-web
 
 - [ ] **Step 1: Measure, do not guess**
 
-The reference images are the two `app.kirridesk.com` screenshots supplied in the round-two feedback (macOS Safari windows). For each, measure in pixels: the window's outer width, the chrome bar's height, the window's corner radius, the traffic-light dot diameter and their spacing, and the URL pill's height and width.
+**Reference files, on disk:** `docs/references/browser/`. Measure every image
+in that directory. It contains at least one screenshot of a real macOS Safari
+window; it may also contain stylised mockups of one.
+
+If that directory is missing or empty, **stop and report** — do not substitute
+an image from anywhere else, do not measure a browser you render yourself, and
+do not proceed on a remembered number. Nothing about this task is doable
+without the files.
+
+Where the directory holds both a real window and a stylised mockup, **the real
+window is authoritative.** Report every measurement from every file, and where
+they disagree say by how much; a mockup is one designer's interpretation and
+may exaggerate. Adopt the real window's proportions unless a disagreement is
+small enough not to matter, and say which you used and why.
+
+For each image, measure in pixels: the window's outer width, the chrome bar's
+height, the window's corner radius, the traffic-light dot diameter and their
+spacing, and the URL pill's height and width.
 
 Express each as a fraction of the **window width** and write the six numbers, with the raw pixel measurements they came from, into the task report. `BROWSER_BAR_RATIO` is currently `10/133 ≈ 0.0752`; the measured value is expected to be roughly half that, but **use what you measure**. Halving the existing number by feel is how a second wrong constant gets shipped.
 
@@ -1369,11 +1386,72 @@ Run: `node scripts/make-render-goldens.js && npx vitest run`
 
 `mesh` changes (expected — that is the point of the task) and `mesh-wide` is new. Nothing else may move.
 
-- [ ] **Step 7: Look at it, and be honest**
+- [ ] **Step 7: Hold it to the three gates**
 
-Render mesh in the browser at several seeds and spreads and screenshot four of them. The user's standing complaint is that mesh has no use. If, looking at the output, it still does not, **say so in the report** rather than declaring the task done — the spec's option to delete mesh remains open and is better taken than papered over.
+"Useful" is not a matter of taste here. Mesh earns its place only if it does
+something a linear gradient cannot, which is three specific things. All three
+are already tested above except the third, which is added in Step 8.
 
-- [ ] **Step 8: Commit**
+1. **Distinguishable** — spans more hue buckets than a linear ground of the
+   same base. (`a spread mesh spans more hue buckets than a linear ground`)
+2. **Steerable** — spread, stop count and seed each visibly change the output.
+   (the four determinism and variation tests)
+3. **Not muddy** — wide spread must not wash the colour out. This is the real
+   failure mode of multi-hue blending: overlapping hues average toward grey,
+   and a mesh that technically contains five hues but renders as sludge is
+   worse than the linear gradient it replaced.
+
+Render mesh in the browser at several seeds and spreads, screenshot four, and
+put them in the report next to a linear ground of the same hue.
+
+If all three gates pass, the task is done — report it as done even if you
+personally find the look unexciting; that is a design conversation, not a
+gate. If a gate **fails** and you cannot make it pass, say so plainly and
+stop: the spec keeps deleting mesh on the table, and taking that option is
+better than shipping a control that does nothing.
+
+- [ ] **Step 8: Add the anti-mud test**
+
+Add to `test/render-mesh.test.js`:
+
+```js
+it('a wide spread does not wash the colour out', () => {
+  // Mean chroma (max channel minus min channel, 0-255) over a sample grid.
+  // Overlapping hues average toward grey; this is the failure mode that
+  // makes a technically-multi-hue mesh look like sludge.
+  function meanChroma(ctx, c) {
+    let total = 0, n = 0;
+    for (let i = 1; i < 8; i++) {
+      for (let j = 1; j < 6; j++) {
+        const d = ctx.getImageData(
+          Math.round((c.w * i) / 8), Math.round((c.h * j) / 6), 1, 1,
+        ).data;
+        total += Math.max(d[0], d[1], d[2]) - Math.min(d[0], d[1], d[2]);
+        n++;
+      }
+    }
+    return total / n;
+  }
+
+  const linear = meshScene({ bgType: 'linear' });
+  const wide = meshScene({ mesh: { stops: 5, spread: 140, seed: 7 } });
+
+  // A wide mesh may be a little less saturated than a clean two-stop ramp,
+  // but it must not collapse. 0.75 is the floor: below it the ground reads
+  // as grey rather than coloured.
+  expect(meanChroma(wide.ctx, wide.c))
+    .toBeGreaterThan(meanChroma(linear.ctx, linear.c) * 0.75);
+});
+```
+
+Run: `npx vitest run test/render-mesh.test.js`
+
+If this fails, the fix is in `paintMesh` — lower the per-blob alpha, reduce
+overlap, or narrow the default spread — **not** in the threshold. Moving the
+0.75 to make a muddy mesh pass is exactly the failure this gate exists to
+catch.
+
+- [ ] **Step 9: Commit**
 
 ```bash
 git add core test scripts
