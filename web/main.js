@@ -10,6 +10,7 @@ import { state, SURROUNDS, bindCanvas, addFiles, hasContent } from './state.js';
 import { exportShot } from './export.js';
 import { initSidebar } from './sidebar.js';
 import { initBackgroundInspector } from './inspector-background.js';
+import { initFrameInspector, initFinishInspector } from './inspector-frame.js';
 
 /** Toggle `.is-active`/aria-pressed among sibling cells of a single-select
  *  group (segmented controls, chips, swatches all follow this shape). */
@@ -30,16 +31,16 @@ document.querySelectorAll('.segmented').forEach((el) => {
   wireSingleSelectGroup(el, { activeClass: 'is-active', selector: '.segmented-cell' });
 });
 
-wireSingleSelectGroup(document.querySelector('.chip-row'), {
-  activeClass: 'is-selected',
-  selector: '.chip',
-});
-
-// `.swatch-row` (a gradient-colour picker) was part of the design handoff's
-// Background section — Task 5 replaced that whole section with
-// web/inspector-background.js's own markup (Sampled/Presets/Hue first, no
-// swatch-row at all — see that file's header comment for why), so there is
-// no longer a `.swatch-row` anywhere in index.html to wire up here.
+// `.chip-row` (Frame's frameKind chips) and `.swatch-row` (a gradient-colour
+// picker, Background's) were both part of the design handoff's own static
+// markup — Task 5 replaced Background with web/inspector-background.js's
+// own markup, and Task 6 does the same for Frame with
+// web/inspector-frame.js (frameKind chips carry real application state,
+// state.config.frameKind, and need to funnel through scheduleRender() plus
+// conditionally show/hide the chrome-theme and url controls — the generic
+// class-toggle-only wiring above can't do either). So there is no longer a
+// `.chip-row` or `.swatch-row` anywhere in index.html at load time for the
+// loops above to find, by the same reasoning Task 5 already established.
 
 // Templates/Ratios/Ground presets (Task 4) are NOT wired with the generic
 // wireSingleSelectGroup helper above: those rows carry real application
@@ -78,6 +79,13 @@ document.querySelectorAll('.slider-row').forEach((row) => {
 // `querySelectorAll` passes above ran, so nothing double-wires them. See
 // web/inspector-background.js's own header comment.
 const background = initBackgroundInspector();
+
+// Frame and Finish (Task 6), same reasoning and sequencing as Background
+// immediately above: each builds its own section from scratch, so both run
+// after the generic `.slider-row`/`.segmented` loops so nothing double-wires
+// controls that don't exist in the DOM yet when those loops ran.
+initFrameInspector();
+initFinishInspector();
 
 /** Rail items marked aria-disabled render dimmed but stay focusable (per
  *  ARIA authoring practice) so keyboard/screen-reader users can discover

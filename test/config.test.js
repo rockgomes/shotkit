@@ -184,3 +184,30 @@ describe('chromeTheme', () => {
     expect(normalise({ chromeTheme: 'nonsense' }).chromeTheme).toBe('dark');
   });
 });
+
+// Task 6: closing the long-standing gap - core/ had a captured colour
+// (fUrlTxt) for the browser pill's text but nowhere for the app to put a
+// real string. `url` is the new field; the two states below are exactly
+// what the task brief asks for: absent (null, the pill stays empty - see
+// core/render.js's paintChrome) and present (a real string, drawn).
+describe('url', () => {
+  it('defaults to null - an empty pill, never a fabricated placeholder', () => {
+    expect(normalise({}).url).toBe(null);
+  });
+
+  it('accepts a real string', () => {
+    expect(normalise({ url: 'app.acme.dev' }).url).toBe('app.acme.dev');
+  });
+
+  // Same coercion as `caption` (config.js, right above this field): an
+  // empty string is "no value", not a value with zero characters - so a
+  // text input that was typed into and then cleared falls straight back to
+  // the empty-pill default, not a technically-truthy-but-blank string.
+  it('coerces an empty string to null, same as caption does', () => {
+    expect(normalise({ url: '' }).url).toBe(null);
+  });
+
+  it('coerces a non-string to a string, same as caption does', () => {
+    expect(normalise({ url: 404 }).url).toBe('404');
+  });
+});

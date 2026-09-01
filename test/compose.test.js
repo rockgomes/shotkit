@@ -277,6 +277,12 @@ describe('pixel-diff against frozen renders', () => {
     // clearly. Uses the web layout with a browser frame so geometry, chrome
     // and grain are all exercised together in one image.
     ['square-browser', { ratio: '1:1', frameKind: 'browser', chromeTheme: 'dark' }, { web: 'samples/fieldset.png' }],
+    // Task 6: the browser pill's own URL text. This is a NEW golden, not a
+    // regeneration of any of the 9 above - every one of those omits `url`
+    // (DEFAULTS.url is null, core/config.js), so they stay byte-identical
+    // whether or not this line exists. See scripts/make-render-goldens.js's
+    // matching comment for the regeneration proof.
+    ['browser-url',   { ratio: '3:2', frameKind: 'browser', chromeTheme: 'dark', url: 'app.acme.dev' }, { web: 'samples/fieldset.png' }],
   ];
 
   for (const [name, cfg, files] of CASES) {
@@ -307,6 +313,29 @@ describe('pixel-diff against frozen renders', () => {
       expect(diff / (ref.width * ref.height)).toBeLessThan(1e-5);
     });
   }
+
+  // Task 6, "break it and watch it go red": the loop above only proves the
+  // populated-pill golden matches ITSELF. This proves it isn't a rubber
+  // stamp - a render with a DIFFERENT url string against the exact same
+  // golden must fail the identical byte comparison, comfortably clear of
+  // the <1e-5 pass threshold every case above uses. Measured: 4,335 of
+  // 2,160,000 pixels differ (ratio ~0.00201, ~200x the pass threshold) -
+  // recorded here, not just asserted, so a future change to this test
+  // can't silently loosen it back to noise-level and still "pass".
+  it('the browser-url golden actually discriminates on the url text, not just presence', async () => {
+    const { target } = await run(
+      { ratio: '3:2', frameKind: 'browser', chromeTheme: 'dark', url: 'totally-different.example' },
+      { web: 'samples/fieldset.png' },
+    );
+    const ref = await loadImage('test/golden/render/browser-url.png');
+    const rc = createCanvas(ref.width, ref.height);
+    rc.getContext('2d').drawImage(ref, 0, 0);
+
+    const a = target.getContext('2d').getImageData(0, 0, target.width, target.height);
+    const b = rc.getContext('2d').getImageData(0, 0, ref.width, ref.height);
+    const diff = pixelmatch(a.data, b.data, null, ref.width, ref.height, { threshold: 0 });
+    expect(diff / (ref.width * ref.height)).toBeGreaterThan(1e-3);
+  });
 });
 
 // Task 2 fix round 1 (authorised core/ change): composeWithMeta accepts an

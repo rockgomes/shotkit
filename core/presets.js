@@ -21,6 +21,8 @@ export const DEFAULTS = {
   phoneScale: 0.86,
   phoneBleed: 0.10,
   caption: null,
+  url: null,           // browser URL pill text - null means the pill stays
+                        // empty (see URL_PILL_FONT_RATIO below and Task 6)
   tone: null,          // null | 'light' | 'mid'
   bgType: 'linear',    // 'linear' | 'solid' | 'mesh'
   seed: 1,
@@ -112,6 +114,11 @@ export const URL_PILL_HEIGHT_RATIO = 45 / 1064; // ≈ 0.042293
 // 5 / 425.6 = 25/2128 (coincidentally equal to CHROME_DOT_GAP_RATIO — both
 // are a real, distinct 5px measurement in the mockup).
 export const URL_PILL_RADIUS_RATIO = 25 / 2128; // ≈ 0.011749
+
+// URL pill text size, Geist Mono. HTML line ~103, same element as above:
+//   font-family:'Geist Mono',monospace;font-size:9.5px
+// 9.5 / 425.6 = 95/4256 = 5/224 exactly.
+export const URL_PILL_FONT_RATIO = 5 / 224; // ≈ 0.022321
 
 // Named export sizes. Real platform dimensions, not ratios — a Dribbble shot is
 // 2800x2100 (4:3 at @2x), which is what the site actually wants.

@@ -3,13 +3,15 @@ import { createCanvas, loadImage } from '@napi-rs/canvas';
 import pixelmatch from 'pixelmatch';
 import { normalise } from '../core/config.js';
 import { layout } from '../core/layout.js';
-import { paintGround, paintWeb } from '../core/render.js';
+import { paintGround, paintWeb, roundRect } from '../core/render.js';
 import { composeWithMeta } from '../core/index.js';
 import {
   CHROME_DOT_RATIO,
   CHROME_DOT_GAP_RATIO,
   CHROME_BAR_PADDING_RATIO,
   CHROME_BAR_GAP_RATIO,
+  URL_PILL_HEIGHT_RATIO,
+  URL_PILL_RADIUS_RATIO,
 } from '../core/presets.js';
 
 const GROUND = ['#f7f4ff', '#ece6fb', '#ded3f5'];
@@ -109,6 +111,124 @@ describe('paintWeb - browser chrome bar', () => {
     expect(barOnly).not.toEqual(pillFill);
     // dark URL pill: rgba(255,255,255,.07) blended over #1b1d22 bar
     expect(close(pillFill, [43, 45, 49], 6)).toBe(true);
+  });
+});
+
+// Task 6: the URL pill's own text (core/config.js's `url` field, default
+// null). Two states, per the task brief: absent (the pill must stay
+// EXACTLY the plain fill it always was - the whole point of the original
+// "refuse to fabricate placeholder copy" decision this closes out) and
+// present (drawn in fUrlTxt, clipped to the pill so an overlong string
+// can't spill into the dot group or past the bar's own right padding).
+function pillGeomOf(web) {
+  const padX = web.w * CHROME_BAR_PADDING_RATIO;
+  const barGap = web.w * CHROME_BAR_GAP_RATIO;
+  const dotsGroupW = web.w * CHROME_DOT_RATIO * 3 + web.w * CHROME_DOT_GAP_RATIO * 2;
+  const pillX = web.x + padX + dotsGroupW + barGap;
+  const pillW = (web.x + web.w - padX) - pillX;
+  const pillH = web.w * URL_PILL_HEIGHT_RATIO;
+  const pillR = web.w * URL_PILL_RADIUS_RATIO;
+  const barY = web.y + web.chrome.barH / 2;
+  const pillY = barY - pillH / 2;
+  return { pillX, pillY, pillW, pillH, pillR, barY };
+}
+
+/** Independent oracle for "the pill with no text at all": the exact same
+ *  two draws paintChrome itself does for the plain pill (bar fillRect, then
+ *  the pill's own roundRect fill) - reproduced here from scratch, not by
+ *  calling paintChrome with url stripped, so a regression that made
+ *  paintChrome draw text UNCONDITIONALLY (the "invented placeholder" bug
+ *  this whole field exists to prevent) has no way to also corrupt this
+ *  independent reference. */
+function plainPillOracle(c, web, theme) {
+  const barColour = theme === 'light' ? '#f6f7f9' : '#1b1d22';
+  const pillColour = theme === 'light' ? '#ffffff' : 'rgba(255,255,255,0.07)';
+  const cv = createCanvas(c.w, c.h);
+  const octx = cv.getContext('2d');
+  octx.fillStyle = barColour;
+  octx.fillRect(web.x, web.y, web.w, web.chrome.barH);
+  const { pillX, pillY, pillW, pillH, pillR } = pillGeomOf(web);
+  roundRect(octx, pillX, pillY, pillW, pillH, pillR);
+  octx.fillStyle = pillColour;
+  octx.fill();
+  return octx;
+}
+
+function regionBytes(ctx, x, y, w, h) {
+  return Buffer.from(ctx.getImageData(Math.round(x), Math.round(y), Math.round(w), Math.round(h)).data);
+}
+
+describe('paintWeb - browser URL pill text (Task 6)', () => {
+  it('stays exactly, pixel-for-pixel empty when url is unset - the default this closes out, unchanged', async () => {
+    // Break-it check: a version of paintChrome that fell back to a
+    // fabricated placeholder (the exact thing the original implementer
+    // refused to do) would still pass a spot-check at an unlucky pixel a
+    // short string's glyphs happen to miss - this compares the WHOLE pill
+    // rectangle, byte for byte, against an independent from-scratch oracle
+    // that never draws text at all, so no glyph position can hide from it.
+    const { c, lay, ctx } = await scene({ frameKind: 'browser', chromeTheme: 'dark' });
+    const { pillX, pillY, pillW, pillH } = pillGeomOf(lay.web);
+    const oracle = plainPillOracle(c, lay.web, 'dark');
+    expect(regionBytes(ctx, pillX, pillY, pillW, pillH)).toEqual(
+      regionBytes(oracle, pillX, pillY, pillW, pillH),
+    );
+  });
+
+  it('draws the url text once set - the same region now differs from the empty-pill oracle', async () => {
+    const { c, lay, ctx } = await scene({ frameKind: 'browser', chromeTheme: 'dark', url: 'app.acme.dev' });
+    const { pillX, pillY, pillW, pillH } = pillGeomOf(lay.web);
+    const oracle = plainPillOracle(c, lay.web, 'dark');
+    expect(regionBytes(ctx, pillX, pillY, pillW, pillH)).not.toEqual(
+      regionBytes(oracle, pillX, pillY, pillW, pillH),
+    );
+  });
+
+  it('draws the url text in fUrlTxt (#9ba1ab dark / #5c6470 light), not some other colour', async () => {
+    // A long, dense run of the narrowest mono glyphs ("iiiiiiiiiiiiiiiiiiii")
+    // packed across the whole pill width, so at least one column in this
+    // scan is near-certain to land on solid ink rather than inter-glyph
+    // gap - then take the sample closest to the expected colour instead of
+    // guessing a single point, so the assertion doesn't depend on exactly
+    // where glyphs fall.
+    const url = 'iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii';
+    const dark = await scene({ frameKind: 'browser', chromeTheme: 'dark', url });
+    const light = await scene({ frameKind: 'browser', chromeTheme: 'light', url });
+
+    const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+    function closestToExpected(s, expected) {
+      const { pillX, pillW, barY } = pillGeomOf(s.lay.web);
+      let best = Infinity;
+      for (let frac = 0.05; frac <= 0.95; frac += 0.01) {
+        best = Math.min(best, dist(px(s.ctx, pillX + pillW * frac, barY), expected));
+      }
+      return best;
+    }
+
+    // Within 10 RGB levels (antialiasing at 9.5px-equivalent text softens
+    // the exact hex) of the documented fUrlTxt colour for each theme.
+    expect(closestToExpected(dark, [155, 161, 171])).toBeLessThan(10);  // #9ba1ab
+    expect(closestToExpected(light, [92, 100, 112])).toBeLessThan(10); // #5c6470
+  });
+
+  it('clips an overlong string to the pill - it never bleeds past either pill edge', async () => {
+    // 300 narrow mono glyphs: verified (by measureText, against this exact
+    // font stack under @napi-rs/canvas) to render far wider than pillW, so
+    // a center-anchored, UNCLIPPED draw would spill deep into the bar on
+    // both sides - confirmed by temporarily deleting the ctx.clip() call in
+    // paintChrome and re-running this exact scan: pixels at every one of
+    // these offsets came back in fUrlTxt (~[155,161,171]), not the bar
+    // fill, the moment the clip was removed.
+    const long = await scene({ frameKind: 'browser', chromeTheme: 'dark', url: 'i'.repeat(300) });
+    const { pillX, pillW, barY } = pillGeomOf(long.lay.web);
+    const barOnly = px(long.ctx, long.lay.web.x + 3, barY); // plain bar fill, left of the dots
+
+    // Just past each edge of the pill, still comfortably inside the bar -
+    // must be exactly the untouched bar fill, on both sides, at every
+    // offset checked.
+    for (const d of [4, 10, 20, 30]) {
+      expect(px(long.ctx, pillX + pillW + d, barY)).toEqual(barOnly);
+      expect(px(long.ctx, pillX - d, barY)).toEqual(barOnly);
+    }
   });
 });
 

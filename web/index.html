@@ -245,29 +245,22 @@
           <h2 class="section-label">Background</h2>
         </section>
 
-        <section class="inspector-section">
+        <!-- Task 6 (web/inspector-frame.js) owns everything below the
+             heading in both sections below — frameKind chips/chrome theme/
+             url in Frame, fit/padding/corner radius/grain/caption in
+             Finish — built fresh the same way Task 5 built Background, not
+             wired from static markup here. The design handoff's own Frame
+             chips ("None / Browser / macOS / iPhone") are deliberately NOT
+             reproduced: macOS has no design in this project (see
+             FRAME_KINDS, core/presets.js) and "iPhone" was Task 5b's
+             `phone` rename — reproducing either literal label here would
+             just reintroduce what those two decisions already closed. -->
+        <section class="inspector-section" id="frameSection">
           <h2 class="section-label">Frame</h2>
-          <div class="chip-row" role="group" aria-label="Frame style">
-            <button type="button" class="chip" aria-pressed="false">None</button>
-            <button type="button" class="chip is-selected" aria-pressed="true">Browser</button>
-            <button type="button" class="chip" aria-pressed="false">macOS</button>
-            <button type="button" class="chip" aria-pressed="false">iPhone</button>
-          </div>
-          <div class="inline-control-row">
-            <span>Chrome theme</span>
-            <div class="segmented segmented--mini" role="group" aria-label="Chrome theme">
-              <button type="button" class="segmented-cell is-active" aria-pressed="true">Dark</button>
-              <button type="button" class="segmented-cell" aria-pressed="false">Light</button>
-            </div>
-          </div>
-          <div class="slider-row">
-            <div class="slider-label"><span>Padding</span><span class="mono slider-value">64</span></div>
-            <input type="range" class="slider" min="0" max="160" value="64" aria-label="Frame padding" />
-          </div>
-          <div class="slider-row">
-            <div class="slider-label"><span>Shadow</span><span class="mono slider-value">40%</span></div>
-            <input type="range" class="slider" min="0" max="100" value="40" aria-label="Shadow strength" />
-          </div>
+        </section>
+
+        <section class="inspector-section" id="finishSection">
+          <h2 class="section-label">Finish</h2>
         </section>
 
         <section class="inspector-section inspector-section--export">

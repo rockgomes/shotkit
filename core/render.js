@@ -15,6 +15,7 @@ import {
   CHROME_BAR_GAP_RATIO,
   URL_PILL_HEIGHT_RATIO,
   URL_PILL_RADIUS_RATIO,
+  URL_PILL_FONT_RATIO,
 } from './presets.js';
 
 export const SHADOW_RGB = '12,14,20';
@@ -381,11 +382,14 @@ export function paintWeb(ctx, c, box, image) {
 //   fUrlTxt: dark #9ba1ab   / light #5c6470    - URL pill text colour
 //   fBodyBg: dark #101114   / light #ffffff    - frame body, behind the bar
 //
-// fUrlTxt is captured here (matching the brief) even though nothing draws
-// text into the pill yet: shotkit has no real URL/title string to put
-// there, and inventing a placeholder (e.g. "example.com") would mean
-// shipping fabricated content into every user's export. The colour is on
-// record for whenever a real title/URL field is plumbed through config.
+// fUrlTxt was captured here from day one, before core/ had anywhere to put
+// real text: shotkit had no URL/title field, and inventing a placeholder
+// (e.g. "example.com") would have meant shipping fabricated content into
+// every user's export. Task 6 closes that gap properly - `config.url`
+// (core/config.js's normalise(), default null) is the real field, and
+// paintChrome below draws it in this exact colour, in Geist Mono, clipped
+// to the pill, whenever it is set. Left unset (the default), the pill
+// stays empty - still correct, and still better than a fabricated domain.
 //
 // Traffic-light colours (#ff5f57 #febc2e #28c840) are theme-independent and
 // identical in both frame.html locations that render them (line ~48, the
@@ -412,6 +416,15 @@ const TRAFFIC_DOT_COLOURS = ['#ff5f57', '#febc2e', '#28c840'];
  * 'phone' is painted by paintPhoneChrome below instead - its frame carries
  * no bar (chrome.barH is 0 per layout.js's chromeFor()), so there is nothing
  * for this function to draw for that kind.
+ *
+ * `c.url` (Task 6) is drawn into the pill, centred both ways exactly like
+ * the mockup's `justify-content:center;align-items:center` (HTML line
+ * ~103), clipped to the pill's own rounded rect so a string wider than the
+ * pill is cropped rather than spilling into the dot group or past the
+ * bar's right padding. `c.url` is null by default (core/config.js's
+ * normalise()) - when it is, this whole block is skipped and the pill is
+ * exactly the plain fill painted below, unchanged from before this field
+ * existed.
  */
 export function paintChrome(ctx, c, box, theme) {
   const chrome = box.chrome;
@@ -462,6 +475,23 @@ export function paintChrome(ctx, c, box, theme) {
   roundRect(ctx, pillX, pillY, pillW, pillH, pillR);
   ctx.fillStyle = t.pill;
   ctx.fill();
+
+  if (c.url) {
+    ctx.save();
+    // Re-trace the exact same rounded rect purely to clip - this is a
+    // second path, not a reuse of the fill above (canvas has no way to
+    // replay a path already consumed by `fill()`), so drifting the two out
+    // of sync would clip against the wrong rect; both come from the same
+    // pillX/pillY/pillW/pillH/pillR inputs a few lines up, so they can't.
+    roundRect(ctx, pillX, pillY, pillW, pillH, pillR);
+    ctx.clip();
+    ctx.fillStyle = t.pillText;
+    ctx.font = `${box.w * URL_PILL_FONT_RATIO}px 'Geist Mono', ui-monospace, 'SFMono-Regular', monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(c.url, pillX + pillW / 2, pillY + pillH / 2);
+    ctx.restore();
+  }
 }
 
 /**

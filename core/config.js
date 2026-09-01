@@ -51,6 +51,11 @@ export function normalise(input = {}) {
     insetX: input.insetX === undefined ? null : num(input.insetX, null),
     insetY: input.insetY === undefined ? null : num(input.insetY, null),
     caption: input.caption ? String(input.caption) : DEFAULTS.caption,
+    // Same coercion as `caption` immediately above: an empty string is
+    // "no value", not a value - see Task 6's header note in render.js's
+    // paintChrome for why an empty pill (the DEFAULTS.url === null case)
+    // must stay empty rather than fall back to invented placeholder copy.
+    url: input.url ? String(input.url) : DEFAULTS.url,
     forceHue,
     tone: TONES.includes(input.tone) ? input.tone : DEFAULTS.tone,
     // `scale` renders the composition at `scale` times its `w`x`h` - see

@@ -49,6 +49,11 @@ const CASES = [
   // size other than 3:2. See test/compose.test.js's "pixel-diff against
   // frozen renders" comment for the full rationale.
   ['square-browser', { ratio: '1:1', frameKind: 'browser', chromeTheme: 'dark' }, { web: 'samples/fieldset.png', mobile: [] }],
+  // Task 6: the browser pill's own URL text - a new golden, not a
+  // regeneration of any above (see test/compose.test.js's "pixel-diff
+  // against frozen renders" comment for why the other 9 stay byte-identical
+  // here: none of them set `url`, and DEFAULTS.url is null).
+  ['browser-url',   { ratio: '3:2', frameKind: 'browser', chromeTheme: 'dark', url: 'app.acme.dev' }, { web: 'samples/fieldset.png', mobile: [] }],
 ];
 
 for (const [name, cfg, files] of CASES) {
