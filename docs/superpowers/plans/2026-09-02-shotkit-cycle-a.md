@@ -534,7 +534,13 @@ describe('shadow defaults are frozen', () => {
 });
 ```
 
-If `pngjs` is not already a devDependency, read the golden with `loadImage` from `@napi-rs/canvas` and draw it to a canvas to get its `ImageData` instead — `test/compose.test.js` already does golden comparison; **copy whatever technique it uses** rather than adding a dependency.
+**Do not add a dependency.** `core/` has zero runtime dependencies and this
+round adds none to the test side either. Before writing the test, open
+`test/compose.test.js` and use the exact golden-comparison technique already
+there — read the PNG, get its pixels, and `pixelmatch` against the live
+render. Replace the `pngjs` import above with that technique; it is written
+here only to show the shape of the three assertions, which are the part that
+matters.
 
 - [ ] **Step 3: Run it and watch it fail**
 
@@ -668,11 +674,14 @@ git push origin feat/shotkit-web
 
 **Interfaces:**
 - Consumes: Task 4's `webBox` with no fit branch.
-- Produces: `webBox` returns the **outer composite** box with `chrome.screen` as the interior. `layout().web.w/h` is now the composite, not the screenshot. `frameRatio` no longer exists. Task 7 adds stroke width to the same outset accumulation; Task 8 changes `BROWSER_BAR_RATIO`, which must flow through this without further edits.
+- Produces: `webBox` returns the **outer composite** box with `chrome.screen` as the interior. `layout().web.w/h` is now the composite, not the screenshot. `frameRatio` no longer exists. `frameInsets(c, screenW)` is introduced here — **Task 7 extends it to `frameInsets(c, screenW, shorterSide)`** and adds a `stroke` field to its return value, so write it as a small function that is cheap to extend rather than inlining it. Task 8 changes `BROWSER_BAR_RATIO`, which must flow through this with no further layout edits.
 
 - [ ] **Step 1: Write the failing tests**
 
-Add to `test/layout.test.js`:
+Add to `test/layout.test.js`. Add `MIN_MARGIN_RATIO` to the file's existing
+import from `../core/presets.js` — the last test below reads it directly
+rather than restating `0.02`, so a change to the constant cannot silently
+invalidate the guard:
 
 ```js
 const SRC = 1440 / 900;
@@ -855,7 +864,7 @@ git push origin feat/shotkit-web
 
 **Interfaces:**
 - Consumes: Task 6's `frameInsets(c, screenW)` and outset accumulation.
-- Produces: `normalise()` returns `stroke: { style, width, color }`. `paintStroke(ctx, box, stroke, shorterSide)` paints the ring **behind** the composite. Cycle B's inspector reads `STROKE_STYLES`.
+- Produces: `normalise()` returns `stroke: { style, width, color }`. `paintStroke(ctx, box, stroke, width)` — `width` is the already-resolved stroke thickness in canvas pixels (`layout()` computed it, including any `shrink`), NOT a ratio and NOT the shorter canvas side. It paints the ring **behind** the composite. Cycle B's inspector reads `STROKE_STYLES`.
 
 - [ ] **Step 1: Write the failing tests**
 
