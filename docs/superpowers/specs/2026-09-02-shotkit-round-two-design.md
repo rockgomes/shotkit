@@ -55,6 +55,15 @@ frame that differs from the web shot's.
 **Canvas and ground stay global.** One ratio, one ground, one grain — they
 describe the shot, not a thing in it.
 
+**And grain is painted on the ground only** (added after Cycle A Task 4b).
+It used to be an unclipped `soft-light` pass over the finished canvas, so it
+landed on the screenshot and the phones as well: at `grain: 1` a flat source
+came back with 105 distinct greys inside the picture. Grain is a property of
+the backdrop. It is never applied to a user's own screenshot, and it is
+achieved by paint ORDER — ground, grain, then the shots — not by clipping
+around them, because an antialiased clip boundary would draw a 1px ring at the
+shot's edge.
+
 **Frame, stroke, radius and shadow move into a per-element block:**
 
 ```

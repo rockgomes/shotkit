@@ -599,3 +599,202 @@ Driven against the live origin, not a local server:
 - **The two real-hardware items from Task 7** — an OS-level Reduce Motion
   toggle, and a real window drag across the 900px breakpoint. Still worth
   thirty seconds on the live site.
+
+---
+
+# Task 4b — grain scope, and the white edge nobody could reproduce
+
+Date: 2026-09-02. Branch `feat/cycle-a`, on top of `e75e6b9`.
+
+Two defects, reported together and unrelated in cause. One is testable in
+Node and is tested. The other is a **Chromium-only rasterisation bug** that
+`@napi-rs/canvas` does not reproduce, so this record — not a green test — is
+the evidence for it.
+
+## 1. Grain was painted over everything (testable, tested)
+
+`composeWithMeta`'s paint order was ground → shot → **grain last**, and
+`paintGrain` is an unclipped `soft-light` `fillRect` across the whole canvas.
+So the noise landed on the screenshot and the phones, not only on the ground.
+
+Measured, `@napi-rs/canvas`, flat `#808080` source, `grain: 1`, sampling the
+screenshot's interior 8px inside each edge:
+
+```
+before:  105 distinct colours, per-channel spread 104/104/104
+after:     1 distinct colour,  per-channel spread   0/  0/  0
+```
+
+`test/render-grain-scope.test.js` asserts exactly that, for the web screen
+and for a phone, plus a third case proving the ground is still grained (so
+the fix cannot be satisfied by turning grain off). Confirmed red against the
+unfixed code before the fix landed: two of its three cases failed with the
+"105 colours" reading above.
+
+**Fix:** `paintGrain` moved to immediately after `paintGround`, rather than
+clipped around the shots. The reasoning is in `core/index.js` at the call
+site: an even-odd clip around every shot box would modulate the grain along
+its own antialiased boundary, producing a 1px ring at the shot's edge — the
+exact artefact Task 1 spent two rounds removing.
+
+## 2. The white edge on dark screenshots (browser only, NOT testable here)
+
+Reported as *"I just tried using a dark image there, and they have a white
+stroke"* and *"even the roundness of the corner is off"*.
+
+Reproduced in Chrome through the app's own drop handler (dev server on
+:5188, a real `DragEvent` with a `DataTransfer`, measured only after the
+canvas's pixels had actually changed), flat `#1e1e1e` 1512x982 source,
+default settings, 1800x1200 canvas:
+
+```
+13,864 pixels at exactly 255,255,255, alpha 255
+right edge   x 1728-1731   (the shot's box ends at x = 1727.75)
+bottom edge  y 1138-1143   (the shot's box ends at y = 1137.60)
+```
+
+### It is not grain
+
+Bisecting `composeWithMeta` stage by stage in the browser: after
+`paintGround` 0 white pixels, after `paintWeb` 13,864, after `paintGrain`
+still 13,864. Grain was a red herring.
+
+### The mechanism
+
+`paintWeb` clipped to a rounded rect and then filled the body with
+`ctx.fillRect` covering that whole clip. In Chromium, **a `fillRect` that
+covers its clip region is rasterised against the clip mask's rounded-out
+device bounds instead of its own rectangle**, and for an antialiased
+non-rectangular clip those bounds overshoot the path.
+
+Measured directly, canvas 1800x1200, box `{x:100, y:100, w:1600, h:1000}` —
+so the true right edge is 1700 and the true bottom is 1100. Last painted
+pixel:
+
+```
+radius 0      clip + fillRect     right 1699  bottom 1099   exact
+radius 2      clip + fillRect     right 1703  bottom 1103   +4 / +4
+radius 4      clip + fillRect     right 1703  bottom 1103   +4 / +4
+radius 8      clip + fillRect     right 1703  bottom 1103   +4 / +4
+radius 12     clip + fillRect     right 1703  bottom 1103   +4 / +4
+radius 16     clip + fillRect     right 1703  bottom 1103   +4 / +4
+radius 24     clip + fillRect     right 1703  bottom 1103   +4 / +4
+radius 32     clip + fillRect     right 1703  bottom 1103   +4 / +4
+radius 48     clip + fillRect     right 1703  bottom 1103   +4 / +4
+radius 64     clip + fillRect     right 1703  bottom 1103   +4 / +4
+radius 96     clip + fillRect     right 1703  bottom 1103   +4 / +4
+
+radius 24     clip + fill(path)   right 1699  bottom 1099   exact
+radius 24     clip + drawImage    right 1699  bottom 1099   exact
+radius 24     plain rect clip     right 1699  bottom 1099   exact
+radius 24     no clip, fillRect   right 1699  bottom 1099   exact
+```
+
+The overshoot is a constant +4 on the right and bottom, independent of the
+radius, absent on the left and top, and absent at radius 0 (where the path
+degenerates to a rectangle). Only a fill that COVERS the clip triggers it: a
+small rect inside the clip is exact (`fillRect(200,200,400,60)` inside the
+same clip → 200,200..599,259, correct to the pixel), and so is a bar
+spanning the full clip width at the top (100,100..1699,159, correct).
+
+Intersecting an exact `rect()` clip with the rounded clip does **not** help —
+measured, still 13,868 near-white pixels — because the combined clip is
+still non-rectangular. The fix is not "clip differently", it is "fill the
+path you already have instead of a rectangle over it".
+
+### Why it reads as a white stroke and a wrong corner
+
+The overshooting fill is the screen's own body colour, `#ffffff`. On a pale
+screenshot it is invisible. On a dark one it is a 4px white band down the
+right edge and a 6px band along the bottom, and at the bottom-right corner
+the leaked rounded rect's curve does not coincide with the shot's, so the
+corner reads as the wrong radius. Both of Rock's sentences describe the same
+bug. Before/after at 10x: `docs/2026-09-02-task-4b-clip-leak.png`.
+
+### Why there is no pixel test for it
+
+`@napi-rs/canvas` clips exactly, so the same scene renders clean in Node
+both before and after the fix. A pixel assertion would pass in both
+directions — vacuous, which this cycle has already shipped five times. The
+guard is structural instead: `test/render-clip-safety.test.js` scans
+`core/render.js` for any `fillRect` inside a `ctx.clip()` block and for the
+five painters that must route their body fill through `fillRoundRect`.
+Confirmed red against the pre-fix file: 7 of its 9 cases fail, naming all
+five leaking `fillRect` sites.
+
+Its known limit is stated in the file: the scan is lexical, so a covering
+`fillRect` reached only at runtime across a call boundary would slip past
+it. The one such call that exists today — `paintChrome`'s title bar, inside
+`paintWebChrome`'s clip — was measured and is safe, because it does not
+cover the clip.
+
+### Confirmed fixed, in the browser, through the app
+
+Same flat `#1e1e1e` drop, after the fix:
+
+```
+pixels at 255,255,255 : 0
+pixels >= 245 on every channel : 0
+right edge profile  : 30, 30, 30, 81, 168, 170, ...   (one AA pixel)
+bottom edge profile : 30, 30, 30, 99, 156, 156, ...   (one AA pixel)
+screenshot interior : 1 distinct colour
+```
+
+### A second thing the fix corrected, in Node as well
+
+Filling the path instead of a covering rect also changed the single boundary
+pixel at every shot edge, and changed it towards the truth. Phone frame,
+`box.x = 62.4` (so 60% body coverage on pixel 62), body `17,19,24` on ground
+`231,233,240`:
+
+```
+ideal blend   ~103
+before         160,162,168
+after          113,114,119
+```
+
+The old rendering carried a light 1px halo on every edge, in Node and in the
+browser. It is now within 10 levels of the correct coverage blend. This
+accounts for ~5,100 of the changed pixels in each regenerated golden.
+
+## 3. Goldens
+
+All ten regenerated. The change was attributed before regenerating, by
+composing the same cases against the pre-fix core and the post-fix core:
+
+```                     clip fix alone (grain 0)      total change
+web             5,187 px, max delta  8     434,037 px, max delta 19
+phone           5,083 px, max delta 51     540,170 px, max delta 61
+mobile          5,898 px, max delta 48     860,713 px, max delta 55
+browser-dark    5,091 px, max delta 48     572,907 px, max delta 53
+```
+
+The clip fix touches ~5,100 pixels per case — the shot's perimeter, which is
+~5,460 pixels for the 3:2 web box. Everything else is the grain move: large
+inside the shot (max delta 19 on a light screenshot, 61 on the dark phone
+body — soft-light lightens dark pixels hardest, which is why the complaint
+came from a dark screenshot), and at most 3-4 levels outside it, where the
+only change is that the shadow is now painted over grain rather than under
+it.
+
+One assertion moved with them: `test/compose.test.js`'s "the browser-url
+golden actually discriminates" measured 0.00201 and now measures 0.000816,
+still ~80x its pass threshold. The drop is `pixelmatch`'s `includeAA: false`
+finally working — grain over the URL text used to defeat its antialias
+heuristic, so glyph edges counted as differences. With clean text they are
+correctly skipped and only glyph bodies count, which is the stricter
+measurement. The threshold and the recorded number were updated together,
+with that reasoning in the test.
+
+## What was NOT established
+
+- **The exact Skia code path.** The behaviour is characterised (constant +4,
+  right and bottom, only when the fill covers a non-rectangular clip) but
+  not traced to a Chromium source line, and no upstream bug was filed or
+  looked for.
+- **Whether it is size-dependent.** A small case — 200x150 canvas, box
+  100.3x80.7, radius 12 — showed no overshoot. Every case at shot-sized
+  geometry did. The threshold between them was not located, so nobody should
+  treat a small repro's cleanliness as disproof.
+- **Other browsers.** Measured in Chrome only. Not checked in Safari or
+  Firefox. The fix does not depend on which is affected.

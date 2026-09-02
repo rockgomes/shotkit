@@ -660,6 +660,91 @@ asks for a change, make it, redeploy, and hand the link back before moving on.
 
 ---
 
+### Task 4b: Grain belongs to the ground, and the white edge on dark screenshots
+
+Written after Task 4 shipped and Rock looked at it. Two reports, one of which
+turned out to be two sentences about the same bug:
+
+> "the 'noise' is adding noise to the screenshot too. it should only add to the
+> background."
+
+> "I just tried using a dark image there, and they have a white stroke. so, this
+> shit again." ... "if you look closely, even the roundness of the corner is off."
+
+Unrelated causes. One is testable in Node and is tested; the other is a
+**Chromium-only rasterisation bug** that `@napi-rs/canvas` does not reproduce
+at all, so it is guarded structurally and recorded in
+`docs/verification-2026-09-01.md` rather than asserted by a pixel test that
+would pass in both directions.
+
+**Grain.** `composeWithMeta`'s paint order was ground → shot → **grain last**,
+and `paintGrain` is an unclipped `soft-light` `fillRect` over the whole canvas.
+On a flat `#808080` source at `grain: 1` the screenshot's interior came back as
+105 distinct colours spanning 104 levels, where a flat source must render flat.
+`paintGrain` moved to immediately after `paintGround`.
+
+Not clipped around the shots, and the reason is written at the call site: an
+even-odd clip would modulate the grain along its own antialiased boundary and
+draw a 1px ring at the shot's edge — the exact artefact Task 1 spent two rounds
+removing. The trade is that grain no longer sits over the shadow; the shadow is
+a low-alpha wash over an already-grained ground, so the grain still shows
+through it, just unmodulated by it.
+
+**The white edge, and why it is not a stroke at all.** `paintWeb` clipped to a
+rounded rect and filled the body with a `fillRect` covering that whole clip.
+
+> **In Chromium, a `fillRect` that COVERS its clip is rasterised against the
+> clip mask's rounded-out device bounds, not its own rectangle.** For an
+> antialiased non-rectangular clip those bounds overshoot the path by a
+> constant **+4px on the right and bottom** — independent of the radius, absent
+> on the left and top, and absent at radius 0. Only a covering fill triggers
+> it: a rect inside the clip is exact, `fill()` of a path is exact, `drawImage`
+> is exact, and intersecting an exact `rect()` clip does not help.
+
+That painted the body colour — `#ffffff` — as a 4px band down the right edge
+and 6px along the bottom, with a bottom-right corner whose leaked curve no
+longer matched the shot's radius. Invisible on a pale screenshot; glaring on a
+dark one. Both of Rock's sentences describe it. Before/after at 10x:
+`docs/2026-09-02-task-4b-clip-leak.png`.
+
+Every rounded body/screen fill now goes through one helper, `fillRoundRect`,
+which fills the path. Five sites: `paintWeb`, `paintWebChrome`,
+`paintDeviceBody`, `paintPhoneChrome`, `paintPhone`. The measurements that
+establish the +4 are in that helper's doc comment and in the verification doc.
+
+**Two things worth carrying forward.**
+
+- **A guard that renders under `@napi-rs/canvas` is blind to Chromium's
+  rasteriser.** This is the same shape as Task 3b's "a guard that reads token
+  values is blind to `opacity`", and the same shape as the shadow alphas that
+  were once retuned against Node while the browser would have shipped something
+  65 levels off. `test/render-clip-safety.test.js` therefore asserts the
+  *structure* that makes the bug unreachable — no `fillRect` inside a
+  `ctx.clip()` block, and all five painters routed through `fillRoundRect` — and
+  states its own limit: the scan is lexical, so a covering `fillRect` reached
+  only at runtime across a call boundary would slip past it.
+- **Filling the path fixed a light halo in Node too.** The body's boundary
+  pixel used to take its coverage from the clip mask; it now takes it from the
+  fill. On the phone frame at `box.x = 62.4` (60% coverage) the edge pixel went
+  from `160,162,168` to `113,114,119` against an ideal blend of ~103. Every
+  shot has carried a light 1px halo on all four edges until now.
+
+Goldens: all ten regenerated. The change was attributed before regenerating by
+composing each case against the pre-fix and post-fix cores — the clip fix is
+~5,100 pixels per case (the shot's perimeter), everything else is the grain
+move. `test/compose.test.js`'s url-discrimination measurement moved from
+0.00201 to 0.000816 (still ~80x its pass threshold) because grain over the URL
+text used to defeat `pixelmatch`'s antialias heuristic; the threshold and the
+recorded number were updated together, with that reasoning in the test.
+
+**Files:** `core/index.js`, `core/render.js`, `test/render-grain-scope.test.js`
+(new), `test/render-clip-safety.test.js` (new), `test/compose.test.js`, the ten
+render goldens, `docs/verification-2026-09-01.md`,
+`docs/2026-09-02-task-4b-clip-leak.png` (new).
+
+
+---
+
 ### Task 5: Parameterised shadow, guarded by an isolated golden
 
 **Files:**

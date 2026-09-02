@@ -330,6 +330,47 @@ export function roundRect(ctx, x, y, w, h, r) {
 }
 
 /**
+ * Fill a rounded rect by filling its PATH. Every body/screen fill in this
+ * file goes through here.
+ *
+ * NEVER PAINT A BODY WITH fillRect INSIDE A ROUNDED CLIP. That is what this
+ * function exists to prevent, and it is not a style preference - it was
+ * shipping a white border on every dark screenshot. In Chromium, a fillRect
+ * that COVERS its clip region is rasterised against the clip mask's
+ * rounded-out device bounds instead of its own rectangle, and for an
+ * antialiased non-rectangular clip those bounds overshoot the path by ~4px
+ * on the right and bottom. Measured directly in Chrome (Cycle A Task 4b),
+ * canvas 1800x1200, box {x:100,y:100,w:1600,h:1000}:
+ *
+ *   radius 0   clip+fillRect -> right 1699, bottom 1099   (exact)
+ *   radius 2..96 clip+fillRect -> right 1703, bottom 1103 (+4 / +4)
+ *   radius 24  clip+fill(path) -> right 1699, bottom 1099 (exact)
+ *
+ * The overshoot is a constant +4, independent of the radius, and appears on
+ * the right and bottom only. On the real shot that is a 4px band of the
+ * BODY colour - white - showing between the screenshot and the ground, plus
+ * a bottom-right corner whose curve no longer matches the shot's radius.
+ * Both were reported: "they have a white stroke", "even the roundness of
+ * the corner is off". It is invisible on a pale screenshot, which is why it
+ * survived so long.
+ *
+ * Only a fill that covers the whole clip triggers it: a small rect deep
+ * inside the clip (the browser bar in paintChrome) is exact, and so is
+ * drawImage at any size. So the fix is not "stop clipping" - it is "fill
+ * the path you already have instead of a rectangle over it".
+ *
+ * @napi-rs/canvas does NOT reproduce this, so no Node test can catch it -
+ * see test/render-clip-safety.test.js for the source-level guard that
+ * stands in for one, and docs/verification-2026-09-01.md for the full
+ * measurement.
+ */
+function fillRoundRect(ctx, x, y, w, h, r, style) {
+  roundRect(ctx, x, y, w, h, r);
+  ctx.fillStyle = style;
+  ctx.fill();
+}
+
+/**
  * The original CSS stacked two shadows (ambient + contact) per element;
  * canvas takes one per draw, so this is two passes over the same rect. Use
  * frame.html's alphas UNCHANGED in any caller: @napi-rs/canvas (every test
@@ -430,10 +471,12 @@ export function paintWeb(ctx, c, box, image) {
   paintShadow(ctx, box, c.h * 0.040, c.h * 0.105, 0.17, 0.07, c.shadowScale);
 
   ctx.save();
+  // Body first, as a PATH fill (see fillRoundRect - a covering fillRect
+  // inside this clip leaks ~4px of white past the right and bottom edges in
+  // Chromium), then clip and draw the screenshot into it.
+  fillRoundRect(ctx, box.x, box.y, box.w, box.h, box.radius, '#ffffff');  // --screen-bg
   roundRect(ctx, box.x, box.y, box.w, box.h, box.radius);
   ctx.clip();
-  ctx.fillStyle = '#ffffff';                       // --screen-bg
-  ctx.fillRect(box.x, box.y, box.w, box.h);
   // A LITERAL 'contain'. `c.fit` is gone (Cycle A Task 4) - the web screen
   // never crops. drawFitted stays because paintPhone still calls it with
   // 'cover' for the phone's own screen, which is a different decision.
@@ -601,12 +644,16 @@ function paintWebChrome(ctx, c, box, image) {
   paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07, c.shadowScale);
 
   ctx.save();
+  // Body as a path fill, then clip - same order and the same reason as the
+  // unframed screen above (see fillRoundRect).
+  fillRoundRect(ctx, outer.x, outer.y, outer.w, outer.h, outer.radius, t.body);  // fBodyBg
   roundRect(ctx, outer.x, outer.y, outer.w, outer.h, outer.radius);
   ctx.clip();
 
-  ctx.fillStyle = t.body;                          // fBodyBg
-  ctx.fillRect(outer.x, outer.y, outer.w, outer.h);
-
+  // paintChrome's bar IS a fillRect, and is safe: it covers only the top of
+  // this clip, never the whole of it, and only a covering fill triggers the
+  // overshoot fillRoundRect documents. Measured: a full-width bar inside
+  // this clip lands exactly on its own edges.
   paintChrome(ctx, c, box, c.chromeTheme);
 
   // Straight into the interior - no fit/cover/contain maths belongs here.
@@ -635,10 +682,10 @@ function paintWebChrome(ctx, c, box, image) {
  */
 function paintDeviceBody(ctx, box) {
   ctx.save();
-  roundRect(ctx, box.x, box.y, box.w, box.h, box.radius);
-  ctx.clip();
-  ctx.fillStyle = '#111318';                       // --phone-frame
-  ctx.fillRect(box.x, box.y, box.w, box.h);
+  // A clip plus a covering fillRect used to draw this; the clip was doing
+  // nothing a path fill does not do, and in Chromium the covering fillRect
+  // overshot it by ~4px on the right and bottom (see fillRoundRect).
+  fillRoundRect(ctx, box.x, box.y, box.w, box.h, box.radius, '#111318');  // --phone-frame
   ctx.restore();
 }
 
@@ -690,10 +737,9 @@ function paintPhoneChrome(ctx, c, box, image) {
   paintDeviceBody(ctx, outer);
 
   ctx.save();
+  fillRoundRect(ctx, chrome.screen.x, chrome.screen.y, chrome.screen.w, chrome.screen.h, chrome.innerRadius, '#ffffff');
   roundRect(ctx, chrome.screen.x, chrome.screen.y, chrome.screen.w, chrome.screen.h, chrome.innerRadius);
   ctx.clip();
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(chrome.screen.x, chrome.screen.y, chrome.screen.w, chrome.screen.h);
   ctx.drawImage(image, chrome.screen.x, chrome.screen.y, chrome.screen.w, chrome.screen.h);
   ctx.restore();
 
@@ -734,10 +780,9 @@ export function paintPhone(ctx, c, box, image) {
     h: box.h - box.frame * 2,
   };
   ctx.save();
+  fillRoundRect(ctx, inner.x, inner.y, inner.w, inner.h, box.innerRadius, '#ffffff');
   roundRect(ctx, inner.x, inner.y, inner.w, inner.h, box.innerRadius);
   ctx.clip();
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(inner.x, inner.y, inner.w, inner.h);
   drawFitted(ctx, inner, image, 'cover');
   ctx.restore();
 

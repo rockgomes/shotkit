@@ -82,11 +82,29 @@ export function composeWithMeta(target, rawConfig, images, makeCanvas, precomput
   ctx.clearRect(0, 0, rc.w, rc.h);
 
   paintGround(ctx, rc, meta.ground);
+  // GRAIN BELONGS TO THE GROUND, AND ONLY TO THE GROUND (Cycle A Task 4b).
+  // It used to be painted LAST, over the finished shot: an unclipped
+  // soft-light fillRect across the whole canvas, so it landed on the
+  // screenshot and the phones as well. That is not a texture on the
+  // backdrop, it is noise added to the user's own picture - and because
+  // soft-light lightens dark pixels hardest, it was worst on exactly the
+  // screenshots people notice it on. Measured on a flat #1e1e1e source at
+  // grain 1: 105 distinct greys inside the screenshot, spread 104 levels,
+  // where a flat source must render flat.
+  //
+  // Painting it here instead of clipping it around the shots is deliberate.
+  // A clip would have to be an even-odd path around every shot box, and its
+  // antialiased boundary would modulate the grain along a 1px ring at the
+  // shot's edge - a faint outline, which is the exact class of artefact
+  // Task 1 spent two rounds removing. Order costs nothing and cannot draw a
+  // ring. The visible trade is that grain no longer sits over the shadow;
+  // the shadow is a low-alpha wash over an already-grained ground, so the
+  // grain still shows through it, just unmodulated by it.
+  paintGrain(ctx, rc, makeCanvas);
   if (lay.web && web) paintWeb(ctx, rc, lay.web, web);
   // lay.phones and mobile are always the same length and index-aligned (see
   // the filtering note above), so no `|| mobile[0]` fallback is needed here.
   lay.phones.forEach((box, i) => paintPhone(ctx, rc, box, mobile[i]));
-  paintGrain(ctx, rc, makeCanvas);
 
   return { target, meta, config: c, layout: lay };
 }

@@ -308,10 +308,22 @@ describe('pixel-diff against frozen renders', () => {
   // populated-pill golden matches ITSELF. This proves it isn't a rubber
   // stamp - a render with a DIFFERENT url string against the exact same
   // golden must fail the identical byte comparison, comfortably clear of
-  // the <1e-5 pass threshold every case above uses. Measured: 4,335 of
-  // 2,160,000 pixels differ (ratio ~0.00201, ~200x the pass threshold) -
-  // recorded here, not just asserted, so a future change to this test
-  // can't silently loosen it back to noise-level and still "pass".
+  // the <1e-5 pass threshold every case above uses.
+  //
+  // Measured 1,763 of 2,160,000 pixels (ratio ~0.000816, ~80x the pass
+  // threshold) - recorded here, not just asserted, so a future change to
+  // this test can't silently loosen it back to noise-level and still
+  // "pass".
+  //
+  // That number was ~0.00201 before Cycle A Task 4b, and the drop is NOT a
+  // weakening of the guard - it is pixelmatch's `includeAA: false` default
+  // finally working as designed. Grain used to be painted over the finished
+  // shot, the URL text included; per-pixel noise defeats pixelmatch's
+  // antialias heuristic (which classifies a pixel as AA from its
+  // neighbours' spread), so glyph edges were counted as real differences.
+  // With grain confined to the ground the text is clean again and its AA
+  // edges are correctly skipped. The pixels that still differ are the
+  // glyph BODIES, which is the stricter measurement of the two.
   it('the browser-url golden actually discriminates on the url text, not just presence', async () => {
     const { target } = await run(
       { ratio: '3:2', frameKind: 'browser', chromeTheme: 'dark', url: 'totally-different.example' },
@@ -324,7 +336,7 @@ describe('pixel-diff against frozen renders', () => {
     const a = target.getContext('2d').getImageData(0, 0, target.width, target.height);
     const b = rc.getContext('2d').getImageData(0, 0, ref.width, ref.height);
     const diff = pixelmatch(a.data, b.data, null, ref.width, ref.height, { threshold: 0 });
-    expect(diff / (ref.width * ref.height)).toBeGreaterThan(1e-3);
+    expect(diff / (ref.width * ref.height)).toBeGreaterThan(5e-4);
   });
 
   // Task 6b, the same "break it and watch it go red" discipline: the loop
