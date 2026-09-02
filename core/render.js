@@ -16,9 +16,6 @@ import {
   URL_PILL_HEIGHT_RATIO,
   URL_PILL_RADIUS_RATIO,
   URL_PILL_FONT_RATIO,
-  SHADOW_DEFAULTS,
-  PHONE_SHADOW_DISTANCE_RATIO,
-  PHONE_SHADOW_BLUR_RATIO,
 } from './presets.js';
 
 export const SHADOW_RGB = '12,14,20';
@@ -502,29 +499,15 @@ function fillRoundRect(ctx, x, y, w, h, r, style) {
  * harness limitation, not something to correct by scaling alphas up. See
  * paintWeb below for the measurement.
  *
- * `shadow` (Cycle A Task 5) is core/config.js's whole shadow block:
- * `{ scale, distance, angle, blur, directional }`. `base` is the length
- * `distance` and `blur` are fractions OF - the canvas height for the three
- * canvas-sized call sites, the phone's own height for paintPhone (which has
- * always measured its shadow that way; see phoneShadow below). It is
- * deliberately not named `canvasH`: naming it that would be a lie at one of
- * the four call sites.
- *
- * `shadow.scale` (Task 6b) is a MULTIPLIER applied ON TOP of `a1`/`a2`
+ * `scale` (Task 6b, default 1) is a MULTIPLIER applied ON TOP of `a1`/`a2`
  * below - it is not, and must never become, a way to retune them. At scale
- * 1 the product is exactly `a1`/`a2` unchanged. `core/config.js` is the only
- * source of a non-1 value in this codebase (bounded by `SHADOW_SCALE_RANGE`
- * in presets.js, itself outside [0,1]), so the clamp below is a second,
- * defensive line - the product actually painted can never exceed a real
- * alpha regardless of what a caller passes.
- *
- * THE DEFAULTS ARE FROZEN. test/render-shadow.test.js renders this function
- * alone, at normalise({}).shadow, on a blank canvas and diffs it against
- * test/golden/shadow/default.png - captured from the pre-Task-5 code, and
- * proven in that file to fail on a 10% distance nudge, a 10% blur nudge and
- * a 0.03 alpha change. It is deliberately NOT a whole-shot golden: every
- * one of those moved several times during Cycle A for unrelated reasons,
- * and a shadow regression would have ridden along inside the diff.
+ * 1 the product is exactly `a1`/`a2` unchanged, so every existing caller
+ * that omits it renders byte-identically to before this parameter existed.
+ * `core/config.js`'s `shadowScale` is the only source of a non-1 value in
+ * this codebase (bounded by `SHADOW_SCALE_RANGE` in presets.js, itself
+ * outside [0,1]), so the clamp below is a second, defensive line - the
+ * product actually painted can never exceed a real alpha regardless of what
+ * a caller passes.
  *
  * THE BOX IS CLIPPED OUT OF ITS OWN SHADOW (Task 4d). Everything this
  * function draws lands strictly OUTSIDE `box`: the even-odd clip below is
@@ -546,7 +529,7 @@ function fillRoundRect(ctx, x, y, w, h, r, style) {
  * exposes - it is the surface being painted, not a DOM lookup, and reading
  * it is not engine detection.
  */
-export function paintShadow(ctx, box, shadow, a1, a2, base) {
+export function paintShadow(ctx, box, spreadY, blur, a1, a2, scale = 1) {
   // The opaque source rect is INSET by SHADOW_SOURCE_INSET, so it stops
   // short of the visible edge on every side. Without that inset it shared
   // its geometry exactly with the body painted over it - and since both are
@@ -576,24 +559,6 @@ export function paintShadow(ctx, box, shadow, a1, a2, base) {
   // through the corners, which is the one place the inset must still hold.
   const sr = box.radius - inset;
 
-  // `distance` and `blur` are fractions of `base` - the canvas height at
-  // three call sites, the phone's own height at the fourth (see phoneShadow
-  // below). At the defaults these two lines evaluate to exactly the
-  // `c.h * 0.040` / `c.h * 0.105` the call sites used to pass literally.
-  const spread = base * shadow.distance;
-  const blur = base * shadow.blur;
-
-  // Non-directional keeps the original construction EXACTLY: both layers
-  // offset straight down, angle ignored. That is not a special case of the
-  // trigonometry below dressed up - `Math.sin(Math.PI / 2)` is 1 and
-  // `Math.cos(Math.PI / 2)` is 6.1e-17, not 0, so routing the default
-  // through it would put a sub-pixel horizontal offset on a shadow that has
-  // never had one and break the frozen golden. Literal 0/1 here; the
-  // trigonometry runs only when the user asks for a direction.
-  const rad = (shadow.angle * Math.PI) / 180;
-  const ox = shadow.directional ? Math.cos(rad) : 0;
-  const oy = shadow.directional ? Math.sin(rad) : 1;
-
   ctx.save();
   // Everything except the box: the whole surface, with the box's own path
   // punched out of it, even-odd. Traced as one path so the two subpaths
@@ -604,18 +569,12 @@ export function paintShadow(ctx, box, shadow, a1, a2, base) {
   traceRoundRect(ctx, box.x, box.y, box.w, box.h, box.radius);
   ctx.clip('evenodd');
 
-  for (const [dist, b, baseAlpha] of [[spread, blur, a1], [spread * 0.28, blur * 0.3, a2]]) {
-    const a = Math.min(1, Math.max(0, baseAlpha * shadow.scale));
+  for (const [dy, b, baseAlpha] of [[spreadY, blur, a1], [spreadY * 0.28, blur * 0.3, a2]]) {
+    const a = Math.min(1, Math.max(0, baseAlpha * scale));
     ctx.save();
     ctx.shadowColor = `rgba(${SHADOW_RGB},${a})`;
     ctx.shadowBlur = b;
-    // BOTH offsets are set explicitly, on both branches. shadowOffsetX's
-    // default is 0, which is what the non-directional case wants - but a
-    // default relied on silently is a default that breaks the moment this
-    // context is reused, and setting it is what makes the directional case
-    // work at all.
-    ctx.shadowOffsetX = dist * ox;
-    ctx.shadowOffsetY = dist * oy;
+    ctx.shadowOffsetY = dy;
     ctx.fillStyle = '#000';
     roundRect(ctx, sx, sy, sw, sh, sr);
     ctx.fill();
@@ -623,35 +582,6 @@ export function paintShadow(ctx, box, shadow, a1, a2, base) {
   }
 
   ctx.restore();
-}
-
-/**
- * The mobile-layout phone's own shadow parameters, derived from the user's.
- *
- * paintPhone has ALWAYS measured its shadow against the PHONE's height
- * rather than the canvas's - `box.h * 0.055` and `box.h * 0.14`, paired
- * with alphas 0.22/0.10 - because a phone is only a fraction of the canvas
- * tall and a canvas-sized distance would swamp it. (Task 5's plan sketch
- * says all four paintShadow call sites pass `c.h * 0.040` / `c.h * 0.105`.
- * Three do. This one never has.)
- *
- * So the user's distance and blur are carried across as RATIOS OF THEIR OWN
- * DEFAULTS rather than used raw: doubling Distance doubles the phone's
- * distance too, and at the defaults the ratio is `x / x`, which is exactly
- * 1 in IEEE arithmetic - so `PHONE_SHADOW_DISTANCE_RATIO` and
- * `PHONE_SHADOW_BLUR_RATIO` come through bit-for-bit and every mobile
- * golden stays byte-identical. The order of the multiplication matters for
- * that: ratio first, constant second.
- *
- * angle, directional and scale pass through untouched - they are not
- * lengths and have no basis to convert between.
- */
-export function phoneShadow(shadow) {
-  return {
-    ...shadow,
-    distance: (shadow.distance / SHADOW_DEFAULTS.distance) * PHONE_SHADOW_DISTANCE_RATIO,
-    blur: (shadow.blur / SHADOW_DEFAULTS.blur) * PHONE_SHADOW_BLUR_RATIO,
-  };
 }
 
 /**
@@ -828,7 +758,7 @@ export function paintWeb(ctx, c, box, image, makeCanvas) {
   // shipping a far-too-heavy shadow to the browser, the actual product).
   // `c.shadowScale` (Task 6b, default 1) multiplies ON TOP of these -
   // the alphas themselves stay exactly as written here.
-  paintShadow(ctx, box, c.shadow, 0.17, 0.07, c.h);
+  paintShadow(ctx, box, c.h * 0.040, c.h * 0.105, 0.17, 0.07, c.shadowScale);
 
   // NOTHING IS PAINTED BEHIND THE SCREENSHOT (Task 4d). This line was
   // `fillRoundRect(..., '#ffffff')` - frame.html's `--screen-bg`, a white
@@ -1021,7 +951,7 @@ function paintWebChrome(ctx, c, box, image, makeCanvas) {
   // the shadowed box changes (the outer frame, not the bare screenshot).
   // Do NOT retune: see the doc comment above paintShadow. `c.shadowScale`
   // multiplies on top, same as every other paintShadow call site.
-  paintShadow(ctx, outer, c.shadow, 0.17, 0.07, c.h);
+  paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07, c.shadowScale);
 
   // The whole frame is composed in one tile and cut once (Task 4d). There
   // is no body fill behind it and no ground re-painted under it: `fBodyBg`
@@ -1118,7 +1048,7 @@ function paintPhoneChrome(ctx, c, box, image, makeCanvas) {
   // Same alphas as paintWebChrome's own outer shadow (see this function's
   // doc comment above); `c.shadowScale` multiplies on top, same as every
   // other paintShadow call site.
-  paintShadow(ctx, outer, c.shadow, 0.17, 0.07, c.h);
+  paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07, c.shadowScale);
 
   // The device body needs no tile: it is a path FILL, so its own edge is
   // already the single antialiased boundary between the device and the
@@ -1162,7 +1092,7 @@ function paintPhoneChrome(ctx, c, box, image, makeCanvas) {
  * not change them.
  */
 export function paintPhone(ctx, c, box, image, makeCanvas) {
-  paintShadow(ctx, box, phoneShadow(c.shadow), 0.22, 0.10, box.h);
+  paintShadow(ctx, box, box.h * 0.055, box.h * 0.14, 0.22, 0.10, c.shadowScale);
 
   // body - shared with the phone frame's paintPhoneChrome via
   // paintDeviceBody, defined above. A path fill, so its edge against the

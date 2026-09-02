@@ -1003,7 +1003,48 @@ moved.
 
 ---
 
-### Task 5: Parameterised shadow, guarded by an isolated golden
+### REVERTED — Tasks 5, 5b and 5c (shadow controls)
+
+**Reverted in full on 2026-09-02, at Rock's instruction: "no. you can't do this.
+revert the shadow as we had it originally."**
+
+`core/`, `web/`, `test/` and `scripts/` were restored to their Task 4d state
+(`3c9a33b`). `paintShadow` is back to its positional signature; `SHADOW_DEFAULTS`,
+`phoneShadow`, the four advanced controls, the Advanced disclosure, the softness
+floor and the isolated shadow golden are all gone. The Finish section is Padding,
+Corner radius, Grain, Shadow — one strength slider, as before.
+
+**Why, honestly.** The rendering work was sound and the default output never
+moved. What went wrong was everything around it:
+
+1. **Task 5b shipped a regression that killed the main slider.** Opening Advanced
+   caused the panel to seed a shadow block from `SHADOW_DEFAULTS`, which contains
+   `scale: 1`, and `normalise`'s "specific beats legacy" rule then made that
+   hardcoded 1 outrank the slider's `shadowScale` permanently. It also silently
+   reset a chosen strength to 100% while the slider went on displaying the old
+   number.
+2. **The tests could not have caught it.** They scanned source text for the
+   controls' existence rather than driving the setters and asserting the render
+   config followed. No DOM was needed to catch this — it was a pure-function bug —
+   so the structural approach was a choice, and the wrong one.
+3. **Task 5c fixed it properly, and by then the feature had cost more trust than
+   it was worth.** Rock had said the shadow was already good; three tasks of churn
+   on something that worked is its own answer.
+
+**If this is ever picked up again**, the useful residue is: the isolated
+shadow golden (capture before touching, prove the default is byte-identical),
+the finding that the softness floor must be measured in Chromium — Node gives a
+floor six times too low, the same trap that broke the alphas — and the rule that
+a control test must follow the value to what is actually drawn, not to the field
+the setter happens to write.
+
+The two design points Rock made stand on their own if it returns: one slider by
+default with the rest behind an Advanced disclosure, and Directional before the
+Angle it governs.
+
+---
+
+### Task 5 (REVERTED — see above): Parameterised shadow, guarded by an isolated golden
 
 **Files:**
 - Modify: `core/presets.js` (add `SHADOW_DEFAULTS`)

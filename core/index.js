@@ -117,8 +117,4 @@ export { normalise, layout, groundFor, groundFromMeta };
 export {
   RATIOS, HUES, DEFAULTS, TEMPLATES, FRAME_KINDS, SCALES, DEFAULT_ANGLE,
   LAYOUTS, TONES, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
-  // Cycle A Task 5. Re-exported here so web/inspector-frame.js can bind its
-  // four new shadow controls to the same defaults and the same clamp bounds
-  // normalise() enforces, without deep-importing core/presets.js.
-  SHADOW_DEFAULTS, SHADOW_DISTANCE_RANGE, SHADOW_BLUR_RANGE,
 } from './presets.js';

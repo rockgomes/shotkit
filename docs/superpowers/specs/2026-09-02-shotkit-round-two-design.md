@@ -113,7 +113,20 @@ not adjusted. The round-trip property it defended is now structural: `screen`
 is never derived, so it cannot drift. A test must still assert
 `screen.w / screen.h === sourceRatio` to within 1e-12.
 
-## Structural decision 3 — the shadow rework gets an isolated guard
+## Structural decision 3 — WITHDRAWN
+
+**The shadow rework was built, then reverted in full on 2026-09-02 at Rock's
+instruction.** The shadow keeps the single strength slider it already had. Item 8
+of the item list ("Real shadow control — distance, angle, blur, directional") is
+withdrawn from this round, not deferred: it was built, it worked, and the churn
+around it was not worth the feature. See the REVERTED note at the head of Cycle
+A's Task 5 in the plan for what went wrong and what is worth keeping if it is
+ever revisited.
+
+The reasoning below is retained because the *guard* it describes is sound and
+would apply to any future attempt.
+
+## Structural decision 3 (withdrawn) — the shadow rework gets an isolated guard
 
 `paintShadow`'s alphas (0.17 / 0.07 web and browser, 0.22 / 0.10 phone) have
 been broken once already: a pass retuned them against `@napi-rs/canvas` to

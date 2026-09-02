@@ -4,10 +4,8 @@
 //
 // TWO SECTIONS, ONE FILE: the task brief creates exactly one new file for
 // both (Frame: frameKind chips, chrome theme, the url field it gates;
-// Finish: padding, corner radius, grain, shadow — strength, and behind Task
-// 5b's disclosure its distance, angle, softness and directional mode) —
-// they're wired the same way and share no state with
-// web/inspector-background.js, so there's
+// Finish: padding, corner radius, grain, shadow) — they're wired the
+// same way and share no state with web/inspector-background.js, so there's
 // no reason to split them further. Order within each section follows the
 // brief's own ordering, not the design handoff's (which never designed a
 // "Finish" section at all — padding/radius/grain/shadow are this
@@ -31,18 +29,16 @@
 // touched a control.
 //
 // PERFORMANCE: none of frameKind/chromeTheme/url/pad/radius/grain/
-// shadowScale/shadow.* is part of web/state.js's `groundKeyFor` (images +
+// shadowScale is part of web/state.js's `groundKeyFor` (images +
 // config.ground + config.tone only) — every control in this file hits the
 // warm ~3ms colour cache, never groundFor's ~90-200ms analysis. shadowScale
 // (Task 6b) has nothing to do with the sampled ground even in principle — a
 // shadow multiplier over a fixed rgba colour — so it belongs in this list
-// for the same reason grain does, and so do Task 5's distance/angle/
-// softness/directional, which only move where that same wash lands. See
-// test/inspector-frame.test.js's "throwing canvas" guard for the proof, and
-// task-6-report.md / task-6b-report.md for measured timings.
+// for the same reason grain does. See test/inspector-frame.test.js's
+// "throwing canvas" guard for the proof, and task-6-report.md /
+// task-6b-report.md for measured timings.
 import {
   FRAME_KINDS, CHROME_THEMES, DEFAULTS, normalise, SHADOW_SCALE_RANGE,
-  SHADOW_DISTANCE_RANGE, SHADOW_BLUR_RANGE,
 } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
 
@@ -146,217 +142,25 @@ export function setGrainPercent(config, pct) {
   config.grain = Math.min(100, Math.max(0, n)) / 100;
 }
 
-// Shadow strength (Task 6b) — a MULTIPLIER over paintShadow's verified
-// alphas (core/render.js), 1 == frame.html's own values unchanged;
-// SHADOW_SCALE_RANGE (core/presets.js, [0, 2]) is the bound this slider
-// works to, imported rather than hardcoded here so the UI and normalise()'s
-// own clamp can never drift apart. The percent round-trip below is the exact
-// same *100/*0.01 pattern grain and padding already use, just over a wider
-// [0,200] range — 100% reads back as the untouched default.
-//
-// IT WRITES `shadow.scale`, NOT `config.shadowScale` (Cycle A Task 5c).
-//
-// Rock: "the shadow control now only works until I open the advanced
-// settings, then the slider doesn't do absolutely anything anymore." He was
-// right. This slider used to write the top-level `config.shadowScale` while
-// the Advanced controls wrote into `config.shadow`, and normalise() resolves
-// the strength as "an explicit `shadow.scale` wins over `shadowScale` — the
-// specific beats the legacy". `writableShadow` below seeded a missing block
-// straight from SHADOW_DEFAULTS, `scale: 1` included, so the FIRST touch of
-// any Advanced control manufactured an explicit `shadow.scale` of 1 that
-// outranked this slider from then on: the handle moved, the number changed,
-// and the render never saw either. (Worse in the other direction too — that
-// same first touch silently snapped a chosen 40% strength back to 100%.)
-//
-// The precedence rule in core/config.js is not the bug and is unchanged.
-// The bug was TWO PLACES holding one quantity. There is now one: everything
-// this panel writes about the shadow goes into `config.shadow`, and
-// `shadowScale` survives only as a legacy INPUT to normalise() — accepted
-// from a jobs.json or the shipped CLI, folded into `shadow.scale`, and never
-// written by the app again.
+// Shadow strength (Task 6b) — the one authorised core/ field this task adds.
+// `config.shadowScale` is a MULTIPLIER over paintShadow's verified alphas
+// (core/render.js), 1 == frame.html's own values unchanged; SHADOW_SCALE_RANGE
+// (core/presets.js, [0, 2]) is the bound this slider works to, imported
+// rather than hardcoded here so the UI and normalise()'s own clamp can never
+// drift apart. The percent round-trip below is the exact same *100/*0.01
+// pattern grain and padding already use, just over a wider [0,200] range —
+// 100% reads back as the untouched default.
 export function activeShadowPercent(config) {
-  return Math.round(readShadow(config).scale * 100);
+  const scale = Number.isFinite(config.shadowScale) ? config.shadowScale : DEFAULTS.shadowScale;
+  return Math.round(scale * 100);
 }
 
 export function setShadowPercent(config, pct) {
   const n = Number(pct);
   if (!Number.isFinite(n)) return;
   const [min, max] = SHADOW_SCALE_RANGE;
-  writableShadow(config).scale = Math.min(max * 100, Math.max(min * 100, n)) / 100;
+  config.shadowScale = Math.min(max * 100, Math.max(min * 100, n)) / 100;
 }
-
-// --- Shadow shape (Task 5, reshaped by Task 5b) ---------------------------
-//
-// FOUR CONTROLS, ALL OF THEM BEHIND "Advanced shadow settings". Task 5 put
-// Distance / Angle / Blur / Directional straight into Finish, under the
-// Shadow strength slider, and Rock's answer was that Finish should still be
-// "just one slider, and the other controls appear only after selecting some
-// sort of 'advanced controls' for shadows" — which is also how the Screen
-// Studio panel he supplied as reference is built. So Finish shows Shadow
-// and a collapsed disclosure, and these four live inside it.
-//
-// They still follow the idiom already in this file exactly — a `slider-row`
-// per number, and the same `segmented segmented--mini` for the toggle that
-// Chrome theme uses. No new control idiom, and the disclosure itself hides
-// with the global `[hidden]` rule rather than a second mechanism.
-//
-// ANGLE IS DISABLED, NOT HIDDEN, while Directional is off — see
-// shadowAngleDisabled above for why that reversed.
-
-/**
- * The effective shadow block for READING — resolved through the REAL
- * normalise(), which is the same function core/render.js's config went
- * through, so what a slider displays cannot disagree with what is drawn.
- *
- * IT IS normalise(), NOT A SPREAD OVER SHADOW_DEFAULTS (Cycle A Task 5c).
- * The spread it replaces was subtly the wrong shape three times over: it
- * ignored the legacy top-level `shadowScale` (so a jobs.json carrying one
- * read back as 100%), it showed unclamped values normalise() would then
- * move (distance 50% displayed, 20% drawn), and it showed unwrapped angles
- * (450 displayed, 90 drawn). Reading through normalise() makes all three
- * impossible by construction rather than by three matching clamps.
- *
- * This is the read-only `normalise(state.config)` pattern web/sidebar.js's
- * "+ Custom size" prefill and the corner-radius slider below already
- * established — never used to decide what to WRITE, only what to show.
- *
- * Deliberately non-mutating: a panel that wrote to `config` merely by
- * rendering itself would make `normalise({})` and `normalise(state.config)`
- * disagree the moment the inspector mounted.
- */
-function readShadow(config) {
-  return normalise(config || {}).shadow;
-}
-
-/**
- * The config's OWN shadow block, created on first write.
- *
- * IT SEEDS FROM THE RESOLVED BLOCK, NOT FROM SHADOW_DEFAULTS (Task 5c).
- * That one word is the whole fix, and the property it buys is worth
- * stating precisely:
- *
- *   seeding is render-neutral — normalise(config) is identical either side
- *   of the seed, for every field.
- *
- * It has to be, because `readShadow` IS normalise(), so the block written
- * here is by definition the block normalise() would have produced anyway;
- * feeding it back in is idempotent (already clamped, already wrapped,
- * already a real boolean). Seeding from SHADOW_DEFAULTS was not neutral:
- * it invented `scale: 1` for a config whose strength had been set through
- * the legacy `shadowScale`, and — since an explicit `shadow.scale` outranks
- * that legacy field in normalise() — the invention stuck. Touching Distance
- * changed the shadow's darkness. See test/inspector-frame.test.js's Task 5c
- * suite, which asserts the neutrality directly for every control.
- *
- * The copy is still the other point. `web/state.js` seeds `state.config`
- * with `{ ...DEFAULTS }` — a shallow copy — so handing out core/'s exported
- * SHADOW_DEFAULTS by reference would give every config in the process the
- * same mutable object, and one slider drag would rewrite core/'s own
- * defaults. normalise() builds a fresh object every call, so it cannot
- * alias anything. See test/inspector-frame.test.js's "never aliases" case.
- */
-function writableShadow(config) {
-  if (!config.shadow || typeof config.shadow !== 'object') {
-    config.shadow = readShadow(config);
-  }
-  return config.shadow;
-}
-
-// Distance and Softness are fractions of the canvas height (core/presets.js's
-// SHADOW_DEFAULTS), so the UI shows them as percentages — the same *100 /
-// *0.01 round trip padding, grain and shadow strength already use. Bounds
-// come from core/ rather than being retyped here, so this slider and
-// normalise()'s clamp cannot drift apart.
-export function activeShadowDistancePercent(config) {
-  return Math.round(readShadow(config).distance * 1000) / 10;
-}
-
-export function setShadowDistancePercent(config, pct) {
-  const n = Number(pct);
-  if (!Number.isFinite(n)) return;
-  const [min, max] = SHADOW_DISTANCE_RANGE;
-  writableShadow(config).distance = Math.min(max, Math.max(min, n / 100));
-}
-
-// SOFTNESS, NOT BLUR (Task 5b). Screen Studio - Rock's own reference for
-// this panel - also has a "Background blur", which blurs a wallpaper and is
-// an unrelated feature (spec, Cycle B), so "Blur" here named the wrong
-// thing. The CONFIG FIELD STAYS `shadow.blur`: it is `ctx.shadowBlur` one
-// for one, and renaming a core config key would change normalise()'s
-// contract and every jobs.json written against it without changing a pixel.
-// The word is the panel's; the field is canvas's.
-//
-// SHADOW_BLUR_RANGE's lower bound is no longer 0 - see its comment in
-// core/presets.js for the measurement. Because this clamps to the same
-// exported bound, the bottom of this slider IS the floor: there is no value
-// the UI can reach that normalise() would then quietly move.
-export function activeShadowSoftnessPercent(config) {
-  return Math.round(readShadow(config).blur * 1000) / 10;
-}
-
-export function setShadowSoftnessPercent(config, pct) {
-  const n = Number(pct);
-  if (!Number.isFinite(n)) return;
-  const [min, max] = SHADOW_BLUR_RANGE;
-  writableShadow(config).blur = Math.min(max, Math.max(min, n / 100));
-}
-
-// Angle is degrees, and WRAPS rather than clamps — the exact expression
-// core/config.js's normalise() applies. Clamping would let this panel
-// display a number normalise() then renders as something else (450 shown,
-// 90 drawn), which is precisely the "control that appears to work" failure
-// showsBrowserOnlyControls above exists to document.
-export function activeShadowAngle(config) {
-  return readShadow(config).angle;
-}
-
-export function setShadowAngle(config, deg) {
-  const n = Number(deg);
-  if (!Number.isFinite(n)) return;
-  writableShadow(config).angle = ((n % 360) + 360) % 360;
-}
-
-// Strictly boolean, because normalise() accepts `directional === true` and
-// nothing else — a panel that stored the string 'true' would read ON here
-// and render OFF.
-export function activeShadowDirectional(config) {
-  return readShadow(config).directional === true;
-}
-
-export function setShadowDirectional(config, on) {
-  writableShadow(config).directional = on === true || on === 'true';
-}
-
-/**
- * Angle is DISABLED while Directional is off, and stays visible (Task 5b).
- *
- * Task 5 left it enabled and argued the case in this file's header: "a
- * control that vanishes is more confusing than one that waits". Rock read
- * the same screen the other way round - "Angle only works when directional
- * is on, so why is it even there before the directional toggle?" - and a
- * control that moves while nothing changes reads as broken, which is worse
- * than one that reads as not-yet-available. So it keeps its place, keeps
- * its value, and goes disabled: the state that says "not now" rather than
- * "not here".
- *
- * A separate exported predicate rather than an inline `!activeShadow...`
- * inside the sync function, for the same reason showsBrowserOnlyControls
- * above is one: the gate is the claim, and a claim gets a test.
- */
-export function shadowAngleDisabled(config) {
-  return !activeShadowDirectional(config);
-}
-
-/**
- * What lives inside "Advanced shadow settings", in the order it appears.
- *
- * Directional leads and Angle follows it immediately, because Angle is
- * Directional's second half (see shadowAngleDisabled above); the two
- * lengths come after the direction they steer. Exported and iterated by
- * initFinishInspector rather than written out four times, so the order on
- * screen is this array and cannot drift from it.
- */
-export const ADVANCED_SHADOW_CONTROLS = ['directional', 'angle', 'distance', 'softness'];
 
 // Corner radius is the one field here that ISN'T stored as a fraction —
 // core/config.js's normalise() resolves an unset `config.radius` to
@@ -393,49 +197,6 @@ export function setRadiusPercent(config, pct) {
 // for why those loops run BEFORE these, and touch none of this section's
 // controls at all.
 // ---------------------------------------------------------------------
-
-/**
- * One labelled range row — the exact markup the four hand-written sliders in
- * initFinishInspector already use, factored out when Task 5 added three
- * more. Returns the pieces the caller needs to sync and listen; it wires no
- * listener itself, so every handler stays visible in one place at the bottom
- * of that function.
- */
-function addSliderRow(section, { label, min, max, step, aria, sub = false }) {
-  const row = document.createElement('div');
-  // `sub` indents the row under the control it belongs to — Angle under
-  // Directional (Task 5b), the only one so far. Indentation only; the
-  // "not now" part of that relationship is the input's own `disabled`.
-  row.className = sub ? 'slider-row slider-row--sub' : 'slider-row';
-  const labelRow = document.createElement('div');
-  labelRow.className = 'slider-label';
-  const labelEl = document.createElement('span');
-  labelEl.textContent = label;
-  const valueEl = document.createElement('span');
-  valueEl.className = 'mono slider-value';
-  labelRow.append(labelEl, valueEl);
-  row.appendChild(labelRow);
-
-  const input = document.createElement('input');
-  input.type = 'range';
-  input.className = 'slider';
-  // Rounded to 3dp before they become attributes. These bounds arrive as
-  // `RANGE[i] * 100` and binary floating point makes that ugly in the DOM -
-  // 0.035 * 100 is 3.5000000000000004, and a range input's steps are
-  // measured FROM its min, so every value it could produce carried that
-  // tail. Rounding lands each bound exactly on the fraction core/ clamps
-  // to (3.5 / 100 === 0.035), so the slider still cannot reach a value
-  // normalise() would move.
-  const attr = (n) => String(Math.round(n * 1000) / 1000);
-  input.min = attr(min);
-  input.max = attr(max);
-  input.step = attr(step);
-  input.setAttribute('aria-label', aria);
-  row.appendChild(input);
-
-  section.appendChild(row);
-  return { row, input, valueEl };
-}
 
 function syncSliderFill(input, valueEl, text) {
   const min = Number(input.min) || 0;
@@ -655,105 +416,6 @@ export function initFinishInspector() {
   const shadowValueEl = shadowRow.querySelector('.slider-value');
   section.appendChild(shadowRow);
 
-  // --- Advanced shadow settings (Cycle A Task 5b) -----------------------
-  // A DISCLOSURE, not four more rows. Finish's own surface is the Shadow
-  // strength slider above and this toggle; everything else about the shadow
-  // is one click away. The shape is the sidebar's "+ Custom size"
-  // disclosure — a button carrying `aria-expanded` and `aria-controls`, and
-  // a panel that answers to it — except that the panel is built once and
-  // hidden with the global `[hidden]` rule rather than torn down and
-  // rebuilt, so the controls inside keep their DOM identity across opens.
-  let advancedOpen = false;
-
-  const advancedToggle = document.createElement('button');
-  advancedToggle.type = 'button';
-  advancedToggle.className = 'disclosure-toggle';
-  advancedToggle.setAttribute('aria-expanded', 'false');
-  advancedToggle.setAttribute('aria-controls', 'shadowAdvanced');
-  advancedToggle.innerHTML =
-    '<span>Advanced shadow settings</span>'
-    + '<svg class="icon icon-sm" aria-hidden="true"><use href="#icon-chevron-down"></use></svg>';
-  section.appendChild(advancedToggle);
-
-  const advanced = document.createElement('div');
-  advanced.className = 'disclosure-panel';
-  advanced.id = 'shadowAdvanced';
-  advanced.hidden = true;
-  section.appendChild(advanced);
-
-  // One builder per entry in ADVANCED_SHADOW_CONTROLS, called in that
-  // array's order — so the order on screen is the order declared up there,
-  // with no second list to keep in step.
-  const build = {
-    // The same `inline-control-row` + `segmented segmented--mini` pattern
-    // the Frame section's Chrome theme uses, so this reads as one more of
-    // the panel's existing switches rather than a new idiom.
-    directional: () => {
-      const row = document.createElement('div');
-      row.className = 'inline-control-row';
-      const label = document.createElement('span');
-      label.textContent = 'Directional';
-      const segmented = document.createElement('div');
-      segmented.className = 'segmented segmented--mini';
-      segmented.setAttribute('role', 'group');
-      segmented.setAttribute('aria-label', 'Directional shadow');
-      const buttons = [['off', 'Off'], ['on', 'On']].map(([value, text]) => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'segmented-cell';
-        btn.dataset.directional = value;
-        btn.textContent = text;
-        btn.setAttribute('aria-pressed', 'false');
-        segmented.appendChild(btn);
-        return btn;
-      });
-      row.append(label, segmented);
-      advanced.appendChild(row);
-      return { row, buttons };
-    },
-
-    // Degrees, not percent — and 0-360 rather than 0-359 so both ends of
-    // the travel land on "straight right". normalise() wraps 360 to 0, so
-    // the two extremes are the same shadow, which is what a circular
-    // quantity on a linear slider should do. `sub` indents it under
-    // Directional; `disabled` (in syncShadowShapeUI below) is the rest of
-    // that relationship.
-    angle: () => addSliderRow(advanced, {
-      label: 'Angle',
-      min: 0,
-      max: 360,
-      step: 1,
-      sub: true,
-      aria: 'Shadow angle in degrees — 90 is straight down. Available when Directional is on',
-    }),
-
-    distance: () => addSliderRow(advanced, {
-      label: 'Distance',
-      min: SHADOW_DISTANCE_RANGE[0] * 100,
-      max: SHADOW_DISTANCE_RANGE[1] * 100,
-      step: 0.1,
-      aria: 'Shadow distance, as a percentage of canvas height',
-    }),
-
-    // Softness, not Blur — see setShadowSoftnessPercent above. The slider's
-    // MINIMUM is SHADOW_BLUR_RANGE[0], which is no longer 0: at 0 the two
-    // shadow layers stop being a blur and become two hard-edged rectangles,
-    // which is what Rock hit. There is no longer a position on this track
-    // that draws that.
-    softness: () => addSliderRow(advanced, {
-      label: 'Softness',
-      min: SHADOW_BLUR_RANGE[0] * 100,
-      max: SHADOW_BLUR_RANGE[1] * 100,
-      step: 0.1,
-      aria: 'Shadow softness, as a percentage of canvas height',
-    }),
-  };
-
-  const ctl = {};
-  for (const key of ADVANCED_SHADOW_CONTROLS) ctl[key] = build[key]();
-  const { angle: angleCtl, distance: distanceCtl, softness: softnessCtl } = ctl;
-  const dirButtons = ctl.directional.buttons;
-
   function syncPadUI() {
     const pct = activePadPercent(state.config);
     padInput.value = String(pct);
@@ -776,35 +438,6 @@ export function initFinishInspector() {
     const pct = activeShadowPercent(state.config);
     shadowInput.value = String(pct);
     syncSliderFill(shadowInput, shadowValueEl, `${pct}%`);
-  }
-
-  function syncShadowShapeUI() {
-    const distance = activeShadowDistancePercent(state.config);
-    distanceCtl.input.value = String(distance);
-    syncSliderFill(distanceCtl.input, distanceCtl.valueEl, `${distance}%`);
-
-    const angle = activeShadowAngle(state.config);
-    angleCtl.input.value = String(angle);
-    syncSliderFill(angleCtl.input, angleCtl.valueEl, `${angle}°`);
-
-    const softness = activeShadowSoftnessPercent(state.config);
-    softnessCtl.input.value = String(softness);
-    syncSliderFill(softnessCtl.input, softnessCtl.valueEl, `${softness}%`);
-
-    // Angle stays VISIBLE and goes DISABLED while Directional is off (Task
-    // 5b) — the predicate is shared with the tests rather than inlined
-    // here. `.slider:disabled` is already one of the selectors in
-    // style.css's single off-state rule, and that rule now also carries
-    // `.slider-row:has(.slider:disabled)` so the row's label dims with the
-    // track instead of staying at full strength above a dead control.
-    angleCtl.input.disabled = shadowAngleDisabled(state.config);
-
-    const on = activeShadowDirectional(state.config);
-    dirButtons.forEach((btn) => {
-      const active = (btn.dataset.directional === 'on') === on;
-      btn.classList.toggle('is-active', active);
-      btn.setAttribute('aria-pressed', String(active));
-    });
   }
 
   padInput.addEventListener('input', () => {
@@ -831,44 +464,10 @@ export function initFinishInspector() {
     scheduleRender();
   });
 
-  distanceCtl.input.addEventListener('input', () => {
-    setShadowDistancePercent(state.config, distanceCtl.input.value);
-    syncShadowShapeUI();
-    scheduleRender();
-  });
-
-  angleCtl.input.addEventListener('input', () => {
-    setShadowAngle(state.config, angleCtl.input.value);
-    syncShadowShapeUI();
-    scheduleRender();
-  });
-
-  softnessCtl.input.addEventListener('input', () => {
-    setShadowSoftnessPercent(state.config, softnessCtl.input.value);
-    syncShadowShapeUI();
-    scheduleRender();
-  });
-
-  advancedToggle.addEventListener('click', () => {
-    advancedOpen = !advancedOpen;
-    advanced.hidden = !advancedOpen;
-    advancedToggle.setAttribute('aria-expanded', String(advancedOpen));
-    advancedToggle.classList.toggle('is-open', advancedOpen);
-  });
-
-  dirButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      setShadowDirectional(state.config, btn.dataset.directional === 'on');
-      syncShadowShapeUI();
-      scheduleRender();
-    });
-  });
-
   syncPadUI();
   syncRadiusUI();
   syncGrainUI();
   syncShadowUI();
-  syncShadowShapeUI();
 
-  return { syncPadUI, syncRadiusUI, syncGrainUI, syncShadowUI, syncShadowShapeUI };
+  return { syncPadUI, syncRadiusUI, syncGrainUI, syncShadowUI };
 }

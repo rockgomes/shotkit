@@ -214,15 +214,7 @@ describe('paintShadow leaves no dark rim of its own', () => {
     const ctx = cv.getContext('2d');
     ctx.fillStyle = '#808080';
     ctx.fillRect(0, 0, 900, 700);
-    // Task 5 turned paintShadow's positional spread/blur into a config
-    // block of FRACTIONS of a base length. Base 1000 reproduces this
-    // suite's original literal 40 / 100 exactly (1000 * 0.040, 1000 * 0.100)
-    // — the numbers under test here are unchanged, only how they are passed.
-    paintShadow(
-      ctx, BOX,
-      { scale, distance: 0.040, angle: 90, blur: 0.100, directional: false },
-      0.17, 0.07, 1000,
-    );
+    paintShadow(ctx, BOX, 40, 100, 0.17, 0.07, scale);
     return ctx;
   }
 
