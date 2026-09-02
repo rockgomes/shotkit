@@ -152,3 +152,40 @@ describe('paintWeb - shadowScale (Task 6b)', () => {
     expect(runawayDarkening).toBe(doubleDarkening);
   });
 });
+
+describe('frame: none draws no stroke', () => {
+  it('leaves no darker ring just inside the screen edge', async () => {
+    // A pure white source image. With no stroke, every pixel just inside the
+    // box edge must be white - a hairline would darken the first row/column.
+    const img = createCanvas(1440, 900);
+    const ictx = img.getContext('2d');
+    ictx.fillStyle = '#ffffff';
+    ictx.fillRect(0, 0, 1440, 900);
+
+    const c = normalise({ layout: 'web', ratio: '3:2', frameKind: 'none' });
+    const lay = layout(c, { web: 1440 / 900, mobile: [] });
+    const cv = createCanvas(c.w, c.h);
+    const ctx = cv.getContext('2d');
+    paintGround(ctx, c, GROUND);
+    paintWeb(ctx, c, lay.web, img);
+
+    const b = lay.web;
+    const midY = Math.round(b.y + b.h / 2);
+    const midX = Math.round(b.x + b.w / 2);
+
+    // The FIRST FULLY INTERIOR pixel on each edge - not two pixels in. The
+    // hairline was stroked at `box.x + 0.5` with `lineWidth: 1`, so it
+    // straddles the box boundary and lands on exactly this pixel and the
+    // partially-covered one outside it. Sampling further in (the plan said
+    // 2px) clears the hairline entirely and the test cannot fail.
+    for (const [x, y, edge] of [
+      [Math.ceil(b.x), midY, 'left'],
+      [Math.floor(b.x + b.w) - 1, midY, 'right'],
+      [midX, Math.ceil(b.y), 'top'],
+      [midX, Math.floor(b.y + b.h) - 1, 'bottom'],
+    ]) {
+      const [r, g, bl] = px(ctx, x, y);
+      expect(`${edge}:${r},${g},${bl}`).toBe(`${edge}:255,255,255`);
+    }
+  });
+});

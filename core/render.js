@@ -344,8 +344,10 @@ function drawFitted(ctx, box, image, fit) {
 }
 
 /**
- * The web screen: rounded body, screenshot, inset hairline, floating shadow.
- * Ported from frame.html's `.web` rule, `.web::after`, and `makeWeb()`.
+ * The web screen: rounded body, screenshot, floating shadow.
+ * Ported from frame.html's `.web` rule and `makeWeb()`. frame.html's
+ * `.web::after` inset hairline is deliberately NOT ported - see the note at
+ * the end of this function.
  */
 export function paintWeb(ctx, c, box, image) {
   // A device frame replaces everything below with a chrome-specific
@@ -374,13 +376,10 @@ export function paintWeb(ctx, c, box, image) {
   drawFitted(ctx, box, image, c.fit);
   ctx.restore();
 
-  // inset 0 0 0 1px hairline
-  ctx.save();
-  ctx.strokeStyle = 'rgba(16,18,27,0.07)';         // --hairline
-  ctx.lineWidth = 1;
-  roundRect(ctx, box.x + 0.5, box.y + 0.5, box.w - 1, box.h - 1, box.radius);
-  ctx.stroke();
-  ctx.restore();
+  // NO STROKE HERE, DELIBERATELY. frame.html stroked an inset hairline on
+  // every unframed screen; it read as an unrequested border and was the
+  // first item of round two's feedback. An edge treatment is now opt-in via
+  // `stroke` (see paintStroke) - do not reinstate an unconditional one.
 }
 
 // --- Device frame chrome -------------------------------------------------
