@@ -218,8 +218,8 @@ export function computeSampledMeta(images, makeCanvas = defaultMakeCanvas) {
  * `addFiles()` — which calls `render()` SYNCHRONOUSLY, not through
  * `scheduleRender()`'s rAF debounce, so `state.meta` is guaranteed to
  * already reflect `state.config` exactly as it stands at that instant; see
- * web/sidebar.js's `refreshGrounds` header comment for the same guarantee
- * it already relies on). Every OTHER call in this file (a hue drag, a
+ * web/sidebar.js's "Ground swatch gradients" header comment, which relies
+ * on the same guarantee for the preset swatches). Every OTHER call in this file (a hue drag, a
  * preset click, a tone toggle, Sampled's own click) reads the cache via
  * `createSampledCache().refresh` below WITHOUT invalidating it first, so it
  * never re-evaluates this trust at a moment `state.meta` could be
@@ -591,9 +591,10 @@ export function initBackgroundInspector() {
   syncToneUI();
 
   // Returned so web/main.js can tell this panel to re-derive "Sampled" the
-  // moment a screenshot decodes — the same handshake Task 4's
-  // `refreshGrounds` already uses for the sidebar's own preset previews
-  // (see web/main.js's `handleFiles`).
+  // moment a screenshot decodes (see web/main.js's `handleFiles`). It also
+  // re-renders the preset swatches, which is the whole of that handshake
+  // now: the rail had its own copy (`refreshGrounds`) until Cycle A Task 2
+  // removed its duplicate Ground group.
   return {
     refreshSampled: () => {
       sampledCache.invalidate(); // force the next refresh() below to recompute
