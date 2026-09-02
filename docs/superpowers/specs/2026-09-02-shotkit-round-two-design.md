@@ -353,6 +353,33 @@ model, the rendered preset tiles, Angle (17), per-control Resets (18).
 
 Each cycle is its own plan, run task by task, stopping after every task.
 
+## Carried forward — a dark ground
+
+Raised by Rock 2026-09-02: *"in the ground tone, why don't we have dark
+anymore? or you never had it?"* and, clarifying: *"by dark I mean like a black
+(or near black) option."*
+
+**It never existed.** `TONES` has only ever been `['light', 'mid']`, and both
+branches of `tail()` in `core/ground.js` produce *light* grounds — the "light"
+branch at HSL lightness 0.975/0.925/0.868, the "mid" branch at
+0.855/0.780/0.712. "Mid" means *less pale*, not dark, and it is selected
+automatically when the screenshot itself is dark (`darkUI = lum < 0.34`), on the
+inherited premise that a near-white ground blows out around a dark UI. A
+genuinely dark ground — lightness around 0.15 — exists nowhere in the tool.
+
+The label is misleading: "Mid" reads as the middle of a range that includes
+dark, and there is no such range.
+
+**This is a new feature, not a restoration**, and it belongs in Cycle B's
+type-first Background rebuild, where sampled lives inside each type — a sampled
+*dark* ground is exactly what that structure should make reachable. It also
+wants a rename, since "Light / Mid" stops making sense once a third option
+exists.
+
+Note the knock-on: `paintWeb` fills the screen with `#ffffff` behind the
+screenshot, and `paintShadow`'s alphas were verified against pale grounds. Both
+want re-checking against a near-black ground before it ships.
+
 ## Carried forward — the accent colour
 
 Raised by Rock 2026-09-02, after approving Task 3b: *"I think we are too BW and
