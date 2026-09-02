@@ -384,8 +384,29 @@ function updateEmptyFrame() {
   w = Math.min(availW, Math.max(160, w));
   h = Math.min(availH, Math.max(120, h));
 
-  dropzone.style.width = `${Math.round(w)}px`;
-  dropzone.style.height = `${Math.round(h)}px`;
+  let cw = Math.round(w);
+  let ch = Math.round(h);
+  dropzone.style.width = `${cw}px`;
+  dropzone.style.height = `${ch}px`;
+
+  // SNAP THE BOX ONTO WHOLE PIXELS. Rounding the SIZE above is not enough:
+  // .canvas-surface flex-centres this box, so its position is
+  // (container - size) / 2, and the container's content box is whatever
+  // fractional width the window leaves. When that halves to a .5, the
+  // dropzone's 1px dashed border straddles two device pixels on that axis and
+  // is drawn as two half-strength rows, while the other axis stays a single
+  // crisp row. On a 2x display both look the same; at 1x they do not, and it
+  // reads as a border that is 2px on one side and 1px on the other. Measured:
+  // x = 306 (whole) against y = 175.5 (half) at 1440x900.
+  //
+  // A second layout read is cheap here - this runs only in the empty state,
+  // and only on ratio or resize changes. Shrinking rather than growing keeps
+  // the box inside the space updateEmptyFrame already clamped it to; the
+  // resulting 1px of ratio error is invisible on a placeholder.
+  const r = dropzone.getBoundingClientRect();
+  const offAxis = v => Math.abs(v - Math.round(v)) > 0.01;
+  if (offAxis(r.x)) dropzone.style.width = `${Math.max(160, cw - 1)}px`;
+  if (offAxis(r.y)) dropzone.style.height = `${Math.max(120, ch - 1)}px`;
 }
 
 /** Reflect `state.images`/`hasContent()` into the parts of the shell that
