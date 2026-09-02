@@ -58,7 +58,33 @@ beforeEach(() => {
   state.surround = 'mid';
 });
 
-describe('export scale fidelity - the property no golden PNG can see', () => {
+// This file gets its own timeout, above vitest.config.js's suite-wide 20s.
+//
+// It is the most expensive test in the suite by a wide margin: the first case
+// composes the SAME shot at 1x, 2x and 3x, and 3x of a 2000x1500 canvas is
+// 6000x4500 - 27 megapixels through @napi-rs/canvas - then pixel-diffs it
+// against a downscale. That is legitimately slow, not hung, and it is the
+// whole point of the test.
+//
+// Measured on the dev machine (x64 Mac, same architecture CI pins):
+//
+//   standalone, 3 runs        5.3s / 6.5s / 5.3s   (first case)
+//   under full-suite load     9.5s                 (first case)
+//
+// 9.5s against a 20s budget is 2.1x headroom, and CI's shared macos-15-intel
+// runner is slower than this machine - so it timed out there while every
+// local run passed. Timings before and after Cycle A Task 4b were measured
+// and are identical (5.4s vs 5.3s standalone), so this is a budget that was
+// always marginal, not a regression.
+//
+// 90s is ~9x the measured full-suite worst case. It is deliberately scoped to
+// this file rather than raised globally: the other 320 tests run in
+// milliseconds and should keep a tight budget, because for them a 20s hang IS
+// the bug signal. If this needs raising again, remeasure first - do not just
+// bump it.
+const SCALE_TEST_TIMEOUT = 90_000;
+
+describe('export scale fidelity - the property no golden PNG can see', { timeout: SCALE_TEST_TIMEOUT }, () => {
   it('2x and 3x renders are exactly proportional in size and the same composition as 1x, at a canvas size no golden PNG covers', async () => {
     const web = await loadImage('samples/fieldset.png');
     const target = createCanvas(10, 10);

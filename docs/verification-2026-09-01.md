@@ -798,3 +798,32 @@ with that reasoning in the test.
   treat a small repro's cleanliness as disproof.
 - **Other browsers.** Measured in Chrome only. Not checked in Safari or
   Firefox. The fix does not depend on which is affected.
+
+## 4. The CI timeout this task hit on the way through
+
+The first push of Task 4b went red on CI — `export-scale-fidelity.test.js`
+timed out at 20s — and it was worth ruling out as a regression before
+treating it as a budget problem.
+
+It is not a regression. The same test was timed on `HEAD~1` (the pre-Task-4b
+commit, in a worktree, same machine, same `node_modules`) and on the fix:
+
+```
+                        first case      second case
+HEAD~1 (before)         5.4s / 5.6s     3.6s / 3.9s
+Task 4b (after)         5.3s / 6.5s     3.1s / 5.2s
+under full-suite load   9.5s            4.5s
+```
+
+Identical within noise. The test composes the same shot at 1x, 2x and 3x, and
+3x of 2000x1500 is 27 megapixels through `@napi-rs/canvas`; at 9.5s under
+load it had 2.1x headroom against the suite-wide 20s, and CI's shared
+`macos-15-intel` runner is slower than this machine. It was always marginal —
+the Task 7 record above already notes it timing out once, in the previous
+cycle, for the same reason.
+
+Fixed by scoping a measured 90s timeout to that one file rather than raising
+the suite-wide budget, so the other 320 tests keep a tight one — for them a
+20s hang IS the bug signal. The `describe(name, { timeout }, fn)` form was
+verified to actually apply, not be silently ignored, with a throwaway test
+that sleeps 24s and passes under it.
