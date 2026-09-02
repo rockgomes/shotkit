@@ -42,7 +42,7 @@
 // task-6-report.md / task-6b-report.md for measured timings.
 import {
   FRAME_KINDS, CHROME_THEMES, DEFAULTS, normalise, SHADOW_SCALE_RANGE,
-  SHADOW_DEFAULTS, SHADOW_DISTANCE_RANGE, SHADOW_BLUR_RANGE,
+  SHADOW_DISTANCE_RANGE, SHADOW_BLUR_RANGE,
 } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
 
@@ -146,24 +146,43 @@ export function setGrainPercent(config, pct) {
   config.grain = Math.min(100, Math.max(0, n)) / 100;
 }
 
-// Shadow strength (Task 6b) — the one authorised core/ field this task adds.
-// `config.shadowScale` is a MULTIPLIER over paintShadow's verified alphas
-// (core/render.js), 1 == frame.html's own values unchanged; SHADOW_SCALE_RANGE
-// (core/presets.js, [0, 2]) is the bound this slider works to, imported
-// rather than hardcoded here so the UI and normalise()'s own clamp can never
-// drift apart. The percent round-trip below is the exact same *100/*0.01
-// pattern grain and padding already use, just over a wider [0,200] range —
-// 100% reads back as the untouched default.
+// Shadow strength (Task 6b) — a MULTIPLIER over paintShadow's verified
+// alphas (core/render.js), 1 == frame.html's own values unchanged;
+// SHADOW_SCALE_RANGE (core/presets.js, [0, 2]) is the bound this slider
+// works to, imported rather than hardcoded here so the UI and normalise()'s
+// own clamp can never drift apart. The percent round-trip below is the exact
+// same *100/*0.01 pattern grain and padding already use, just over a wider
+// [0,200] range — 100% reads back as the untouched default.
+//
+// IT WRITES `shadow.scale`, NOT `config.shadowScale` (Cycle A Task 5c).
+//
+// Rock: "the shadow control now only works until I open the advanced
+// settings, then the slider doesn't do absolutely anything anymore." He was
+// right. This slider used to write the top-level `config.shadowScale` while
+// the Advanced controls wrote into `config.shadow`, and normalise() resolves
+// the strength as "an explicit `shadow.scale` wins over `shadowScale` — the
+// specific beats the legacy". `writableShadow` below seeded a missing block
+// straight from SHADOW_DEFAULTS, `scale: 1` included, so the FIRST touch of
+// any Advanced control manufactured an explicit `shadow.scale` of 1 that
+// outranked this slider from then on: the handle moved, the number changed,
+// and the render never saw either. (Worse in the other direction too — that
+// same first touch silently snapped a chosen 40% strength back to 100%.)
+//
+// The precedence rule in core/config.js is not the bug and is unchanged.
+// The bug was TWO PLACES holding one quantity. There is now one: everything
+// this panel writes about the shadow goes into `config.shadow`, and
+// `shadowScale` survives only as a legacy INPUT to normalise() — accepted
+// from a jobs.json or the shipped CLI, folded into `shadow.scale`, and never
+// written by the app again.
 export function activeShadowPercent(config) {
-  const scale = Number.isFinite(config.shadowScale) ? config.shadowScale : DEFAULTS.shadowScale;
-  return Math.round(scale * 100);
+  return Math.round(readShadow(config).scale * 100);
 }
 
 export function setShadowPercent(config, pct) {
   const n = Number(pct);
   if (!Number.isFinite(n)) return;
   const [min, max] = SHADOW_SCALE_RANGE;
-  config.shadowScale = Math.min(max * 100, Math.max(min * 100, n)) / 100;
+  writableShadow(config).scale = Math.min(max * 100, Math.max(min * 100, n)) / 100;
 }
 
 // --- Shadow shape (Task 5, reshaped by Task 5b) ---------------------------
@@ -185,28 +204,60 @@ export function setShadowPercent(config, pct) {
 // shadowAngleDisabled above for why that reversed.
 
 /**
- * The effective shadow block for READING — core/'s defaults with whatever
- * the config actually carries laid over them. Deliberately non-mutating: a
- * panel that wrote to `config` merely by rendering itself would make
- * `normalise({})` and `normalise(state.config)` disagree the moment the
- * inspector mounted.
+ * The effective shadow block for READING — resolved through the REAL
+ * normalise(), which is the same function core/render.js's config went
+ * through, so what a slider displays cannot disagree with what is drawn.
+ *
+ * IT IS normalise(), NOT A SPREAD OVER SHADOW_DEFAULTS (Cycle A Task 5c).
+ * The spread it replaces was subtly the wrong shape three times over: it
+ * ignored the legacy top-level `shadowScale` (so a jobs.json carrying one
+ * read back as 100%), it showed unclamped values normalise() would then
+ * move (distance 50% displayed, 20% drawn), and it showed unwrapped angles
+ * (450 displayed, 90 drawn). Reading through normalise() makes all three
+ * impossible by construction rather than by three matching clamps.
+ *
+ * This is the read-only `normalise(state.config)` pattern web/sidebar.js's
+ * "+ Custom size" prefill and the corner-radius slider below already
+ * established — never used to decide what to WRITE, only what to show.
+ *
+ * Deliberately non-mutating: a panel that wrote to `config` merely by
+ * rendering itself would make `normalise({})` and `normalise(state.config)`
+ * disagree the moment the inspector mounted.
  */
 function readShadow(config) {
-  return { ...SHADOW_DEFAULTS, ...(config && config.shadow) };
+  return normalise(config || {}).shadow;
 }
 
 /**
  * The config's OWN shadow block, created on first write.
  *
- * The spread is the point. `web/state.js` seeds `state.config` with
- * `{ ...DEFAULTS }` — a shallow copy — so handing out core/'s exported
+ * IT SEEDS FROM THE RESOLVED BLOCK, NOT FROM SHADOW_DEFAULTS (Task 5c).
+ * That one word is the whole fix, and the property it buys is worth
+ * stating precisely:
+ *
+ *   seeding is render-neutral — normalise(config) is identical either side
+ *   of the seed, for every field.
+ *
+ * It has to be, because `readShadow` IS normalise(), so the block written
+ * here is by definition the block normalise() would have produced anyway;
+ * feeding it back in is idempotent (already clamped, already wrapped,
+ * already a real boolean). Seeding from SHADOW_DEFAULTS was not neutral:
+ * it invented `scale: 1` for a config whose strength had been set through
+ * the legacy `shadowScale`, and — since an explicit `shadow.scale` outranks
+ * that legacy field in normalise() — the invention stuck. Touching Distance
+ * changed the shadow's darkness. See test/inspector-frame.test.js's Task 5c
+ * suite, which asserts the neutrality directly for every control.
+ *
+ * The copy is still the other point. `web/state.js` seeds `state.config`
+ * with `{ ...DEFAULTS }` — a shallow copy — so handing out core/'s exported
  * SHADOW_DEFAULTS by reference would give every config in the process the
  * same mutable object, and one slider drag would rewrite core/'s own
- * defaults. See test/inspector-frame.test.js's "never aliases" case.
+ * defaults. normalise() builds a fresh object every call, so it cannot
+ * alias anything. See test/inspector-frame.test.js's "never aliases" case.
  */
 function writableShadow(config) {
   if (!config.shadow || typeof config.shadow !== 'object') {
-    config.shadow = { ...SHADOW_DEFAULTS };
+    config.shadow = readShadow(config);
   }
   return config.shadow;
 }

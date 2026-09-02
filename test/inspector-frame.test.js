@@ -148,38 +148,60 @@ describe('grain percent <-> config.grain fraction', () => {
   });
 });
 
-// Task 6b: shadowScale is a MULTIPLIER over paintShadow's verified alphas
-// (core/render.js) - this file only covers the percent<->fraction round
-// trip and its clamp; the actual darkening effect is covered directly in
-// test/render-screen.test.js and via the golden in test/compose.test.js.
-describe('shadow percent <-> config.shadowScale fraction (Task 6b)', () => {
+// Task 6b: the shadow strength is a MULTIPLIER over paintShadow's verified
+// alphas (core/render.js) - this file only covers the percent<->fraction
+// round trip and its clamp; the actual darkening effect is covered directly
+// in test/render-screen.test.js and via the golden in test/compose.test.js.
+//
+// EVERY ASSERTION HERE GOES THROUGH normalise() (Cycle A Task 5c). These
+// used to read `config.shadowScale` — the field the slider happened to
+// write — which is why they all stayed green through the regression that
+// stopped that field reaching the canvas at all. The strength now lives in
+// `config.shadow.scale` like every other shadow field, but the field name
+// is not the claim worth testing either way: the claim is that what the
+// panel writes is what core/render.js draws and what the slider reads back.
+describe('shadow percent <-> the strength normalise() renders (Task 6b)', () => {
   it('an unset config reads back 100% - the shipped default, unchanged', () => {
     expect(activeShadowPercent({})).toBe(100);
     expect(activeShadowPercent({})).toBe(DEFAULTS.shadowScale * 100);
   });
 
-  it('setShadowPercent writes a plain fraction normalise() reads directly', () => {
+  it('setShadowPercent writes a fraction normalise() resolves unchanged', () => {
     const config = {};
     setShadowPercent(config, 160);
-    expect(config.shadowScale).toBeCloseTo(1.6, 6);
+    expect(normalise(config).shadow.scale).toBeCloseTo(1.6, 6);
     expect(activeShadowPercent(config)).toBe(160);
+    // The legacy top-level field reports the same number - one quantity.
     expect(normalise(config).shadowScale).toBeCloseTo(1.6, 6);
   });
 
   it('clamps to [0, 200]% - matching SHADOW_SCALE_RANGE, never negative or runaway', () => {
     const config = {};
     setShadowPercent(config, -10);
-    expect(config.shadowScale).toBe(SHADOW_SCALE_RANGE[0]);
+    expect(normalise(config).shadow.scale).toBe(SHADOW_SCALE_RANGE[0]);
     setShadowPercent(config, 999);
-    expect(config.shadowScale).toBe(SHADOW_SCALE_RANGE[1]);
+    expect(normalise(config).shadow.scale).toBe(SHADOW_SCALE_RANGE[1]);
   });
 
-  it('0% removes the shadow entirely (shadowScale 0), 200% is the range ceiling', () => {
+  it('0% removes the shadow entirely (scale 0), 200% is the range ceiling', () => {
     const config = {};
     setShadowPercent(config, 0);
-    expect(config.shadowScale).toBe(0);
+    expect(normalise(config).shadow.scale).toBe(0);
+    expect(activeShadowPercent(config)).toBe(0);
     setShadowPercent(config, 200);
-    expect(config.shadowScale).toBe(2);
+    expect(normalise(config).shadow.scale).toBe(2);
+    expect(activeShadowPercent(config)).toBe(200);
+  });
+
+  // The app writes ONE place. `shadowScale` stays a legal INPUT (a jobs.json
+  // or the shipped CLI still carries it, and core/config.js still folds it
+  // in) but nothing in web/ writes it any more - two writable homes for one
+  // number is what broke the slider.
+  it('the panel never writes the legacy top-level shadowScale', () => {
+    const config = {};
+    setShadowPercent(config, 160);
+    expect(config.shadowScale).toBeUndefined();
+    expect(config.shadow.scale).toBeCloseTo(1.6, 6);
   });
 });
 
@@ -727,5 +749,182 @@ describe('Task 5b: the Advanced shadow settings disclosure', () => {
     const sync = FINISH.slice(FINISH.indexOf('function syncShadowShapeUI'));
     const body = sync.slice(0, sync.indexOf('\n  }'));
     expect(body).toMatch(/\.disabled = shadowAngleDisabled\(state\.config\)/);
+  });
+});
+
+// ---------------------------------------------------------------------
+// Cycle A Task 5c — BEHAVIOURAL, NOT STRUCTURAL.
+//
+// Rock: "the shadow control now only works until I open the advanced
+// settings, then the slider doesn't do absolutely anything anymore."
+//
+// He was right, and nothing in this file could have caught it. Task 5b's
+// tests for the Advanced disclosure scan this file's own SOURCE TEXT for
+// the controls' existence — they prove a slider is built, never that
+// moving it changes what gets drawn. The suite below drives the setters as
+// a user drives the panel: set a value, touch a sibling, set it again, and
+// assert BOTH the value the renderer will use (normalise(config).shadow,
+// which is literally what core/render.js reads) and the value the slider
+// will display. No DOM is needed for any of it — every setter here is a
+// pure function over a config object, and normalise() is pure.
+//
+// The failure this locks out is not "the setter throws". It is the far
+// quieter one: the setter still writes, the slider still moves, and the
+// render ignores it — because some OTHER control had, on its own first
+// write, manufactured a more-specific value that outranks it forever.
+// ---------------------------------------------------------------------
+
+// One row per control in the Finish shadow group — the strength slider and
+// the four behind "Advanced shadow settings". `rendered` reads through the
+// REAL normalise(), so a value that round-trips only through this file's
+// own helpers cannot pass; `readback` is what the slider would show, and
+// the two must agree or the handle sits somewhere the picture isn't.
+const SHADOW_CONTROLS = [
+  {
+    name: 'Shadow (strength)',
+    field: 'scale',
+    set: setShadowPercent,
+    readback: activeShadowPercent,
+    rendered: (c) => normalise(c).shadow.scale,
+    first: 40, renderedFirst: 0.4,
+    second: 175, renderedSecond: 1.75,
+  },
+  {
+    name: 'Distance',
+    field: 'distance',
+    set: setShadowDistancePercent,
+    readback: activeShadowDistancePercent,
+    rendered: (c) => normalise(c).shadow.distance,
+    first: 6, renderedFirst: 0.06,
+    second: 15, renderedSecond: 0.15,
+  },
+  {
+    name: 'Softness',
+    field: 'blur',
+    set: setShadowSoftnessPercent,
+    readback: activeShadowSoftnessPercent,
+    rendered: (c) => normalise(c).shadow.blur,
+    first: 25, renderedFirst: 0.25,
+    second: 8, renderedSecond: 0.08,
+  },
+  {
+    name: 'Angle',
+    field: 'angle',
+    set: setShadowAngle,
+    readback: activeShadowAngle,
+    rendered: (c) => normalise(c).shadow.angle,
+    first: 200, renderedFirst: 200,
+    second: 30, renderedSecond: 30,
+  },
+  {
+    name: 'Directional',
+    field: 'directional',
+    set: setShadowDirectional,
+    readback: activeShadowDirectional,
+    rendered: (c) => normalise(c).shadow.directional,
+    first: true, renderedFirst: true,
+    second: false, renderedSecond: false,
+  },
+];
+
+// Numbers compare with a tolerance, booleans exactly — one helper so the
+// table above can hold both kinds of control without branching at every
+// assertion.
+function expectSame(actual, expected) {
+  if (typeof expected === 'number') expect(actual).toBeCloseTo(expected, 9);
+  else expect(actual).toBe(expected);
+}
+
+describe('Task 5c: the shadow slider keeps working once Advanced is open', () => {
+  // THE REGRESSION ITSELF, written out rather than generated, because this
+  // is the exact sequence Rock performed. Steps 1-2 pass on the broken
+  // code; step 5 is the one that fails.
+  it('Shadow still changes the render after an advanced control has been touched', () => {
+    const config = { ...DEFAULTS }; // exactly what web/state.js seeds
+
+    setShadowPercent(config, 40);
+    expect(normalise(config).shadow.scale).toBeCloseTo(0.4, 9);
+
+    setShadowDistancePercent(config, 6); // the user opens Advanced
+
+    setShadowPercent(config, 175);
+    expect(normalise(config).shadow.scale).toBeCloseTo(1.75, 9);
+    expect(activeShadowPercent(config)).toBe(175);
+  });
+
+  it('Shadow still reaches zero after Advanced — a slider at 0% must draw no shadow', () => {
+    const config = { ...DEFAULTS };
+    setShadowDirectional(config, true);
+    setShadowPercent(config, 0);
+    expect(normalise(config).shadow.scale).toBe(0);
+    expect(activeShadowPercent(config)).toBe(0);
+  });
+
+  // Touching an advanced control must not MOVE the shadow. The regression's
+  // other half: the first touch of Distance silently reset strength to
+  // 100% while the slider went on showing 40%.
+  it('touching an advanced control leaves every other shadow field exactly as it rendered', () => {
+    for (const ctl of SHADOW_CONTROLS) {
+      const config = { ...DEFAULTS };
+      setShadowPercent(config, 40); // a strength the user has already chosen
+      const before = normalise(config).shadow;
+
+      ctl.set(config, ctl.first);
+      const after = normalise(config).shadow;
+
+      expect({ ...after, [ctl.field]: null })
+        .toEqual({ ...before, [ctl.field]: null });
+      expectSame(after[ctl.field], ctl.renderedFirst);
+    }
+  });
+
+  // The general form, for every control including strength: set it, touch
+  // every sibling, set it again. A control that silently stops responding
+  // is the failure mode this cycle has now shipped once.
+  for (const ctl of SHADOW_CONTROLS) {
+    it(`${ctl.name} still moves the render after every sibling has been touched`, () => {
+      const config = { ...DEFAULTS };
+
+      ctl.set(config, ctl.first);
+      expectSame(ctl.rendered(config), ctl.renderedFirst);
+      expectSame(ctl.readback(config), ctl.first);
+
+      for (const other of SHADOW_CONTROLS) {
+        if (other !== ctl) other.set(config, other.first);
+      }
+
+      ctl.set(config, ctl.second);
+      expectSame(ctl.rendered(config), ctl.renderedSecond);
+      // The slider's handle and the picture must agree; a readback that
+      // drifts from the render is the same bug wearing the other mask.
+      expectSame(ctl.readback(config), ctl.second);
+    });
+  }
+
+  // A jobs.json or a CLI invocation carrying the legacy top-level
+  // `shadowScale` is still valid input (core/config.js folds it into
+  // shadow.scale). Opening Advanced must not discard it.
+  it('a legacy top-level shadowScale survives the first touch of an advanced control', () => {
+    const config = { shadowScale: 0.5 };
+    expect(normalise(config).shadow.scale).toBe(0.5);
+
+    setShadowDistancePercent(config, 6);
+
+    expect(normalise(config).shadow.scale).toBe(0.5);
+    expect(activeShadowPercent(config)).toBe(50);
+  });
+
+  // ONE SOURCE OF TRUTH. Whatever the panel writes, the two places
+  // normalise() reports the strength must never disagree — that
+  // disagreement is precisely what let the slider and the render diverge.
+  it('normalise() reports the same strength in both of its shadow fields', () => {
+    const config = { ...DEFAULTS };
+    setShadowDistancePercent(config, 6); // Advanced open — where they diverged
+    for (const pct of [0, 40, 100, 175, 200]) {
+      setShadowPercent(config, pct);
+      const n = normalise(config);
+      expect(n.shadowScale).toBeCloseTo(n.shadow.scale, 9);
+      expect(n.shadow.scale).toBeCloseTo(pct / 100, 9);
+    }
   });
 });

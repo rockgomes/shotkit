@@ -1434,6 +1434,141 @@ section.
 
 ---
 
+### Task 5c: One source of truth for shadow strength
+
+A **regression**, reported by Rock the moment Task 5b's preview went up:
+
+> "the shadow control now only works until I open the advanced settings, then
+> the slider doesn't do absolutely anything anymore."
+
+and, on what he expects instead:
+
+> "shadow controls the shadow amount, which I suppose is what we had before — a
+> pre baked combination of distance, angle and softness, PLUS the strength (or
+> opacity maybe?)" ... "now when the other options appear, the main shadow
+> slider STILL controls strength/opacity"
+
+**The design is right and does not change here.** Shadow = strength, Advanced
+holds the four shape controls, and the layout Task 5b shipped is untouched.
+Nothing in `core/render.js` is touched either. This task fixes one thing: the
+strength had **two writable homes**, and opening Advanced moved the render onto
+the wrong one.
+
+**The reproduction — pure functions, no DOM.** `{ ...DEFAULTS }` is exactly
+what `web/state.js` seeds `state.config` with:
+
+```
+A. after Shadow=40%   -> config.shadowScale = 0.4 | config.shadow = undefined
+                       | normalise().shadow.scale = 0.4 | slider reads 40%
+B. after Distance=6%  -> config.shadow = {"scale":1,"distance":0.06,...}
+C. after Shadow=180%  -> config.shadowScale = 1.8
+                       | normalise().shadow.scale = 1      <-- ignored
+                       | slider reads 180%
+D. after Shadow=0%    -> config.shadowScale = 0
+                       | normalise().shadow.scale = 1      <-- ignored
+                       | slider reads 0%
+```
+
+**The chain, confirmed:**
+
+- `web/inspector-frame.js`'s `writableShadow(config)` seeded a missing block
+  with `config.shadow = { ...SHADOW_DEFAULTS }`.
+- `SHADOW_DEFAULTS` (`core/presets.js`) includes **`scale: 1`**.
+- `normalise` resolves the strength as
+  `s.scale !== undefined ? s.scale : input.shadowScale` — "an explicit
+  `shadow.scale` wins over it, the specific beats the legacy".
+- The main Shadow slider wrote `config.shadowScale` (`setShadowPercent`).
+
+So the first touch of **any** Advanced control manufactured an "explicit"
+`shadow.scale` of 1 which then permanently outranked `shadowScale`. Line B is
+the second half of the same bug, and Rock did not report it only because it is
+quieter: that first touch also *silently reset* a chosen 40% strength back to
+100% while the slider went on showing 40%.
+
+**The precedence rule stays.** The bug is that the app accidentally created a
+specific value, not that the rule is wrong.
+
+**The fix: the panel writes `shadow.scale`, and reads through `normalise()`.**
+
+- `setShadowPercent` writes `writableShadow(config).scale`. `shadowScale`
+  survives only as a legacy **input** to `normalise` — accepted from a
+  jobs.json or the shipped CLI, folded into `shadow.scale`, never written by
+  the app again.
+- `readShadow(config)` becomes `normalise(config || {}).shadow` — the same
+  function `core/render.js`'s config goes through — so a displayed value
+  cannot disagree with a drawn one. This also closes two smaller read/write
+  disagreements the spread had: it ignored a legacy `shadowScale` (a jobs.json
+  carrying one read back as 100%), and it displayed unclamped/unwrapped values
+  `normalise` would then move (distance 50% shown, 20% drawn).
+- `writableShadow` seeds from that **resolved** block rather than from
+  `SHADOW_DEFAULTS`, which buys a property worth stating: **seeding is
+  render-neutral** — `normalise(config)` is identical either side of the seed,
+  for every field, because the block written is by definition the one
+  `normalise` would have produced. That is the general form of this bug, closed
+  for all five controls rather than just for `scale`.
+- `core/config.js`'s top-level `shadowScale` **output** becomes
+  `shadow.scale` — one resolution, one clamp, mirrored — instead of a second,
+  independent resolution that could report a different number from the one
+  drawn. Every legacy input still lands where it did.
+
+**Why this over "stop seeding `scale`".** Not seeding `scale` also fixes the
+reported symptom, but leaves the strength with two writable homes and the class
+of bug intact: any later code that writes a whole `shadow` block — a preset, a
+reset, a jobs.json round trip — reinstates it, and a reader who notices the
+deliberately-missing key is likely to "fix" it back. Writing one field leaves
+the smaller surface.
+
+**Tests — behavioural, and this is the part that matters.** Task 5b's tests for
+this panel were **structural**: they scanned `web/inspector-frame.js`'s own
+source text for the controls' existence. They prove a slider is built, never
+that moving it changes what is drawn, and they could not have caught this.
+There is no excuse for a structural test here — every setter is a pure function
+over a config object and `normalise` is pure, so **no DOM is required**.
+
+`test/inspector-frame.test.js` gains a Task 5c suite that drives the setters as
+a user drives the panel, asserting both the value the renderer will use
+(`normalise(config).shadow`, literally what `core/render.js` reads) and the
+value the slider will show:
+
+- the regression sequence itself — set strength, touch Distance, set strength
+  again, assert the render followed;
+- strength still reaching 0 after Advanced has been opened;
+- touching any one control changes **only** that control's field in the
+  normalised block (the seeding-neutrality property, asserted directly);
+- the general round trip **for every control** — set it, touch every sibling,
+  set it again, assert the render follows and the readback agrees;
+- a legacy top-level `shadowScale` surviving the first Advanced touch;
+- `normalise()` reporting the same strength in both of its shadow fields, with
+  Advanced open — where they diverged.
+
+The four Task 6b tests that asserted `config.shadowScale` after
+`setShadowPercent` are rewritten to assert through `normalise()`. That they
+stayed green throughout the regression is the point: they tested the field the
+slider happened to write, not that the write reached the canvas.
+
+**Run them against the broken code first.** Six of the ten new assertions fail
+before the fix; the four that pass are the sibling round trips for Distance,
+Softness, Angle and Directional — those controls did not have the bug, and the
+tests are still worth having because they are what makes the guarantee general.
+A control that silently stops responding is the exact failure mode this cycle
+has now shipped once.
+
+**Verify it in the browser, by driving it.** Not "it looks fine" — load the
+preview, drop an image, move Shadow and read the canvas pixels; open Advanced;
+move Shadow again and confirm the pixels **still** move; move each Advanced
+control and confirm each does something; close Advanced and move Shadow again.
+
+**Nothing may move.** `test/golden/shadow/default.png` and all ten render
+goldens stay **byte-identical** — the defaults are unchanged and no painter is
+touched.
+
+**Files:** `core/config.js`, `web/inspector-frame.js`,
+`test/inspector-frame.test.js`. Not `core/render.js`, not `core/presets.js`,
+not the alphas, not `web/style.css`, not the panel's layout.
+
+
+---
+
 ### Task 6: Frames become outsets; padding gives way, not the picture
 
 **Files:**
