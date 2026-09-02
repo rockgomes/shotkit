@@ -421,6 +421,38 @@ than a separate feature.
    a radius past half its width stops reading as a phone — so it is a range
    question, not a slider question.
 
+## Carried forward — corner radius is inert under a frame, from Rock 2026-09-03
+
+Found while approving Task 7. *"corner radius slider is not working when
+browser is selected. it either should, or the control should be disabled."*
+
+He is right, and it is worse than the browser: `c.radius` reaches the canvas
+only on the unframed path. `paintWebChrome` rounds the window to
+`chrome.radius` (`BROWSER_RADIUS_RATIO`, a fixed 25/1064 of the frame's
+width) and draws the screenshot inside it as a plain rect; `paintPhoneChrome`
+rounds to `PHONE_RADIUS_RATIO`, a fixed 0.125. So the Corner radius slider is
+fully inert under BOTH frames, not just Browser — the same defect as the
+inert Padding and Frame controls in the `mobile` layout, in a third place.
+
+**This is now three findings with one cause**, and they should be fixed
+together rather than patched one at a time:
+
+- Browser and None do nothing in the `mobile` layout
+- Padding and Corner radius do nothing in the `mobile` layout
+- Corner radius does nothing under either frame in the `web` layout
+
+Every one of them is a control bound to the element that happens to be drawn
+unframed. The per-element `elements: { web, mobile }` block in "Structural
+decision 1" is the fix; until it lands, the interim rule stands: **a control
+that cannot act must be disabled**, with Task 3b's explicit-colour treatment
+and never `opacity`.
+
+**Which way for corner radius, when it is built.** Prefer making it WORK over
+disabling it. A browser window's own corner is a real, adjustable thing, and
+the phone already wants a bounded radius for the same reason (see the
+carried-forward note above). Disabling is the fallback if the frame's radius
+turns out to be tied to geometry that cannot move.
+
 ## Carried forward — Background panel, from Rock 2026-09-02
 
 Raised while approving Task 5, and explicitly deferred by him: *"I guess this
