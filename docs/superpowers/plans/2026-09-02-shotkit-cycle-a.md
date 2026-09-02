@@ -325,6 +325,28 @@ asks for a change, make it, redeploy, and hand the link back before moving on.
 - Consumes: nothing.
 - Produces: a reusable `contrastRatio(hexA, hexB)` helper exported from `test/contrast.test.js`'s own module scope is **not** wanted — keep the helper local to the test file. Cycle B recomputes contrast for the generated hues separately.
 
+- [ ] **Step 0: Sweep the dead swatch rules Task 2 left behind**
+
+Task 2 removed the rail's preset markup and flagged, correctly, that it left
+orphans. Verify each with `grep -rn` before touching it — remove only what is
+genuinely unreferenced, and say in the report what you removed and what you
+found still in use:
+
+- `web/style.css:679-689` — `.preset-swatch--aurora`, `--slate`, `--candy`.
+  Nothing matches these selectors any more.
+- `web/tokens.css:59-68` — `--color-blue`, `--color-pink`, `--color-slate`,
+  `--color-charcoal`, `--color-orange`, `--color-magenta`. If the only
+  references are the three rules above, they go with them.
+
+`--color-cyan`, `--color-indigo`, `--color-green` and `--color-teal` sit in the
+same block and may already have been dead before Task 2 — check them too, but
+do not assume. Also re-check `--text-subtle`, flagged as a dead token back in
+Task 7 of the previous cycle and deliberately left then.
+
+This belongs here rather than in Task 2 because this is the task that edits
+`tokens.css`, and a token file is easier to reason about once the dead entries
+are gone.
+
 - [ ] **Step 1: Write the audit test first, and let it fail**
 
 Create `test/contrast.test.js`:
