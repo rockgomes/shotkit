@@ -387,6 +387,40 @@ model, the rendered preset tiles, Angle (17), per-control Resets (18).
 
 Each cycle is its own plan, run task by task, stopping after every task.
 
+## Carried forward — controls that do nothing, from Rock 2026-09-02
+
+Found while approving Task 6, and it sharpens the Cycle B selection model.
+
+**Frames apply to the web element only.** `layout()` gives `out.web` a `chrome`
+block; `out.phones` never gets one — phones are always drawn as phone bodies.
+So dropping a portrait screenshot puts the app in the `mobile` layout, where
+`frameKind` has nothing to act on. Rock: *"Browser and None don't do anything…
+but then I shouldn't be able to select them, right?"* Padding and corner radius
+are the same: `phoneBox()` takes neither, so both sliders are inert in that
+layout.
+
+**And the asymmetry he spotted is the real finding:** *"on the other hand, you
+do allow me to add a phone border on a desktop screenshot. shouldn't it work the
+same way?"* A phone frame around a web screenshot works; a browser frame around
+a mobile screenshot does not exist. That is not a decision — it is `frameKind`
+having been attached to one element while the mobile layout has its own hardcoded
+device. The per-element `elements: { web, mobile }` block in "Structural decision
+1" is what makes the two symmetric, so this is evidence for that design rather
+than a separate feature.
+
+**Two things to settle when it is built:**
+
+1. **Inert controls must say so.** A control that appears to work and does not
+   is the defect this whole round exists to remove. Disable them, using Task 3b's
+   explicit-colour treatment — never `opacity`, which the stylesheet no longer
+   permits outside `@keyframes`.
+2. **Phones should probably take a corner radius.** Rock: *"shouldn't we allow
+   'some' adjustment for corner radius on mobile? I think android phones can have
+   a different ratio."* `PHONE_RADIUS_RATIO` is a fixed 0.125 of the phone's
+   width. Exposing it needs a bounded range — a phone with square corners or with
+   a radius past half its width stops reading as a phone — so it is a range
+   question, not a slider question.
+
 ## Carried forward — Background panel, from Rock 2026-09-02
 
 Raised while approving Task 5, and explicitly deferred by him: *"I guess this
