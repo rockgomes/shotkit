@@ -21,72 +21,170 @@
   --surface-control-active: #22252b; /* active segmented cell (line 116) */
   --surface-inverse: #f2f3f5;     /* primary button fill (line 59) */
 
-  /* --- Borders / hairlines ---------------------------------------------- */
-  --border-hairline: #1b1d22;     /* pane separators (lines 47,63,72,111,112,136) */
-  --border-subtle: #1f2126;       /* toolbar divider, search field, CLI card (lines 49,73,91) */
-  --border-strong: #26282e;       /* control borders, slider track (lines 57,58,73(no)...114,129) */
-  --border-dashed: #2c2f36;       /* dashed "add" affordances (lines 82,125) */
+  /* --- Row hover fill ---------------------------------------------------
+     THIS WAS --border-hairline UNTIL TASK 3B, AND THE VALUE IS UNCHANGED.
+     One token was doing two jobs with opposite requirements. As a hairline
+     it is decoration and wants to be BRIGHT enough to see; as the hover
+     fill under .btn-ghost / .icon-btn / .template-row / .preset-row /
+     .sampled-row it is the lightest surface any text is painted on, and
+     therefore the ceiling on the whole text ladder: white on it measures
+     16.86:1, and five rungs 1.2 apart above a 7:1 floor need 14.52:1 of
+     that. Lifting the hairline to the 1.9:1 below would have dropped the
+     ceiling to 9.78:1 and made the ladder impossible. Split, each half is
+     free: this one stays exactly where it was, and the hairline moves. */
+  --surface-hover: #1b1d22;
 
-  /* --- Text -------------------------------------------------------------- */
-  --text-primary: #e8eaee;        /* body text, slider fill/thumb accents (line 46) */
-  --text-secondary: #c6cad2;      /* ghost button label, preset row label (lines 58,86) */
-  --text-muted: #9ba1ab;          /* filename, zoom label, muted rows (lines 53,57,77) */
-  --text-faint: #8a8f98;          /* secondary meta, inactive segmented text (lines 76,115) */
+  /* --- Borders / hairlines ----------------------------------------------
+     Three thresholds, from the spec's Contrast section, and every value
+     below is the minimum lightness that clears its own one (hue and
+     saturation held from the handoff value it replaces):
+
+       decorative separators   1.8-2.5:1, judgement (policy item 4)
+       interactive boundaries  >= 3:1     (policy item 3)
+
+     Measured in test/contrast.test.js, which derives every pairing from
+     web/style.css. Do not lower one of these without moving that test. */
+  --border-hairline: #3c414c;     /* was #1b1d22 (1.16:1, invisible). Pane and
+                                     section separators only - the hover fill
+                                     that used to share this name is above.
+                                     1.91:1 on --surface-window: the BOTTOM of
+                                     the decorative range, deliberately. These
+                                     are the longest and most repeated lines in
+                                     the layout (six pane edges plus every
+                                     inspector section), so they accumulate;
+                                     pushed to the top of the range the shell
+                                     reads as a wireframe. */
+  --border-subtle: #484d58;       /* was #1f2126 (1.21:1). Toolbar divider and
+                                     the CLI card outline - both decorative,
+                                     but SHORT (an 18px rule, one small card),
+                                     so they get the top of the range instead:
+                                     2.31:1. The search field moved off this
+                                     token to --border-strong; it holds an
+                                     <input>, so it is an interactive boundary
+                                     and owes 3:1, not a judgement call. */
+  --border-strong: #636978;       /* was #26282e (1.33:1). Every interactive
+                                     boundary: control borders, the search
+                                     field, the slider track, the selected
+                                     template / preset / sampled row. 3.07:1
+                                     on --surface-hover, which is the lightest
+                                     backdrop any of them sits on (.btn-ghost
+                                     keeps this border while its hover fill
+                                     lands underneath it); 3.56:1 on
+                                     --surface-window. */
+  --border-dashed: #6c7384;       /* was #2c2f36 (1.43:1 on --surface-canvas -
+                                     the empty-state frame Rock could not see).
+                                     3.55:1 on --surface-hover, 4.04:1 on
+                                     --surface-canvas. Deliberately a step
+                                     ABOVE --border-strong rather than equal to
+                                     it: a 1px dashed stroke covers about half
+                                     its own path, so at equal colour it reads
+                                     as roughly half-present next to a solid
+                                     one. The extra ratio buys back the gap in
+                                     the dashes, it does not buy extra safety
+                                     margin on the threshold. */
+
+  /* --- Text --------------------------------------------------------------
+     THE LADDER. Five rungs, and the policy they answer to changed in Task
+     3b: informational text clears 7:1, not the AA 4.5:1 floor Task 3 used.
+     "still dim. I think our greys need to get closer to white. I feel like
+     we using 'pass' as the floor" — he was right, and 4.5 was the floor.
+
+     Every rung's ratio is measured on --surface-hover (#1b1d22), the
+     lightest surface any of them is ever painted on (the row/button hover
+     fill) and therefore the binding one. On the window they all measure
+     ~1.16x higher.
+
+       --text-primary    15.72:1   was 14.00
+       --text-secondary  12.88     was 10.26
+       --text-muted      10.58     was  6.49
+       --text-faint       8.66     was  5.19
+       --text-fainter     7.06     was  4.53   <- the floor
+
+     Adjacent rungs are 1.2208 / 1.2174 / 1.2211 / 1.2274 apart, against a
+     1.2 minimum. That looks like tuning-to-the-threshold and is not: the
+     geometry has almost no slack in it. Five rungs 1.2 apart above a 7:1
+     floor need 7 x 1.2^4 = 14.52:1 at the top, and pure white on
+     --surface-hover is only 16.86:1. The whole ladder has to fit in the
+     1.16x of headroom between those two numbers, so the steps are near-
+     uniform by necessity, not by choice. If a sixth rung is ever wanted it
+     cannot come from a plain colour — 7 x 1.2^5 = 17.4:1 is above white.
+
+     Hue and saturation are held from the handoff values; only lightness
+     moved. The four lower rungs hold hue to within 1.5 degrees. --text-
+     primary is the exception worth naming: #e8eaee -> #f5f7fb keeps hue at
+     exactly 220 degrees and keeps the absolute channel spread at 6 levels
+     (232/234/238 -> 245/247/251, the same +2/+4 pattern), but its HSL
+     saturation reads 0.150 -> 0.429. At L~0.97 HSL saturation is an
+     amplifier on a spread of six 8-bit levels, so it is the wrong
+     invariant; the hue and the chroma are what actually survived. */
+  --text-primary: #f5f7fb;        /* body text, slider fill/thumb accents */
+  --text-secondary: #dfe1e5;      /* ghost button label, preset/sampled row label */
+  --text-muted: #cacdd2;          /* filename, zoom label, slider labels, muted rows */
+  --text-faint: #b7babf;          /* secondary meta, inactive segmented text, CLI command */
   /* DEPARTS FROM THE HANDOFF, AND ABSORBS --text-disabled.
-     Do not "restore" this to #6b7078 (lines 66,74), and do not re-split it
-     into two tokens.
+     Do not "restore" this to #6b7078, and do not re-split it into two
+     tokens.
 
      WHAT IT CARRIES. Alongside the inactive rail icons: every SECTION LABEL
      in the app (TEMPLATES / RATIOS / BACKGROUND / FRAME / FINISH / EXPORT),
      the whole of the empty state's copy (.dropzone, .dropzone-dims,
      .dropzone-sub), the custom-size field labels, .canvas-toolbar-label,
-     .control-hint, "+ Custom size", and — since the merge below — the
-     template row dimensions (.dim, "2800×2100") and .export-footnote. All
-     of it is real text at 10-12px, not decoration, so the 4.5:1 AA text
-     threshold applies and not the 3:1 UI-component one.
+     .control-hint, "+ Custom size", the template row dimensions (.dim,
+     "2800x2100") and .export-footnote. It is also the hover border on
+     .chip / .select-control / .custom-size-input. All of it is real text at
+     10-12px, not decoration, so the informational threshold applies.
 
-     THE LIFT. #6b7078 measured 3.93:1 on --surface-window #0b0c0e, 3.85:1
-     on --surface-canvas #0e0f12 (the empty state's backdrop) and 3.38:1 on
-     --border-hairline #1b1d22 — the .template-row hover background, the
-     lightest surface this token is ever painted on and therefore the
-     binding constraint. All three failed 4.5:1.
+     THE LIFT, TWICE. The handoff's #6b7078 measured 3.38:1 on the hover
+     fill and failed AA. Task 3 raised it to #7f858d, the minimum that
+     cleared 4.5:1 — 4.53:1, i.e. tuned to the floor, which is the habit
+     Task 3b exists to break. It is now #a4a8ae: 7.06:1 on the hover fill,
+     8.19:1 on --surface-window, 8.02:1 on --surface-canvas. Same hue
+     (216 degrees) and saturation (0.058) as #7f858d; lightness 0.525 ->
+     0.663.
 
-     #7f858d is the minimum: same hue (216.9°) and saturation (0.057) as the
-     original, lightness raised from 0.445 to 0.525, only as far as the
-     binding constraint requires. It measures 4.5301:1 on #1b1d22, 5.2574:1
-     on #0b0c0e and 5.1491:1 on #0e0f12. The step below it, #7f848d,
-     measures 4.4864:1 and fails.
-
-     THE MERGE. This token used to have a twin, --text-disabled, on the
-     template dimensions and .export-footnote. It had its own lift history:
-     the handoff's #565b64 (lines 77,163) measured 2.87:1 on #0b0c0e and
-     2.47:1 on #1b1d22, and was raised to #7e8590 — same hue (~0.607) and
-     saturation (~0.075), the minimum that cleared 4.5:1, with #7e8490 one
-     step below measuring 4.49:1.
-
-     #7e8590 and #7f858d are 1.0005:1 apart. They are the same colour, and
-     not by accident: both tokens bind on --border-hairline, so both were
-     driven to the same floor by the same constraint. In a dark theme the
-     4.5:1 floor over the lightest text-bearing surface admits essentially
-     one value, and any token pushed to it lands there. Two names for one
-     value is a ladder rung that no longer exists, so the twin was deleted
-     and its two usages moved here.
-
-     If a future rung genuinely belongs below this one it cannot be a plain
-     colour — it has to come from a lighter surface underneath it, or from a
-     non-colour cue. test/contrast.test.js's "the text ladder keeps its
-     rungs" guard fails if anything is merged into this value again.
-
-     (An earlier version of --text-disabled's comment claimed #6b7078 and
-     #4b4f58 needed no lift because they were "icons/placeholders/a
-     separator". Both claims were void: #4b4f58/--text-subtle was dead and
-     is gone, and #6b7078 carried every section label in the app.) */
-  --text-fainter: #7f858d;
+     THE MERGE (Task 3, still true). This token used to have a twin,
+     --text-disabled, on the template dimensions and .export-footnote. Both
+     tokens bound on the same surface, so both were driven to the same 4.5
+     floor and landed 1.0005:1 apart — two names for one colour. The twin
+     was deleted and its usages moved here. test/contrast.test.js's "the
+     text ladder keeps its rungs" guard fails if anything is merged into
+     this value again. */
+  --text-fainter: #a4a8ae;
   /* `--text-subtle` (#4b4f58, the handoff's breadcrumb "/" separator, line
      52) was removed in Cycle A Task 3. It was flagged as dead in Task 7 of
      the previous cycle and left in place then; `grep -rn text-subtle web
      core test scripts` still finds nothing but its own definition, and the
      breadcrumb it was drawn for was never built. */
+
+  /* --- Inert -------------------------------------------------------------
+     Task 3b. `.inspector-section[inert]` used to be `opacity: 0.42`, and
+     opacity was the wrong instrument: it composites toward whatever is
+     BEHIND the element — here the darkest surface in the app — so it
+     destroys contrast faster than it reduces apparent brightness. At 0.42
+     the section ran from 3.56:1 at the top down to 1.85:1 at the bottom,
+     and the bottom rung carried every section label in the panel.
+
+     These three replace it, at full alpha, as local re-definitions of the
+     live tokens inside the inert rule (see web/style.css). An inert section
+     is deliberately FLAT — one text tone, not a dimmed copy of the ladder —
+     because "unavailable" is one state, not five.
+
+       --text-inert     3.33:1 on --surface-window, 3.10:1 on --surface-inert
+       --surface-inert  1.07:1 on --surface-window
+       --border-inert   1.60:1 on --surface-window
+
+     More off than 0.42, not less: the section's brightest element drops
+     from 3.56:1 to 3.33:1, while its dimmest RISES from 1.85:1 to 3.33:1.
+     And measured against what it is dimming — the live tokens, which Task
+     3b lifted — the gap widened from 16.25/3.56 = 4.6x to 18.0/3.33 = 5.4x.
+
+     --border-inert is deliberately BELOW the 3:1 that --border-strong owes.
+     WCAG 1.4.11 exempts inactive components, and a control whose border is
+     as strong as a live one does not read as unavailable. */
+  --text-inert: #5e6570;          /* hue/sat of --text-muted, L 0.640 -> 0.404 */
+  --surface-inert: #141519;       /* hue/sat of --surface-control-active */
+  --border-inert: #33353d;        /* hue/sat of --border-strong */
+
   --color-white: #ffffff;         /* app-mark glyph, slider thumb, active segmented text (lines 64,116,129) */
 
   /* --- Status -------------------------------------------------------------- */
@@ -105,7 +203,19 @@
      fixed palette of stops has nothing left to name. */
 
   /* --- Canvas chrome (the editor's own décor, not core/'s rendered output) */
-  --dot-grid-dot: #1c1e23;        /* stage dot-grid pattern (line 97) */
+  --dot-grid-dot: #4b515e;        /* stage dot-grid pattern. Was #1c1e23,
+                                     1.15:1 on --surface-canvas - the dimmest
+                                     thing in the app and, with the dashed
+                                     frame, half of what Rock could not see.
+                                     Now 2.41:1: the TOP of the decorative
+                                     range, the opposite call from
+                                     --border-hairline's and for the same
+                                     reason read the other way. This is 1px
+                                     dots on a 22px pitch - about 0.6% ink
+                                     coverage, most of it eaten by
+                                     antialiasing - so a dot needs more ratio
+                                     than a continuous line to land at the
+                                     same visual weight. */
 
   /* --- Canvas surround (Task 2) --------------------------------------
      Three neutral steps behind a rendered shot, so a pale ground can be

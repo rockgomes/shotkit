@@ -239,10 +239,57 @@ stepper, fit-to-window, and reset.
 
 ## Contrast
 
-Body text at least 7:1 against its background; secondary text and controls at
-least 4.5:1; decorative and disabled states at least 3:1. Deliberately inert
-states (the empty state's 0.42) stay inert but must clear 3:1. Dark theme only;
-the light theme remains a later cycle, built from scratch.
+Rewritten in Task 3b. The first version of this section set the floor at AA and
+Task 3 duly tuned tokens to sit just above it. Rock's read of the result:
+*"still dim. I think our greys need to get closer to white. I feel like we
+using 'pass' as the floor... even the placeholder 'square' on the center of the
+page is so dim that I can barely see the dashed lines and the ratio on the
+corner."* Both halves of that are addressed below — the floor was too low, and
+the audit measured text only while every border and graphic went unchecked.
+
+Dark theme only; the light theme remains a later cycle, built from scratch.
+
+1. **Informational text: at least 7:1** against every surface it sits on. Not
+   4.5. AA is a legal minimum, not a design target, and a token pushed down to
+   it is a token that will read as dim.
+
+2. **Ladder separation: at least 1.2:1** between adjacent rungs of the text
+   ladder. Lifting must not compress: five rungs 1.2 apart above a 7:1 floor
+   need 14.52:1 at the top, and pure white on the lightest text-bearing surface
+   gives 16.86:1, so the design has 1.16x of total headroom. A sixth rung
+   cannot come from a plain colour and would have to come from a lighter
+   surface underneath it, or from a non-colour cue.
+
+3. **Interactive component boundaries and meaningful graphics: at least 3:1**,
+   measured against the lightest surface the element is drawn on. This covers
+   control and input borders, the slider track, focus rings, status
+   indicators, and the empty state's dashed frame and its ratio label. A
+   logotype (the app-mark glyph on the brand gradient) is exempt from the text
+   threshold per WCAG 1.4.3 and is held to this one instead.
+
+4. **Purely decorative separators and the dot grid: 1.8-2.5:1.** No WCAG
+   obligation applies, so the floor is a visibility judgement — but the range
+   has a **ceiling as well as a floor**, and that is deliberate. Pane
+   separators pushed to 3:1 on a dark UI stop reading as separators and start
+   reading as a wireframe. Within the range, weight is set by how much of the
+   element there is: long, repeated lines (pane and section edges) take the
+   bottom, sparse marks (the dot grid, a short divider) take the top.
+
+5. **Inert and disabled states: explicit colours at full alpha, not
+   `opacity`.** Opacity composites toward whatever is behind the element — on
+   this app the darkest surface on screen — so it destroys contrast far faster
+   than it reduces apparent brightness. `opacity: 0.42` on an inspector section
+   ran 3.56:1 at the top down to 1.85:1 at the bottom, and the bottom rung
+   carried every section label in the panel. An inert section instead
+   re-declares the live tokens on itself at a single flat tone landing 3:1-3.5:1
+   — dimmer than 0.42 gave its brightest element, and far brighter than 0.42
+   gave its dimmest. Inert control borders are deliberately allowed below 3:1;
+   WCAG 1.4.11 exempts inactive components, and a border as strong as a live
+   one does not read as unavailable.
+
+`web/tokens.css` remains the only file in `web/` allowed to hold a raw hex, and
+`test/contrast.test.js` is the enforcement: it derives every pairing from
+`web/style.css` and asserts all five items above.
 
 ## Invariants that must survive
 

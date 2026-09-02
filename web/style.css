@@ -262,7 +262,7 @@ input {
 }
 
 .btn-ghost:hover:not(:disabled) {
-  background: var(--border-hairline);
+  background: var(--surface-hover);
 }
 
 .btn-primary {
@@ -346,7 +346,7 @@ input {
 
 .icon-btn:hover {
   color: var(--text-primary);
-  background: var(--border-hairline);
+  background: var(--surface-hover);
 }
 
 .icon-btn:focus-visible {
@@ -461,7 +461,10 @@ input {
   height: 30px;
   padding: 0 10px;
   margin-bottom: 8px;
-  border: 1px solid var(--border-subtle);
+  /* --border-strong, not --border-subtle: this box holds an <input>, so its
+     edge is an interactive component boundary and owes 3:1 rather than the
+     judgement call the two decorative border tokens get (Task 3b). */
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   color: var(--text-fainter);
   flex: none;
@@ -557,7 +560,7 @@ input {
 }
 
 .template-row:hover:not(.is-selected) {
-  background: var(--border-hairline);
+  background: var(--surface-hover);
 }
 
 .template-row.is-selected {
@@ -661,7 +664,7 @@ input {
 }
 
 .preset-row:hover:not(.is-selected) {
-  background: var(--border-hairline);
+  background: var(--surface-hover);
 }
 
 .preset-row.is-selected {
@@ -802,9 +805,21 @@ input {
   background-color: var(--surround-light);
 }
 
+/* The drop target's own outline, and the one graphic in the app drawn over
+   four different backdrops: the empty-state canvas and all three surrounds
+   (`is-drag-over` is added on dragenter regardless of whether a shot is
+   already loaded — web/main.js:517). No single colour clears 3:1 on both
+   --surround-light and --surround-mid: white reaches only 1.21 on the light
+   one, and black only 2.50 on the mid one. So it is bright
+   by default — --text-primary, the same token every focus ring in this file
+   already uses — and flips dark on the light surround only. Task 3b. */
 .canvas-surface.is-drag-over {
-  outline: 2px dashed var(--border-strong);
+  outline: 2px dashed var(--text-primary);
   outline-offset: -10px;
+}
+
+.canvas-surface.has-content[data-surround='light'].is-drag-over {
+  outline-color: var(--border-strong);
 }
 
 .render-canvas {
@@ -989,8 +1004,59 @@ input {
    element rendered at full opacity. The Export section is deliberately not
    part of this list — the format/scale pickers stay live and only the
    Export button itself disables (see index.html's static `disabled`). */
+/* Task 3b replaced `opacity: 0.42` here with explicit full-alpha colours.
+   Opacity composites toward what is BEHIND the element — the darkest
+   surface in the app — so it collapsed contrast faster than it reduced
+   apparent brightness: the section ran 3.56:1 at the top down to 1.85:1 at
+   the bottom, and the bottom rung is every section label in the panel.
+
+   Still ONE rule, and still driven by the attribute rather than by element
+   id, exactly as before. The mechanism is that the live tokens are
+   re-declared on this element, so every descendant picks the inert value up
+   through normal inheritance — no per-element inert rules to write, and any
+   future control inside these sections is covered for free.
+
+   The section goes FLAT, not dimmed: all five text rungs collapse to one
+   tone, because "unavailable" is one state and not five. Measurements and
+   the "more off than 0.42" proof live with the tokens in tokens.css. */
 .inspector-section[inert] {
-  opacity: 0.42;
+  --text-primary: var(--text-inert);
+  --text-secondary: var(--text-inert);
+  --text-muted: var(--text-inert);
+  --text-faint: var(--text-inert);
+  --text-fainter: var(--text-inert);
+  /* the active segmented cell's label */
+  --color-white: var(--text-inert);
+  /* the selected chip's pill: fill drops from near-white to the inert tone,
+     which keeps its --surface-window ink legible at 3.33:1 */
+  --surface-inverse: var(--text-inert);
+  /* state fills recede to just above the window so the inert tone clears
+     3:1 over them too (3.10:1) */
+  --surface-control-active: var(--surface-inert);
+  --surface-raised-1: var(--surface-inert);
+  /* below the 3:1 a live control border owes: WCAG 1.4.11 exempts inactive
+     components, and a border as strong as a live one does not read as off */
+  --border-strong: var(--border-inert);
+}
+
+/* The one thing in an inert section that a token re-declaration cannot
+   reach. The ground swatches take their fill from the live gradient through
+   an INLINE style (web/inspector-background.js's renderGroundSwatches and
+   the sampled stops), and those grounds are pale — left alone they are the
+   brightest elements on a panel that is supposed to read as off, which is
+   exactly how the panel looked the first time this rule replaced `opacity`.
+
+   `filter` rather than a colour because there is no colour to name; and
+   `brightness` rather than `opacity` because brightness darkens the swatch
+   itself instead of blending it into the panel behind it, which is the whole
+   objection to opacity. It is safe HERE and was not safe on the section as a
+   whole: a colour sample carries no text and no contrast obligation, so
+   there is nothing for it to destroy. 0.4 lands a pale swatch within about
+   0.1:1 of --text-inert, so the swatches sit in the same tone as the rest of
+   the dimmed panel instead of above it. */
+.inspector-section[inert] .preset-swatch,
+.inspector-section[inert] .sampled-stop {
+  filter: brightness(0.4);
 }
 
 .inline-control-row {
@@ -1177,7 +1243,7 @@ input {
 }
 
 .sampled-row:hover {
-  background: var(--border-hairline);
+  background: var(--surface-hover);
 }
 
 .sampled-row.is-active {
