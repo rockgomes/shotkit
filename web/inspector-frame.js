@@ -4,9 +4,10 @@
 //
 // TWO SECTIONS, ONE FILE: the task brief creates exactly one new file for
 // both (Frame: frameKind chips, chrome theme, the url field it gates;
-// Finish: padding, corner radius, grain, shadow — strength, and from Cycle A
-// Task 5 its distance, angle, blur and directional mode) — they're wired the
-// same way and share no state with web/inspector-background.js, so there's
+// Finish: padding, corner radius, grain, shadow — strength, and behind Task
+// 5b's disclosure its distance, angle, softness and directional mode) —
+// they're wired the same way and share no state with
+// web/inspector-background.js, so there's
 // no reason to split them further. Order within each section follows the
 // brief's own ordering, not the design handoff's (which never designed a
 // "Finish" section at all — padding/radius/grain/shadow are this
@@ -35,8 +36,8 @@
 // warm ~3ms colour cache, never groundFor's ~90-200ms analysis. shadowScale
 // (Task 6b) has nothing to do with the sampled ground even in principle — a
 // shadow multiplier over a fixed rgba colour — so it belongs in this list
-// for the same reason grain does, and so do Task 5's distance/angle/blur/
-// directional, which only move where that same wash lands. See
+// for the same reason grain does, and so do Task 5's distance/angle/
+// softness/directional, which only move where that same wash lands. See
 // test/inspector-frame.test.js's "throwing canvas" guard for the proof, and
 // task-6-report.md / task-6b-report.md for measured timings.
 import {
@@ -210,7 +211,7 @@ function writableShadow(config) {
   return config.shadow;
 }
 
-// Distance and Blur are fractions of the canvas height (core/presets.js's
+// Distance and Softness are fractions of the canvas height (core/presets.js's
 // SHADOW_DEFAULTS), so the UI shows them as percentages — the same *100 /
 // *0.01 round trip padding, grain and shadow strength already use. Bounds
 // come from core/ rather than being retyped here, so this slider and
