@@ -10,8 +10,6 @@ import {
   showsBrowserOnlyControls,
   activeUrl,
   setUrl,
-  activeFit,
-  setFit,
   activePadPercent,
   setPadPercent,
   PAD_PERCENT_MAX,
@@ -22,8 +20,6 @@ import {
   activeRadiusPercent,
   setRadiusPercent,
   RADIUS_PERCENT_MAX,
-  activeCaption,
-  setCaption,
 } from '../web/inspector-frame.js';
 
 const mkCanvas = (w, h) => createCanvas(w, h);
@@ -84,7 +80,7 @@ describe('showsBrowserOnlyControls - the chrome-theme/url visibility gate', () =
 // Task 6's actual gap-closer: the panel's own read/write pair for
 // core/config.js's new `url` field. normalise() (real, unmodified) is what
 // proves this file's raw pass-through actually reaches the pill the same
-// way `caption` does - not a duplicated coercion this file could drift from.
+// way core/config.js does - not a duplicated coercion this file could drift from.
 describe('the browser URL field', () => {
   it('activeUrl reads back what setUrl wrote', () => {
     const config = {};
@@ -99,21 +95,6 @@ describe('the browser URL field', () => {
     setUrl(config, ''); // the user selected all and deleted it
     expect(activeUrl(config)).toBe('');
     expect(normalise(config).url).toBe(null); // core/config.js's own coercion, not duplicated here
-  });
-});
-
-describe('fit', () => {
-  it('defaults to contain', () => {
-    expect(activeFit({})).toBe(DEFAULTS.fit);
-    expect(activeFit({})).toBe('contain');
-  });
-
-  it('setFit accepts cover, rejects anything else', () => {
-    const config = {};
-    setFit(config, 'cover');
-    expect(activeFit(config)).toBe('cover');
-    setFit(config, 'stretch'); // not a real FITS value
-    expect(activeFit(config)).toBe('cover');
   });
 });
 
@@ -217,21 +198,33 @@ describe('corner radius percent <-> config.radius pixels', () => {
   });
 });
 
-describe('caption', () => {
-  it('activeCaption reads back what setCaption wrote, and empty coerces to null via normalise()', () => {
-    const config = {};
-    expect(activeCaption(config)).toBe('');
-    setCaption(config, 'Fieldset — 2026');
-    expect(activeCaption(config)).toBe('Fieldset — 2026');
-    expect(normalise(config).caption).toBe('Fieldset — 2026');
-    setCaption(config, '');
-    expect(normalise(config).caption).toBe(null);
+// Cycle A Task 4: the Fit segmented control and the Caption text input are
+// gone from the Finish section. This asserts the MODULE SURFACE rather than
+// the DOM (this suite runs under vitest's node environment, with no
+// document): those four helpers were the only state path either control
+// had, so a control still on screen would either import a name that no
+// longer exists or duplicate the coercion this file deliberately never
+// duplicates. Verified in the browser as well - see the task report.
+describe('retired Finish controls', () => {
+  it('exports no fit or caption helpers', async () => {
+    const mod = await import('../web/inspector-frame.js');
+    for (const name of ['activeFit', 'setFit', 'activeCaption', 'setCaption']) {
+      expect(mod[name], `${name} is still exported`).toBeUndefined();
+    }
+  });
+
+  it('still exports the Finish controls that stay', async () => {
+    const mod = await import('../web/inspector-frame.js');
+    for (const name of ['activePadPercent', 'setPadPercent', 'activeRadiusPercent',
+      'activeGrainPercent', 'activeShadowPercent', 'initFinishInspector']) {
+      expect(typeof mod[name], `${name} went missing`).toBe('function');
+    }
   });
 });
 
 // ---------------------------------------------------------------------
 // PERFORMANCE: none of the fields this file writes (frameKind, chromeTheme,
-// url, fit, pad, radius, grain, shadowScale, caption) is part of
+// url, pad, radius, grain, shadowScale) is part of
 // web/state.js's `groundKeyFor` - see that file's own comment for the exact
 // field list. This drives the REAL web/state.js render(), the same harness
 // test/web-export.test.js already established, and proves it with a
@@ -249,7 +242,7 @@ beforeEach(() => {
 });
 
 describe('Task 6: Frame/Finish fields hit the warm colour cache, never groundFor', () => {
-  it('a full sweep of frameKind/chromeTheme/url/fit/pad/radius/grain/shadow/caption allocates zero new scratch canvases', async () => {
+  it('a full sweep of frameKind/chromeTheme/url/pad/radius/grain/shadow allocates zero new scratch canvases', async () => {
     const web = await loadImage('samples/fieldset.png');
     let armed = false;
     const guardedFactory = (w, h) => {
@@ -274,12 +267,10 @@ describe('Task 6: Frame/Finish fields hit the warm colour cache, never groundFor
     setFrameKind(state.config, 'browser'); render();
     setChromeTheme(state.config, 'light'); render();
     setUrl(state.config, 'app.acme.dev'); render();
-    setFit(state.config, 'cover'); render();
     setPadPercent(state.config, 10); render();
     setRadiusPercent(state.config, 3); render();
     setGrainPercent(state.config, 80); render();
     setShadowPercent(state.config, 160); render();
-    setCaption(state.config, 'Fieldset — 2026'); render();
 
     // Structural, not just "didn't throw": the ground key genuinely never
     // changed, so every render() above actually took the precomputed-meta

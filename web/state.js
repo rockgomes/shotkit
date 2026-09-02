@@ -91,7 +91,7 @@ export function bindCanvas(el, canvasFactory = defaultMakeCanvas) {
 // re-derives hue, luminance and chroma from the screenshot's own pixels
 // every time it runs — measured, ~200ms of a ~216ms full render; layout,
 // painting and grain together are single-digit ms. Padding, radius, angle,
-// frame, caption etc. never touch it — only the images themselves,
+// frame, shadow etc. never touch it — only the images themselves,
 // `config.ground` (which normalise() turns into forceHue) and `config.tone`
 // do.
 //
@@ -125,7 +125,7 @@ let metaCache = null; // { key, meta } | null
 /** The only fields that can change what groundFor computes: the images
  *  themselves (by identity — `__id`, tagged in decode.js) and whichever of
  *  `config`'s fields normalise() turns into forceHue/tone. Everything else
- *  in `config` (pad, radius, angle, frame, caption, scale, template, ...)
+ *  in `config` (pad, radius, angle, frame, shadow, scale, template, ...)
  *  is deliberately absent from this key — including any of those would
  *  bust the cache on every layout-only change and throw away the whole
  *  point of caching groundFor's result at all. */

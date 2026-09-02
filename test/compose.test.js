@@ -86,22 +86,6 @@ describe('composeWithMeta', () => {
     const b = await run({ ratio: '3:2' }, { web: 'samples/fieldset.png' });
     expect(Buffer.compare(a.target.toBuffer('image/png'), b.target.toBuffer('image/png'))).toBe(0);
   });
-
-  it('draws a caption that actually paints pixels', async () => {
-    const config = { ratio: '3:2', caption: 'Fieldset — 2026' };
-    const files = { web: 'samples/fieldset.png' };
-    const withCaption = await run(config, files);
-    const withoutCaption = await run({ ...config, caption: null }, files);
-    expect(withCaption.target.width).toBe(1800);
-    // Same config and image apart from the caption text - if paintCaption
-    // painted nothing (or were a no-op), these two buffers would be
-    // byte-identical, per the determinism proven above. A real difference
-    // can only come from the caption actually being drawn.
-    expect(Buffer.compare(
-      withCaption.target.toBuffer('image/png'),
-      withoutCaption.target.toBuffer('image/png'),
-    )).not.toBe(0);
-  });
 });
 
 describe('composeWithMeta - scale', () => {
@@ -261,7 +245,6 @@ describe('pixel-diff against frozen renders', () => {
     ['web',        { ratio: '3:2' },                       { web: 'samples/fieldset.png' }],
     ['mobile',     { layout: 'mobile', ratio: '3:2' },     { mobile: ['samples/karaoke-mobile.png', 'samples/karaoke-mobile-2.png'] }],
     ['web-mobile', { layout: 'web+mobile', ratio: '3:2' }, { web: 'samples/karaoke-web.png', mobile: ['samples/karaoke-mobile.png'] }],
-    ['caption',    { ratio: '3:2', caption: 'Fieldset — 2026' }, { web: 'samples/fieldset.png' }],
     ['mesh',       { ratio: '3:2', bgType: 'mesh', seed: 7 },   { web: 'samples/fieldset.png' }],
     // Task 6: the browser chrome in both themes, and the phone frame - the
     // last three cases before core/ is done. macOS is deliberately absent

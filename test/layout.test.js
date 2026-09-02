@@ -34,7 +34,7 @@ describe('safe box', () => {
 });
 
 describe('web screen', () => {
-  it('contain never crops: keeps the source ratio inside the box', () => {
+  it('never crops: keeps the source ratio inside the box', () => {
     const c = cfg({ ratio: '3:2' });
     const { safe, web } = layout(c, { web: 2.5, mobile: [] });   // wider than the box
     expect(web.w / web.h).toBeCloseTo(2.5, 6);
@@ -42,7 +42,7 @@ describe('web screen', () => {
     expect(web.h).toBeLessThanOrEqual(safe.h + 1e-6);
   });
 
-  it('contain handles a source taller than the box', () => {
+  it('handles a source taller than the box', () => {
     const c = cfg({ ratio: '3:2' });
     const { safe, web } = layout(c, { web: 0.5, mobile: [] });
     expect(web.h).toBeCloseTo(safe.h, 6);
@@ -54,13 +54,6 @@ describe('web screen', () => {
     const { safe, web } = layout(c, { web: 2.5, mobile: [] });
     expect(web.x + web.w / 2).toBeCloseTo(safe.x + safe.w / 2, 6);
     expect(web.y + web.h / 2).toBeCloseTo(safe.y + safe.h / 2, 6);
-  });
-
-  it('cover fills the whole safe box', () => {
-    const c = cfg({ ratio: '3:2', fit: 'cover' });
-    const { safe, web } = layout(c, { web: 2.5, mobile: [] });
-    expect(web.w).toBeCloseTo(safe.w, 6);
-    expect(web.h).toBeCloseTo(safe.h, 6);
   });
 });
 
@@ -116,17 +109,16 @@ describe('web+mobile layout', () => {
   });
 });
 
-describe('caption', () => {
-  it('sits at the left margin, above the bottom edge', () => {
-    const c = cfg({ caption: 'hello' });
-    const { safe, caption } = layout(c, { web: 1.6, mobile: [] });
-    expect(caption.x).toBeCloseTo(safe.x, 6);
-    expect(caption.y).toBeCloseTo(1200 - 1200 * 0.035, 6);
-    expect(caption.fontSize).toBe(Math.round(1200 * 0.021));
-  });
-
-  it('is null when no caption is set', () => {
-    expect(layout(cfg(), { web: 1.6, mobile: [] }).caption).toBeNull();
+// Cycle A Task 4: the caption is retired. `caption` is not a key that is
+// always null - it is not a key at all, which is what `in` checks here. A
+// `caption: null` left on the object would keep render.js's `if
+// (lay.caption)` call site alive and give the field somewhere to come back.
+describe('caption is gone from the layout', () => {
+  it('returns no caption key, even when a stale caption is passed in', () => {
+    for (const input of [{}, { caption: 'hello' }]) {
+      const out = layout(cfg(input), { web: 1.6, mobile: [] });
+      expect('caption' in out, JSON.stringify(input)).toBe(false);
+    }
   });
 });
 
@@ -157,7 +149,6 @@ const PRE_FRAME_BASELINE = {
     safe: { x: 62.4, y: 62.4, w: 1675.2, h: 1075.2 },
     web: { x: 62.4, y: 76.50000000000003, w: 1675.2, h: 1047, radius: 24 },
     phones: [],
-    caption: null,
   },
   'mobile:3:2': {
     safe: { x: 62.4, y: 62.4, w: 1675.2, h: 1075.2 },
@@ -167,7 +158,6 @@ const PRE_FRAME_BASELINE = {
       { x: 678.24, y: 78, w: 443.52000000000004, h: 960, frame: 8.42688, radius: 55.440000000000005, innerRadius: 47.01312 },
       { x: 1059.6672, y: 153.60000000000002, w: 443.52000000000004, h: 960, frame: 8.42688, radius: 55.440000000000005, innerRadius: 47.01312 },
     ],
-    caption: null,
   },
   'webmobile:3:2': {
     safe: { x: 62.4, y: 62.4, w: 1675.2, h: 1075.2 },
@@ -175,13 +165,11 @@ const PRE_FRAME_BASELINE = {
     phones: [
       { x: 1279.88736, y: 204, w: 476.78400000000005, h: 1032, frame: 9.058896, radius: 59.598000000000006, innerRadius: 50.53910400000001 },
     ],
-    caption: null,
   },
   'web:4:3': {
     safe: { x: 78, y: 78, w: 1844, h: 1344 },
     web: { x: 78, y: 173.75, w: 1844, h: 1152.5, radius: 27 },
     phones: [],
-    caption: null,
   },
   'mobile:4:3': {
     safe: { x: 78, y: 78, w: 1844, h: 1344 },
@@ -191,7 +179,6 @@ const PRE_FRAME_BASELINE = {
       { x: 722.8, y: 97.5, w: 554.4, h: 1200, frame: 10.5336, radius: 69.3, innerRadius: 58.7664 },
       { x: 1199.584, y: 192, w: 554.4, h: 1200, frame: 10.5336, radius: 69.3, innerRadius: 58.7664 },
     ],
-    caption: null,
   },
   'webmobile:4:3': {
     safe: { x: 78, y: 78, w: 1844, h: 1344 },
@@ -199,13 +186,11 @@ const PRE_FRAME_BASELINE = {
     phones: [
       { x: 1349.8592, y: 255, w: 595.98, h: 1290, frame: 11.32362, radius: 74.4975, innerRadius: 63.173880000000004 },
     ],
-    caption: null,
   },
   'web:16:9': {
     safe: { x: 56.16, y: 56.16, w: 1807.68, h: 967.6800000000001 },
     web: { x: 185.8559999999999, y: 56.16, w: 1548.2880000000002, h: 967.6800000000001, radius: 26 },
     phones: [],
-    caption: null,
   },
   'mobile:16:9': {
     safe: { x: 56.16, y: 56.16, w: 1807.68, h: 967.6800000000001 },
@@ -215,7 +200,6 @@ const PRE_FRAME_BASELINE = {
       { x: 760.4159999999999, y: 70.19999999999999, w: 399.168, h: 864, frame: 7.584192, radius: 49.896, innerRadius: 42.311808 },
       { x: 1103.7004799999997, y: 138.24, w: 399.168, h: 864, frame: 7.584192, radius: 49.896, innerRadius: 42.311808 },
     ],
-    caption: null,
   },
   'webmobile:16:9': {
     safe: { x: 56.16, y: 56.16, w: 1807.68, h: 967.6800000000001 },
@@ -223,13 +207,11 @@ const PRE_FRAME_BASELINE = {
     phones: [
       { x: 1451.8986240000002, y: 183.60000000000002, w: 429.1056, h: 928.8, frame: 8.153006399999999, radius: 53.6382, innerRadius: 45.4851936 },
     ],
-    caption: null,
   },
   'web:1:1': {
     safe: { x: 78, y: 78, w: 1344, h: 1344 },
     web: { x: 78, y: 330, w: 1344, h: 840, radius: 20 },
     phones: [],
-    caption: null,
   },
   'mobile:1:1': {
     safe: { x: 78, y: 78, w: 1344, h: 1344 },
@@ -239,7 +221,6 @@ const PRE_FRAME_BASELINE = {
       { x: 472.8, y: 97.5, w: 554.4, h: 1200, frame: 10.5336, radius: 69.3, innerRadius: 58.7664 },
       { x: 949.5840000000001, y: 192, w: 554.4, h: 1200, frame: 10.5336, radius: 69.3, innerRadius: 58.7664 },
     ],
-    caption: null,
   },
   'webmobile:1:1': {
     safe: { x: 78, y: 78, w: 1344, h: 1344 },
@@ -247,7 +228,6 @@ const PRE_FRAME_BASELINE = {
     phones: [
       { x: 849.8592000000001, y: 255, w: 595.98, h: 1290, frame: 11.32362, radius: 74.4975, innerRadius: 63.173880000000004 },
     ],
-    caption: null,
   },
 };
 
@@ -390,7 +370,7 @@ describe('frame: screen is the genuine interior, for every kind', () => {
 // width, frame height = screenshot height + bar height (+ bezel, for
 // phone), and THAT assembly is what gets fitted into the safe box. This
 // block pins the fix: `screen` must always come back at the source ratio.
-describe('frame: screen always matches the source ratio (contain)', () => {
+describe('frame: screen always matches the source ratio', () => {
   const CASES = [
     ['browser', 1.6],
     ['browser', 0.5],
@@ -403,17 +383,6 @@ describe('frame: screen always matches the source ratio (contain)', () => {
       const c = normalise({ layout: 'web', ratio: '3:2', frameKind });
       const { web } = layout(c, { web: sourceRatio, mobile: [] });
       expect(web.chrome.screen.w / web.chrome.screen.h).toBeCloseTo(sourceRatio, 6);
-    });
-  }
-});
-
-describe('frame: cover is untouched - the frame still fills the box and the screenshot crops', () => {
-  for (const frameKind of ['browser', 'phone']) {
-    it(`${frameKind}: with fit 'cover', the frame fills the safe box exactly (screen may not match the source ratio)`, () => {
-      const c = normalise({ layout: 'web', ratio: '3:2', fit: 'cover', frameKind });
-      const { safe, web } = layout(c, { web: 2.5, mobile: [] });
-      expect(web.w).toBeCloseTo(safe.w, 6);
-      expect(web.h).toBeCloseTo(safe.h, 6);
     });
   }
 });

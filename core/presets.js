@@ -15,12 +15,10 @@ export const HUES = {
 export const DEFAULTS = {
   ratio: '3:2',
   layout: null,        // inferred when null
-  fit: 'contain',      // never crops
   pad: 0.052,          // fraction of the SHORTER canvas side, all four edges
   grain: 0.34,
   phoneScale: 0.86,
   phoneBleed: 0.10,
-  caption: null,
   url: null,           // browser URL pill text - null means the pill stays
                         // empty (see URL_PILL_FONT_RATIO below and Task 6)
   tone: null,          // null | 'light' | 'mid'
@@ -153,9 +151,6 @@ export const SCALES = [1, 2, 3];
 // Valid `layout` values for normalise(). Anything else is treated as absent
 // and falls back to the existing web/mobile/web+mobile inference.
 export const LAYOUTS = ['web', 'mobile', 'web+mobile'];
-
-// Valid `fit` values. Anything else falls back to DEFAULTS.fit ('contain').
-export const FITS = ['contain', 'cover'];
 
 // Valid `tone` overrides for the ground's light/dark call. Anything else
 // falls back to DEFAULTS.tone (null - infer from the screenshot's own

@@ -1,7 +1,7 @@
 import { normalise } from './config.js';
 import { layout } from './layout.js';
 import { groundFor, groundFromMeta } from './ground.js';
-import { paintGround, paintGrain, paintWeb, paintPhone, paintCaption } from './render.js';
+import { paintGround, paintGrain, paintWeb, paintPhone } from './render.js';
 
 // Sample at 800px, matching ground.py's thumbnail step. Rendering still uses
 // the full-resolution source.
@@ -87,7 +87,6 @@ export function composeWithMeta(target, rawConfig, images, makeCanvas, precomput
   // the filtering note above), so no `|| mobile[0]` fallback is needed here.
   lay.phones.forEach((box, i) => paintPhone(ctx, rc, box, mobile[i]));
   paintGrain(ctx, rc, makeCanvas);
-  if (lay.caption) paintCaption(ctx, rc, lay.caption, c.caption);
 
   return { target, meta, config: c, layout: lay };
 }
@@ -99,5 +98,5 @@ export function compose(target, rawConfig, images, makeCanvas) {
 export { normalise, layout, groundFor, groundFromMeta };
 export {
   RATIOS, HUES, DEFAULTS, TEMPLATES, FRAME_KINDS, SCALES, DEFAULT_ANGLE,
-  LAYOUTS, FITS, TONES, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
+  LAYOUTS, TONES, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
 } from './presets.js';

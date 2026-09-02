@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { normalise } from '../core/config.js';
+import { layout } from '../core/layout.js';
 import { SHADOW_SCALE_RANGE } from '../core/presets.js';
 
 describe('normalise', () => {
@@ -40,7 +41,6 @@ describe('normalise', () => {
     expect(c.grain).toBeCloseTo(0.34);
     expect(c.phoneScale).toBeCloseTo(0.86);
     expect(c.phoneBleed).toBeCloseTo(0.10);
-    expect(c.fit).toBe('contain');
     expect(c.radius).toBe(Math.round(1800 * 0.0133));
   });
 
@@ -73,12 +73,6 @@ describe('normalise', () => {
     const given = normalise({ insetX: 12, insetY: 34 });
     expect(given.insetX).toBe(12);
     expect(given.insetY).toBe(34);
-  });
-
-  it('accepts fit "cover" and falls back to "contain" for anything else', () => {
-    expect(normalise({ fit: 'cover' }).fit).toBe('cover');
-    expect(normalise({ fit: 'nonsense' }).fit).toBe('contain');
-    expect(normalise({}).fit).toBe('contain');
   });
 
   it('resolves tone to "light" or "mid" when given, and null otherwise', () => {
@@ -200,15 +194,14 @@ describe('url', () => {
     expect(normalise({ url: 'app.acme.dev' }).url).toBe('app.acme.dev');
   });
 
-  // Same coercion as `caption` (config.js, right above this field): an
-  // empty string is "no value", not a value with zero characters - so a
+  // An empty string is "no value", not a value with zero characters - so a
   // text input that was typed into and then cleared falls straight back to
   // the empty-pill default, not a technically-truthy-but-blank string.
-  it('coerces an empty string to null, same as caption does', () => {
+  it('coerces an empty string to null', () => {
     expect(normalise({ url: '' }).url).toBe(null);
   });
 
-  it('coerces a non-string to a string, same as caption does', () => {
+  it('coerces a non-string to a string', () => {
     expect(normalise({ url: 404 }).url).toBe('404');
   });
 });
@@ -238,5 +231,32 @@ describe('shadowScale', () => {
   it('falls back to the default 1 on nonsense, same coercion every other numeric field gets', () => {
     expect(normalise({ shadowScale: 'heavy' }).shadowScale).toBe(1);
     expect(normalise({ shadowScale: undefined }).shadowScale).toBe(1);
+  });
+});
+
+// Cycle A Task 4: `fit`/`FITS`/`cover` and `caption` are retired vocabulary.
+// Rock on `cover`: "idk what 'cover' is doing there, since it just crops the
+// image" - cropping was its entire effect, inherited from the retired
+// frame.html. On the caption: "idk about that 'caption' thing. we can also
+// drop it." These assert normalise() drops both FIELDS, not merely that it
+// rejects bad values - a `fit` that still resolved to 'contain' would leave
+// the branch (and the UI control) alive.
+describe('retired vocabulary', () => {
+  it('drops fit entirely', () => {
+    const c = normalise({ fit: 'cover' });
+    expect(c.fit).toBeUndefined();
+    expect('fit' in c).toBe(false);
+  });
+
+  it('drops caption entirely', () => {
+    const c = normalise({ caption: 'hello' });
+    expect(c.caption).toBeUndefined();
+    expect('caption' in c).toBe(false);
+  });
+
+  it('ignores a stale cover and still uses the image ratio', () => {
+    const c = normalise({ layout: 'web', ratio: '3:2', fit: 'cover' });
+    const lay = layout(c, { web: 1440 / 900, mobile: [] });
+    expect(lay.web.w / lay.web.h).toBeCloseTo(1440 / 900, 12);
   });
 });

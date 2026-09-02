@@ -1,6 +1,6 @@
 import {
   RATIOS, HUES, DEFAULTS, RADIUS_RATIO, TEMPLATES, DEFAULT_ANGLE, SCALES, FRAME_KINDS,
-  LAYOUTS, FITS, TONES, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
+  LAYOUTS, TONES, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
 } from './presets.js';
 
 function num(v, fallback) {
@@ -42,7 +42,6 @@ export function normalise(input = {}) {
 
   return {
     w, h, layout,
-    fit: FITS.includes(input.fit) ? input.fit : DEFAULTS.fit,
     pad: num(input.pad, DEFAULTS.pad),
     radius: num(input.radius, Math.round(w * RADIUS_RATIO)),
     grain: num(input.grain, DEFAULTS.grain),
@@ -50,11 +49,13 @@ export function normalise(input = {}) {
     phoneBleed: num(input.phoneBleed, DEFAULTS.phoneBleed),
     insetX: input.insetX === undefined ? null : num(input.insetX, null),
     insetY: input.insetY === undefined ? null : num(input.insetY, null),
-    caption: input.caption ? String(input.caption) : DEFAULTS.caption,
-    // Same coercion as `caption` immediately above: an empty string is
-    // "no value", not a value - see Task 6's header note in render.js's
-    // paintChrome for why an empty pill (the DEFAULTS.url === null case)
-    // must stay empty rather than fall back to invented placeholder copy.
+    // An empty string is "no value", not a value with zero characters, so a
+    // text input that was typed into and then cleared falls all the way back
+    // to DEFAULTS.url (null) rather than becoming a technically-truthy-but-
+    // blank string. See Task 6's header note in render.js's paintChrome for
+    // why an empty pill must stay empty rather than fall back to invented
+    // placeholder copy. (This coercion used to be shared with `caption`,
+    // retired in Cycle A Task 4; it stands on its own now.)
     url: input.url ? String(input.url) : DEFAULTS.url,
     forceHue,
     tone: TONES.includes(input.tone) ? input.tone : DEFAULTS.tone,

@@ -330,3 +330,39 @@ describe('frame: none leaves no dark rim at the box boundary', () => {
     expect(darker).toEqual([]);
   });
 });
+
+// Cycle A Task 4: paintWeb passes a LITERAL 'contain' to drawFitted. The
+// config field it used to read is gone, so this guards the constant rather
+// than the field: hand paintWeb a box whose ratio deliberately disagrees
+// with the image's, and the image must be letterboxed inside it, never
+// scaled up and cropped. drawFitted itself stays - paintPhone still calls it
+// with 'cover' for the phone screen, which is a different thing.
+describe('paintWeb never crops', () => {
+  it('letterboxes into a box whose ratio disagrees with the image, even with a stale fit: cover', () => {
+    // 400x200 source (ratio 2.0). The left quarter is red; everything else
+    // is white.
+    const img = createCanvas(400, 200);
+    const ictx = img.getContext('2d');
+    ictx.fillStyle = '#ffffff';
+    ictx.fillRect(0, 0, 400, 200);
+    ictx.fillStyle = '#ff0000';
+    ictx.fillRect(0, 0, 100, 200);
+
+    // A tall, narrow box (ratio 0.5) - nothing like the source's 2.0.
+    //   contain: the full 400px width maps onto the box's 200px width, so
+    //            the box's left edge shows the red column.
+    //   cover:   the image is blown up to 800px wide and centred, so the
+    //            box's left edge lands at source x=150 - white, and the red
+    //            column is cropped off entirely.
+    const box = { x: 100, y: 100, w: 200, h: 400, radius: 0, chrome: null };
+
+    const c = normalise({ layout: 'web', ratio: '3:2', fit: 'cover' });
+    const cv = createCanvas(c.w, c.h);
+    const ctx = cv.getContext('2d');
+    paintGround(ctx, c, GROUND);
+    paintWeb(ctx, c, box, img);
+
+    const [r, g, b] = px(ctx, box.x + 4, box.y + 4);
+    expect(`${r},${g},${b}`).toBe('255,0,0');
+  });
+});

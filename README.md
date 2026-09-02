@@ -59,7 +59,7 @@ to three. Then:
   can judge a pale ground honestly, and it can never reach the exported pixels.
 - **Inspector** — Background (the sampled hue first, then hue/angle/type/tone
   overrides), Frame (none, browser chrome, or phone; chrome theme and URL pill),
-  Finish (fit, padding, radius, grain, shadow strength, caption), and Export.
+  Finish (padding, radius, grain, shadow strength), and Export.
 - **Export** — PNG, JPEG or WebP at 1×, 2× or 3×. Filenames come from the source
   file, e.g. `fieldset--web@2x.png`.
 
@@ -131,14 +131,14 @@ just `target`.
 
 **`normalise(input = {})`** — resolves raw input into a complete config, applying
 every default and validity check. Pure, cheap, and safe to call for a filename or
-a label without touching the paint path. Returns `w`, `h`, `layout`, `fit`, `pad`,
-`radius`, `grain`, `phoneScale`, `phoneBleed`, `insetX`, `insetY`, `caption`,
+a label without touching the paint path. Returns `w`, `h`, `layout`, `pad`,
+`radius`, `grain`, `phoneScale`, `phoneBleed`, `insetX`, `insetY`,
 `url`, `forceHue`, `tone`, `scale`, `angle`, `template`, `bgType`, `seed`,
 `frameKind`, `chromeTheme`, `shadowScale`.
 
 **`layout(config, sources)`** — pure geometry, no painting. `sources` is
 `{ web, mobile }` where each entry is an aspect ratio (`width / height`), not an
-image. Returns `{ safe, web, phones, caption }` in canvas pixels.
+image. Returns `{ safe, web, phones }` in canvas pixels.
 
 **`groundFor(samples, forceHue = null, mode = null)`** — the colour analysis.
 `samples` is an array of `ImageData`-shaped objects. Returns
@@ -154,7 +154,7 @@ analysed. Exact, not approximate — `lum` and `chroma` do not depend on the hue
 
 Also exported, so a host never has to hardcode a valid value:
 `RATIOS`, `HUES`, `DEFAULTS`, `TEMPLATES`, `FRAME_KINDS`, `SCALES`,
-`DEFAULT_ANGLE`, `LAYOUTS`, `FITS`, `TONES`, `BG_TYPES`, `CHROME_THEMES`,
+`DEFAULT_ANGLE`, `LAYOUTS`, `TONES`, `BG_TYPES`, `CHROME_THEMES`,
 `SHADOW_SCALE_RANGE`.
 
 ```
@@ -163,8 +163,8 @@ TEMPLATES    dribbble 2800×2100 · twitter-post 1600×900 · twitter-header 150
              app-store 2880×1800 · open-graph 2400×1260 · instagram 2160×2160
 HUES         lavender 268 · paper 34 · mint 158 · ember 24
              slate 240 · ash 40 · sky 205 · rose 340
-LAYOUTS      web · mobile · web+mobile          FITS    contain · cover
-FRAME_KINDS  none · browser · phone             TONES   light · mid
+LAYOUTS      web · mobile · web+mobile          TONES   light · mid
+FRAME_KINDS  none · browser · phone
 BG_TYPES     linear · solid · mesh              SCALES  1 · 2 · 3
 CHROME_THEMES dark · light                      DEFAULT_ANGLE 166
 ```
@@ -257,17 +257,12 @@ Honest list. None of these is half-done; they are simply not there.
 - **Named device frames.** The phone frame is called `phone`, deliberately
   unnamed, because it promises no specific device size. Device presets would
   extend that frame rather than replace it.
-- **Caption baseline.** `core/` draws the caption on the alphabetic baseline where
-  the original CSS positioned the line-box bottom, so the caption sits roughly
-  half a descender lower than it should. Real, small, and deliberately left:
-  fixing it properly needs browser font-metric measurement, and no golden guards
-  the caption's position.
 - **Golden coverage at a second canvas size, for most compositions.** Partly
   closed, not open: `square-browser.png` pixel-verifies the web layout with a
   browser frame at 1:1 1500×1500, and `test/export-scale-fidelity.test.js`
   renders at 4:3 2000×1500 — a size no golden covers — and measures the painted
   corner radius directly. What is still 3:2-only is everything else: the mobile
-  and web+mobile layouts, the caption, the mesh ground, the phone frame, the
+  and web+mobile layouts, the mesh ground, the phone frame, the
   light chrome theme, the URL pill and the shadow multiplier each have exactly
   one golden, all at 1800×1200. Since every geometric quantity is a fraction of
   the canvas it was handed, a stray fixed-pixel literal in one of those painters

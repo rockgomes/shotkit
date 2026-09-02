@@ -5,7 +5,7 @@
  * types and lets Node reuse this file through @napi-rs/canvas.
  *
  * Covers the whole paint order: ground gradient, grain overlay, shadows,
- * the web screen (plain or chrome-framed), the phone, and the caption.
+ * the web screen (plain or chrome-framed) and the phone.
  */
 
 import {
@@ -434,7 +434,10 @@ export function paintWeb(ctx, c, box, image) {
   ctx.clip();
   ctx.fillStyle = '#ffffff';                       // --screen-bg
   ctx.fillRect(box.x, box.y, box.w, box.h);
-  drawFitted(ctx, box, image, c.fit);
+  // A LITERAL 'contain'. `c.fit` is gone (Cycle A Task 4) - the web screen
+  // never crops. drawFitted stays because paintPhone still calls it with
+  // 'cover' for the phone's own screen, which is a different decision.
+  drawFitted(ctx, box, image, 'contain');
   ctx.restore();
 
   // NO STROKE HERE, DELIBERATELY. frame.html stroked an inset hairline on
@@ -741,23 +744,4 @@ export function paintPhone(ctx, c, box, image) {
   // inset 0 0 0 1px rgba(255,255,255,0.10) - shared via paintDeviceHairline,
   // same as the body above.
   paintDeviceHairline(ctx, box);
-}
-
-/**
- * The caption: a single line of translucent ink, bottom-left of the safe box.
- * Ported from frame.html's `.caption` rule and the caption block in the IIFE.
- */
-export function paintCaption(ctx, c, cap, text) {
-  ctx.save();
-  ctx.font = `${cap.fontSize}px Inter, -apple-system, "Segoe UI", Roboto, sans-serif`;
-  ctx.textBaseline = 'alphabetic';
-  ctx.globalAlpha = 0.55;
-  ctx.fillStyle = '#101218';                       // --ink
-  // letter-spacing: -0.01em, relative to this element's own font-size (the
-  // CSS `em` unit here), not the canvas's default tracking. Both
-  // @napi-rs/canvas (>=0.1.100) and Chromium support ctx.letterSpacing;
-  // verified it actually shifts measureText() before relying on it here.
-  ctx.letterSpacing = `${cap.fontSize * -0.01}px`;
-  ctx.fillText(text, cap.x, cap.y);
-  ctx.restore();
 }

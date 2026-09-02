@@ -104,27 +104,24 @@ function frameRatio(frameKind, s) {
 }
 
 function webBox(c, box, ratio) {
-  // In "contain" the screen takes the image's own ratio so NOTHING is ever
-  // cropped. "cover" fills the box and accepts the crop - untouched by
-  // frameKind, on purpose: only "contain" derives a frame from its content,
-  // so cover's fill-and-crop behaviour never changes.
+  // The screen ALWAYS takes the image's own ratio, so nothing is ever
+  // cropped. `fit`/'cover' were retired in Cycle A Task 4 - cropping was
+  // cover's entire effect, inherited from frame.html, and it was never what
+  // anyone reached for.
   //
-  // When a frame is present, "contain" must fit the FRAME (screenshot + bar
-  // + bezel) into the box, not the bare screenshot - fitting the bare
+  // When a frame is present, the FRAME (screenshot + bar + bezel) is what
+  // gets fitted into the box, not the bare screenshot - fitting the bare
   // screenshot and then carving the bar/bezel back out of it (round 1's
   // approach) leaves `screen` at a different ratio than the source image.
   // frameRatio() is the adjusted ratio that makes the round trip exact.
   // When frameKind is 'none' this is `ratio` unchanged, so that path is
   // provably untouched.
-  const fitRatio = (c.fit === 'contain' && c.frameKind !== 'none')
-    ? frameRatio(c.frameKind, ratio)
-    : ratio;
+  const fitRatio = c.frameKind !== 'none' ? frameRatio(c.frameKind, ratio) : ratio;
 
-  let w = box.w, h = box.h;
-  if (c.fit === 'contain') {
-    if (fitRatio > box.w / box.h) { w = box.w; h = box.w / fitRatio; }
-    else                          { h = box.h; w = box.h * fitRatio; }
-  }
+  let w, h;
+  if (fitRatio > box.w / box.h) { w = box.w; h = box.w / fitRatio; }
+  else                          { h = box.h; w = box.h * fitRatio; }
+
   const x = box.x + (box.w - w) / 2;
   const y = box.y + (box.h - h) / 2;
   const web = { x, y, w, h, radius: c.radius };
@@ -143,7 +140,7 @@ function phoneBox(ratio, h, cx, cy) {
 export function layout(c, sources) {
   const safe = safeBox(c);
   const mobile = (sources.mobile || []).slice(0, 3);
-  const out = { safe, web: null, phones: [], caption: null };
+  const out = { safe, web: null, phones: [] };
 
   if (c.layout === 'web' && sources.web) {
     out.web = webBox(c, safe, sources.web);
@@ -177,14 +174,6 @@ export function layout(c, sources) {
       const cy = c.h / 2 + c.h * c.phoneBleed;
       out.phones.push(phoneBox(mobile[0], ph, cx, cy));
     }
-  }
-
-  if (c.caption) {
-    out.caption = {
-      x: safe.x,
-      y: c.h - c.h * 0.035,
-      fontSize: Math.round(c.h * 0.021),
-    };
   }
 
   return out;

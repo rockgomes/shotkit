@@ -4,18 +4,23 @@
 //
 // TWO SECTIONS, ONE FILE: the task brief creates exactly one new file for
 // both (Frame: frameKind chips, chrome theme, the url field it gates;
-// Finish: fit, padding, corner radius, grain, caption) — they're wired the
+// Finish: padding, corner radius, grain, shadow) — they're wired the
 // same way and share no state with web/inspector-background.js, so there's
 // no reason to split them further. Order within each section follows the
 // brief's own ordering, not the design handoff's (which never designed a
-// "Finish" section at all — fit/padding/radius/grain/caption are this
+// "Finish" section at all — padding/radius/grain/shadow are this
 // app's own grouping of fields the handoff scattered or omitted).
+//
+// Cycle A Task 4 retired two of these controls: a Fit segmented control
+// (Contain/Cover) and a Caption text input. Cover's only effect was to crop
+// the screenshot, and the caption was never wanted; both are gone from
+// core/ as well, so there is no config field left for either to write.
 //
 // ONE RENDER PATH: exactly like web/inspector-background.js and
 // web/sidebar.js before it, every handler below mutates `state.config` and
 // calls `scheduleRender()` — nothing here calls `composeWithMeta` directly.
 //
-// core/ IMPORTS: only from core/index.js (FRAME_KINDS, CHROME_THEMES, FITS,
+// core/ IMPORTS: only from core/index.js (FRAME_KINDS, CHROME_THEMES,
 // DEFAULTS, normalise) — never a deep import of core/presets.js. Reading
 // `normalise(state.config)` to display an EFFECTIVE value (the corner
 // radius's own default, in particular) is the same read-only pattern
@@ -23,8 +28,8 @@
 // used here to decide what to WRITE, only what to show before the user has
 // touched a control.
 //
-// PERFORMANCE: none of frameKind/chromeTheme/url/fit/pad/radius/grain/
-// caption/shadowScale is part of web/state.js's `groundKeyFor` (images +
+// PERFORMANCE: none of frameKind/chromeTheme/url/pad/radius/grain/
+// shadowScale is part of web/state.js's `groundKeyFor` (images +
 // config.ground + config.tone only) — every control in this file hits the
 // warm ~3ms colour cache, never groundFor's ~90-200ms analysis. shadowScale
 // (Task 6b) has nothing to do with the sampled ground even in principle — a
@@ -33,7 +38,7 @@
 // "throwing canvas" guard for the proof, and task-6-report.md /
 // task-6b-report.md for measured timings.
 import {
-  FRAME_KINDS, CHROME_THEMES, FITS, DEFAULTS, normalise, SHADOW_SCALE_RANGE,
+  FRAME_KINDS, CHROME_THEMES, DEFAULTS, normalise, SHADOW_SCALE_RANGE,
 } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
 
@@ -95,9 +100,8 @@ export function showsBrowserOnlyControls(config) {
 
 /** The browser URL pill's own text (core/config.js's `url`, Task 6's
  *  authorised core/ change). Raw pass-through, on purpose: normalise()
- *  already coerces an empty string to null (the same treatment `caption`
- *  gets), so this file doesn't need to duplicate that here — see
- *  core/config.js. */
+ *  already coerces an empty string to null, so this file doesn't need to
+ *  duplicate that here — see core/config.js. */
 export function setUrl(config, value) {
   config.url = value;
 }
@@ -107,15 +111,6 @@ export function activeUrl(config) {
 }
 
 // --- Finish ----------------------------------------------------------------
-
-export function activeFit(config) {
-  return FITS.includes(config.fit) ? config.fit : DEFAULTS.fit;
-}
-
-export function setFit(config, fit) {
-  if (!FITS.includes(fit)) return;
-  config.fit = fit;
-}
 
 // Padding sliders (and the corner-radius one below) work in PERCENT in the
 // UI — `config.pad` itself is already a 0..1 fraction of the shorter canvas
@@ -192,17 +187,6 @@ export function setRadiusPercent(config, pct) {
   if (!Number.isFinite(n)) return;
   const eff = normalise(config);
   config.radius = Math.round((Math.min(RADIUS_PERCENT_MAX, Math.max(0, n)) / 100) * eff.w);
-}
-
-/** Same empty-string-is-no-value coercion as `caption` gets in
- *  core/config.js's normalise() — this file passes the raw value through
- *  and lets normalise() do it, exactly like `setUrl` above. */
-export function setCaption(config, value) {
-  config.caption = value;
-}
-
-export function activeCaption(config) {
-  return typeof config.caption === 'string' ? config.caption : '';
 }
 
 // ---------------------------------------------------------------------
@@ -353,44 +337,20 @@ export function initFrameInspector() {
   return { syncFrameUI, syncUrlUI };
 }
 
-const FIT_LABELS = { contain: 'Contain', cover: 'Cover' };
-
 /**
- * The Finish section: fit, padding, corner radius, grain, shadow, caption —
- * the task brief's own order for the first four and last one, with Shadow
- * (Task 6b) slotted in right after Grain: both are "material" finishing
- * touches over the composed shot rather than layout, and neither touches
- * `config.ground` or `config.tone`, so none of these six busts
- * web/state.js's ground-meta cache; see this file's header comment and
- * test/inspector-frame.test.js.
+ * The Finish section: padding, corner radius, grain, shadow — the task
+ * brief's own order, with Shadow (Task 6b) slotted in right after Grain:
+ * both are "material" finishing touches over the composed shot rather than
+ * layout, and neither touches `config.ground` or `config.tone`, so none of
+ * these four busts web/state.js's ground-meta cache; see this file's header
+ * comment and test/inspector-frame.test.js. Fit and Caption used to open
+ * and close this section; Cycle A Task 4 retired both.
  */
 export function initFinishInspector() {
   const section = document.getElementById('finishSection');
   if (!section) return null;
 
   section.innerHTML = '<h2 class="section-label">Finish</h2>';
-
-  // --- fit ---------------------------------------------------------------
-  const fitLabelRow = document.createElement('div');
-  fitLabelRow.className = 'slider-label';
-  fitLabelRow.innerHTML = '<span>Fit</span>';
-  section.appendChild(fitLabelRow);
-
-  const fitSegmented = document.createElement('div');
-  fitSegmented.className = 'segmented';
-  fitSegmented.setAttribute('role', 'group');
-  fitSegmented.setAttribute('aria-label', 'Fit');
-  const fitButtons = FITS.map((fit) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'segmented-cell';
-    btn.dataset.fit = fit;
-    btn.textContent = FIT_LABELS[fit] || fit;
-    btn.setAttribute('aria-pressed', 'false');
-    fitSegmented.appendChild(btn);
-    return btn;
-  });
-  section.appendChild(fitSegmented);
 
   // --- padding -------------------------------------------------------
   const padRow = document.createElement('div');
@@ -456,29 +416,6 @@ export function initFinishInspector() {
   const shadowValueEl = shadowRow.querySelector('.slider-value');
   section.appendChild(shadowRow);
 
-  // --- caption ----------------------------------------------------------
-  const captionRow = document.createElement('div');
-  captionRow.className = 'slider-row';
-  const captionLabelRow = document.createElement('div');
-  captionLabelRow.className = 'slider-label';
-  captionLabelRow.innerHTML = '<span>Caption</span>';
-  const captionInput = document.createElement('input');
-  captionInput.type = 'text';
-  captionInput.className = 'custom-size-input';
-  captionInput.placeholder = 'Optional caption';
-  captionInput.setAttribute('aria-label', 'Caption text, shown bottom-left of the shot — left empty, none is drawn');
-  captionRow.append(captionLabelRow, captionInput);
-  section.appendChild(captionRow);
-
-  function syncFitUI() {
-    const fit = activeFit(state.config);
-    fitButtons.forEach((btn) => {
-      const active = btn.dataset.fit === fit;
-      btn.classList.toggle('is-active', active);
-      btn.setAttribute('aria-pressed', String(active));
-    });
-  }
-
   function syncPadUI() {
     const pct = activePadPercent(state.config);
     padInput.value = String(pct);
@@ -502,18 +439,6 @@ export function initFinishInspector() {
     shadowInput.value = String(pct);
     syncSliderFill(shadowInput, shadowValueEl, `${pct}%`);
   }
-
-  function syncCaptionUI() {
-    if (document.activeElement !== captionInput) captionInput.value = activeCaption(state.config);
-  }
-
-  fitButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      setFit(state.config, btn.dataset.fit);
-      syncFitUI();
-      scheduleRender();
-    });
-  });
 
   padInput.addEventListener('input', () => {
     setPadPercent(state.config, padInput.value);
@@ -539,17 +464,10 @@ export function initFinishInspector() {
     scheduleRender();
   });
 
-  captionInput.addEventListener('input', () => {
-    setCaption(state.config, captionInput.value);
-    scheduleRender();
-  });
-
-  syncFitUI();
   syncPadUI();
   syncRadiusUI();
   syncGrainUI();
   syncShadowUI();
-  syncCaptionUI();
 
-  return { syncFitUI, syncPadUI, syncRadiusUI, syncGrainUI, syncShadowUI, syncCaptionUI };
+  return { syncPadUI, syncRadiusUI, syncGrainUI, syncShadowUI };
 }
