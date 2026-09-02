@@ -48,12 +48,12 @@ document.querySelectorAll('.segmented').forEach((el) => {
 // `.chip-row` or `.swatch-row` anywhere in index.html at load time for the
 // loops above to find, by the same reasoning Task 5 already established.
 
-// Templates/Ratios/Ground presets (Task 4) are NOT wired with the generic
+// Templates/Ratios (Task 4) are NOT wired with the generic
 // wireSingleSelectGroup helper above: those rows carry real application
-// state (state.config.template/ratio/ground), not just a CSS toggle, and
+// state (state.config.template/ratio), not just a CSS toggle, and
 // need to funnel through scheduleRender() — see web/sidebar.js's header
 // comment for why that file owns its own click handling instead.
-const sidebar = initSidebar();
+initSidebar();
 
 /** Sliders: keep the mono value label and the track fill in sync with the
  *  input's own value. Angle gets a ° suffix; everything else gets %. */
@@ -484,13 +484,14 @@ async function handleFiles(fileList) {
   syncContentUI();
   // addFiles() above calls render() synchronously when it decodes anything,
   // so state.meta already reflects the new image(s) by this point — this is
-  // what tells the Ground group's swatches to stop showing the synthetic
-  // no-image fallback and start previewing the real thing (see
-  // web/sidebar.js's "Ground swatch gradients" header comment).
-  sidebar?.refreshGrounds();
-  // Same handshake for the inspector's own "Sampled" swatches (Task 5) —
-  // see web/inspector-background.js's "Sampled" header comment for why it
-  // keeps an independent cache that only this call invalidates.
+  // what tells the Background panel's preset swatches to stop showing the
+  // synthetic no-image fallback and start previewing the real thing (see
+  // web/sidebar.js's "Ground swatch gradients" header comment), and what
+  // re-derives its "Sampled" row (Task 5) — see web/inspector-background.js's
+  // "Sampled" header comment for why it keeps an independent cache that only
+  // this call invalidates. The rail had a second copy of this handshake
+  // (`sidebar.refreshGrounds()`) until Cycle A Task 2 removed its Ground
+  // group; refreshSampled() re-renders the presets too, so one call covers it.
   background?.refreshSampled();
 }
 

@@ -1,5 +1,6 @@
-// web/sidebar.js — Task 4: templates, ratios and ground presets in the
-// sidebar.
+// web/sidebar.js — Task 4: templates and ratios in the sidebar, plus the
+// ground-swatch rendering the inspector's Background panel reuses (the rail
+// itself no longer shows a Ground group — Cycle A Task 2).
 //
 // THE RULE THAT MATTERS MOST HERE: every row/button below does exactly one
 // thing when activated — mutate a field on `state.config`, then call
@@ -33,9 +34,9 @@
 // .preset-row (style.css) — real keyboard semantics, not a pile of
 // clickable <div>s. A roving-tabindex listbox with arrow-key navigation
 // (the brief's other option) was deliberately NOT used: it would be a
-// second, different interaction model living in the same sidebar as three
-// groups that already work by Tab+Enter, and with three short groups (6
-// templates, 4 ratios, 8 grounds, one custom-size toggle) plain Tab order is
+// second, different interaction model living in the same sidebar as the
+// groups that already work by Tab+Enter, and with two short groups (6
+// templates, 4 ratios, one custom-size toggle) plain Tab order is
 // not a burden. A bespoke widget buys nothing here and adds real failure
 // surface (wrap-around, Home/End, orientation) for a keyboard user who
 // already has a working, consistent way to reach every row.
@@ -143,15 +144,15 @@ export function selectGround(config, key) {
 // shortcut is exact, not approximate.
 //
 // Nothing here is cached or memoised across calls: gradientFor() reads
-// `state.meta` FRESH every time renderGrounds() runs. That is what keeps
-// the "no image yet" fallback below from silently persisting once a real
-// image loads - there is no stored value that could go stale, because
-// nothing is stored. renderGrounds() itself re-runs on every sidebar
-// interaction (a row click, a search keystroke) AND is explicitly called
-// again the moment a screenshot is decoded (`refreshGrounds()`, returned
-// by initSidebar() and called from web/main.js's handleFiles() - see
-// there), so the fallback is showing until the instant a real image
-// exists, never a frame longer.
+// `state.meta` FRESH every time renderGroundSwatches() runs. That is what
+// keeps the "no image yet" fallback below from silently persisting once a
+// real image loads - there is no stored value that could go stale, because
+// nothing is stored. The Background panel re-runs renderGroundSwatches()
+// on every interaction of its own (a preset click, the hue slider, tone)
+// AND is explicitly refreshed the moment a screenshot is decoded
+// (`refreshSampled()`, returned by initBackgroundInspector() and called
+// from web/main.js's handleFiles() - see there), so the fallback is
+// showing until the instant a real image exists, never a frame longer.
 //
 // The one remaining case IS a synthetic, representative sample: before any
 // screenshot is loaded, `state.meta` is null and there genuinely is no
@@ -250,15 +251,15 @@ export function renderGroundSwatches(listEl, onSelect) {
 
 // ---------------------------------------------------------------------
 // DOM wiring. Reuses Task 1's existing sidebar markup and CSS classes
-// (.template-list / .template-row / .preset-list / .preset-row /
-// .section-label) rather than inventing new ones — the two lists this file
-// finds by class (`.template-list` for Templates, `.preset-list` for what
-// was a static "Presets" placeholder and becomes the Ground group here) are
-// exactly the ones index.html already ships; nothing about the shell's DOM
-// structure changes. The Ratios group has no placeholder to reuse — the
-// mockup only shows Templates (see task-4-report.md) — so it's built fresh
-// here from the same markup/classes as Templates, inserted as a sibling
-// section right after it.
+// (.template-list / .template-row / .section-label) rather than inventing
+// new ones — the list this file finds by class (`.template-list` for
+// Templates) is exactly the one index.html already ships; nothing about the
+// shell's DOM structure changes. The Ratios group has no placeholder to
+// reuse — the mockup only shows Templates (see task-4-report.md) — so it's
+// built fresh here from the same markup/classes as Templates, inserted as a
+// sibling section right after it. The rail's third group used to be Ground,
+// a second copy of the Background panel's eight presets; Cycle A Task 2
+// removed it (see the note at the end of initSidebar).
 // ---------------------------------------------------------------------
 
 export function initSidebar() {
@@ -268,18 +269,13 @@ export function initSidebar() {
   const searchInput = sidebar.querySelector('.sidebar-search input');
   const templateList = sidebar.querySelector('.template-list');
   const templateSection = templateList?.closest('.sidebar-section');
-  const groundList = sidebar.querySelector('.preset-list');
-  const groundSection = groundList?.closest('.sidebar-section');
-  if (!templateList || !templateSection || !groundList || !groundSection) return;
+  if (!templateList || !templateSection) return;
 
   const ratioSection = document.createElement('section');
   ratioSection.className = 'sidebar-section';
   ratioSection.innerHTML = '<h2 class="section-label">Ratios</h2><ul class="template-list ratio-list"></ul>';
   templateSection.insertAdjacentElement('afterend', ratioSection);
   const ratioList = ratioSection.querySelector('.ratio-list');
-
-  const groundLabel = groundSection.querySelector('.section-label');
-  if (groundLabel) groundLabel.textContent = 'Ground';
 
   if (searchInput) searchInput.placeholder = 'Search templates and ratios…';
 
@@ -456,31 +452,21 @@ export function initSidebar() {
     ratioSection.hidden = ratioList.children.length === 0;
   }
 
-  function renderGrounds() {
-    renderGroundSwatches(groundList, () => {
-      renderAll();
-      scheduleRender();
-    });
-  }
-
   function renderAll() {
     const query = currentQuery();
     renderTemplates(query);
     renderRatios(query);
-    renderGrounds();
   }
 
   searchInput?.addEventListener('input', renderAll);
 
   renderAll();
 
-  // Returned so web/main.js can tell the Ground group to re-derive its
-  // swatches the moment a screenshot decodes — see this file's "Ground
-  // swatch gradients" header comment for why that call matters: it's what
-  // keeps the no-image synthetic fallback from silently outliving the
-  // image that makes it unnecessary. Re-running the full renderAll()
-  // instead would also be correct (Templates/Ratios just don't depend on
-  // `state.images`, so redoing them is harmless) but this is more precise
-  // about which group actually needed the refresh and why.
-  return { refreshGrounds: renderGrounds };
+  // NO GROUND GROUP HERE, DELIBERATELY, and so nothing to return: the rail
+  // used to render the same eight ground presets the inspector's Background
+  // panel renders, which is the duplication this task removed. The panel
+  // keeps its own screenshot-decoded handshake (`refreshSampled` in
+  // web/inspector-background.js, called from web/main.js's handleFiles),
+  // and it re-renders the presets through renderGroundSwatches — still
+  // exported above — as part of it.
 }

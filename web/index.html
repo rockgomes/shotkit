@@ -152,7 +152,7 @@
 
       <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
 
-      <aside id="sidebar" aria-label="Templates and presets">
+      <aside id="sidebar" aria-label="Templates and ratios">
         <label class="sidebar-search">
           <svg class="icon" aria-hidden="true"><use href="#icon-search"></use></svg>
           <span class="visually-hidden">Search templates</span>
@@ -184,20 +184,11 @@
           </ul>
         </section>
 
-        <section class="sidebar-section">
-          <h2 class="section-label">Presets</h2>
-          <ul class="preset-list">
-            <li><button type="button" class="preset-row">
-              <span class="preset-swatch preset-swatch--aurora" aria-hidden="true"></span>Aurora blur
-            </button></li>
-            <li><button type="button" class="preset-row">
-              <span class="preset-swatch preset-swatch--slate" aria-hidden="true"></span>Studio gray
-            </button></li>
-            <li><button type="button" class="preset-row">
-              <span class="preset-swatch preset-swatch--candy" aria-hidden="true"></span>Candy pop
-            </button></li>
-          </ul>
-        </section>
+        <!-- NO GROUND SECTION HERE, DELIBERATELY. The rail used to carry a
+             second copy of the eight ground presets; the inspector's
+             Background panel shows the same eight (rendered by the same
+             renderGroundSwatches helper in web/sidebar.js) and is where the
+             rest of the ground controls live. One list, one place. -->
 
         <div class="sidebar-spacer"></div>
 
@@ -256,7 +247,7 @@
              properties panel does before any document is open — present,
              greyed, not operable. web/main.js's syncContentUI() removes
              this the moment a screenshot decodes and restores it if the
-             app is ever back to zero images. Templates/Ratios/Ground in
+             app is ever back to zero images. Templates/Ratios in
              the SIDEBAR are deliberately not covered by this — they
              configure what a drop will produce and stay live throughout. -->
         <section class="inspector-section" id="backgroundSection" inert>
