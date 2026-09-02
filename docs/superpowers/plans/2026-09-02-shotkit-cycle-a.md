@@ -1834,7 +1834,7 @@ asks for a change, make it, redeploy, and hand the link back before moving on.
 - Consumes: Task 6's `frameInsets(c, screenW)` and outset accumulation.
 - Produces: `normalise()` returns `stroke: { style, width, color }`. `paintStroke(ctx, box, stroke, width)` — `width` is the already-resolved stroke thickness in canvas pixels (`layout()` computed it, including any `shrink`), NOT a ratio and NOT the shorter canvas side. It paints the ring **behind** the composite. Cycle B's inspector reads `STROKE_STYLES`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 **Read this before writing them.** Task 1's edge test, as originally planned,
 *could not fail*: it sampled 2px inside the box, but a 1px stroke drawn at
@@ -1921,12 +1921,12 @@ describe('strokes', () => {
 });
 ```
 
-- [ ] **Step 2: Run and watch them fail**
+- [x] **Step 2: Run and watch them fail**
 
 Run: `npx vitest run test/render-stroke.test.js`
 Expected: the first test PASSES (no stroke is today's behaviour); the rest FAIL.
 
-- [ ] **Step 3: Decide the phone body's hairline, and say what you decided**
+- [x] **Step 3: Decide the phone body's hairline, and say what you decided**
 
 Task 1's reviewer surfaced this and it lands here. `paintPhone`
 (`core/render.js:656`) calls `paintDeviceHairline` (`:580`,
@@ -1949,7 +1949,7 @@ Do not decide silently, and do not change it without saying so — an unexplaine
 change to the phone's appearance is exactly the class of surprise this cycle
 exists to remove.
 
-- [ ] **Step 4: Add the vocabulary**
+- [x] **Step 4: Add the vocabulary**
 
 In `core/presets.js`:
 
@@ -1980,7 +1980,7 @@ In `core/config.js`:
     })(),
 ```
 
-- [ ] **Step 5: Add the stroke to the outset accumulation**
+- [x] **Step 5: Add the stroke to the outset accumulation**
 
 In `core/layout.js`, `frameInsets` gains the stroke, which wraps everything else:
 
@@ -2017,7 +2017,7 @@ Call it as `frameInsets(c, sw, Math.min(c.w, c.h))`, scale `stroke` by `shrink` 
 
 `chromeFor` takes its offsets from `web.inner`, not `web`, so the bar sits inside the stroke.
 
-- [ ] **Step 6: Paint it**
+- [x] **Step 6: Paint it**
 
 In `core/render.js`:
 
@@ -2057,12 +2057,12 @@ export function paintStroke(ctx, box, stroke, width) {
 
 Call it from `paintWeb` (and from `paintWebChrome`/`paintPhoneChrome`) immediately after `paintShadow` and before the body fill, passing the **outer** box; then paint the body and screenshot into `box.inner`. The shadow already uses the outer box, so a stroked shot casts its shadow from the mat, which is correct.
 
-- [ ] **Step 7: Run and watch them pass**
+- [x] **Step 7: Run and watch them pass**
 
 Run: `npx vitest run test/render-stroke.test.js`
 Expected: all five PASS.
 
-- [ ] **Step 8: Add goldens and regenerate**
+- [x] **Step 8: Add goldens and regenerate**
 
 Add to `scripts/make-render-goldens.js`'s `CASES`, with a comment matching the file's existing style explaining that without them a stubbed `paintStroke` leaves every other golden untouched:
 
@@ -2076,7 +2076,7 @@ Run: `node scripts/make-render-goldens.js && npx vitest run`
 
 Only the three new files may appear. Every pre-existing golden must be byte-identical — `STROKE_DEFAULTS.style` is `'none'`, so nothing else can move. If one did, the stroke is being applied when it should not be.
 
-- [ ] **Step 9: Add the stroke control so this can be previewed**
+- [x] **Step 9: Add the stroke control so this can be previewed**
 
 In the Finish section of the inspector, add:
 
@@ -2104,7 +2104,7 @@ Add matching tests to the existing inspector test file, in the style already
 there — assert the control writes the value, clamps at both ends, and that
 `render()` is scheduled.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add core web test scripts
@@ -2112,7 +2112,7 @@ git commit -m "feat(core): opt-in strokes — light, glass, custom — as outset
 git push origin feat/cycle-a
 ```
 
-- [ ] **Final step: deploy a preview, hand over the link, and STOP**
+- [x] **Final step: deploy a preview, hand over the link, and STOP**
 
 The preview is automatic. The Commit step above already pushed to
 `feat/cycle-a`, which makes Netlify rebuild PR #1. Wait for both checks:
