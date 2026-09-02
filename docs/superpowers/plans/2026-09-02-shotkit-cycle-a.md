@@ -150,14 +150,20 @@ Expected: PASS.
 
 Run: `node scripts/make-render-goldens.js && npx vitest run`
 
-Four goldens contain an unframed web screen and will change: `web`, `mesh`, `shadow-heavy`, `web-mobile`. The seven framed/phone-only goldens must stay byte-identical — check with `git status`, and if any of `browser-dark`, `browser-light`, `browser-url`, `square-browser`, `phone`, `mobile`, `caption` changed, **stop and report**: that means the deletion reached the framed path.
+Five goldens contain an unframed web screen and will change: `web`, `mesh`,
+`shadow-heavy`, `web-mobile` and **`caption`** — `caption` sets no `frameKind`
+(see `scripts/make-render-goldens.js`), so it renders an unframed screen like
+the rest. The correct invariant is: the six cases that set `frameKind`
+(`browser-dark`, `browser-light`, `browser-url`, `square-browser`, `phone`)
+plus the phone-only `mobile` must stay byte-identical. If one of those moves,
+**stop and report** — the deletion reached the framed path.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add core/render.js test/render-screen.test.js test/golden/render
 git commit -m "fix(core): frame:none draws no stroke"
-git push origin feat/shotkit-web
+git push origin feat/cycle-a
 ```
 
 - [ ] **Final step: deploy a preview, hand over the link, and STOP**
@@ -265,7 +271,7 @@ Start the dev server via `preview_start`, load a screenshot, and confirm: templa
 ```bash
 git add web/style.css web/sidebar.js web/index.html test/sidebar.test.js
 git commit -m "fix(web): space template labels, drop the rail's duplicate Ground list"
-git push origin feat/shotkit-web
+git push origin feat/cycle-a
 ```
 
 - [ ] **Final step: deploy a preview, hand over the link, and STOP**
@@ -399,7 +405,7 @@ Run the dev server, load a screenshot, and screenshot the full app. Then screens
 npx vitest run
 git add web/tokens.css test/contrast.test.js
 git commit -m "fix(web): raise text token luminance to clear AA, with an audit test"
-git push origin feat/shotkit-web
+git push origin feat/cycle-a
 ```
 
 - [ ] **Final step: deploy a preview, hand over the link, and STOP**
@@ -526,7 +532,7 @@ Every remaining golden must be **byte-identical** — `git status` should show n
 ```bash
 git add -u core web scripts test
 git commit -m "refactor(core): retire fit/cover and the caption"
-git push origin feat/shotkit-web
+git push origin feat/cycle-a
 ```
 
 - [ ] **Final step: deploy a preview, hand over the link, and STOP**
@@ -807,7 +813,7 @@ there — assert the control writes the value, clamps at both ends, and that
 ```bash
 git add core web scripts test
 git commit -m "feat(core): parameterised shadow (distance, angle, blur, directional) with a frozen default golden"
-git push origin feat/shotkit-web
+git push origin feat/cycle-a
 ```
 
 - [ ] **Final step: deploy a preview, hand over the link, and STOP**
@@ -1016,7 +1022,7 @@ Then open the dev server, load a screenshot, and toggle Frame between none and b
 ```bash
 git add core test scripts
 git commit -m "feat(core): frames grow outward from the screenshot; padding gives way"
-git push origin feat/shotkit-web
+git push origin feat/cycle-a
 ```
 
 - [ ] **Final step: deploy a preview, hand over the link, and STOP**
@@ -1059,6 +1065,16 @@ asks for a change, make it, redeploy, and hand the link back before moving on.
 - Produces: `normalise()` returns `stroke: { style, width, color }`. `paintStroke(ctx, box, stroke, width)` — `width` is the already-resolved stroke thickness in canvas pixels (`layout()` computed it, including any `shrink`), NOT a ratio and NOT the shorter canvas side. It paints the ring **behind** the composite. Cycle B's inspector reads `STROKE_STYLES`.
 
 - [ ] **Step 1: Write the failing tests**
+
+**Read this before writing them.** Task 1's edge test, as originally planned,
+*could not fail*: it sampled 2px inside the box, but a 1px stroke drawn at
+`box.x + 0.5` straddles the boundary and only reaches the boundary pixel and
+the first fully-interior one. `box.x` is fractional (62.4 at 3:2), so
+`Math.round(box.x) + 2` lands on clean fill and the test passed with the border
+still present. The tests below sample edges the same way — use the first fully
+interior pixel (`Math.ceil(b.x)`, `Math.floor(b.x + b.w) - 1`, and likewise for
+y), and after writing each one, **run it against the unfixed code and confirm
+it actually goes red**. A green "failing test" is worse than no test.
 
 Create `test/render-stroke.test.js`:
 
@@ -1300,7 +1316,7 @@ there — assert the control writes the value, clamps at both ends, and that
 ```bash
 git add core web test scripts
 git commit -m "feat(core): opt-in strokes — light, glass, custom — as outsets"
-git push origin feat/shotkit-web
+git push origin feat/cycle-a
 ```
 
 - [ ] **Final step: deploy a preview, hand over the link, and STOP**
@@ -1497,7 +1513,7 @@ Then put the new `browser-dark` golden next to the reference screenshot and say 
 ```bash
 git add core test scripts
 git commit -m "feat(core): rebuild the browser chrome from measured reference proportions"
-git push origin feat/shotkit-web
+git push origin feat/cycle-a
 ```
 
 - [ ] **Final step: deploy a preview, hand over the link, and STOP**
@@ -1780,7 +1796,7 @@ there — assert the control writes the value, clamps at both ends, and that
 ```bash
 git add core web test scripts
 git commit -m "feat(core): rebuild mesh with real multi-hue stops, spread and seed"
-git push origin feat/shotkit-web
+git push origin feat/cycle-a
 ```
 
 - [ ] **Final step: deploy a preview, hand over the link, and STOP**
