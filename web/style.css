@@ -678,17 +678,13 @@ input {
   flex: none;
 }
 
-.preset-swatch--aurora {
-  background: linear-gradient(135deg, var(--color-blue), var(--color-pink));
-}
-
-.preset-swatch--slate {
-  background: linear-gradient(135deg, var(--color-slate), var(--color-charcoal));
-}
-
-.preset-swatch--candy {
-  background: linear-gradient(135deg, var(--color-orange), var(--color-magenta));
-}
+/* `.preset-swatch--aurora/--slate/--candy` (three fixed gradient chips from
+   the design handoff) lived here — removed with the rail's Ground list they
+   were the only markup for (Cycle A Task 2). The surviving `.preset-swatch`
+   above is still real: web/sidebar.js's `renderGroundSwatches` builds it and
+   sets `style.background` from the live hue, so the chip's colour comes from
+   the ground itself rather than from three hard-coded modifiers. Their six
+   `--color-*` tokens went with them, in tokens.css. */
 
 .sidebar-spacer {
   flex: 1;

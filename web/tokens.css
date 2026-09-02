@@ -32,7 +32,29 @@
   --text-secondary: #c6cad2;      /* ghost button label, preset row label (lines 58,86) */
   --text-muted: #9ba1ab;          /* filename, zoom label, muted rows (lines 53,57,77) */
   --text-faint: #8a8f98;          /* secondary meta, inactive segmented text (lines 76,115) */
-  --text-fainter: #6b7078;        /* section labels, inactive rail icons (lines 66,74) */
+  /* DEPARTS FROM THE HANDOFF — do not "restore" this to #6b7078 (lines
+     66,74). The token's own description undersells it: alongside the
+     inactive rail icons it carries every SECTION LABEL in the app
+     (TEMPLATES / RATIOS / BACKGROUND / FRAME / FINISH / EXPORT), the whole
+     of the empty state's copy (.dropzone, .dropzone-dims, .dropzone-sub),
+     the custom-size field labels, .canvas-toolbar-label, .control-hint and
+     "+ Custom size" — real text at 10-12px, not decoration, so the 4.5:1 AA
+     threshold applies and not the 3:1 UI-component one. (The --text-disabled
+     comment below asserts the opposite about #6b7078; that assertion was
+     wrong and this supersedes it.)
+
+     #6b7078 measured 3.93:1 on --surface-window #0b0c0e, 3.85:1 on
+     --surface-canvas #0e0f12 (the empty state's backdrop) and 3.38:1 on
+     --border-hairline #1b1d22 — the .template-row hover background, the
+     lightest surface this token is ever painted on and therefore the
+     binding constraint. All three fail 4.5:1.
+
+     #7f858d is the minimum lift: same hue (216.9°) and saturation (0.057)
+     as the original, lightness raised from 0.445 to 0.525 — only as far as
+     the binding constraint requires. It measures 4.53:1 on #1b1d22, 5.26:1
+     on #0b0c0e and 5.15:1 on #0e0f12. The step below it (#7f848d) measures
+     4.49:1 on #1b1d22 and fails. */
+  --text-fainter: #7f858d;
   /* DEPARTS FROM THE HANDOFF — do not "restore" this to #565b64 (lines
      77,163). #565b64 measures 2.87:1 on #0b0c0e and 2.47:1 on
      #1b1d22 (the .template-row hover background, its lightest surface and
@@ -43,11 +65,17 @@
      raised only as far as the threshold requires. It clears 4.5:1 against
      the lightest background it sits on (4.53:1 on #1b1d22; 5.26:1 on
      #0b0c0e) — the step below it (#7e8490) measures 4.49:1 and fails.
-     #6b7078 and #4b4f58 are NOT changed: they sit on icons/placeholders/a
-     separator, where the 3:1 UI-component threshold applies, and they
-     already clear it. */
+     (This block originally ended by claiming #6b7078 and #4b4f58 needed no
+     change because they were icons and a separator. Both claims are now
+     void: #4b4f58/--text-subtle was dead and is gone, and #6b7078/
+     --text-fainter carries every section label in the app — see its own
+     comment above, which supersedes this one.) */
   --text-disabled: #7e8590;
-  --text-subtle: #4b4f58;         /* breadcrumb "/" separator (line 52) */
+  /* `--text-subtle` (#4b4f58, the handoff's breadcrumb "/" separator, line
+     52) was removed in Cycle A Task 3. It was flagged as dead in Task 7 of
+     the previous cycle and left in place then; `grep -rn text-subtle web
+     core test scripts` still finds nothing but its own definition, and the
+     breadcrumb it was drawn for was never built. */
   --color-white: #ffffff;         /* app-mark glyph, slider thumb, active segmented text (lines 64,116,129) */
 
   /* --- Status -------------------------------------------------------------- */
@@ -56,16 +84,14 @@
   /* --- Brand / gradient stops (sidebar presets + inspector swatches) ---- */
   --color-brand-start: #5b6cff;   /* app-mark gradient (line 64) */
   --color-brand-end: #a24ff0;     /* app-mark gradient (line 64) */
-  --color-blue: #2563eb;          /* swatch 1 / "Aurora blur" (lines 86,120) */
-  --color-pink: #ec4899;          /* swatch 1 / "Aurora blur" (lines 86,120) */
-  --color-orange: #f97316;        /* swatch 3 / "Candy pop" (lines 88,121) */
-  --color-magenta: #db2777;       /* swatch 3 / "Candy pop" (lines 88,121) */
-  --color-cyan: #0ea5e9;          /* swatch 2 (line 122) */
-  --color-indigo: #312e81;        /* swatch 2 (line 122) */
-  --color-green: #10b981;         /* swatch 4 (line 123) */
-  --color-teal: #0d9488;          /* swatch 4 (line 123) */
-  --color-slate: #3f4451;         /* swatch 5 / "Studio gray" (lines 87,124) */
-  --color-charcoal: #16181d;      /* swatch 5 / "Studio gray" (lines 87,124) */
+  /* The handoff's ten fixed swatch hues (blue/pink, cyan/indigo, orange/
+     magenta, green/teal, slate/charcoal) were removed in Cycle A Task 3.
+     Six of them were referenced only by `.preset-swatch--aurora/--slate/
+     --candy` in style.css, which lost their markup with the rail's Ground
+     list in Task 2; the other four (cyan, indigo, green, teal) had no
+     reference at all. The Background panel's chips take their colour from
+     the live ground gradient (web/sidebar.js `renderGroundSwatches`), so a
+     fixed palette of stops has nothing left to name. */
 
   /* --- Canvas chrome (the editor's own décor, not core/'s rendered output) */
   --dot-grid-dot: #1c1e23;        /* stage dot-grid pattern (line 97) */
