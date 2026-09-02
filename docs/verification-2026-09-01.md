@@ -879,9 +879,10 @@ against its path — reaching `drawImage` for the first time because Task 4c's
 snap pushed the drawn rect out far enough to touch those bounds. Before 4c
 the picture faded out inside the clip and never met it.
 
-The other side of the same asymmetry is the report about the top and left:
-the snapped rect starts at `floor(box.x)`, the clip cuts at `box.x`, and
-what falls between them is picture. Measured as marker survival — a source
+The report about the top and left is a plainer thing, and NOT
+Chromium-specific: the snapped rect starts at `floor(box.x)`, the clip cuts
+at `box.x`, and what falls between them is picture. It is ordinary clipping
+of an overhang the snap created. Measured as marker survival — a source
 whose first row and column are a distinct colour, rendered twice and
 subtracted, summed across the boundary:
 

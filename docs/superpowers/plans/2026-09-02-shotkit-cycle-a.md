@@ -884,19 +884,28 @@ task:
 **He was right about the third one, and it explains the first two.** Task 4c
 snapped the screenshot's destination rect outward so that the clip would be
 the only antialiased mask on the boundary pixel. It worked, and it pushed the
-drawn rect out far enough to touch the clip for the first time — and in
-Chromium a non-rectangular clip does not agree with the path it was built
-from. That is Task 4b's finding reaching `drawImage`:
+drawn rect out far enough to touch the clip for the first time. Two separate
+things came out of that, and they are worth keeping separate:
 
-> **A clip is rasterised against rounded-out device bounds, not against its
-> path.** The snapped rect starts at `floor(box.x)` and the clip cuts at
-> `box.x`, so 39% of the source's first row and 30% of its first column were
-> thrown away; on the right and bottom the same asymmetry runs the other way
-> and the shot overshoots the clip by a whole pixel, coverage 1.000 where the
-> path says 0.596. Walking the bottom-right corner row by row, the shot
-> tracks the arc to within 0.03px for eleven rows and then steps **14.0px**
-> off it in one row. A straight edge that overshoots by a pixel, meeting a
-> curve that does not: that is the spike.
+> **The cut is plain clipping, and it is real in both engines.** The snapped
+> rect starts at `floor(box.x)` and the clip cuts at `box.x`, so the overhang
+> is thrown away: 39% of the source's first row and 30% of its first column,
+> the same numbers to three decimals under Chromium and `@napi-rs/canvas`.
+> That is why it is a test, not a note.
+
+> **The overshoot and the spike are Chromium's, and are Task 4b's finding
+> reaching `drawImage`: a non-rectangular clip is rasterised against
+> rounded-out device bounds, not against its path.** On the right and bottom
+> the shot covers the boundary pixel completely — 1.000 where the path says
+> 0.596 — while the arc still follows the path. Walking the bottom-right
+> corner row by row, the shot tracks the arc to within 0.03px for eleven rows
+> and then steps **14.0px** off it in one. A straight edge that overshoots by
+> a pixel meeting a curve that does not: that is the spike. Skia reproduces
+> none of it.
+
+Why Rock saw the cut appear only above radius 0 was not established — a
+rectangular clip is the one shape Task 4b measured as exact, which is a
+plausible reason and not a demonstrated one.
 
 And the backing existed for exactly one reason. `paintShadow` casts from an
 **opaque black rounded rect**, which sits between the ground and the shot and
@@ -985,7 +994,7 @@ them on a shot's edge or corner arc, and the rest is 1 level of rounding over
 at most 0.08% of the canvas. The picture is back where it was; only its edge
 moved.
 
-**Files:** `core/render.js`, `core/index.js`,
+**Files:** `core/render.js`, `core/index.js`, `web/state.js` (one comment),
 `test/render-edge-blend.test.js`, `test/render-clip-safety.test.js`,
 `test/render-frames.test.js`, `test/render-screen.test.js`,
 `test/inspector-frame.test.js`, all ten render goldens,

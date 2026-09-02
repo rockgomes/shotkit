@@ -116,17 +116,22 @@ const SHADOW_SOURCE_INSET = 2;
  *
  * Fourteen pixels of shot sticking out where the straight edge meets the
  * arc, plus a full pixel of overshoot along the right and bottom edges
- * (coverage 1.000 where the path says 0.596 and 0.502) and, at the other
- * two edges, up to a whole source row cut off - "1px is cut from the top
- * and left" and "a visible spike where the straight edge meets the corner
- * arc", both reported without zooming. It is the same Chromium behaviour
- * Task 4b measured for a covering `fillRect` (see fillRoundRect): a
- * non-rectangular clip is rasterised against rounded device bounds, not
- * against its path. @napi-rs/canvas reproduces none of it - the Node
- * numbers for the same walk are 0.031px worst and 0.021px worst step,
- * before and after - so it is guarded structurally, in
- * test/render-clip-safety.test.js, and measured in
+ * (coverage 1.000 where the path says 0.596 and 0.502) - "a visible spike
+ * where the straight edge meets the corner arc", reported without zooming.
+ * That much is the same Chromium behaviour Task 4b measured for a covering
+ * `fillRect` (see fillRoundRect): a non-rectangular clip is rasterised
+ * against rounded device bounds, not against its path. @napi-rs/canvas
+ * reproduces none of it - the Node numbers for the same walk are 0.031px
+ * worst and 0.021px worst step, before and after - so it is guarded
+ * structurally, in test/render-clip-safety.test.js, and measured in
  * docs/verification-2026-09-01.md.
+ *
+ * The other report - "1px is cut from the top and left" - needs no engine
+ * quirk at all and is not one. The snapped rect starts at `floor(box.x)`,
+ * the clip cuts at `box.x`, and the overhang between them is picture: 39%
+ * of the source's first row and 30% of its first column, identical to three
+ * decimals in both engines. That half IS a pixel test - see
+ * test/render-edge-blend.test.js.
  *
  * NOTHING IS CLIPPED AND NOTHING IS PAINTED BEHIND A SHOT ANY MORE. Both
  * followed from the same question Rock asked - "I don't understand why we
