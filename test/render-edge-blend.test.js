@@ -289,8 +289,20 @@ describe('phone frame — the screenshot blends into the bezel at the screen edg
  */
 describe('browser frame — the screenshot reaches its own boundary pixel', () => {
   const DARK = 20, LIGHT = 200;                 // #141414 and #c8c8c8
-  const dark = scene('browser', flatSource('#141414'));
-  const light = scene('browser', flatSource('#c8c8c8'));
+  // A wider pad than the default, and the ONLY reason is that these
+  // assertions need a boundary pixel that is genuinely PARTIALLY covered.
+  // Cycle A Task 6 made frames outsets: at the default 5.2% pad this 1440x900
+  // source's composite (screenshot + a bar 7.5% of its width) is taller than
+  // the canvas less MIN_MARGIN_RATIO, so it is scaled to exactly that floor -
+  // which puts its bottom edge on exactly y = c.h - 0.02*c.h = 1176.0, an
+  // integer, with no partial pixel anywhere along it. The guard below
+  // ("sample is not on the boundary") caught that rather than asserting
+  // something vacuous. 9% padding keeps the composite clear of the floor, so
+  // every edge lands mid-pixel again and the coverage identity has something
+  // to measure. Nothing about what is measured changes.
+  const PAD = { pad: 0.09 };
+  const dark = scene('browser', flatSource('#141414'), GROUND, PAD);
+  const light = scene('browser', flatSource('#c8c8c8'), GROUND, PAD);
   const outer = { x: dark.box.x, y: dark.box.y, w: dark.box.w, h: dark.box.h };
   const k = coverage(dark.c, outer, dark.box.chrome.radius);
 

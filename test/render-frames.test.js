@@ -361,8 +361,31 @@ describe('paintWeb - phone frame', () => {
     // inside the frame's rounded edge, away from any corner arc.
     const { lay, ctx } = await scene({ frameKind: 'phone' });
     const { web } = lay;
-    const withHairline = px(ctx, web.x + 1, web.y + web.h / 2);
-    const bodyOnly = px(ctx, web.x + 4, web.y + web.h / 2);
+    // INTEGER sample columns, derived from where the stroke actually lands.
+    // paintDeviceHairline strokes a 1px line centred on box.x + 0.5, so it
+    // covers x in [web.x, web.x + 1]. Cycle A Task 6 moved the phone
+    // composite outward by its own bezel, which made web.x fractional (30.57
+    // here, 62.4 before), and the old `web.x + 1` sample rounded PAST the
+    // stroke onto plain body - it read equal to the body sample and asserted
+    // nothing. Column floor(web.x) is no good either: that is the body's own
+    // antialiased edge against a pale ground, which is brighter than the body
+    // with or without a hairline (verified by stubbing paintDeviceHairline to
+    // a no-op - the assertion stayed green).
+    //
+    // The one column that is BOTH fully inside the body and under the stroke
+    // is floor(web.x) + 1, covered by exactly frac(web.x) of it.
+    const yMid = Math.round(web.y + web.h / 2);
+    const inner = Math.floor(web.x) + 1;
+    const cov = web.x + 1 - inner;              // the stroke's share of it
+    expect(cov, 'the hairline barely covers the sample column').toBeGreaterThan(0.3);
+    expect(web.chrome.frame, 'both samples must stay inside the bezel').toBeGreaterThan(8);
+    const withHairline = px(ctx, inner, yMid);
+    const bodyOnly = px(ctx, inner + 5, yMid);
+    // rgba(255,255,255,0.10) at `cov` coverage over the body, within a level
+    // of rounding - not just "brighter", which the body's own edge would
+    // also satisfy.
+    const predicted = bodyOnly[0] + cov * 0.10 * (255 - bodyOnly[0]);
+    expect(Math.abs(withHairline[0] - predicted)).toBeLessThanOrEqual(1.5);
     // The hairline is a thin white-ish stroke blended over the dark body -
     // brighter than plain body fill at that exact 1px edge.
     expect(withHairline[0]).toBeGreaterThan(bodyOnly[0]);

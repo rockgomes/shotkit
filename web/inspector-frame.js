@@ -367,6 +367,16 @@ export function initFinishInspector() {
   const padValueEl = padRow.querySelector('.slider-value');
   section.appendChild(padRow);
 
+  // Cycle A Task 6 made frames OUTSETS: the screenshot keeps its size and the
+  // browser bar / phone bezel grow outward, into this padding. So padding is
+  // a maximum, not a promise, and the spec requires saying so here rather
+  // than letting the number look broken when a frame is on.
+  const padHint = document.createElement('p');
+  padHint.className = 'control-hint';
+  padHint.textContent =
+    'A frame grows outward from the screenshot, so it takes this padding rather than shrinking the picture. With Browser or Phone on, the gap you see can be smaller than the number.';
+  section.appendChild(padHint);
+
   // --- corner radius ---------------------------------------------------
   const radiusRow = document.createElement('div');
   radiusRow.className = 'slider-row';

@@ -5,6 +5,7 @@ import {
   PHONE_BEZEL_MIN,
   BROWSER_BAR_RATIO,
   BROWSER_RADIUS_RATIO,
+  MIN_MARGIN_RATIO,
 } from './presets.js';
 
 /**
@@ -26,106 +27,110 @@ function safeBox(c) {
   return { x: pad, y: pad, w: c.w - pad * 2, h: c.h - pad * 2 };
 }
 
-function chromeFor(c, web) {
-  // The outer frame takes exactly the box the screenshot used to occupy
-  // (computed above, untouched by frameKind) - so a framed shot is never
-  // larger or smaller than an unframed one at the same settings. The
-  // screenshot itself moves inside that same box, shorter by the bar height
-  // and inset by the frame's own bezel: `screen` is carved out of `web`,
-  // not the other way around. This must run strictly after the box above
-  // is finalised, and must take no other branch when frameKind is 'none',
-  // so the pre-frame output stays provably untouched.
-  //
-  // `screen` is genuinely the interior for every kind - the rect where the
-  // screenshot goes, after both the bar and the bezel are subtracted - and
-  // `frame` (the bezel thickness used to compute it) is always present on
-  // the returned object, even when it's 0, so render.js never has to branch
-  // on which fields exist for which kind.
+// Outset thickness the frame contributes, in units of the SCREEN's own
+// width - never of the composite's, so nothing here feeds back on itself.
+// Browser: a bar above and nothing else (the mockup's screenshot area sits
+// flush inside the frame wrapper, with no padding between the image slot
+// and its parent; the frame's own hairline is a stroke paintChrome draws,
+// not a geometry offset). Phone: a real bezel on all four sides, reusing
+// phoneBox()'s exact math so a phone frame around a web shot looks like the
+// same device as the mobile layout's phones.
+//
+// Kept as its own small function on purpose: Task 7 extends it to
+// frameInsets(c, screenW, shorterSide) and adds a `stroke` field to the
+// same accumulation, and Task 8 changes BROWSER_BAR_RATIO, both without
+// touching webBox below.
+function frameInsets(c, screenW) {
+  if (c.frameKind === 'none') return { top: 0, right: 0, bottom: 0, left: 0 };
+  if (c.frameKind === 'phone') {
+    const bezel = Math.max(PHONE_BEZEL_MIN, screenW * PHONE_BEZEL_RATIO);
+    return { top: bezel, right: bezel, bottom: bezel, left: bezel };
+  }
+  return { top: screenW * BROWSER_BAR_RATIO, right: 0, bottom: 0, left: 0 };
+}
+
+// A CONSUMER of insets that are already final, not a re-deriver of them:
+// `screen` is carried through from webBox's step 1 rather than subtracted
+// back out of the composite, which is why its ratio cannot drift from the
+// source image's. `frame` (the bezel) and `barH` are always present on the
+// returned object, even when 0, so render.js never branches on which fields
+// exist for which kind.
+function chromeFor(c, web, ins, screenW, screenH) {
   if (c.frameKind === 'none') return null;
-
-  const w = web.w;
-  const barH = c.frameKind === 'phone' ? 0 : w * BROWSER_BAR_RATIO;
-  const radius = c.frameKind === 'phone' ? w * PHONE_RADIUS_RATIO : w * BROWSER_RADIUS_RATIO;
-  // phone has a real bezel, reusing the exact same math as phoneBox()
-  // below so a phone frame around a web shot looks like the same device
-  // as the mobile layout's phones. The browser frame has none: the
-  // mockup's screenshot area sits flush inside the frame wrapper, with no
-  // padding between the image-slot and its parent (the frame's own 1px
-  // hairline border is a stroke drawn by render.js's paintWebChrome, not a
-  // geometry offset counted here).
-  const frame = c.frameKind === 'phone' ? Math.max(PHONE_BEZEL_MIN, w * PHONE_BEZEL_RATIO) : 0;
-
+  const radius = c.frameKind === 'phone'
+    ? web.w * PHONE_RADIUS_RATIO
+    : web.w * BROWSER_RADIUS_RATIO;
+  // `barH` is a TITLE BAR, not "the top inset": a phone's top inset is its
+  // bezel and is reported as `frame`, exactly as it always was, so
+  // `screen.y === web.y + barH + frame` still holds for both kinds and
+  // nothing double-counts. (The plan's sketch had `barH: ins.top`
+  // unconditionally, which would have handed the phone a 9px title bar and
+  // broken paintPhoneChrome's documented "chrome.barH is 0" contract.)
+  const frame = c.frameKind === 'phone' ? ins.left : 0;
   return {
     kind: c.frameKind,
-    barH,
+    barH: c.frameKind === 'phone' ? 0 : ins.top,
     frame,
-    screen: {
-      x: web.x + frame,
-      y: web.y + barH + frame,
-      w: web.w - frame * 2,
-      h: web.h - barH - frame * 2,
-    },
     radius,
-    innerRadius: radius - frame,
+    innerRadius: Math.max(0, radius - frame),
+    screen: {
+      x: web.x + ins.left,
+      y: web.y + ins.top,
+      w: screenW,
+      h: screenH,
+    },
   };
 }
 
-function frameRatio(frameKind, s) {
-  // The closed-form outer-frame ratio such that, once the bar (and for
-  // phone, the all-round bezel) is subtracted back out by chromeFor(), the
-  // interior `screen` comes back at exactly the source ratio `s`. A frame
-  // is sized BY its content - the way a real browser window is - not the
-  // other way round. See the fix-round-2 section of the task report for
-  // the full derivation; the short version:
-  //
-  // browser: only a top bar, spanning the full frame width, so
-  //   frameH = screenH + frameW*B  =>  frameRatio = s / (1 + s*B)
-  //
-  // phone: a bezel of thickness frameW*B on every side, so
-  //   frameW = screenW / (1 - 2B)
-  //   frameH = screenH + 2*frameW*B
-  //   frameRatio = s / (1 + 2*B*(s - 1))
-  //
-  // Both formulas assume the bezel/bar is exactly a fraction of the frame's
-  // own width - they do not account for PHONE_BEZEL_MIN's floor. That floor
-  // only matters at frame widths below ~3 / PHONE_BEZEL_RATIO (~158px),
-  // far smaller than any canvas this project ships (RATIOS/TEMPLATES in
-  // presets.js all resolve to safe boxes well above that); chromeFor()
-  // still applies the floor when it derives the real `frame` value, so a
-  // pathologically small canvas would see a tiny, bounded mismatch between
-  // this ratio and the actual bezel - not iterated away, and not expected
-  // to occur at any size shotkit actually produces.
-  if (frameKind === 'phone') {
-    const B = PHONE_BEZEL_RATIO;
-    return s / (1 + 2 * B * (s - 1));
-  }
-  const B = BROWSER_BAR_RATIO;
-  return s / (1 + s * B);
-}
-
 function webBox(c, box, ratio) {
-  // The screen ALWAYS takes the image's own ratio, so nothing is ever
-  // cropped. `fit`/'cover' were retired in Cycle A Task 4 - cropping was
-  // cover's entire effect, inherited from frame.html, and it was never what
-  // anyone reached for.
+  // Cycle A Task 6: frames are OUTSETS. Round one fitted the FRAME into the
+  // safe box and carved the screenshot out of it, so turning a frame on made
+  // the picture smaller - the thing Rock actually complained about. The
+  // closed-form frameRatio() that made that round trip land back on the
+  // source ratio is deleted, not adjusted: under this model the interior is
+  // the STARTING point, so there is nothing to invert.
   //
-  // When a frame is present, the FRAME (screenshot + bar + bezel) is what
-  // gets fitted into the box, not the bare screenshot - fitting the bare
-  // screenshot and then carving the bar/bezel back out of it (round 1's
-  // approach) leaves `screen` at a different ratio than the source image.
-  // frameRatio() is the adjusted ratio that makes the round trip exact.
-  // When frameKind is 'none' this is `ratio` unchanged, so that path is
-  // provably untouched.
-  const fitRatio = c.frameKind !== 'none' ? frameRatio(c.frameKind, ratio) : ratio;
+  // 1. The screenshot's own box: the SOURCE ratio, fitted to the safe area,
+  //    exactly as frameKind 'none' has always computed it. This is the size
+  //    the screenshot keeps - nothing below changes it unless step 3 has to.
+  //    The screen always takes the image's own ratio, so nothing is ever
+  //    cropped ('fit'/'cover' were retired in Task 4).
+  let sw, sh;
+  if (ratio > box.w / box.h) { sw = box.w; sh = box.w / ratio; }
+  else                       { sh = box.h; sw = box.h * ratio; }
 
-  let w, h;
-  if (fitRatio > box.w / box.h) { w = box.w; h = box.w / fitRatio; }
-  else                          { h = box.h; w = box.h * fitRatio; }
+  // 2. Grow outward. What gives way is the PADDING, not the picture - see
+  //    the spec's "frames and strokes are outsets". For frameKind 'none'
+  //    every inset is 0, so that path is provably the unchanged original.
+  const ins = frameInsets(c, sw);
+  let ow = sw + ins.left + ins.right;
+  let oh = sh + ins.top + ins.bottom;
 
-  const x = box.x + (box.w - w) / 2;
-  const y = box.y + (box.h - h) / 2;
-  const web = { x, y, w, h, radius: c.radius };
-  web.chrome = chromeFor(c, web);
+  // 3. The floor, and the only thing that can still shrink the screenshot:
+  //    the composite may not cross MIN_MARGIN_RATIO of the shorter canvas
+  //    side. Past it the WHOLE composite scales down uniformly, screenshot
+  //    included, so the picture is scaled and never squashed.
+  const m = MIN_MARGIN_RATIO * Math.min(c.w, c.h);
+  const shrink = Math.min(1, (c.w - m * 2) / ow, (c.h - m * 2) / oh);
+  ow *= shrink; oh *= shrink; sw *= shrink; sh *= shrink;
+  const s = {
+    top: ins.top * shrink, right: ins.right * shrink,
+    bottom: ins.bottom * shrink, left: ins.left * shrink,
+  };
+
+  // 4. Centre the composite. The safe box is itself always centred on the
+  //    canvas (both branches of safeBox() are symmetric), so centring in it
+  //    and centring on the canvas are the same placement - a composite wider
+  //    than the safe box simply gets a negative offset and still sits
+  //    centred. It is written against the box, not the canvas, so the
+  //    frameKind 'none' path evaluates the bit-identical expression it
+  //    always did and the frozen pre-frame baseline stays exact to the last
+  //    ULP (test/layout.test.js's PRE_FRAME_BASELINE compares with toEqual).
+  const x = box.x + (box.w - ow) / 2;
+  const y = box.y + (box.h - oh) / 2;
+
+  const web = { x, y, w: ow, h: oh, radius: c.radius };
+  web.chrome = chromeFor(c, web, s, sw, sh);
   return web;
 }
 

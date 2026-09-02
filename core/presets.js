@@ -164,3 +164,13 @@ export const BG_TYPES = ['linear', 'solid', 'mesh'];
 // Valid `chromeTheme` values for a 'browser' frameKind. Anything else falls
 // back to 'dark'.
 export const CHROME_THEMES = ['dark', 'light'];
+
+// The composite (screenshot + chrome, and from Task 7 the stroke too) grows
+// OUTWARD from the screenshot and is allowed to consume the safe area's
+// padding — that is what makes turning on a frame leave the screenshot's own
+// size alone (see the spec's "frames and strokes are outsets"). This is the
+// floor it may not cross: a fraction of the shorter canvas side, kept as
+// breathing room at the canvas edge. It is a floor, not the normal path —
+// only a composite that would otherwise cross it is scaled down, and then
+// uniformly, screenshot included.
+export const MIN_MARGIN_RATIO = 0.02;

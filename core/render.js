@@ -928,7 +928,8 @@ export function paintChrome(ctx, c, box, theme) {
  * The chrome-framed web screen: outer frame body + shadow, the bar/dots/
  * pill via paintChrome, then the screenshot drawn straight into
  * chrome.screen. `screen` already carries the source image's exact aspect
- * ratio - that is layout.js's job (see chromeFor()/frameRatio() there) - so
+ * ratio - that is layout.js's job (see webBox()/chromeFor() there: the
+ * screenshot's box is computed FIRST and the frame grows outward from it) - so
  * this never fits, covers, or letterboxes: a plain drawImage at chrome.screen
  * is correct and is the entire job here.
  *
@@ -1029,7 +1030,8 @@ function paintDeviceHairline(ctx, box) {
  *
  * Unlike paintPhone's mobile screenshots (always `cover`-fit, because a
  * phone box's own ratio need not match its screenshot's), chrome.screen here
- * is sized FROM the source image's own ratio by layout.js's frameRatio(), so
+ * is sized FROM the source image's own ratio by layout.js's webBox() - which
+ * starts from the screenshot and grows the bezel outward - so
  * the interior gets a plain drawImage - no fit/cover/contain maths belongs
  * here, exactly as paintWebChrome's own doc comment says for the browser
  * frame.
@@ -1065,8 +1067,8 @@ function paintPhoneChrome(ctx, c, box, image, makeCanvas) {
   // halo inside the bezel, which is the reported bug in a new colour.
   //
   // Unlike paintPhone's mobile screenshots (always 'cover'), chrome.screen
-  // carries the source image's own ratio - layout.js's frameRatio() sizes
-  // the frame FROM the picture - so 'contain' is a no-op fit here.
+  // carries the source image's own ratio - layout.js's webBox() sizes the
+  // frame FROM the picture, outward - so 'contain' is a no-op fit here.
   const screen = { ...chrome.screen, radius: chrome.innerRadius };
   placeShot(ctx, makeCanvas, chrome.screen, screen,
     (t, at) => drawFitted(t, at(chrome.screen), image, 'contain'));

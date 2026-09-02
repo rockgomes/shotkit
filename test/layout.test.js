@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { normalise } from '../core/config.js';
 import { layout } from '../core/layout.js';
+import { MIN_MARGIN_RATIO } from '../core/presets.js';
 
 const cfg = (o = {}) => normalise({ layout: 'web', ...o });
 
@@ -295,11 +296,20 @@ describe('frame: browser', () => {
     expect(ratioSmall).toBeCloseTo(ratioBig, 6);
   });
 
-  it('keeps the outer frame inside the safe box', () => {
+  // Was "keeps the outer frame inside the safe box". Cycle A Task 6 replaced
+  // that invariant deliberately: the composite is now allowed to eat the
+  // padding (that is the whole point - see "frames grow outward" below), and
+  // the only box it may not cross is the canvas less MIN_MARGIN_RATIO. The
+  // guard is kept, retargeted at the invariant that actually holds now, so
+  // the frame still cannot run off the canvas.
+  it('keeps the composite inside the canvas less the minimum margin', () => {
     const c = normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser' });
-    const { safe, web } = layout(c, { web: 1.6, mobile: [] });
-    expect(web.x).toBeGreaterThanOrEqual(safe.x - 1e-6);
-    expect(web.y + web.h).toBeLessThanOrEqual(safe.y + safe.h + 1e-6);
+    const { web } = layout(c, { web: 1.6, mobile: [] });
+    const m = MIN_MARGIN_RATIO * Math.min(c.w, c.h);
+    expect(web.x).toBeGreaterThanOrEqual(m - 1e-6);
+    expect(web.y).toBeGreaterThanOrEqual(m - 1e-6);
+    expect(web.x + web.w).toBeLessThanOrEqual(c.w - m + 1e-6);
+    expect(web.y + web.h).toBeLessThanOrEqual(c.h - m + 1e-6);
   });
 });
 
@@ -387,26 +397,130 @@ describe('frame: screen always matches the source ratio', () => {
   }
 });
 
-describe('frame: accepted consequence — the visible screenshot is smaller than an unframed one, at the same settings', () => {
-  // Sizing the frame FROM the content (so `screen` keeps the source ratio)
-  // means the bar/bezel eats into space that used to be all screenshot.
-  // The OUTER frame can still be as large as the safe box allows (it may
-  // even fill it in one dimension) - it's the INTERIOR `screen`, the part
-  // that actually shows the UI, that shrinks. Pinned here so nobody "fixes"
-  // this later thinking it's regression: it's the direct, intended result
-  // of sizing the frame by its content instead of the other way round.
-  const CASES = [
-    ['browser', 1.6],
-    ['phone', 0.462],
-  ];
+// --- Cycle A Task 6 reverses round 2's "accepted consequence" -----------
+//
+// This block used to assert the opposite: that `chrome.screen` had LESS area
+// than the equivalent unframed box, because the frame was fitted into the
+// safe box and the bar/bezel was carved out of the screenshot. Rock's
+// verdict on seeing it was "it resizes the image inside for some reason",
+// and Task 6 made frames outsets instead. The assertion is inverted rather
+// than deleted, so nothing can quietly reintroduce the carve-out: with the
+// frame growing outward, the phone's interior is EXACTLY the unframed box.
+describe('frame: the screenshot is no longer shrunk by its own frame', () => {
+  it('phone: chrome.screen is exactly the unframed web box', () => {
+    const src = 1.6;
+    const unframed = layout(normalise({ layout: 'web', ratio: '3:2' }), { web: src, mobile: [] }).web;
+    const framed = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'phone' }), { web: src, mobile: [] }).web;
+    expect(framed.chrome.screen.w).toBe(unframed.w);
+    expect(framed.chrome.screen.h).toBe(unframed.h);
+  });
+});
 
-  for (const [frameKind, sourceRatio] of CASES) {
-    it(`${frameKind}: chrome.screen has less area than the equivalent unframed web box`, () => {
-      const unframed = layout(normalise({ layout: 'web', ratio: '3:2' }), { web: sourceRatio, mobile: [] }).web;
-      const framed = layout(normalise({ layout: 'web', ratio: '3:2', frameKind }), { web: sourceRatio, mobile: [] }).web;
-      const unframedArea = unframed.w * unframed.h;
-      const screenArea = framed.chrome.screen.w * framed.chrome.screen.h;
-      expect(screenArea).toBeLessThan(unframedArea);
-    });
-  }
+// --- Cycle A Task 6: frames are OUTSETS ---------------------------------
+//
+// Round one fitted the FRAME into the safe box and carved the screenshot out
+// of it, so turning a frame on shrank the picture. Rock's call: the
+// screenshot keeps its size and the frame grows outward, eating the padding.
+// `screen` is now the STARTING point (fitted to the safe box at the source
+// ratio) and the composite is screen + insets, fitted only to the canvas
+// less MIN_MARGIN_RATIO. That floor is the only thing that can still shrink
+// the picture, and then it shrinks the whole composite uniformly.
+//
+// Two source ratios below, both real screen sizes and both deliberate:
+//
+//   SRC (2880x1720 = 1.67442) — samples/fieldset.png's own ratio, i.e. the
+//     exact source every framed golden is rendered from. At 3:2 / default
+//     padding the composite clears the floor for every frame kind, so the
+//     screenshot is EXACTLY unchanged. This is the acceptance case, and the
+//     numbers here are the numbers in the goldens and in the preview.
+//     Deliberately NOT 16:9 (1.7778): at that ratio the OLD model happened
+//     to leave the screenshot unshrunk too (the old frame fit was
+//     width-constrained there, and frameRatio's round trip is exact), so it
+//     could not tell the two models apart. 1.67442 is inside the band where
+//     the old model shrank the picture by 4.5% and the new one does not.
+//   FLOORED_SRC (16:10, 1.6) — the same canvas, but the browser bar
+//     (BROWSER_BAR_RATIO ~ 7.5% of the screen width, the "comically big" bar
+//     Task 8 rebuilds) pushes the composite past the floor, so the whole
+//     thing scales down ~1.8%. Pinned so the floor's behaviour is asserted
+//     rather than assumed, and so Task 8's smaller bar shows up here.
+const SRC = 2880 / 1720;
+const FLOORED_SRC = 1440 / 900;
+const FRAME_KINDS_ALL = ['none', 'browser', 'phone'];
+
+describe('frames grow outward', () => {
+  it('the interior keeps the source ratio exactly (regression guard, green before Task 6)', () => {
+    for (const frameKind of FRAME_KINDS_ALL) {
+      for (const src of [SRC, FLOORED_SRC, 0.462]) {
+        const c = normalise({ layout: 'web', ratio: '3:2', frameKind });
+        const lay = layout(c, { web: src, mobile: [] });
+        const screen = lay.web.chrome ? lay.web.chrome.screen : lay.web;
+        expect(screen.w / screen.h, `${frameKind} @ ${src}`).toBeCloseTo(src, 12);
+      }
+    }
+  });
+
+  it('turning on a frame does not shrink the screenshot — none, browser and phone are identical', () => {
+    const bare = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'none' }),
+                        { web: SRC, mobile: [] }).web;
+    for (const frameKind of ['browser', 'phone']) {
+      const framed = layout(normalise({ layout: 'web', ratio: '3:2', frameKind }),
+                            { web: SRC, mobile: [] }).web;
+      // Exact, not approximate: `screen` is the same computation in both
+      // paths, multiplied by a shrink factor of exactly 1 when the floor
+      // does not bind, so the doubles are bit-identical. This is the
+      // acceptance criterion for the whole task.
+      expect(framed.chrome.screen.w, `${frameKind} width`).toBe(bare.w);
+      expect(framed.chrome.screen.h, `${frameKind} height`).toBe(bare.h);
+    }
+  });
+
+  it('the composite is allowed past the safe box — the padding is what gives way', () => {
+    const safe = layout(normalise({ layout: 'web', ratio: '3:2' }), { web: SRC, mobile: [] }).safe;
+    // Phone: a bezel on all four sides, so the composite is wider than the
+    // safe box the bare screenshot exactly filled.
+    const phone = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'phone' }),
+                         { web: SRC, mobile: [] }).web;
+    expect(phone.w).toBeGreaterThan(safe.w);
+    expect(phone.x).toBeLessThan(safe.x);
+    // Browser: a bar above, so the composite is taller than the safe box.
+    const browser = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser' }),
+                           { web: FLOORED_SRC, mobile: [] }).web;
+    expect(browser.h).toBeGreaterThan(safe.h);
+    expect(browser.y).toBeLessThan(safe.y);
+  });
+
+  it('the composite grows outward from the screenshot, not into it', () => {
+    const lay = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser' }),
+                       { web: SRC, mobile: [] });
+    expect(lay.web.h).toBeGreaterThan(lay.web.chrome.screen.h);
+    expect(lay.web.y).toBeLessThan(lay.web.chrome.screen.y);
+  });
+
+  it('scales the whole composite uniformly when the floor does bind', () => {
+    const bare = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'none' }),
+                        { web: FLOORED_SRC, mobile: [] }).web;
+    const framed = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser' }),
+                          { web: FLOORED_SRC, mobile: [] }).web;
+    const screen = framed.chrome.screen;
+    // Uniform: width and height lose the same factor, so the picture is
+    // scaled, never squashed.
+    expect(screen.w / bare.w).toBeCloseTo(screen.h / bare.h, 12);
+    // And the loss is small — a floor, not the old carve-out. Round one's
+    // model lost 8.3% of the screen width here; this must stay under 5%.
+    expect(screen.w / bare.w).toBeGreaterThan(0.95);
+    expect(screen.w / bare.w).toBeLessThan(1);
+  });
+
+  it('never exceeds the canvas less the minimum margin', () => {
+    // A deliberately extreme case: a phone frame on a very tall source with
+    // almost no padding, where the composite would otherwise run off the
+    // canvas.
+    const c = normalise({ layout: 'web', ratio: '1:1', frameKind: 'phone', pad: 0.005 });
+    const lay = layout(c, { web: 0.3, mobile: [] });
+    const m = MIN_MARGIN_RATIO * Math.min(c.w, c.h);
+    expect(lay.web.x).toBeGreaterThanOrEqual(m - 1e-9);
+    expect(lay.web.y).toBeGreaterThanOrEqual(m - 1e-9);
+    expect(lay.web.x + lay.web.w).toBeLessThanOrEqual(c.w - m + 1e-9);
+    expect(lay.web.y + lay.web.h).toBeLessThanOrEqual(c.h - m + 1e-9);
+  });
 });
