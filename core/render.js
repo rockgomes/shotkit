@@ -20,6 +20,38 @@ import {
 
 export const SHADOW_RGB = '12,14,20';
 
+/**
+ * How far paintShadow's opaque source rect is pulled inside the box it
+ * shadows, in device pixels.
+ *
+ * A rasterisation constant, not a design dimension - the same category as
+ * `lineWidth = 1`, and documented alongside it in the plan's Global
+ * Constraints for the same reason: it exists to hide antialiased coverage,
+ * which is a fixed number of pixels wide at every canvas size. Scaling it
+ * with the canvas would make it too small to work on a small export and
+ * needlessly fat on a large one.
+ *
+ * Why 2 and not 1. Both were measured, by rendering every call site at
+ * `shadowScale: 0` and diffing against a build whose paintShadow was gutted
+ * entirely - any surviving difference is opaque fill showing through, and
+ * nothing else. Per-call-site differing pixels / worst channel:
+ *
+ *   inset 0 (the bug)  none 5316/110  browser-dark 5300/119
+ *                      browser-light 5296/76  phone-frame 2742/125
+ *                      mobile 3179/119
+ *   inset 1            none 0/0  browser-dark 18/3  browser-light 8/1
+ *                      phone-frame 193/4  mobile 68/7
+ *   inset 2            all five: 0 / 0
+ *
+ * 1 fixes the flat edges but leaves a residue in the corners, where the
+ * body's curvature and the source rect's do not coincide pixel-for-pixel.
+ * 2 is the smallest inset that takes the opaque fill's contribution to
+ * exactly zero everywhere, and it costs nothing to go there: the shadow's
+ * own worst-case error against inset 1 is identical (max 5-6 levels, mean
+ * ~1.2 over the pixels that move at all).
+ */
+const SHADOW_SOURCE_INSET = 2;
+
 function hexToRgb(hex) {
   const h = hex.replace('#', '');
   return [
@@ -317,6 +349,35 @@ export function roundRect(ctx, x, y, w, h, r) {
  * a caller passes.
  */
 export function paintShadow(ctx, box, spreadY, blur, a1, a2, scale = 1) {
+  // The opaque source rect is INSET by SHADOW_SOURCE_INSET, so it stops
+  // short of the visible edge on every side. Without that inset it shared
+  // its geometry exactly with the body painted over it - and since both are
+  // antialiased on the same rounded path, the boundary pixel got the body
+  // at coverage `k` over black at coverage `k`, leaving black showing
+  // through at `k(1-k)`. That measured 166,166,167 on an unframed white
+  // screen: darker than the ground AND darker than the screenshot. It
+  // survived at shadowScale 0, with the shadow fully off, which is exactly
+  // how it outlived Task 1's deletion of the real hairline and kept
+  // reading as an unrequested border. Inset, the fill lands wholly beneath
+  // the body and cannot show at any coverage.
+  //
+  // This moves only where the OPAQUE fill lands. The alphas are untouched
+  // (see the note above), and so is the shadow: pulling the caster in by
+  // two pixels under a blur of ~110px is not visible. Sampled 10, 20 and
+  // 40px below and beside the box, every channel is byte-identical before
+  // and after at all four call sites; across the whole shadow field the
+  // blur's contribution moves on ~8% of pixels, by a mean of 1.2 levels and
+  // never more than 6.
+  const inset = Math.min(SHADOW_SOURCE_INSET, box.w / 2, box.h / 2);
+  const sx = box.x + inset;
+  const sy = box.y + inset;
+  const sw = box.w - inset * 2;
+  const sh = box.h - inset * 2;
+  // Shrink the radius by the same amount so the source rect stays
+  // concentric with the box: an unshrunk radius would bulge back out
+  // through the corners, which is the one place the inset must still hold.
+  const sr = box.radius - inset;
+
   for (const [dy, b, baseAlpha] of [[spreadY, blur, a1], [spreadY * 0.28, blur * 0.3, a2]]) {
     const a = Math.min(1, Math.max(0, baseAlpha * scale));
     ctx.save();
@@ -324,7 +385,7 @@ export function paintShadow(ctx, box, spreadY, blur, a1, a2, scale = 1) {
     ctx.shadowBlur = b;
     ctx.shadowOffsetY = dy;
     ctx.fillStyle = '#000';
-    roundRect(ctx, box.x, box.y, box.w, box.h, box.radius);
+    roundRect(ctx, sx, sy, sw, sh, sr);
     ctx.fill();
     ctx.restore();
   }

@@ -20,7 +20,7 @@ Copied from the spec. Every task's requirements implicitly include these.
 - `core/` has **zero runtime dependencies**. It may import only its own relative files.
 - `web/tokens.css` is the **only** file in `web/` allowed to contain a raw hex colour.
 - `[hidden] { display: none !important; }` stays a **single global rule**. Do not add per-element `hidden` handling.
-- Geometry in `core/` is **proportional to the canvas**, never fixed pixels, except these documented minimums: `lineWidth = 1`, the 240px grain tile, and `PHONE_BEZEL_MIN = 3`.
+- Geometry in `core/` is **proportional to the canvas**, never fixed pixels, except these documented minimums: `lineWidth = 1`, the 240px grain tile, `PHONE_BEZEL_MIN = 3`, and `SHADOW_SOURCE_INSET = 2` (added in Task 1's follow-up; like `lineWidth = 1` it exists to cover antialiased coverage, which is a fixed pixel count at every canvas size — see its comment in `core/render.js` for the measurements that set it).
 - **Do not retune `paintShadow`'s alphas.** `0.17 / 0.07` for web and browser, `0.22 / 0.10` for phones. These were broken once by tuning against `@napi-rs/canvas` while the browser — the actual product — would have shipped a shadow ~65 RGB levels too dark, with every Node test green. `frame.html` is deleted, so they cannot be re-derived.
 - Run `npx vitest run` before and after every task. Commit only green.
 - After each task, push the branch. Do not merge to `main` mid-cycle.
@@ -158,6 +158,22 @@ the rest. The correct invariant is: the **five** cases that set `frameKind`
 plus the phone-only `mobile` must stay byte-identical — six unchanged, five
 changed, eleven in total. If one of those moves,
 **stop and report** — the deletion reached the framed path.
+
+> **Follow-up (after Rock opened the preview): the border was still there.**
+> The hairline was only one of two sources. `paintShadow` filled an **opaque
+> black rounded rect** on `box`'s exact geometry to make canvas cast a blur;
+> the body painted over it is antialiased on that same path, so at the
+> boundary pixel the black showed through at `k(1-k)` — measured 166,166,167
+> on a white screen over a 239,234,247 ground, and it survived at
+> `shadowScale: 0`, with the shadow entirely off. That is why deleting the
+> hairline did not remove it, and why the Step 1 test stayed green: that test
+> samples the first **fully interior** pixel, where the body's coverage is 1.
+>
+> Fixed by insetting the shadow's opaque source rect (and its radius) by
+> `SHADOW_SOURCE_INSET = 2`, so the fill lands wholly beneath the body. The
+> alphas are untouched. Because `paintShadow` serves all four call sites,
+> **all eleven goldens change** — the six-unchanged invariant above applies
+> only to the original hairline deletion, not to this follow-up.
 
 - [ ] **Step 6: Commit**
 
