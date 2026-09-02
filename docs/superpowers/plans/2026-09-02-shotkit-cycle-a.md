@@ -20,7 +20,7 @@ Copied from the spec. Every task's requirements implicitly include these.
 - `core/` has **zero runtime dependencies**. It may import only its own relative files.
 - `web/tokens.css` is the **only** file in `web/` allowed to contain a raw hex colour.
 - `[hidden] { display: none !important; }` stays a **single global rule**. Do not add per-element `hidden` handling.
-- Geometry in `core/` is **proportional to the canvas**, never fixed pixels, except these documented minimums: `lineWidth = 1`, the 240px grain tile, `PHONE_BEZEL_MIN = 3`, and `SHADOW_SOURCE_INSET = 2` (added in Task 1's follow-up; like `lineWidth = 1` it exists to cover antialiased coverage, which is a fixed pixel count at every canvas size — see its comment in `core/render.js` for the measurements that set it).
+- Geometry in `core/` is **proportional to the canvas**, never fixed pixels, except these documented minimums: `lineWidth = 1`, the 240px grain tile, `PHONE_BEZEL_MIN = 3`, `SHADOW_SOURCE_INSET = 2` (added in Task 1's follow-up; like `lineWidth = 1` it exists to cover antialiased coverage, which is a fixed pixel count at every canvas size — see its comment in `core/render.js` for the measurements that set it), and `SNAP_TO_PIXELS` (Task 4c — the screenshot's destination rectangle is rounded outward onto the device pixel grid; same category, same reason, measurements in its own comment).
 - **Do not retune `paintShadow`'s alphas.** `0.17 / 0.07` for web and browser, `0.22 / 0.10` for phones. These were broken once by tuning against `@napi-rs/canvas` while the browser — the actual product — would have shipped a shadow ~65 RGB levels too dark, with every Node test green. `frame.html` is deleted, so they cannot be re-derived.
 - Run `npx vitest run` before and after every task. Commit only green.
 - After each task, push the branch. Do not merge to `main` mid-cycle.
@@ -741,6 +741,126 @@ recorded number were updated together, with that reasoning in the test.
 (new), `test/render-clip-safety.test.js` (new), `test/compose.test.js`, the ten
 render goldens, `docs/verification-2026-09-01.md`,
 `docs/2026-09-02-task-4b-clip-leak.png` (new).
+
+
+---
+
+### Task 4c: the white screen fill, and the halo it was only half of
+
+Written after Task 4b shipped and Rock sent corner zooms: a light line on
+**all four edges**, following the rounded corner, on an **opaque** dark
+screenshot. The third report of the same symptom. Task 1 removed an
+unconditional hairline and Task 4b fixed a real Chromium clip leak; both were
+genuine, neither was this.
+
+Measured, `frame: none`, flat `#1e1e1e` source on a ~179 ground:
+
+```
+inside: 30   boundary pixel: 159   ground: 179     an honest blend is ~104
+```
+
+**Two causes, and the smaller one is the one that had a name.** The white
+fill — `paintWeb` filling the box with `--screen-bg` before drawing the
+picture — was worth about **7 of those 55 levels**. Deleting it and putting
+the ground behind instead moved the boundary from 168 to 162 and left the
+line exactly where it was. The other 49 levels are this:
+
+> **A clip mask is antialiased, and so are the edges of the rectangle
+> `drawImage` is asked to fill. When they coincide, the two coverages
+> MULTIPLY.** A boundary pixel the geometry puts 60% inside the box got the
+> screenshot at 0.6 x 0.6 = 0.36 and kept the backing colour for the other
+> 0.64. Every shot has had a one-pixel ring of whatever was behind it,
+> worst at the corners where coverage is most partial. `@napi-rs/canvas` is
+> additionally inconsistent about which edges it antialiases at all: a dest
+> rect at `y = 60.5` painted **nothing** into row 60, and one ending at
+> `x = 150.4` nothing into column 150, while the opposite two edges blended
+> correctly. That is why the top edge measured 249 against a ground of 243 —
+> pure fill, no screenshot in that row whatsoever.
+
+Both halves had to go, because each is enough on its own. The fix is not to
+model the rasteriser but to stop asking it the question: the screenshot's
+destination rect is **snapped outward onto the device pixel grid**
+(`SNAP_TO_PIXELS`, `drawFitted`), so it has no partial coverage of its own
+and the clip is the only mask on the boundary pixel — in any engine, with no
+engine detection. Before and after, per edge, against an ideal computed from
+the rasteriser's own coverage and a transparent-source render of the same
+scene:
+
+| | left | right | top | bottom | corner (mean) |
+|---|---|---|---|---|---|
+| `frame: none` before | +51.6 | +50.0 | +109.9 | +52.9 | +23.4 |
+| `frame: none` after | +0.2 | +0.4 | −0.0 | −0.5 | +0.37, worst 1.2 |
+| `phone` screen before | +30.1 | +30.7 | +21.2 | +21.2 | worst pixel 31.7 |
+| `phone` screen after | +1.0 | −0.0 | −1.9 | −1.9 | +0.40, worst 1.3 |
+
+**Black did not replace white.** `paintShadow` casts from an opaque black
+rounded rect, so simply deleting the fill exposes *that* through the same
+partial coverage, and through any transparent pixel in the source. Which
+backing is correct turned out to be per painter, and getting it wrong is the
+same bug in a new colour:
+
+- **`paintWeb` and `paintWebChrome` are backed by the ground**, re-painted
+  over the shadow's caster inside the shot's own path. `paintGround` gained
+  an optional `area`; `paintWeb`/`paintWebChrome` gained a `stops` argument
+  (`composeWithMeta` passes `meta.ground`). The browser frame's `fBodyBg`
+  went with the white — it was white in the light theme and `#101114` in the
+  dark one, and since the bar covers its whole strip and the screenshot
+  covers everything below, the *only* thing it ever did was leak at the edge.
+- **`paintPhoneChrome` and `paintPhone` are backed by the device**, and
+  deliberately not by the ground. `paintDeviceBody` has already filled the
+  bezel across the screen area. Backing the screen with the ground instead
+  was measured: **+52 levels** of light halo inside the bezel.
+
+Three things worth carrying forward.
+
+- **The area-restricted ground fills a path; it does not clip.** A `clip()`
+  plus a covering `fillRect` is exactly Task 4b's Chromium overshoot, and
+  `paintGround`'s own fills cover the canvas. `fillArea` fills the rounded
+  path instead. The elliptical corner radials still work because **a path is
+  transformed as it is traced and a gradient when it is painted** — trace the
+  area under the identity CTM, then scale, then fill.
+- **The bar is painted after the screenshot now.** Their edges are the same
+  line; painting the bar last puts an exact `fillRect` edge on that boundary
+  instead of `drawImage`'s unreliable one.
+- **The goldens did NOT change only at the edges, and that is expected.**
+  Snapping redraws the picture on a rect up to one pixel larger per axis, so
+  a detailed screenshot is resampled at up to 0.05% off its previous scale —
+  7-12% of pixels moved, mean 21 levels, entirely at glyph boundaries. The
+  edge fix itself was isolated by re-rendering every case with a **flat**
+  source, where resampling cannot change anything: 0.21-0.31% of the canvas,
+  and 5,292 of those 5,414 pixels sit at distance 0 from a shot edge. A
+  uniform 1px bleed was tried first and costs four times the resampling for
+  the same result.
+
+**Tests.** `test/render-edge-blend.test.js` (new) asserts the boundary pixel
+against `k * shot + (1 - k) * backdrop` on all four edges and around a corner
+for all three frame kinds, with **both terms measured rather than assumed**:
+`k` from a render of the same path filled (skia's analytic AA reads 0.502
+where the geometry says 0.600, and a test that trusted the ruler would report
+a defect that is not there), `backdrop` from re-rendering the identical scene
+with a fully transparent source. The browser frame is measured by coverage
+instead — its own 1px hairline is painted over the edge pixel and breaks the
+blend identity — using two flat sources so everything that is not the
+screenshot cancels. A `windowCaptureSource` case (transparent rounded
+corners, alpha shadow) asserts the margin reads as ground, neither near-white
+nor near-black. **All 18 were run against the pre-fix core and all 18 went
+red**, reporting the leaked values above; six tests in this cycle had turned
+out incapable of failing, and one draft of the transparency case here made
+seven — it sampled 6px inside the corner, which falls *outside* the r=24 arc,
+and passed against the very white fill it was written to catch.
+
+`test/render-clip-safety.test.js`'s per-painter list changed shape: the
+phone painters no longer fill a backing at all, and the two web painters
+reach theirs through `paintGround(ctx, c, stops, area)`. It also gained
+Task 4c's structural half — nothing draws an image except `drawFitted`, and
+every call asks for `SNAP_TO_PIXELS`. `test/export-scale-fidelity.test.js`
+was leaning on the white fill to find the corner arc and now asserts the
+fixture premise it actually depends on.
+
+**Files:** `core/render.js`, `core/index.js`,
+`test/render-edge-blend.test.js` (new), `test/render-clip-safety.test.js`,
+`test/export-scale-fidelity.test.js`, `test/render-screen.test.js`,
+`test/render-frames.test.js`, all ten render goldens.
 
 
 ---

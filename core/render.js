@@ -52,6 +52,45 @@ export const SHADOW_RGB = '12,14,20';
  */
 const SHADOW_SOURCE_INSET = 2;
 
+/**
+ * Whether a screenshot's destination rectangle is snapped outward onto the
+ * device pixel grid before it is drawn. Task 4c. Always true at every call
+ * site; the parameter exists so `drawFitted` can still reproduce its old
+ * output byte-for-byte when it is not passed.
+ *
+ * A device-pixel operation, in the same category as `lineWidth = 1` and
+ * SHADOW_SOURCE_INSET above, and listed beside them in the plan's Global
+ * Constraints for the same reason: what it compensates for is one pixel
+ * wide at every canvas size.
+ *
+ * Why it exists. A clip mask is antialiased, and so are the edges of the
+ * rectangle `drawImage` is asked to fill. When the two coincide, their
+ * coverages MULTIPLY: a boundary pixel the geometry says is 60% inside the
+ * box got the screenshot at 0.6 x 0.6 = 0.36, and the other 0.64 kept
+ * whatever was painted behind it. That is a one-pixel halo of the backing
+ * colour around the whole shot, worst at the corners, and it is what Rock
+ * reported three times. Measured on a flat #1e1e1e source, box.x = 62.4,
+ * ground 234, against a rasterised coverage of 0.600:
+ *
+ *   drawImage at the exact box    boundary 168   (image coverage 0.36)
+ *   drawImage snapped outward     boundary 113   (image coverage 0.60)
+ *   ideal 0.6*30 + 0.4*237        = 112.8
+ *
+ * @napi-rs/canvas is additionally inconsistent about WHICH edges it
+ * antialiases at all - a dest rect at y = 60.5 painted nothing into row 60,
+ * and one ending at x = 150.4 nothing into column 150, while the opposite
+ * two edges blended correctly. Snapping sidesteps the whole question rather
+ * than modelling it: a rect on whole pixels has no partial coverage of its
+ * own, so the CLIP is the only mask on the boundary pixel, in any engine.
+ *
+ * What it costs. The drawn rect grows by less than one pixel per axis, so
+ * the picture is resampled at up to 0.05% off its previous scale and no
+ * point in it moves by as much as a pixel. That is why every golden moved
+ * across the whole screenshot, not just at its edges: same picture, redrawn
+ * on the grid. A flat source is byte-identical inside the box.
+ */
+const SNAP_TO_PIXELS = true;
+
 function hexToRgb(hex) {
   const h = hex.replace('#', '');
   return [
@@ -74,10 +113,19 @@ function rgba(hex, a) {
  * (translate to the centre, scale Y by ry/rx) and let a circular gradient of
  * radius rx come out elliptical once the scale is undone by `restore`.
  */
-function radial(ctx, c, hex, cxPct, cyPct, rxPct, ryPct, stopPct) {
+function radial(ctx, c, hex, cxPct, cyPct, rxPct, ryPct, stopPct, area) {
   const cx = c.w * cxPct, cy = c.h * cyPct;
   const rx = c.w * rxPct, ry = c.h * ryPct;
   ctx.save();
+  // THE PATH IS TRACED BEFORE THE TRANSFORM, DELIBERATELY. Path coordinates
+  // are transformed by the CTM as each segment is added, so tracing `area`
+  // here keeps it in canvas space; a gradient, by contrast, is transformed
+  // by the CTM in effect when it is PAINTED. That is the whole trick that
+  // lets an area-restricted ground reuse this elliptical gradient unchanged:
+  // canvas-space path, scaled-space gradient, one fill. Verified against the
+  // unrestricted path below - every pixel inside `area` is byte-identical
+  // with and without it (test/render-ground.test.js).
+  if (area) roundRect(ctx, area.x, area.y, area.w, area.h, area.radius);
   ctx.translate(cx, cy);
   ctx.scale(1, ry / rx);
   const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
@@ -86,8 +134,29 @@ function radial(ctx, c, hex, cxPct, cyPct, rxPct, ryPct, stopPct) {
   g.addColorStop(1, rgba(hex, 0));
   ctx.fillStyle = g;
   // generous rect: the scaled space is taller/shorter than the canvas
-  ctx.fillRect(-c.w * 2, -c.h * 2, c.w * 4, c.h * 4);
+  if (area) ctx.fill();
+  else ctx.fillRect(-c.w * 2, -c.h * 2, c.w * 4, c.h * 4);
   ctx.restore();
+}
+
+/**
+ * Fill the whole canvas, or just `area` (a rounded rect: {x,y,w,h,radius}),
+ * with whatever fillStyle is already set. The ground painters below run
+ * through this so a single one of them can serve both jobs: painting the
+ * backdrop, and painting the backdrop BACK over paintShadow's opaque caster
+ * inside a shot's own box (Task 4c).
+ *
+ * The area form fills the PATH and never clips. A `ctx.clip()` plus a
+ * covering `fillRect` would be the obvious way to write it and is the exact
+ * shape Task 4b removed: in Chromium a fill that covers its clip rasterises
+ * against the clip's rounded-out device bounds and overshoots ~4px on the
+ * right and bottom. See fillRoundRect's doc comment below, and
+ * test/render-clip-safety.test.js.
+ */
+function fillArea(ctx, c, area) {
+  if (!area) { ctx.fillRect(0, 0, c.w, c.h); return; }
+  roundRect(ctx, area.x, area.y, area.w, area.h, area.radius);
+  ctx.fill();
 }
 
 /**
@@ -106,9 +175,9 @@ function radial(ctx, c, hex, cxPct, cyPct, rxPct, ryPct, stopPct) {
  * `c.bgType` picks the background: 'linear' (default), 'solid', or 'mesh'.
  * Callers keep calling this one function - the split is invisible downstream.
  */
-export function paintGround(ctx, c, stops) {
-  if (c.bgType === 'solid') return paintSolid(ctx, c, stops);
-  if (c.bgType === 'mesh')  return paintMesh(ctx, c, stops);
+export function paintGround(ctx, c, stops, area = null) {
+  if (c.bgType === 'solid') return paintSolid(ctx, c, stops, area);
+  if (c.bgType === 'mesh')  return paintMesh(ctx, c, stops, area);
 
   const [g1, g2, g3] = stops;
 
@@ -122,12 +191,12 @@ export function paintGround(ctx, c, stops) {
   lin.addColorStop(0.52, g2);
   lin.addColorStop(1, g3);
   ctx.fillStyle = lin;
-  ctx.fillRect(0, 0, c.w, c.h);
+  fillArea(ctx, c, area);
 
   // radial-gradient(115% 85% at 22% 6%,  g1 0%, transparent 58%)
-  radial(ctx, c, g1, 0.22, 0.06, 1.15, 0.85, 0.58);
+  radial(ctx, c, g1, 0.22, 0.06, 1.15, 0.85, 0.58, area);
   // radial-gradient(105% 90% at 88% 97%, g3 0%, transparent 62%)
-  radial(ctx, c, g3, 0.88, 0.97, 1.05, 0.90, 0.62);
+  radial(ctx, c, g3, 0.88, 0.97, 1.05, 0.90, 0.62, area);
 }
 
 /**
@@ -135,9 +204,9 @@ export function paintGround(ctx, c, stops) {
  * background, and still "from the product" since g2 is itself derived from
  * the screenshot's own accent (see core/ground.js).
  */
-export function paintSolid(ctx, c, stops) {
+export function paintSolid(ctx, c, stops, area = null) {
   ctx.fillStyle = stops[1];
-  ctx.fillRect(0, 0, c.w, c.h);
+  fillArea(ctx, c, area);
 }
 
 /**
@@ -155,7 +224,7 @@ export function paintSolid(ctx, c, stops) {
  * Positions and radii come from mulberry32, the same PRNG noiseTile already
  * uses, seeded from c.seed so the field is reproducible and re-exportable.
  */
-export function paintMesh(ctx, c, stops) {
+export function paintMesh(ctx, c, stops, area = null) {
   const [g1, , g3] = stops;
   const blobColours = [g1, g3];
   const BLOB_COUNT = 6;
@@ -163,7 +232,7 @@ export function paintMesh(ctx, c, stops) {
   // base fill - the field of blobs is laid over this, same role g2 plays in
   // the linear gradient's midpoint.
   ctx.fillStyle = stops[1];
-  ctx.fillRect(0, 0, c.w, c.h);
+  fillArea(ctx, c, area);
 
   const rnd = mulberry32(c.seed ?? 1);
   const short = Math.min(c.w, c.h);
@@ -179,14 +248,14 @@ export function paintMesh(ctx, c, stops) {
     g.addColorStop(0, rgba(colour, 0.75));
     g.addColorStop(1, rgba(colour, 0));
     ctx.fillStyle = g;
-    ctx.fillRect(0, 0, c.w, c.h);
+    fillArea(ctx, c, area);
   }
 
   // Same two corner radials the linear path uses, so a mesh ground still
   // reads as belonging to the same system: top-left highlight, bottom-right
   // deepening.
-  radial(ctx, c, g1, 0.22, 0.06, 1.15, 0.85, 0.58);
-  radial(ctx, c, g3, 0.88, 0.97, 1.05, 0.90, 0.62);
+  radial(ctx, c, g1, 0.22, 0.06, 1.15, 0.85, 0.58, area);
+  radial(ctx, c, g3, 0.88, 0.97, 1.05, 0.90, 0.62, area);
 }
 
 /**
@@ -435,14 +504,53 @@ export function paintShadow(ctx, box, spreadY, blur, a1, a2, scale = 1) {
 /**
  * Draw `image` into `box` with object-fit and object-position: top center.
  * Assumes the path is already clipped by the caller.
+ *
+ * `snap` (Task 4c, default false - byte-identical to every call that omits
+ * it) puts the drawn rect's edges on whole device pixels, outside the box
+ * rather than inside it, so the caller's clip is the only antialiased mask
+ * on the boundary pixel. See SNAP_TO_PIXELS at the top of this file for the
+ * measurements and for why a screenshot drawn at exactly its box leaves a
+ * one-pixel halo of whatever is behind it.
+ *
+ * Only a TIGHT axis is snapped - one whose drawn size already reaches the
+ * box, and whose edges therefore coincide with that clip. A letterboxed axis
+ * (a 'contain' fit of a ratio the box does not share) ends well inside the
+ * box, where no such boundary exists and snapping would only move the
+ * letterbox. When the box carries the image's own ratio, which is every real
+ * web shot, both axes are tight and all four edges land on the grid.
+ *
+ * Snapping outward is deliberately not a uniform scale. Growing the rect
+ * uniformly until it overhangs by a whole pixel was tried first and costs
+ * four times as much resampling (0.19% against 0.05%) for the same result,
+ * because it has to move the far edge by a full pixel to move the near one
+ * off the boundary. The aspect ratio does shift by up to a pixel-per-axis
+ * as a result - 0.05% on a 1675px box - which is a smaller distortion than
+ * the resampling either version performs.
  */
-function drawFitted(ctx, box, image, fit) {
+function drawFitted(ctx, box, image, fit, snap = false) {
   const ir = image.width / image.height;
   const br = box.w / box.h;
   let dw, dh;
   if (fit === 'cover' ? ir > br : ir < br) { dh = box.h; dw = box.h * ir; }
   else                                     { dw = box.w; dh = box.w / ir; }
-  ctx.drawImage(image, box.x + (box.w - dw) / 2, box.y, dw, dh);   // top center
+
+  let dx = box.x + (box.w - dw) / 2, dy = box.y;                          // top center
+
+  if (snap) {
+    // A hair of slack, because a "tight" dimension is usually computed from
+    // the box's own ratio and can miss it by a float ulp.
+    const tight = (drawn, boxed) => drawn >= boxed - boxed * 1e-9;
+    if (tight(dw, box.w)) {
+      const x0 = Math.floor(box.x), x1 = Math.ceil(box.x + box.w);
+      dx = x0; dw = x1 - x0;
+    }
+    if (tight(dh, box.h)) {
+      const y0 = Math.floor(box.y), y1 = Math.ceil(box.y + box.h);
+      dy = y0; dh = y1 - y0;
+    }
+  }
+
+  ctx.drawImage(image, dx, dy, dw, dh);
 }
 
 /**
@@ -451,14 +559,14 @@ function drawFitted(ctx, box, image, fit) {
  * `.web::after` inset hairline is deliberately NOT ported - see the note at
  * the end of this function.
  */
-export function paintWeb(ctx, c, box, image) {
+export function paintWeb(ctx, c, box, image, stops) {
   // A device frame replaces everything below with a chrome-specific
   // painter: browser goes to paintWebChrome, phone to paintPhoneChrome.
   // box.chrome is null for frameKind: 'none' - the only branch this adds -
   // so every line below it is completely untouched, reached exactly as
   // before whenever there is no frame.
   if (box.chrome?.kind === 'phone') return paintPhoneChrome(ctx, c, box, image);
-  if (box.chrome) return paintWebChrome(ctx, c, box, image);
+  if (box.chrome) return paintWebChrome(ctx, c, box, image, stops);
 
   // shadow first, on an opaque rect, then the screen over it.
   //
@@ -470,17 +578,39 @@ export function paintWeb(ctx, c, box, image) {
   // the alphas themselves stay exactly as written here.
   paintShadow(ctx, box, c.h * 0.040, c.h * 0.105, 0.17, 0.07, c.shadowScale);
 
+  // THE GROUND GOES BEHIND THE SCREENSHOT, NOT A WHITE FILL (Task 4c).
+  //
+  // This used to be `fillRoundRect(..., '#ffffff')` - frame.html's
+  // `--screen-bg`, a white card behind the picture. Two things were wrong
+  // with it. The screenshot is drawn over it at the box's own antialiased
+  // edge, so along the whole perimeter the white was only ever PARTLY
+  // painted over and survived as a one-pixel halo (159 where an honest
+  // blend of a #1e1e1e shot over a 179 ground is 104); and where a source
+  // is genuinely transparent - macOS window captures carry transparent
+  // corners and an alpha shadow - it showed as white, not as the backdrop.
+  //
+  // Re-painting the ground here instead answers both, and it is the ground
+  // this exact canvas already has: paintGround is deterministic and its
+  // gradients are canvas-space, so the second pass lands the same colours
+  // on the same pixels as the first. It also covers paintShadow's opaque
+  // black caster, which is why deleting the white fill outright is NOT the
+  // fix - that just swaps a white halo for a black one.
+  //
+  // It is a path fill, never a clip plus a covering fillRect: see fillArea.
+  // Grain is deliberately not re-applied (it is ground-only, Task 4b, and
+  // re-tiling it here would need a scratch canvas core/ has no way to make);
+  // a transparent source therefore shows ungrained ground inside the box.
+  paintGround(ctx, c, stops, box);
+
   ctx.save();
-  // Body first, as a PATH fill (see fillRoundRect - a covering fillRect
-  // inside this clip leaks ~4px of white past the right and bottom edges in
-  // Chromium), then clip and draw the screenshot into it.
-  fillRoundRect(ctx, box.x, box.y, box.w, box.h, box.radius, '#ffffff');  // --screen-bg
   roundRect(ctx, box.x, box.y, box.w, box.h, box.radius);
   ctx.clip();
   // A LITERAL 'contain'. `c.fit` is gone (Cycle A Task 4) - the web screen
   // never crops. drawFitted stays because paintPhone still calls it with
   // 'cover' for the phone's own screen, which is a different decision.
-  drawFitted(ctx, box, image, 'contain');
+  // SNAP_TO_PIXELS makes the clip above the only mask on the edge pixel -
+  // see its doc comment at the top of this file.
+  drawFitted(ctx, box, image, 'contain', SNAP_TO_PIXELS);
   ctx.restore();
 
   // NO STROKE HERE, DELIBERATELY. frame.html stroked an inset hairline on
@@ -632,7 +762,7 @@ export function paintChrome(ctx, c, box, theme) {
  * 'phone' to paintPhoneChrome instead, so this function's body is exactly
  * what it was before the phone frame existed.
  */
-function paintWebChrome(ctx, c, box, image) {
+function paintWebChrome(ctx, c, box, image, stops) {
   const chrome = box.chrome;
   const outer = { x: box.x, y: box.y, w: box.w, h: box.h, radius: chrome.radius };
   const t = chromeColours(c.chromeTheme);
@@ -643,21 +773,40 @@ function paintWebChrome(ctx, c, box, image) {
   // multiplies on top, same as every other paintShadow call site.
   paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07, c.shadowScale);
 
+  // The ground, not `t.body`, backs this frame (Task 4c) - same change and
+  // same reasoning as the unframed screen above (see paintWeb). fBodyBg was
+  // white in the light theme, and `chrome.screen` is flush with the frame on
+  // three sides (chromeFor gives the browser no bezel), so that white was
+  // the halo Rock reported, on the left, right and bottom edges of every
+  // light-theme browser shot; in the dark theme the same leak was #101114
+  // and read as a dark one instead. The body is not lost as a design
+  // element, because it was never visible: the bar covers its whole strip
+  // and the screenshot covers everything below. What it did do was back the
+  // screenshot, and the ground does that honestly.
+  paintGround(ctx, c, stops, outer);
+
   ctx.save();
-  // Body as a path fill, then clip - same order and the same reason as the
-  // unframed screen above (see fillRoundRect).
-  fillRoundRect(ctx, outer.x, outer.y, outer.w, outer.h, outer.radius, t.body);  // fBodyBg
   roundRect(ctx, outer.x, outer.y, outer.w, outer.h, outer.radius);
   ctx.clip();
 
+  // Straight into the interior - no fit/cover/contain maths belongs here;
+  // `screen` already carries the source's exact ratio, so 'contain' is a
+  // no-op fit and drawFitted is used only for SNAP_TO_PIXELS (see its doc
+  // comment) - the snap that keeps this clip the only mask on the edge.
+  drawFitted(ctx, chrome.screen, image, 'contain', SNAP_TO_PIXELS);
+
+  // THE BAR IS PAINTED AFTER THE SCREENSHOT, DELIBERATELY (Task 4c). The
+  // screenshot's top edge and the bar's bottom edge are the same line, and
+  // the screenshot's snapped rect now reaches past it. Painting the bar last
+  // puts an exact, path-accurate fillRect edge on that boundary instead of
+  // drawImage's own unreliable one, and covers the bleed. Nothing else
+  // depends on the order: the two abut, they never overlap by design.
+  //
   // paintChrome's bar IS a fillRect, and is safe: it covers only the top of
   // this clip, never the whole of it, and only a covering fill triggers the
-  // overshoot fillRoundRect documents. Measured: a full-width bar inside
-  // this clip lands exactly on its own edges.
+  // overshoot fillArea/fillRoundRect document. Measured: a full-width bar
+  // inside this clip lands exactly on its own edges.
   paintChrome(ctx, c, box, c.chromeTheme);
-
-  // Straight into the interior - no fit/cover/contain maths belongs here.
-  ctx.drawImage(image, chrome.screen.x, chrome.screen.y, chrome.screen.w, chrome.screen.h);
 
   ctx.restore();
 
@@ -736,11 +885,21 @@ function paintPhoneChrome(ctx, c, box, image) {
 
   paintDeviceBody(ctx, outer);
 
+  // No fill behind the screen (Task 4c). There used to be a white one, and
+  // on a dark screenshot inside this dark bezel it read as a white ring:
+  // the screenshot only partly covers the screen's antialiased edge, so the
+  // white behind it survived along the whole perimeter. Nothing replaces it,
+  // and deliberately not the ground - what is behind a phone's screen is the
+  // phone. paintDeviceBody above has already filled the bezel colour across
+  // this whole area (and over paintShadow's caster), so the boundary pixel
+  // blends screenshot into device, which is the honest answer, and a
+  // transparent source shows the device rather than a hole. Backing it with
+  // the ground instead was measured: it puts a +52-level light halo inside
+  // the bezel, which is the reported bug again in a new colour.
   ctx.save();
-  fillRoundRect(ctx, chrome.screen.x, chrome.screen.y, chrome.screen.w, chrome.screen.h, chrome.innerRadius, '#ffffff');
   roundRect(ctx, chrome.screen.x, chrome.screen.y, chrome.screen.w, chrome.screen.h, chrome.innerRadius);
   ctx.clip();
-  ctx.drawImage(image, chrome.screen.x, chrome.screen.y, chrome.screen.w, chrome.screen.h);
+  drawFitted(ctx, chrome.screen, image, 'contain', SNAP_TO_PIXELS);
   ctx.restore();
 
   paintDeviceHairline(ctx, outer);
@@ -779,11 +938,14 @@ export function paintPhone(ctx, c, box, image) {
     w: box.w - box.frame * 2,
     h: box.h - box.frame * 2,
   };
+  // No fill behind the screen, same change and same reasoning as
+  // paintPhoneChrome above (Task 4c): paintDeviceBody has already covered
+  // this area with the bezel colour, and a white fill under a cover-fitted
+  // screenshot only ever showed as a ring around the screen's own edge.
   ctx.save();
-  fillRoundRect(ctx, inner.x, inner.y, inner.w, inner.h, box.innerRadius, '#ffffff');
   roundRect(ctx, inner.x, inner.y, inner.w, inner.h, box.innerRadius);
   ctx.clip();
-  drawFitted(ctx, inner, image, 'cover');
+  drawFitted(ctx, inner, image, 'cover', SNAP_TO_PIXELS);
   ctx.restore();
 
   // inset 0 0 0 1px rgba(255,255,255,0.10) - shared via paintDeviceHairline,

@@ -101,7 +101,7 @@ export function composeWithMeta(target, rawConfig, images, makeCanvas, precomput
   // the shadow is a low-alpha wash over an already-grained ground, so the
   // grain still shows through it, just unmodulated by it.
   paintGrain(ctx, rc, makeCanvas);
-  if (lay.web && web) paintWeb(ctx, rc, lay.web, web);
+  if (lay.web && web) paintWeb(ctx, rc, lay.web, web, meta.ground);
   // lay.phones and mobile are always the same length and index-aligned (see
   // the filtering note above), so no `|| mobile[0]` fallback is needed here.
   lay.phones.forEach((box, i) => paintPhone(ctx, rc, box, mobile[i]));
