@@ -153,9 +153,10 @@ Run: `node scripts/make-render-goldens.js && npx vitest run`
 Five goldens contain an unframed web screen and will change: `web`, `mesh`,
 `shadow-heavy`, `web-mobile` and **`caption`** — `caption` sets no `frameKind`
 (see `scripts/make-render-goldens.js`), so it renders an unframed screen like
-the rest. The correct invariant is: the six cases that set `frameKind`
+the rest. The correct invariant is: the **five** cases that set `frameKind`
 (`browser-dark`, `browser-light`, `browser-url`, `square-browser`, `phone`)
-plus the phone-only `mobile` must stay byte-identical. If one of those moves,
+plus the phone-only `mobile` must stay byte-identical — six unchanged, five
+changed, eleven in total. If one of those moves,
 **stop and report** — the deletion reached the framed path.
 
 - [ ] **Step 6: Commit**
@@ -1156,7 +1157,30 @@ describe('strokes', () => {
 Run: `npx vitest run test/render-stroke.test.js`
 Expected: the first test PASSES (no stroke is today's behaviour); the rest FAIL.
 
-- [ ] **Step 3: Add the vocabulary**
+- [ ] **Step 3: Decide the phone body's hairline, and say what you decided**
+
+Task 1's reviewer surfaced this and it lands here. `paintPhone`
+(`core/render.js:656`) calls `paintDeviceHairline` (`:580`,
+`rgba(255,255,255,0.10)`) **unconditionally**, so every phone mockup carries an
+inset white highlight regardless of any stroke setting. That was correctly out
+of Task 1's scope — it is the device body's own highlight, not a border on a
+bare screenshot — but the spec's `stroke` block is per-element, with `web` and
+`mobile` each getting one, so this task cannot ignore it.
+
+Take one of these positions and record it in the task report:
+
+- **Leave it.** It is part of what makes the phone read as a device, like the
+  browser frame's `t.border`, and is not an "unrequested border on my
+  screenshot". A `mobile` stroke then paints outside it. This is the default
+  and needs no code change.
+- **Make it opt-in** the way the web hairline just became opt-in, so a phone
+  with `stroke.style: 'none'` is genuinely bare.
+
+Do not decide silently, and do not change it without saying so — an unexplained
+change to the phone's appearance is exactly the class of surprise this cycle
+exists to remove.
+
+- [ ] **Step 4: Add the vocabulary**
 
 In `core/presets.js`:
 
@@ -1187,7 +1211,7 @@ In `core/config.js`:
     })(),
 ```
 
-- [ ] **Step 4: Add the stroke to the outset accumulation**
+- [ ] **Step 5: Add the stroke to the outset accumulation**
 
 In `core/layout.js`, `frameInsets` gains the stroke, which wraps everything else:
 
@@ -1224,7 +1248,7 @@ Call it as `frameInsets(c, sw, Math.min(c.w, c.h))`, scale `stroke` by `shrink` 
 
 `chromeFor` takes its offsets from `web.inner`, not `web`, so the bar sits inside the stroke.
 
-- [ ] **Step 5: Paint it**
+- [ ] **Step 6: Paint it**
 
 In `core/render.js`:
 
@@ -1264,12 +1288,12 @@ export function paintStroke(ctx, box, stroke, width) {
 
 Call it from `paintWeb` (and from `paintWebChrome`/`paintPhoneChrome`) immediately after `paintShadow` and before the body fill, passing the **outer** box; then paint the body and screenshot into `box.inner`. The shadow already uses the outer box, so a stroked shot casts its shadow from the mat, which is correct.
 
-- [ ] **Step 6: Run and watch them pass**
+- [ ] **Step 7: Run and watch them pass**
 
 Run: `npx vitest run test/render-stroke.test.js`
 Expected: all five PASS.
 
-- [ ] **Step 7: Add goldens and regenerate**
+- [ ] **Step 8: Add goldens and regenerate**
 
 Add to `scripts/make-render-goldens.js`'s `CASES`, with a comment matching the file's existing style explaining that without them a stubbed `paintStroke` leaves every other golden untouched:
 
@@ -1283,7 +1307,7 @@ Run: `node scripts/make-render-goldens.js && npx vitest run`
 
 Only the three new files may appear. Every pre-existing golden must be byte-identical — `STROKE_DEFAULTS.style` is `'none'`, so nothing else can move. If one did, the stroke is being applied when it should not be.
 
-- [ ] **Step 8: Add the stroke control so this can be previewed**
+- [ ] **Step 9: Add the stroke control so this can be previewed**
 
 In the Finish section of the inspector, add:
 
@@ -1311,7 +1335,7 @@ Add matching tests to the existing inspector test file, in the style already
 there — assert the control writes the value, clamps at both ends, and that
 `render()` is scheduled.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
 git add core web test scripts
@@ -1825,4 +1849,4 @@ asks for a change, make it, redeploy, and hand the link back before moving on.
 
 ## Cycle close
 
-After Task 9: run `npx vitest run`, confirm the full golden set is intentional, update the README's "not built yet" section for anything this cycle closed, merge `feat/shotkit-web` to `main`, and push. Then stop and report before Cycle B.
+After Task 9: run `npx vitest run`, confirm the full golden set is intentional, update the README's "not built yet" section for anything this cycle closed, merge `feat/cycle-a` to `main` (PR #1), and push. Then stop and report before Cycle B.

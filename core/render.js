@@ -379,7 +379,8 @@ export function paintWeb(ctx, c, box, image) {
   // NO STROKE HERE, DELIBERATELY. frame.html stroked an inset hairline on
   // every unframed screen; it read as an unrequested border and was the
   // first item of round two's feedback. An edge treatment is now opt-in via
-  // `stroke` (see paintStroke) - do not reinstate an unconditional one.
+  // `stroke`, which Cycle A Task 7 adds - do not reinstate an unconditional
+  // one. (paintStroke does not exist yet; this names where it will live.)
 }
 
 // --- Device frame chrome -------------------------------------------------
