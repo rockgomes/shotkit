@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { DEFAULTS, normalise, SHADOW_SCALE_RANGE } from '../core/index.js';
+import {
+  DEFAULTS, normalise, SHADOW_SCALE_RANGE, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
+} from '../core/index.js';
 import { state, bindCanvas, render } from '../web/state.js';
 import {
   activeFrameKind,
@@ -20,6 +22,15 @@ import {
   activeRadiusPercent,
   setRadiusPercent,
   RADIUS_PERCENT_MAX,
+  activeStrokeStyle,
+  setStrokeStyle,
+  activeStrokeWidthPercent,
+  setStrokeWidthPercent,
+  STROKE_PERCENT_MAX,
+  activeStrokeColor,
+  setStrokeColor,
+  showsStrokeWidth,
+  showsStrokeColor,
 } from '../web/inspector-frame.js';
 
 const mkCanvas = (w, h) => createCanvas(w, h);
@@ -366,5 +377,81 @@ describe('Task 6: Frame/Finish fields hit the warm colour cache, never groundFor
     const after = target.toBuffer('image/png');
 
     expect(Buffer.compare(before, after)).not.toBe(0);
+  });
+});
+
+// --- Stroke (Cycle A Task 7) ---------------------------------------------
+//
+// The round trip goes through the REAL normalise() on both sides, like the
+// corner-radius block above, so these prove the panel agrees with
+// core/config.js rather than only with itself.
+describe('stroke style, width and colour (Task 7)', () => {
+  it('an unset config reads back the shipped default: no stroke', () => {
+    expect(activeStrokeStyle({})).toBe('none');
+    expect(activeStrokeStyle({})).toBe(STROKE_DEFAULTS.style);
+    expect(normalise({}).stroke.style).toBe('none');
+  });
+
+  it('setStrokeStyle writes a block normalise() reads back unchanged', () => {
+    const config = {};
+    setStrokeStyle(config, 'glass');
+    expect(activeStrokeStyle(config)).toBe('glass');
+    expect(normalise(config).stroke.style).toBe('glass');
+  });
+
+  it('ignores a style that is not a stroke style, leaving the config alone', () => {
+    const config = {};
+    setStrokeStyle(config, 'light');
+    setStrokeStyle(config, 'embossed');
+    expect(activeStrokeStyle(config)).toBe('light');
+  });
+
+  it('changing the style keeps a width the user already set', () => {
+    const config = {};
+    setStrokeWidthPercent(config, 3.4);
+    setStrokeStyle(config, 'glass');
+    // Task 5b reset the user's value here by spreading defaults LAST while
+    // the slider went on showing the old number. It must not happen again.
+    expect(activeStrokeWidthPercent(config)).toBe(3.4);
+    expect(normalise(config).stroke.width).toBeCloseTo(0.034, 6);
+  });
+
+  it('setStrokeWidthPercent writes a fraction of the shorter canvas side', () => {
+    const config = {};
+    setStrokeWidthPercent(config, 2);
+    expect(config.stroke.width).toBeCloseTo(0.02, 9);
+    expect(activeStrokeWidthPercent(config)).toBe(2);
+    expect(normalise(config).stroke.width).toBeCloseTo(0.02, 9);
+  });
+
+  it('clamps the width at both ends, to STROKE_WIDTH_RANGE', () => {
+    const config = {};
+    setStrokeWidthPercent(config, -5);
+    expect(config.stroke.width).toBe(STROKE_WIDTH_RANGE[0]);
+    setStrokeWidthPercent(config, 999);
+    expect(config.stroke.width).toBeCloseTo(STROKE_WIDTH_RANGE[1], 9);
+    expect(STROKE_PERCENT_MAX).toBe(STROKE_WIDTH_RANGE[1] * 100);
+  });
+
+  it('takes a six-digit hex colour and refuses anything else', () => {
+    const config = {};
+    setStrokeColor(config, '#3311ff');
+    expect(activeStrokeColor(config)).toBe('#3311ff');
+    expect(normalise(config).stroke.color).toBe('#3311ff');
+    setStrokeColor(config, 'rebeccapurple');
+    setStrokeColor(config, '#fff');
+    expect(activeStrokeColor(config)).toBe('#3311ff');
+  });
+
+  it('shows width only once a style paints, and colour only for custom', () => {
+    const config = {};
+    expect(showsStrokeWidth(config)).toBe(false);
+    expect(showsStrokeColor(config)).toBe(false);
+    setStrokeStyle(config, 'light');
+    expect(showsStrokeWidth(config)).toBe(true);
+    expect(showsStrokeColor(config)).toBe(false);
+    setStrokeStyle(config, 'custom');
+    expect(showsStrokeWidth(config)).toBe(true);
+    expect(showsStrokeColor(config)).toBe(true);
   });
 });

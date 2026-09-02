@@ -39,6 +39,7 @@
 // task-6b-report.md for measured timings.
 import {
   FRAME_KINDS, CHROME_THEMES, DEFAULTS, normalise, SHADOW_SCALE_RANGE,
+  STROKE_STYLES, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
 } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
 
@@ -160,6 +161,72 @@ export function setShadowPercent(config, pct) {
   if (!Number.isFinite(n)) return;
   const [min, max] = SHADOW_SCALE_RANGE;
   config.shadowScale = Math.min(max * 100, Math.max(min * 100, n)) / 100;
+}
+
+// Stroke (Task 7) — the opt-in mat around the shot. `config.stroke` is a
+// NESTED block ({ style, width, color }), not three flat fields, matching
+// core/config.js: the spec's per-element model (Cycle B) gives the web
+// element and the phone element one each, and a nested value moves there
+// as a unit.
+//
+// EVERY WRITER BELOW SEEDS FROM STROKE_DEFAULTS AND THEN THE CURRENT VALUE,
+// in that order, so an untouched sibling field keeps whatever the user set
+// and an absent one lands on exactly the value normalise() would have
+// resolved for it anyway. Task 5b is the reason that ordering is spelled
+// out: its shadow rewrite seeded a block with the defaults spread LAST,
+// which silently reset the user's strength to 100% while the slider went
+// on displaying the old number. Defaults first, current second, the one
+// field being changed last.
+export function activeStrokeStyle(config) {
+  const s = config.stroke || {};
+  return STROKE_STYLES.includes(s.style) ? s.style : STROKE_DEFAULTS.style;
+}
+
+export function setStrokeStyle(config, style) {
+  if (!STROKE_STYLES.includes(style)) return;
+  config.stroke = { ...STROKE_DEFAULTS, ...(config.stroke || {}), style };
+}
+
+// Width is a fraction of the SHORTER canvas side (core/presets.js), so the
+// slider is the same *100 / *0.01 percent round trip padding and grain
+// already use. The maximum comes from STROKE_WIDTH_RANGE rather than a
+// literal, so this slider and normalise()'s own clamp cannot drift apart.
+export const STROKE_PERCENT_MAX = STROKE_WIDTH_RANGE[1] * 100;
+
+export function activeStrokeWidthPercent(config) {
+  const s = config.stroke || {};
+  const width = Number.isFinite(s.width) ? s.width : STROKE_DEFAULTS.width;
+  return Math.round(width * 1000) / 10;
+}
+
+export function setStrokeWidthPercent(config, pct) {
+  const n = Number(pct);
+  if (!Number.isFinite(n)) return;
+  const width = Math.min(STROKE_PERCENT_MAX, Math.max(0, n)) / 100;
+  config.stroke = { ...STROKE_DEFAULTS, ...(config.stroke || {}), width };
+}
+
+export function activeStrokeColor(config) {
+  const s = config.stroke || {};
+  return /^#[0-9a-fA-F]{6}$/.test(s.color) ? s.color : STROKE_DEFAULTS.color;
+}
+
+export function setStrokeColor(config, value) {
+  if (!/^#[0-9a-fA-F]{6}$/.test(value)) return;
+  config.stroke = { ...STROKE_DEFAULTS, ...(config.stroke || {}), color: value };
+}
+
+/** Width only means something once a style paints; colour only means
+ *  something for 'custom' (light and glass are fixed fills — see
+ *  paintStroke in core/render.js). Same shape as showsBrowserOnlyControls
+ *  above, and hidden the same way: the global `[hidden]` rule, never a
+ *  second mechanism. */
+export function showsStrokeWidth(config) {
+  return activeStrokeStyle(config) !== 'none';
+}
+
+export function showsStrokeColor(config) {
+  return activeStrokeStyle(config) === 'custom';
 }
 
 // Corner radius is the one field here that ISN'T stored as a fraction —
@@ -344,7 +411,9 @@ export function initFrameInspector() {
  * layout, and neither touches `config.ground` or `config.tone`, so none of
  * these four busts web/state.js's ground-meta cache; see this file's header
  * comment and test/inspector-frame.test.js. Fit and Caption used to open
- * and close this section; Cycle A Task 4 retired both.
+ * and close this section; Cycle A Task 4 retired both. Task 7 adds Stroke
+ * at the end - style, then width and colour, each shown only when it can
+ * act (showsStrokeWidth / showsStrokeColor above).
  */
 export function initFinishInspector() {
   const section = document.getElementById('finishSection');
@@ -426,6 +495,95 @@ export function initFinishInspector() {
   const shadowValueEl = shadowRow.querySelector('.slider-value');
   section.appendChild(shadowRow);
 
+  // --- stroke (Task 7) ---------------------------------------------------
+  // Deliberately minimal, and Cycle B replaces it: a render feature with no
+  // way to invoke it cannot be previewed, and a feature Rock cannot test is
+  // a feature he cannot approve. Same row idioms as everything above — no
+  // new control vocabulary is invented here.
+  const strokeRow = document.createElement('div');
+  strokeRow.className = 'slider-row';
+  strokeRow.innerHTML = '<div class="slider-label"><span>Stroke</span></div>';
+  const strokeChips = document.createElement('div');
+  strokeChips.className = 'chip-row';
+  strokeChips.setAttribute('role', 'group');
+  strokeChips.setAttribute('aria-label', 'Stroke style');
+  const STROKE_LABELS = { none: 'None', light: 'Light', glass: 'Glass', custom: 'Custom' };
+  const strokeButtons = STROKE_STYLES.map((style) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip';
+    btn.dataset.stroke = style;
+    btn.textContent = STROKE_LABELS[style] || style;
+    btn.setAttribute('aria-pressed', 'false');
+    strokeChips.appendChild(btn);
+    return btn;
+  });
+  strokeRow.appendChild(strokeChips);
+  section.appendChild(strokeRow);
+
+  const strokeWidthRow = document.createElement('div');
+  strokeWidthRow.className = 'slider-row';
+  strokeWidthRow.innerHTML = '<div class="slider-label"><span>Stroke width</span><span class="mono slider-value"></span></div>';
+  const strokeWidthInput = document.createElement('input');
+  strokeWidthInput.type = 'range';
+  strokeWidthInput.className = 'slider';
+  strokeWidthInput.min = '0';
+  strokeWidthInput.max = String(STROKE_PERCENT_MAX);
+  strokeWidthInput.step = '0.1';
+  strokeWidthInput.setAttribute('aria-label', 'Stroke width, as a percentage of the shorter canvas side');
+  strokeWidthRow.appendChild(strokeWidthInput);
+  const strokeWidthValueEl = strokeWidthRow.querySelector('.slider-value');
+  section.appendChild(strokeWidthRow);
+
+  const strokeColorRow = document.createElement('div');
+  strokeColorRow.className = 'inline-control-row';
+  const strokeColorLabel = document.createElement('span');
+  strokeColorLabel.textContent = 'Stroke colour';
+  const strokeColorInput = document.createElement('input');
+  strokeColorInput.type = 'color';
+  strokeColorInput.className = 'colour-well';
+  strokeColorInput.setAttribute('aria-label', 'Stroke colour');
+  strokeColorRow.append(strokeColorLabel, strokeColorInput);
+  section.appendChild(strokeColorRow);
+
+  function syncStrokeUI() {
+    const style = activeStrokeStyle(state.config);
+    strokeButtons.forEach((btn) => {
+      const active = btn.dataset.stroke === style;
+      btn.classList.toggle('is-selected', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
+    strokeWidthRow.hidden = !showsStrokeWidth(state.config);
+    strokeColorRow.hidden = !showsStrokeColor(state.config);
+
+    const pct = activeStrokeWidthPercent(state.config);
+    strokeWidthInput.value = String(pct);
+    syncSliderFill(strokeWidthInput, strokeWidthValueEl, `${pct}%`);
+
+    const colour = activeStrokeColor(state.config);
+    if (document.activeElement !== strokeColorInput) strokeColorInput.value = colour;
+  }
+
+  strokeButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      setStrokeStyle(state.config, btn.dataset.stroke);
+      syncStrokeUI();
+      scheduleRender();
+    });
+  });
+
+  strokeWidthInput.addEventListener('input', () => {
+    setStrokeWidthPercent(state.config, strokeWidthInput.value);
+    syncStrokeUI();
+    scheduleRender();
+  });
+
+  strokeColorInput.addEventListener('input', () => {
+    setStrokeColor(state.config, strokeColorInput.value);
+    syncStrokeUI();
+    scheduleRender();
+  });
+
   function syncPadUI() {
     const pct = activePadPercent(state.config);
     padInput.value = String(pct);
@@ -478,6 +636,7 @@ export function initFinishInspector() {
   syncRadiusUI();
   syncGrainUI();
   syncShadowUI();
+  syncStrokeUI();
 
-  return { syncPadUI, syncRadiusUI, syncGrainUI, syncShadowUI };
+  return { syncPadUI, syncRadiusUI, syncGrainUI, syncShadowUI, syncStrokeUI };
 }

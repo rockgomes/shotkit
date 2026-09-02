@@ -965,3 +965,76 @@ B  scaled second copy              172,136,172
   so the first version of this task, which put a `translate` on the tile,
   rendered phones with no screenshot at all whenever the phone sat past
   x = 512. The goldens caught it. It is not reproduced in Chromium.
+
+---
+
+# Cycle A Task 7 — strokes
+
+Measured in Chrome on this machine, against the dev server, by rendering
+`core/` directly (no UI) onto a 1800x1200 canvas with a fully black
+1440x900 source and the lavender ground — the same probe Rock's own bug
+reports were reproduced with.
+
+## The phone body's inner highlight: LEFT AS IT WAS
+
+`paintDeviceHairline` (`core/render.js`) strokes `rgba(255,255,255,0.10)`
+just inside every phone body, and it still does so unconditionally.
+
+That is deliberate. It is the DEVICE's own highlight — the same thing the
+browser frame's `t.border` is — not an edge treatment on anyone's
+screenshot. The complaint that opened round two was a hairline on a *bare*
+screenshot, which Task 1 removed; a phone that is drawn as a phone reads
+wrong without its highlight, exactly as the browser frame would without its
+border. A `mobile` stroke, when Cycle B gives the phone element one, paints
+OUTSIDE it, so the two never compete.
+
+No code changed for this. It is written down because the task required a
+position rather than a silence.
+
+## What the mat does, measured
+
+`stroke: { style: 'light', width: 0.02 }`, so 24px on a 1200-high canvas:
+
+| probe | no stroke | light mat |
+|---|---|---|
+| 3px inside the composite's left edge | `0,0,0` (shot) | `255,255,255` |
+| 2px inside `inner`'s left edge | — | `0,0,0` (shot) |
+| 3px outside the composite, right | `207,200,223` | `207,202,224` |
+| 3px outside the composite, bottom | `187,179,206` | `189,180,207` |
+
+The mat reads pure white on all four sides; the picture starts, still pure
+black, immediately inside `inner`; and outside the composite is ground. No
+band of body colour on the right or bottom — Task 4b's `fillRoundRect` rule
+holds through a path fill too. `glass` measured `248,246,254` over the pale
+ground (translucent, as intended) and `custom` measured exactly `255,0,170`
+for `#ff00aa`.
+
+## One defect found, and it was only visible in Chromium
+
+The first version handed `paintChrome` the OUTER box. With a mat on, the
+title bar was then drawn one stroke-width too high and ended one
+stroke-width short of the screenshot, leaving a band of bare white mat
+between the bar and the picture — **16 rows** of `255,255,255` at a 1.5%
+stroke, found by scanning the composite's centre column top to bottom.
+
+Nothing in the suite could have caught it as it stood. The unstroked frame
+is unaffected (the outer box and the frame body are the same rect then), and
+the `stroke-browser` golden had been generated from the broken render, so it
+agreed with itself. `test/render-stroke.test.js`'s "leaves no gap between
+the browser bar and the screenshot" is the guard, confirmed red against the
+pre-fix line and green after; the golden was regenerated.
+
+The neighbouring test in that file — "wraps the browser window without
+moving the bar off the screenshot" — passes in BOTH states. It guards other
+claims (the screenshot sits under the bar; the mat sits above it) and is
+not, on its own, a guard against the gap.
+
+## Goldens
+
+Three added — `stroke-light`, `stroke-glass`, `stroke-browser`. All ten
+pre-existing goldens stayed byte-identical across the regeneration
+(`git status` reported only the three new files), which is the proof that
+`STROKE_DEFAULTS.style: 'none'` really is a no-op. Two discriminator tests
+in `test/compose.test.js` prove `stroke-light.png` guards the stroke rather
+than merely matching itself: the same config at style `none` differs by
+more than 2% of pixels, and `glass` against the `light` golden likewise.

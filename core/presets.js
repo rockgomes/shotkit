@@ -174,3 +174,17 @@ export const CHROME_THEMES = ['dark', 'light'];
 // only a composite that would otherwise cross it is scaled down, and then
 // uniformly, screenshot included.
 export const MIN_MARGIN_RATIO = 0.02;
+
+// --- Strokes (Cycle A Task 7) -------------------------------------------
+// An opt-in mat around the shot. Round one stroked an inset hairline on
+// every unframed screen and Rock read it, correctly, as an unrequested
+// border; Task 1 deleted it. This is the deliberate version of the same
+// idea - the white/glassy edge in the Dribbble references he sent - and it
+// is 'none' by default, so nothing gains an edge it did not ask for.
+export const STROKE_STYLES = ['none', 'light', 'glass', 'custom'];
+
+// Width is a fraction of the SHORTER canvas side, like every other
+// proportional value here, so a stroke keeps its visual weight across ratios.
+export const STROKE_WIDTH_RANGE = [0, 0.06];
+
+export const STROKE_DEFAULTS = { style: 'none', width: 0.008, color: '#ffffff' };

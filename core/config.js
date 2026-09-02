@@ -1,6 +1,7 @@
 import {
   RATIOS, HUES, DEFAULTS, RADIUS_RATIO, TEMPLATES, DEFAULT_ANGLE, SCALES, FRAME_KINDS,
   LAYOUTS, TONES, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
+  STROKE_STYLES, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
 } from './presets.js';
 
 function num(v, fallback) {
@@ -83,5 +84,25 @@ export function normalise(input = {}) {
       SHADOW_SCALE_RANGE[1],
       Math.max(SHADOW_SCALE_RANGE[0], num(input.shadowScale, DEFAULTS.shadowScale)),
     ),
+    // Task 7. A nested block rather than three flat `strokeStyle`/
+    // `strokeWidth`/`strokeColor` keys because the spec's per-element model
+    // (Cycle B) gives `web` and `mobile` one each, and a nested value moves
+    // there as a unit. `style` defaults to 'none': an edge is opt-in, and
+    // `width`/`color` still resolve so switching the style on has somewhere
+    // sensible to land. Width is clamped to STROKE_WIDTH_RANGE here, the
+    // same defensive clamp shadowScale gets, so a stale jobs.json or a
+    // runaway slider can never reach layout.js unbounded.
+    stroke: (() => {
+      const s = input.stroke || {};
+      const style = STROKE_STYLES.includes(s.style) ? s.style : STROKE_DEFAULTS.style;
+      return {
+        style,
+        width: Math.min(
+          STROKE_WIDTH_RANGE[1],
+          Math.max(STROKE_WIDTH_RANGE[0], num(s.width, STROKE_DEFAULTS.width)),
+        ),
+        color: /^#[0-9a-fA-F]{6}$/.test(s.color) ? s.color : STROKE_DEFAULTS.color,
+      };
+    })(),
   };
 }

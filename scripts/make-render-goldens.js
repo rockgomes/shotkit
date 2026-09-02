@@ -58,6 +58,18 @@ const CASES = [
   // see test/compose.test.js's matching "pixel-diff against frozen renders"
   // comment for the injection proof that this golden actually discriminates.
   ['shadow-heavy',  { ratio: '3:2', shadowScale: 1.6 }, { web: 'samples/fieldset.png', mobile: [] }],
+  // Task 7: the three stroke styles that paint. Same reason as every block
+  // above - STROKE_DEFAULTS.style is 'none' and no golden above sets
+  // `stroke`, so a stubbed or no-op paintStroke would leave all eleven of
+  // them byte-identical and the pixel-diff suite fully green. 'light' and
+  // 'glass' are the two fills that differ in kind (opaque vs translucent,
+  // and only 'glass' draws the outer hairline); 'custom' is 'light' with a
+  // different fillStyle and needs no third canvas. The browser case is the
+  // one that proves the mat wraps a FRAME rather than replacing its border,
+  // which is the geometry Task 6 established.
+  ['stroke-light',   { ratio: '3:2', stroke: { style: 'light', width: 0.02 } },  { web: 'samples/fieldset.png', mobile: [] }],
+  ['stroke-glass',   { ratio: '3:2', stroke: { style: 'glass', width: 0.02 } },  { web: 'samples/fieldset.png', mobile: [] }],
+  ['stroke-browser', { ratio: '3:2', frameKind: 'browser', stroke: { style: 'light', width: 0.015 } }, { web: 'samples/fieldset.png', mobile: [] }],
 ];
 
 for (const [name, cfg, files] of CASES) {

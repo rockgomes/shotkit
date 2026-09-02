@@ -1097,6 +1097,33 @@ input {
   color: var(--text-muted);
 }
 
+/* Task 7's stroke colour picker. A native <input type="color"> so the
+   platform supplies the picker itself - the swatch is the control, so its
+   own border is what makes it visible against the panel when the chosen
+   colour is dark, and --border-strong is the interactive-element token
+   (>=3:1, Task 3b's contrast policy). No `opacity` anywhere here: a
+   disabled or inert state is an explicit colour, per that same policy. */
+.colour-well {
+  width: 44px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+
+.colour-well:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+
+/* Chromium/WebKit draw the chosen colour in an inner swatch element that
+   keeps its own 2px padding and square corners unless told otherwise. */
+.colour-well::-webkit-color-swatch-wrapper { padding: 0; }
+.colour-well::-webkit-color-swatch { border: none; border-radius: 5px; }
+.colour-well::-moz-color-swatch { border: none; border-radius: 5px; }
+
 /* -------------------------------------------------------------------------
    Control primitive: segmented control
    ---------------------------------------------------------------------- */

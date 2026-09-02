@@ -273,6 +273,17 @@ describe('pixel-diff against frozen renders', () => {
     // parameter being a no-op or silently clamped away. See the "actually
     // discriminates" check right after this loop for the injection proof.
     ['shadow-heavy',  { ratio: '3:2', shadowScale: 1.6 }, { web: 'samples/fieldset.png' }],
+    // Task 7: the three stroke styles that paint anything. Every case above
+    // omits `stroke` and STROKE_DEFAULTS.style is 'none' (core/presets.js),
+    // so all eleven stayed byte-identical when these were added - the same
+    // regeneration proof scripts/make-render-goldens.js records. 'light'
+    // and 'glass' differ in kind (opaque fill vs translucent fill plus an
+    // outer hairline); 'custom' is 'light' with another fillStyle, so it
+    // needs no third canvas. The browser case is the one that proves the
+    // mat wraps a frame instead of replacing its border.
+    ['stroke-light',   { ratio: '3:2', stroke: { style: 'light', width: 0.02 } },  { web: 'samples/fieldset.png' }],
+    ['stroke-glass',   { ratio: '3:2', stroke: { style: 'glass', width: 0.02 } },  { web: 'samples/fieldset.png' }],
+    ['stroke-browser', { ratio: '3:2', frameKind: 'browser', stroke: { style: 'light', width: 0.015 } }, { web: 'samples/fieldset.png' }],
   ];
 
   for (const [name, cfg, files] of CASES) {
@@ -362,6 +373,42 @@ describe('pixel-diff against frozen renders', () => {
     const b = rc.getContext('2d').getImageData(0, 0, ref.width, ref.height);
     const diff = pixelmatch(a.data, b.data, null, ref.width, ref.height, { threshold: 0 });
     expect(diff / (ref.width * ref.height)).toBeGreaterThan(0.05);
+  });
+
+  // Task 7, the same discipline again. The loop only proves
+  // stroke-light.png matches itself; these prove the two goldens actually
+  // guard what they are named for. First: the same config with the style
+  // switched back to 'none' must differ by a wide margin - that is the
+  // whole feature. Second: 'glass' rendered against the 'light' golden must
+  // differ too, so the two styles are not quietly the same fill.
+  it('the stroke-light golden actually discriminates on the stroke, not just presence', async () => {
+    const { target } = await run(
+      { ratio: '3:2', stroke: { style: 'none', width: 0.02 } },
+      { web: 'samples/fieldset.png' },
+    );
+    const ref = await loadImage('test/golden/render/stroke-light.png');
+    const rc = createCanvas(ref.width, ref.height);
+    rc.getContext('2d').drawImage(ref, 0, 0);
+
+    const a = target.getContext('2d').getImageData(0, 0, target.width, target.height);
+    const b = rc.getContext('2d').getImageData(0, 0, ref.width, ref.height);
+    const diff = pixelmatch(a.data, b.data, null, ref.width, ref.height, { threshold: 0 });
+    expect(diff / (ref.width * ref.height)).toBeGreaterThan(0.02);
+  });
+
+  it('glass and light are different fills, not the same one twice', async () => {
+    const { target } = await run(
+      { ratio: '3:2', stroke: { style: 'glass', width: 0.02 } },
+      { web: 'samples/fieldset.png' },
+    );
+    const ref = await loadImage('test/golden/render/stroke-light.png');
+    const rc = createCanvas(ref.width, ref.height);
+    rc.getContext('2d').drawImage(ref, 0, 0);
+
+    const a = target.getContext('2d').getImageData(0, 0, target.width, target.height);
+    const b = rc.getContext('2d').getImageData(0, 0, ref.width, ref.height);
+    const diff = pixelmatch(a.data, b.data, null, ref.width, ref.height, { threshold: 0 });
+    expect(diff / (ref.width * ref.height)).toBeGreaterThan(0.02);
   });
 });
 

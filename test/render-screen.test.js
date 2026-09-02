@@ -354,7 +354,17 @@ describe('paintWeb never crops', () => {
     //   cover:   the image is blown up to 800px wide and centred, so the
     //            box's left edge lands at source x=150 - white, and the red
     //            column is cropped off entirely.
-    const box = { x: 100, y: 100, w: 200, h: 400, radius: 0, chrome: null };
+    // Hand-built, so it must carry what layout.js's webBox() always
+    // attaches: `inner` (the interior the shot is placed into - identical
+    // to the box itself when there is no mat) and `strokeWidth` 0. Task 7
+    // made paintWeb read both; it deliberately does not fall back to `box`
+    // when they are missing, because a silent fallback would let a real
+    // layout bug render as if nothing were wrong.
+    const box = {
+      x: 100, y: 100, w: 200, h: 400, radius: 0, chrome: null,
+      strokeWidth: 0,
+      inner: { x: 100, y: 100, w: 200, h: 400, radius: 0 },
+    };
 
     const c = normalise({ layout: 'web', ratio: '3:2', fit: 'cover' });
     const cv = createCanvas(c.w, c.h);

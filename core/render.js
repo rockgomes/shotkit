@@ -736,6 +736,61 @@ function placeShot(ctx, makeCanvas, bounds, mask, paint) {
 }
 
 /**
+ * The stroke: an opt-in MAT around the shot (Cycle A Task 7).
+ *
+ * It is a filled rounded rect painted at the composite's OUTER box, before
+ * anything else lands on top of it. That ordering is the whole design and
+ * it is what makes the function's one promise cheap to keep: the shot is
+ * placed afterwards, into `box.inner`, so the mat can grow the composite
+ * outward and can never cover the picture. There is no lineWidth here and
+ * no `ctx.stroke()` for the mat itself - a real canvas stroke straddles its
+ * path, so half of it would land inside the shot's own edge, which is
+ * exactly the inset hairline Task 1 deleted.
+ *
+ * `width` is the ALREADY-RESOLVED thickness in canvas pixels (layout.js
+ * computed it from `stroke.width` x the shorter canvas side, then scaled it
+ * by the same `shrink` as every other outset). Do not pass a ratio, and do
+ * not re-derive it from the canvas here - a second derivation is a second
+ * source of truth, and the composite's geometry was already settled in
+ * layout.js.
+ *
+ * A path FILL, not a fillRect in a clip - see fillRoundRect's comment for
+ * the Chromium clip-bounds overshoot that rule exists to avoid. Its own
+ * antialiased edge against the ground is a single boundary, exactly like
+ * the device body's.
+ *
+ * `glass` is deliberately translucent (0.55 white) so the ground reads
+ * through it, which is what makes it look like glass rather than a thinner
+ * white mat. That leaves it very faint on a pale ground, so it - and only
+ * it - gets a hairline on its outer edge to hold the shape. `light` and
+ * `custom` are opaque and need no such help.
+ */
+export function paintStroke(ctx, box, stroke, width) {
+  if (stroke.style === 'none' || width <= 0) return;
+
+  ctx.save();
+  roundRect(ctx, box.x, box.y, box.w, box.h, box.radius);
+  if (stroke.style === 'glass') {
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  } else if (stroke.style === 'custom') {
+    ctx.fillStyle = stroke.color;
+  } else {
+    ctx.fillStyle = '#ffffff';
+  }
+  ctx.fill();
+  ctx.restore();
+
+  if (stroke.style === 'glass') {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(16,18,27,0.06)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, box.x + 0.5, box.y + 0.5, box.w - 1, box.h - 1, box.radius);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+/**
  * The web screen: rounded body, screenshot, floating shadow.
  * Ported from frame.html's `.web` rule and `makeWeb()`. frame.html's
  * `.web::after` inset hairline is deliberately NOT ported - see the note at
@@ -771,13 +826,25 @@ export function paintWeb(ctx, c, box, image, makeCanvas) {
   // A LITERAL 'contain'. `c.fit` is gone (Cycle A Task 4) - the web screen
   // never crops. drawFitted stays because paintPhone still calls it with
   // 'cover' for the phone's own screen, which is a different decision.
-  placeShot(ctx, makeCanvas, box, box, (t, at) => drawFitted(t, at(box), image, 'contain'));
+  // The mat, if there is one. Painted BEFORE the shot and never after: it
+  // is a backing for the ring of pixels outside `box.inner` and nothing
+  // else, so it cannot leak over the picture the way frame.html's inset
+  // hairline did. `box.strokeWidth` is 0 by default, and paintStroke
+  // returns immediately at style 'none', so the unframed no-stroke path
+  // below is exactly what it was.
+  paintStroke(ctx, box, c.stroke, box.strokeWidth);
 
-  // NO STROKE HERE, DELIBERATELY. frame.html stroked an inset hairline on
+  // The shot goes into the INTERIOR. With no stroke `box.inner` is `box`'s
+  // own rect to the last ULP (layout.js), so this line is unchanged for
+  // every existing config.
+  placeShot(ctx, makeCanvas, box.inner, box.inner,
+    (t, at) => drawFitted(t, at(box.inner), image, 'contain'));
+
+  // STILL NO UNCONDITIONAL STROKE. frame.html stroked an inset hairline on
   // every unframed screen; it read as an unrequested border and was the
-  // first item of round two's feedback. An edge treatment is now opt-in via
-  // `stroke`, which Cycle A Task 7 adds - do not reinstate an unconditional
-  // one. (paintStroke does not exist yet; this names where it will live.)
+  // first item of round two's feedback. The edge above is opt-in - it is
+  // painted only when the user asked for one - and it is an OUTSET, drawn
+  // outside the picture rather than over it. Do not reinstate the old one.
 }
 
 // --- Device frame chrome -------------------------------------------------
@@ -946,6 +1013,17 @@ export function paintChrome(ctx, c, box, theme) {
 function paintWebChrome(ctx, c, box, image, makeCanvas) {
   const chrome = box.chrome;
   const outer = { x: box.x, y: box.y, w: box.w, h: box.h, radius: chrome.radius };
+  // The frame itself, inside the mat. Identical to `outer` when there is no
+  // stroke (layout.js's bodyRadius is `radius` unchanged then), so every
+  // line below is what it was for an unstroked browser frame.
+  //
+  // It carries `chrome` because paintChrome reads it, and it is what
+  // paintChrome must be given: the bar belongs to the WINDOW, not to the
+  // mat around it. Handing it the outer box instead drew the bar a stroke
+  // too high and a stroke too short, leaving a band of bare mat between the
+  // bar and the screenshot - 16px of white, measured in Chromium at a 1.5%
+  // stroke before this line existed.
+  const body = { ...box.inner, radius: chrome.bodyRadius, chrome };
   const t = chromeColours(c.chromeTheme);
 
   // Same alphas/spread maths as the unframed screen's shadow above - only
@@ -953,6 +1031,9 @@ function paintWebChrome(ctx, c, box, image, makeCanvas) {
   // Do NOT retune: see the doc comment above paintShadow. `c.shadowScale`
   // multiplies on top, same as every other paintShadow call site.
   paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07, c.shadowScale);
+
+  // The mat wraps the whole window, bar included - see paintStroke above.
+  paintStroke(ctx, outer, c.stroke, box.strokeWidth);
 
   // The whole frame is composed in one tile and cut once (Task 4d). There
   // is no body fill behind it and no ground re-painted under it: `fBodyBg`
@@ -962,7 +1043,7 @@ function paintWebChrome(ctx, c, box, image, makeCanvas) {
   // left, right and bottom of every light-theme browser shot. Ground was
   // then tried in its place and leaked identically, because the leak is
   // partial coverage, not the colour. Nothing goes behind it now.
-  placeShot(ctx, makeCanvas, outer, outer, (tc, at) => {
+  placeShot(ctx, makeCanvas, body, body, (tc, at) => {
     // Straight into the interior - no fit/cover/contain maths belongs here;
     // `screen` already carries the source's exact ratio, so 'contain' is a
     // no-op fit and drawFitted is used for its bleed (see its doc comment).
@@ -973,7 +1054,7 @@ function paintWebChrome(ctx, c, box, image, makeCanvas) {
     // bar last puts an exact fillRect edge on that boundary and covers the
     // bleed. Nothing else depends on the order: the two abut, they never
     // overlap by design.
-    paintChrome(tc, c, at(box), c.chromeTheme);
+    paintChrome(tc, c, at(body), c.chromeTheme);
   });
 
   // outer hairline: `border:1px solid {{fBorder}}` on the mockup's frame
@@ -983,7 +1064,7 @@ function paintWebChrome(ctx, c, box, image, makeCanvas) {
   ctx.save();
   ctx.strokeStyle = t.border;
   ctx.lineWidth = 1;
-  roundRect(ctx, outer.x + 0.5, outer.y + 0.5, outer.w - 1, outer.h - 1, outer.radius);
+  roundRect(ctx, body.x + 0.5, body.y + 0.5, body.w - 1, body.h - 1, body.radius);
   ctx.stroke();
   ctx.restore();
 }
@@ -1046,16 +1127,21 @@ function paintDeviceHairline(ctx, box) {
 function paintPhoneChrome(ctx, c, box, image, makeCanvas) {
   const chrome = box.chrome;
   const outer = { x: box.x, y: box.y, w: box.w, h: box.h, radius: chrome.radius };
+  // The device, inside the mat. Identical to `outer` with no stroke.
+  const body = { ...box.inner, radius: chrome.bodyRadius };
 
   // Same alphas as paintWebChrome's own outer shadow (see this function's
   // doc comment above); `c.shadowScale` multiplies on top, same as every
   // other paintShadow call site.
   paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07, c.shadowScale);
 
+  // The mat wraps the device - see paintStroke above.
+  paintStroke(ctx, outer, c.stroke, box.strokeWidth);
+
   // The device body needs no tile: it is a path FILL, so its own edge is
   // already the single antialiased boundary between the device and the
   // ground, and paintShadow no longer casts anything underneath it.
-  paintDeviceBody(ctx, outer);
+  paintDeviceBody(ctx, body);
 
   // The screen is its own tile, cut to the bezel's inner radius. WHAT IS
   // BEHIND A PHONE'S SCREEN IS THE PHONE - the device body above has
@@ -1073,7 +1159,7 @@ function paintPhoneChrome(ctx, c, box, image, makeCanvas) {
   placeShot(ctx, makeCanvas, chrome.screen, screen,
     (t, at) => drawFitted(t, at(chrome.screen), image, 'contain'));
 
-  paintDeviceHairline(ctx, outer);
+  paintDeviceHairline(ctx, body);
 }
 
 /**

@@ -235,13 +235,18 @@ const PRE_FRAME_BASELINE = {
 describe('frame: none (the existing behaviour)', () => {
   const RATIOS = ['3:2', '4:3', '16:9', '1:1'];
 
-  // Strip `web.chrome` from the live output before comparing to the
-  // baseline, which predates that field entirely - and assert separately
-  // that it's null, per this task's contract for frameKind === 'none'.
-  function webWithoutChrome(web) {
+  // Strip the fields the baseline predates before comparing - and assert
+  // each one's no-frame, no-stroke value first, so nothing is dropped
+  // blindly: `chrome` is null per this task's contract, `strokeWidth` is
+  // exactly 0 (Task 7's default style is 'none'), and `inner` is the box's
+  // own rect, which is the whole claim that a mat of zero width costs the
+  // picture nothing.
+  function webWithoutFrameFields(web) {
     if (web === null) return null;
     expect(web.chrome).toBeNull();
-    const { chrome, ...rest } = web;
+    expect(web.strokeWidth).toBe(0);
+    expect(web.inner).toEqual({ x: web.x, y: web.y, w: web.w, h: web.h, radius: web.radius });
+    const { chrome, strokeWidth, inner, ...rest } = web;
     return rest;
   }
 
@@ -249,7 +254,7 @@ describe('frame: none (the existing behaviour)', () => {
     it(`produces exactly the same web-layout output as before, at ${ratio}`, () => {
       const c = normalise({ layout: 'web', ratio });
       const out = layout(c, { web: 1.6, mobile: [] });
-      expect({ ...out, web: webWithoutChrome(out.web) }).toEqual(PRE_FRAME_BASELINE[`web:${ratio}`]);
+      expect({ ...out, web: webWithoutFrameFields(out.web) }).toEqual(PRE_FRAME_BASELINE[`web:${ratio}`]);
     });
 
     it(`produces exactly the same mobile-layout output as before, at ${ratio}`, () => {
@@ -262,7 +267,7 @@ describe('frame: none (the existing behaviour)', () => {
     it(`produces exactly the same web+mobile-layout output as before, at ${ratio}`, () => {
       const c = normalise({ layout: 'web+mobile', ratio });
       const out = layout(c, { web: 1.6, mobile: [0.462] });
-      expect({ ...out, web: webWithoutChrome(out.web) }).toEqual(PRE_FRAME_BASELINE[`webmobile:${ratio}`]);
+      expect({ ...out, web: webWithoutFrameFields(out.web) }).toEqual(PRE_FRAME_BASELINE[`webmobile:${ratio}`]);
     });
   }
 });
@@ -522,5 +527,74 @@ describe('frames grow outward', () => {
     expect(lay.web.y).toBeGreaterThanOrEqual(m - 1e-9);
     expect(lay.web.x + lay.web.w).toBeLessThanOrEqual(c.w - m + 1e-9);
     expect(lay.web.y + lay.web.h).toBeLessThanOrEqual(c.h - m + 1e-9);
+  });
+});
+
+// --- Strokes (Cycle A Task 7) --------------------------------------------
+//
+// The stroke is the OUTERMOST outset: it wraps the frame, not the other way
+// round. These assert the accumulation, not the painting - see
+// test/render-stroke.test.js for what reaches the canvas.
+describe('stroke insets', () => {
+  const SW = 1200 * 0.02;   // shorter canvas side at 3:2, x the stroke width
+
+  it('grows the composite on all four sides and leaves the screenshot alone', () => {
+    const bare = layout(normalise({ layout: 'web', ratio: '3:2' }), { web: 1.6, mobile: [] });
+    const mat = layout(
+      normalise({ layout: 'web', ratio: '3:2', stroke: { style: 'light', width: 0.02 } }),
+      { web: 1.6, mobile: [] },
+    );
+    expect(mat.web.strokeWidth).toBeCloseTo(SW, 9);
+    expect(mat.web.w).toBeCloseTo(bare.web.w + SW * 2, 9);
+    expect(mat.web.h).toBeCloseTo(bare.web.h + SW * 2, 9);
+    expect(mat.web.inner.w).toBeCloseTo(bare.web.w, 9);
+    expect(mat.web.inner.h).toBeCloseTo(bare.web.h, 9);
+    // Still centred: the mat grew equally on the left and the right.
+    expect(mat.web.x + mat.web.w / 2).toBeCloseTo(bare.web.x + bare.web.w / 2, 9);
+  });
+
+  it('does not make the browser title bar taller', () => {
+    const bare = layout(
+      normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser' }), { web: 1.6, mobile: [] });
+    const mat = layout(
+      normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser', stroke: { style: 'light', width: 0.02 } }),
+      { web: 1.6, mobile: [] },
+    );
+    // NOT `barH` equality: at 3:2 a browser composite already crosses
+    // MIN_MARGIN_RATIO, so adding a mat makes the whole thing scale down
+    // uniformly - bar, screenshot and mat together. What must hold is the
+    // PROPORTION: the bar stays BROWSER_BAR_RATIO of the screenshot's own
+    // width, which is exactly what a mat leaking into the bar would break.
+    for (const out of [bare, mat]) {
+      expect(out.web.chrome.barH)
+        .toBeCloseTo(out.web.chrome.screen.w * (10 / 133), 9);
+    }
+    // The screenshot starts a full stroke further in than it used to.
+    expect(mat.web.chrome.screen.x - mat.web.x).toBeCloseTo(mat.web.strokeWidth, 9);
+  });
+
+  it('does not make the phone bezel thicker, and keeps the corners concentric', () => {
+    const bare = layout(
+      normalise({ layout: 'web', ratio: '3:2', frameKind: 'phone' }), { web: 0.462, mobile: [] });
+    const mat = layout(
+      normalise({ layout: 'web', ratio: '3:2', frameKind: 'phone', stroke: { style: 'light', width: 0.02 } }),
+      { web: 0.462, mobile: [] },
+    );
+    expect(mat.web.chrome.frame).toBeCloseTo(bare.web.chrome.frame, 9);
+    expect(mat.web.chrome.bodyRadius).toBeCloseTo(mat.web.chrome.radius - SW, 9);
+    expect(mat.web.chrome.innerRadius)
+      .toBeCloseTo(mat.web.chrome.bodyRadius - mat.web.chrome.frame, 9);
+  });
+
+  it('scales down uniformly rather than inverting at the maximum width', () => {
+    const mat = layout(
+      normalise({ layout: 'web', ratio: '3:2', stroke: { style: 'light', width: 99 } }),
+      { web: 1.6, mobile: [] },
+    );
+    expect(mat.web.inner.w).toBeGreaterThan(0);
+    expect(mat.web.inner.h).toBeGreaterThan(0);
+    expect(mat.web.inner.radius).toBeGreaterThanOrEqual(0);
+    // The floor held: the composite still clears MIN_MARGIN_RATIO.
+    expect(mat.web.x).toBeGreaterThanOrEqual(1800 * 0 + 1200 * 0.02 - 1e-9);
   });
 });

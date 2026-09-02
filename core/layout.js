@@ -36,17 +36,36 @@ function safeBox(c) {
 // phoneBox()'s exact math so a phone frame around a web shot looks like the
 // same device as the mobile layout's phones.
 //
-// Kept as its own small function on purpose: Task 7 extends it to
-// frameInsets(c, screenW, shorterSide) and adds a `stroke` field to the
-// same accumulation, and Task 8 changes BROWSER_BAR_RATIO, both without
-// touching webBox below.
-function frameInsets(c, screenW) {
-  if (c.frameKind === 'none') return { top: 0, right: 0, bottom: 0, left: 0 };
+// Kept as its own small function on purpose: it is the ONE place an outset
+// is declared. Task 7 plugged the stroke in here and Task 8 changes
+// BROWSER_BAR_RATIO, both without touching webBox below.
+//
+// Task 7: the stroke wraps EVERYTHING else - it is the outermost ring, so
+// it is added to all four edges of every kind, including 'none'. It is
+// reported separately as `stroke` as well, because the painters need to
+// know how far in the frame body starts; the four edge totals already
+// include it, so nothing that consumes them double-counts.
+//
+// `shorterSide` (not screenW) is the stroke's unit, matching how `pad` and
+// MIN_MARGIN_RATIO are measured: a mat should keep the same visual weight
+// whatever ratio the screenshot happens to be, whereas a bezel belongs to
+// the device and scales with it.
+function frameInsets(c, screenW, shorterSide) {
+  const sw = c.stroke.style === 'none' ? 0 : shorterSide * c.stroke.width;
+  if (c.frameKind === 'none') {
+    return { top: sw, right: sw, bottom: sw, left: sw, stroke: sw };
+  }
   if (c.frameKind === 'phone') {
     const bezel = Math.max(PHONE_BEZEL_MIN, screenW * PHONE_BEZEL_RATIO);
-    return { top: bezel, right: bezel, bottom: bezel, left: bezel };
+    return {
+      top: bezel + sw, right: bezel + sw, bottom: bezel + sw, left: bezel + sw,
+      stroke: sw,
+    };
   }
-  return { top: screenW * BROWSER_BAR_RATIO, right: 0, bottom: 0, left: 0 };
+  return {
+    top: screenW * BROWSER_BAR_RATIO + sw, right: sw, bottom: sw, left: sw,
+    stroke: sw,
+  };
 }
 
 // A CONSUMER of insets that are already final, not a re-deriver of them:
@@ -66,13 +85,26 @@ function chromeFor(c, web, ins, screenW, screenH) {
   // nothing double-counts. (The plan's sketch had `barH: ins.top`
   // unconditionally, which would have handed the phone a 9px title bar and
   // broken paintPhoneChrome's documented "chrome.barH is 0" contract.)
-  const frame = c.frameKind === 'phone' ? ins.left : 0;
+  //
+  // Task 7: every field below is net of the stroke, because the frame sits
+  // INSIDE the mat. `ins.top`/`ins.left` carry the stroke (frameInsets adds
+  // it to all four edges), so the bar height and the bezel each subtract it
+  // back out - otherwise a mat would silently make the title bar taller and
+  // the bezel thicker. `screen` is the one field that does NOT subtract: it
+  // is an absolute position, and the screenshot really does start a full
+  // stroke-plus-bezel in from the composite's outer edge.
+  const frame = c.frameKind === 'phone' ? ins.left - ins.stroke : 0;
+  // The frame body's own corner, concentric inside the mat: one stroke
+  // width tighter than the composite's outer radius. With no stroke this is
+  // `radius` unchanged.
+  const bodyRadius = Math.max(0, radius - ins.stroke);
   return {
     kind: c.frameKind,
-    barH: c.frameKind === 'phone' ? 0 : ins.top,
+    barH: c.frameKind === 'phone' ? 0 : ins.top - ins.stroke,
     frame,
     radius,
-    innerRadius: Math.max(0, radius - frame),
+    bodyRadius,
+    innerRadius: Math.max(0, bodyRadius - frame),
     screen: {
       x: web.x + ins.left,
       y: web.y + ins.top,
@@ -102,7 +134,7 @@ function webBox(c, box, ratio) {
   // 2. Grow outward. What gives way is the PADDING, not the picture - see
   //    the spec's "frames and strokes are outsets". For frameKind 'none'
   //    every inset is 0, so that path is provably the unchanged original.
-  const ins = frameInsets(c, sw);
+  const ins = frameInsets(c, sw, Math.min(c.w, c.h));
   let ow = sw + ins.left + ins.right;
   let oh = sh + ins.top + ins.bottom;
 
@@ -116,6 +148,7 @@ function webBox(c, box, ratio) {
   const s = {
     top: ins.top * shrink, right: ins.right * shrink,
     bottom: ins.bottom * shrink, left: ins.left * shrink,
+    stroke: ins.stroke * shrink,
   };
 
   // 4. Centre the composite. The safe box is itself always centred on the
@@ -130,6 +163,17 @@ function webBox(c, box, ratio) {
   const y = box.y + (box.h - oh) / 2;
 
   const web = { x, y, w: ow, h: oh, radius: c.radius };
+  // Task 7. `inner` is the composite MINUS the mat: what every painter
+  // actually draws into, and what the render tests measure the picture
+  // against. With no stroke it is `web`'s own rect to the last ULP
+  // (s.stroke is exactly 0, and c.radius is never negative), which is why
+  // the frozen goldens cannot move.
+  web.strokeWidth = s.stroke;
+  web.inner = {
+    x: web.x + s.stroke, y: web.y + s.stroke,
+    w: ow - s.stroke * 2, h: oh - s.stroke * 2,
+    radius: Math.max(0, c.radius - s.stroke),
+  };
   web.chrome = chromeFor(c, web, s, sw, sh);
   return web;
 }
