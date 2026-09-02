@@ -513,14 +513,16 @@ input {
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  /* A <button> sizes to max-content, not to its <li> — which is the real
-     mechanism behind "Dribbble shot2800×2100": with the box shrink-wrapped
-     around both spans, `justify-content: space-between` has no free space to
-     distribute and the two labels sit flush against each other at every rail
-     width. `gap` is what separates them. This cap is what stops a name too
-     long for the rail from running out under the panel edge instead, and is
-     what lets the ellipsis rule below ever fire; no current row reaches it,
-     so short rows still shrink-wrap exactly as before. */
+  /* A <button> sizes to max-content, not to its <li>, and that shrink-wrap is
+     the mechanism behind "Dribbble shot2800×2100": with the box collapsed onto
+     its two spans, `justify-content: space-between` above has no free space to
+     distribute, so the labels sit flush at every rail width and every row ends
+     at a different x. `width: 100%` is the fix — it gives space-between
+     something to distribute, which puts the dimensions in a real right-hand
+     column, fills the hover/selected background across the row, and makes the
+     whole 201px a click target. `max-width` then caps a row whose content
+     exceeds the rail, which is what lets the ellipsis rule below fire. */
+  width: 100%;
   max-width: 100%;
   height: 32px;
   padding: 0 10px;
@@ -534,10 +536,10 @@ input {
 }
 
 /* The name truncates; the dimensions never do — they are the information the
-   row exists to carry. `min-width: 0` is what lets the name shrink at all: a
-   flex item's automatic minimum size is its content, so without it the row
-   would push past the `max-width` cap above and run out under the panel edge
-   rather than ellipsing. */
+   row exists to carry, and the column they line up in. `min-width: 0` is what
+   lets the name shrink at all: a flex item's automatic minimum size is its
+   content, so without it a long name would push the row past the cap above and
+   out under the panel edge rather than ellipsing. */
 .template-row > span:first-child {
   min-width: 0;
   overflow: hidden;

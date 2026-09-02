@@ -212,11 +212,14 @@ function matchesQuery(label, query) {
 /**
  * Build the eight named-hue preset rows (`.preset-row`/`.preset-swatch`,
  * the exact markup/gradient logic above) into `listEl` — an already-empty
- * `<ul>` (or similar) the caller owns. Factored out of this file's own
- * `renderGrounds()` (below) so web/inspector-background.js's Background
- * panel (Task 5) can show the SAME eight presets, rendered the SAME way,
- * without a second implementation of the swatch/gradient logic — the
- * brief for that task is explicit that this must be reused, not rewritten.
+ * `<ul>` (or similar) the caller owns. Originally factored out of this
+ * file's own rail-side `renderGrounds()` so web/inspector-background.js's
+ * Background panel (Task 5) could show the SAME eight presets, rendered the
+ * SAME way, without a second implementation of the swatch/gradient logic —
+ * the brief for that task is explicit that this must be reused, not
+ * rewritten. Cycle A Task 2 then removed the rail's duplicate group, so the
+ * Background panel is now the only caller; this stays here because the
+ * gradient logic it depends on does.
  *
  * `onSelect()` runs after `selectGround` has already mutated
  * `state.config` for the clicked preset — the caller decides what needs to
