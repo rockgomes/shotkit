@@ -353,6 +353,34 @@ model, the rendered preset tiles, Angle (17), per-control Resets (18).
 
 Each cycle is its own plan, run task by task, stopping after every task.
 
+## Carried forward — Background panel, from Rock 2026-09-02
+
+Raised while approving Task 5, and explicitly deferred by him: *"I guess this
+is for another phase, but already leaving this feedback here."*
+
+**Preset rows need a full-width click target.** *"the color names's clickable
+area should be the whole row, like we have for templates. short names atm have
+also a short click target."* Cycle A Task 2 fixed exactly this for the template
+and ratio rows — `.template-row` shrink-wrapped to its text, so a short name
+gave a short target, and `width: 100%` fixed it. The Background panel's preset
+rows have the same defect and did not get the same fix. Reuse the reasoning,
+and check the sampled row and the type cells while there.
+
+**A preset sets the hue but not the angle.** *"selecting a background changes
+the hue, but not the angle. why?"* Because nothing wires them together: a
+preset writes `forceHue` only, and `angle` is an independent field defaulting
+to `DEFAULT_ANGLE` (166°). That is not a decision anyone took — it is how the
+CLI's flags happened to map. Whether a preset should carry its own angle (so
+each named ground has a considered direction) is a real design question for the
+type-first rebuild, where each type gets its own set.
+
+**Background blur belongs here too.** Rock described Screen Studio's control:
+it blurs a *wallpaper* — waves, glass reflections. It is meaningless against a
+flat gradient, so it only becomes real once the Background rebuild has image or
+generated-wallpaper types. Do not confuse it with the shadow's own softness,
+which is a different control that Cycle A Task 5b renames for exactly this
+reason.
+
 ## Carried forward — a dark ground
 
 Raised by Rock 2026-09-02: *"in the ground tone, why don't we have dark
