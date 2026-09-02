@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { DEFAULTS, normalise, SHADOW_SCALE_RANGE } from '../core/index.js';
+import {
+  SHADOW_DEFAULTS, SHADOW_DISTANCE_RANGE, SHADOW_BLUR_RANGE,
+} from '../core/presets.js';
+import { readFileSync } from 'node:fs';
 import { state, bindCanvas, render } from '../web/state.js';
 import {
   activeFrameKind,
@@ -20,6 +24,14 @@ import {
   activeRadiusPercent,
   setRadiusPercent,
   RADIUS_PERCENT_MAX,
+  activeShadowDistancePercent,
+  setShadowDistancePercent,
+  activeShadowBlurPercent,
+  setShadowBlurPercent,
+  activeShadowAngle,
+  setShadowAngle,
+  activeShadowDirectional,
+  setShadowDirectional,
 } from '../web/inspector-frame.js';
 
 const mkCanvas = (w, h) => createCanvas(w, h);
@@ -198,6 +210,189 @@ describe('corner radius percent <-> config.radius pixels', () => {
   });
 });
 
+// Cycle A Task 5: the four new shadow controls — Distance, Angle, Blur and
+// the Directional toggle. Every assertion below goes through the REAL
+// normalise() on the far side of the round trip, not just this file's own
+// helpers, so a percent<->fraction convention that agreed only with itself
+// would still fail here.
+describe('Task 5: shadow distance', () => {
+  it("an unset config reads back core/'s own default, as a percent of canvas height", () => {
+    expect(activeShadowDistancePercent({})).toBeCloseTo(SHADOW_DEFAULTS.distance * 100, 5);
+    expect(activeShadowDistancePercent({})).toBe(4);
+  });
+
+  it('writes a fraction normalise() reads back unchanged', () => {
+    const config = {};
+    setShadowDistancePercent(config, 12);
+    expect(config.shadow.distance).toBeCloseTo(0.12, 6);
+    expect(normalise(config).shadow.distance).toBeCloseTo(0.12, 6);
+    expect(activeShadowDistancePercent(config)).toBeCloseTo(12, 5);
+  });
+
+  it('clamps at BOTH ends, to SHADOW_DISTANCE_RANGE', () => {
+    const config = {};
+    setShadowDistancePercent(config, -40);
+    expect(config.shadow.distance).toBe(SHADOW_DISTANCE_RANGE[0]);
+    setShadowDistancePercent(config, 999);
+    expect(config.shadow.distance).toBe(SHADOW_DISTANCE_RANGE[1]);
+  });
+
+  it('leaves the other shadow fields alone', () => {
+    const config = {};
+    setShadowDistancePercent(config, 8);
+    expect(config.shadow.blur).toBe(SHADOW_DEFAULTS.blur);
+    expect(config.shadow.angle).toBe(SHADOW_DEFAULTS.angle);
+    expect(config.shadow.directional).toBe(false);
+  });
+});
+
+describe('Task 5: shadow blur', () => {
+  it("an unset config reads back core/'s own default", () => {
+    expect(activeShadowBlurPercent({})).toBeCloseTo(SHADOW_DEFAULTS.blur * 100, 5);
+    expect(activeShadowBlurPercent({})).toBe(10.5);
+  });
+
+  it('writes a fraction normalise() reads back unchanged', () => {
+    const config = {};
+    setShadowBlurPercent(config, 25);
+    expect(config.shadow.blur).toBeCloseTo(0.25, 6);
+    expect(normalise(config).shadow.blur).toBeCloseTo(0.25, 6);
+  });
+
+  it('clamps at BOTH ends, to SHADOW_BLUR_RANGE', () => {
+    const config = {};
+    setShadowBlurPercent(config, -1);
+    expect(config.shadow.blur).toBe(SHADOW_BLUR_RANGE[0]);
+    setShadowBlurPercent(config, 999);
+    expect(config.shadow.blur).toBe(SHADOW_BLUR_RANGE[1]);
+  });
+});
+
+describe('Task 5: shadow angle', () => {
+  it('an unset config reads back 90 — straight down, the shipped direction', () => {
+    expect(activeShadowAngle({})).toBe(SHADOW_DEFAULTS.angle);
+    expect(activeShadowAngle({})).toBe(90);
+  });
+
+  it('writes a value normalise() reads back unchanged', () => {
+    const config = {};
+    setShadowAngle(config, 217);
+    expect(config.shadow.angle).toBe(217);
+    expect(normalise(config).shadow.angle).toBe(217);
+    expect(activeShadowAngle(config)).toBe(217);
+  });
+
+  // Angle WRAPS rather than clamps, and does so with exactly the expression
+  // core/config.js uses. Clamping would let the panel display a value
+  // normalise() then disagrees with (450 shown, 90 rendered), which is the
+  // "control that appears to work" failure this file already has one fix
+  // round for. The ends still behave: nothing out of range survives.
+  it('wraps at both ends, agreeing with normalise() rather than clamping', () => {
+    const config = {};
+    setShadowAngle(config, -90);
+    expect(config.shadow.angle).toBe(270);
+    expect(normalise(config).shadow.angle).toBe(270);
+    setShadowAngle(config, 450);
+    expect(config.shadow.angle).toBe(90);
+    setShadowAngle(config, 360);
+    expect(config.shadow.angle).toBe(0);
+  });
+});
+
+describe('Task 5: the directional toggle', () => {
+  it('is off by default — the shipped, non-directional shadow', () => {
+    expect(activeShadowDirectional({})).toBe(false);
+    expect(normalise({}).shadow.directional).toBe(false);
+  });
+
+  it('round-trips true and false through normalise()', () => {
+    const config = {};
+    setShadowDirectional(config, true);
+    expect(config.shadow.directional).toBe(true);
+    expect(normalise(config).shadow.directional).toBe(true);
+    expect(activeShadowDirectional(config)).toBe(true);
+    setShadowDirectional(config, false);
+    expect(normalise(config).shadow.directional).toBe(false);
+  });
+
+  it('coerces to a real boolean — never stores a truthy string normalise() would reject', () => {
+    // core/config.js accepts `directional === true` and nothing else, so a
+    // panel that stored 'true' would show ON and render OFF.
+    const config = {};
+    setShadowDirectional(config, 'true');
+    expect(config.shadow.directional).toBe(true);
+    expect(normalise(config).shadow.directional).toBe(true);
+  });
+});
+
+// The shadow block must be the config's OWN object, never core/'s exported
+// SHADOW_DEFAULTS handed out by reference — web/state.js seeds state.config
+// with `{ ...DEFAULTS }`, a shallow copy, so a shared nested object would be
+// mutated by the panel for every config in the process at once.
+describe('Task 5: the lazily-created shadow block', () => {
+  it("never aliases core/presets.js's SHADOW_DEFAULTS", () => {
+    const config = {};
+    setShadowDistancePercent(config, 15);
+    expect(config.shadow).not.toBe(SHADOW_DEFAULTS);
+    expect(SHADOW_DEFAULTS.distance).toBe(0.040); // untouched
+  });
+
+  it('two configs do not share one block', () => {
+    const a = {};
+    const b = {};
+    setShadowAngle(a, 10);
+    setShadowAngle(b, 200);
+    expect(a.shadow.angle).toBe(10);
+    expect(b.shadow.angle).toBe(200);
+  });
+
+  it('reading never mutates the config', () => {
+    const config = {};
+    activeShadowDistancePercent(config);
+    activeShadowAngle(config);
+    activeShadowDirectional(config);
+    expect(config.shadow).toBeUndefined();
+  });
+});
+
+// EVERY CONTROL MUST SCHEDULE A RENDER. This suite runs on vitest's `node`
+// environment with no DOM (see the note in test/sidebar.test.js), so the
+// claim is asserted where it lives — in initFinishInspector's own source —
+// rather than by standing up a jsdom nobody else in test/ uses. Each
+// listener block is isolated by splitting on `addEventListener(`, so a
+// handler that forgot scheduleRender() cannot borrow the next handler's.
+describe('Task 5: every new Finish control schedules a render', () => {
+  const SRC = readFileSync('web/inspector-frame.js', 'utf8');
+  const FINISH = SRC.slice(SRC.indexOf('export function initFinishInspector'));
+  expect(FINISH.length).toBeGreaterThan(0);
+
+  function handlerCalling(setter) {
+    return FINISH.split('addEventListener(').slice(1)
+      .find((block) => block.includes(`${setter}(state.config`));
+  }
+
+  for (const setter of [
+    'setShadowDistancePercent',
+    'setShadowAngle',
+    'setShadowBlurPercent',
+    'setShadowDirectional',
+  ]) {
+    it(`${setter} is wired to a listener that calls scheduleRender()`, () => {
+      const handler = handlerCalling(setter);
+      expect(handler, `no listener in initFinishInspector calls ${setter}`).toBeDefined();
+      expect(handler, `${setter}'s listener never calls scheduleRender()`)
+        .toMatch(/scheduleRender\(\)/);
+    });
+  }
+
+  // Break-it check: the same search for a setter that does not exist must
+  // come up empty, so the four passes above are not an artefact of a
+  // `find` that matches anything.
+  it('the same search finds nothing for a control that does not exist', () => {
+    expect(handlerCalling('setShadowNonsense')).toBeUndefined();
+  });
+});
+
 // Cycle A Task 4: the Fit segmented control and the Caption text input are
 // gone from the Finish section. This asserts the MODULE SURFACE rather than
 // the DOM (this suite runs under vitest's node environment, with no
@@ -216,7 +411,11 @@ describe('retired Finish controls', () => {
   it('still exports the Finish controls that stay', async () => {
     const mod = await import('../web/inspector-frame.js');
     for (const name of ['activePadPercent', 'setPadPercent', 'activeRadiusPercent',
-      'activeGrainPercent', 'activeShadowPercent', 'initFinishInspector']) {
+      'activeGrainPercent', 'activeShadowPercent', 'initFinishInspector',
+      'activeShadowDistancePercent', 'setShadowDistancePercent',
+      'activeShadowBlurPercent', 'setShadowBlurPercent',
+      'activeShadowAngle', 'setShadowAngle',
+      'activeShadowDirectional', 'setShadowDirectional']) {
       expect(typeof mod[name], `${name} went missing`).toBe('function');
     }
   });
@@ -287,6 +486,12 @@ describe('Task 6: Frame/Finish fields hit the warm colour cache, never groundFor
     setRadiusPercent(state.config, 3); render();
     setGrainPercent(state.config, 80); render();
     setShadowPercent(state.config, 160); render();
+    // Cycle A Task 5's four: none of them touches config.ground or
+    // config.tone either, so the sweep must stay warm across all of them.
+    setShadowDistancePercent(state.config, 9); render();
+    setShadowAngle(state.config, 215); render();
+    setShadowBlurPercent(state.config, 22); render();
+    setShadowDirectional(state.config, true); render();
 
     // Structural, not just "didn't throw": the ground key genuinely never
     // changed, so every render() above actually took the precomputed-meta

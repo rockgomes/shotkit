@@ -1,12 +1,20 @@
 import {
   RATIOS, HUES, DEFAULTS, RADIUS_RATIO, TEMPLATES, DEFAULT_ANGLE, SCALES, FRAME_KINDS,
   LAYOUTS, TONES, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
+  SHADOW_DEFAULTS, SHADOW_DISTANCE_RANGE, SHADOW_BLUR_RANGE,
 } from './presets.js';
 
 function num(v, fallback) {
   if (v === undefined || v === null || v === '') return fallback;
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
+}
+
+/** Clamp into a [min, max] pair from presets.js. Written as one helper
+ *  rather than three inline Math.min(Math.max(...)) nests so the shadow
+ *  block below reads as what it is. */
+function clamp(n, [min, max]) {
+  return Math.min(max, Math.max(min, n));
 }
 
 /**
@@ -79,9 +87,48 @@ export function normalise(input = {}) {
     // here (the same defensive clamp core/render.js also applies to the
     // final alpha product) so an out-of-range value from a stale jobs.json
     // or a runaway slider can never reach the canvas unclamped.
+    //
+    // Cycle A Task 5 gave the shadow a whole config block (below), and
+    // `scale` there is this same number. This top-level field STAYS: it was
+    // the only shadow input that ever existed, it is what a jobs.json
+    // written against the shipped CLI carries, and test/compose.test.js's
+    // `shadow-heavy` golden is generated from it. Both report the same
+    // clamped value; `shadow.scale` is the one core/render.js reads.
     shadowScale: Math.min(
       SHADOW_SCALE_RANGE[1],
       Math.max(SHADOW_SCALE_RANGE[0], num(input.shadowScale, DEFAULTS.shadowScale)),
     ),
+    // Cycle A Task 5: distance, angle, blur and a directional mode.
+    //
+    // THE DEFAULTS REPRODUCE THE SHIPPED SHADOW EXACTLY, and that is a
+    // frozen guarantee, not an aspiration: test/render-shadow.test.js
+    // renders paintShadow alone at these values and diffs it against
+    // test/golden/shadow/default.png, captured from the pre-Task-5 code.
+    // `distance` and `blur` are fractions of a base length (the canvas
+    // height at three of the four call sites) - see SHADOW_DEFAULTS in
+    // presets.js for what each field means and where its number came from.
+    shadow: (() => {
+      const s = input.shadow || {};
+      // `shadowScale` at the top level is still honoured: it was the only
+      // shadow input before this task, so anything that already sets it
+      // keeps working, with Task 6b's clamp semantics preserved exactly
+      // (out-of-range values clamp, non-numbers fall back). An explicit
+      // `shadow.scale` wins over it - the specific beats the legacy.
+      const scaleIn = s.scale !== undefined ? s.scale : input.shadowScale;
+      return {
+        scale: clamp(num(scaleIn, SHADOW_DEFAULTS.scale), SHADOW_SCALE_RANGE),
+        distance: clamp(num(s.distance, SHADOW_DEFAULTS.distance), SHADOW_DISTANCE_RANGE),
+        // Wrapped, not clamped: 450 degrees is 90, and -90 is 270. Same
+        // normalisation `angle` (the ground gradient's) above already uses.
+        angle: (() => {
+          const a = num(s.angle, SHADOW_DEFAULTS.angle);
+          return ((a % 360) + 360) % 360;
+        })(),
+        blur: clamp(num(s.blur, SHADOW_DEFAULTS.blur), SHADOW_BLUR_RANGE),
+        // Strictly `true`, never merely truthy: a stale jobs.json carrying
+        // the string 'false' must not switch this on.
+        directional: s.directional === true,
+      };
+    })(),
   };
 }

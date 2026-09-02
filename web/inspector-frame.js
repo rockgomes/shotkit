@@ -4,7 +4,8 @@
 //
 // TWO SECTIONS, ONE FILE: the task brief creates exactly one new file for
 // both (Frame: frameKind chips, chrome theme, the url field it gates;
-// Finish: padding, corner radius, grain, shadow) — they're wired the
+// Finish: padding, corner radius, grain, shadow — strength, and from Cycle A
+// Task 5 its distance, angle, blur and directional mode) — they're wired the
 // same way and share no state with web/inspector-background.js, so there's
 // no reason to split them further. Order within each section follows the
 // brief's own ordering, not the design handoff's (which never designed a
@@ -29,16 +30,18 @@
 // touched a control.
 //
 // PERFORMANCE: none of frameKind/chromeTheme/url/pad/radius/grain/
-// shadowScale is part of web/state.js's `groundKeyFor` (images +
+// shadowScale/shadow.* is part of web/state.js's `groundKeyFor` (images +
 // config.ground + config.tone only) — every control in this file hits the
 // warm ~3ms colour cache, never groundFor's ~90-200ms analysis. shadowScale
 // (Task 6b) has nothing to do with the sampled ground even in principle — a
 // shadow multiplier over a fixed rgba colour — so it belongs in this list
-// for the same reason grain does. See test/inspector-frame.test.js's
-// "throwing canvas" guard for the proof, and task-6-report.md /
-// task-6b-report.md for measured timings.
+// for the same reason grain does, and so do Task 5's distance/angle/blur/
+// directional, which only move where that same wash lands. See
+// test/inspector-frame.test.js's "throwing canvas" guard for the proof, and
+// task-6-report.md / task-6b-report.md for measured timings.
 import {
   FRAME_KINDS, CHROME_THEMES, DEFAULTS, normalise, SHADOW_SCALE_RANGE,
+  SHADOW_DEFAULTS, SHADOW_DISTANCE_RANGE, SHADOW_BLUR_RANGE,
 } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
 
@@ -162,6 +165,103 @@ export function setShadowPercent(config, pct) {
   config.shadowScale = Math.min(max * 100, Math.max(min * 100, n)) / 100;
 }
 
+// --- Shadow shape (Cycle A Task 5): distance, angle, blur, directional ----
+//
+// FOUR DELIBERATELY MINIMAL CONTROLS. Cycle B restyles this whole section;
+// these exist so the render feature can be dragged, seen and approved,
+// because a feature with no way to reach it in the UI cannot be approved at
+// all. They follow the idiom already in this file exactly — a `slider-row`
+// per number, and the same `segmented segmented--mini` for the toggle that
+// Chrome theme uses. No new control idiom, no restyling of anything around
+// them.
+//
+// ANGLE IS NEVER DISABLED OR HIDDEN, including while Directional is off,
+// where it does nothing. A control that vanishes is more confusing than one
+// that waits, and this section already carries one fix round about a
+// control that appeared to work and didn't — the answer there was to remove
+// the control, not to hide it. Here the control is real; it is simply the
+// second half of a pair.
+
+/**
+ * The effective shadow block for READING — core/'s defaults with whatever
+ * the config actually carries laid over them. Deliberately non-mutating: a
+ * panel that wrote to `config` merely by rendering itself would make
+ * `normalise({})` and `normalise(state.config)` disagree the moment the
+ * inspector mounted.
+ */
+function readShadow(config) {
+  return { ...SHADOW_DEFAULTS, ...(config && config.shadow) };
+}
+
+/**
+ * The config's OWN shadow block, created on first write.
+ *
+ * The spread is the point. `web/state.js` seeds `state.config` with
+ * `{ ...DEFAULTS }` — a shallow copy — so handing out core/'s exported
+ * SHADOW_DEFAULTS by reference would give every config in the process the
+ * same mutable object, and one slider drag would rewrite core/'s own
+ * defaults. See test/inspector-frame.test.js's "never aliases" case.
+ */
+function writableShadow(config) {
+  if (!config.shadow || typeof config.shadow !== 'object') {
+    config.shadow = { ...SHADOW_DEFAULTS };
+  }
+  return config.shadow;
+}
+
+// Distance and Blur are fractions of the canvas height (core/presets.js's
+// SHADOW_DEFAULTS), so the UI shows them as percentages — the same *100 /
+// *0.01 round trip padding, grain and shadow strength already use. Bounds
+// come from core/ rather than being retyped here, so this slider and
+// normalise()'s clamp cannot drift apart.
+export function activeShadowDistancePercent(config) {
+  return Math.round(readShadow(config).distance * 1000) / 10;
+}
+
+export function setShadowDistancePercent(config, pct) {
+  const n = Number(pct);
+  if (!Number.isFinite(n)) return;
+  const [min, max] = SHADOW_DISTANCE_RANGE;
+  writableShadow(config).distance = Math.min(max, Math.max(min, n / 100));
+}
+
+export function activeShadowBlurPercent(config) {
+  return Math.round(readShadow(config).blur * 1000) / 10;
+}
+
+export function setShadowBlurPercent(config, pct) {
+  const n = Number(pct);
+  if (!Number.isFinite(n)) return;
+  const [min, max] = SHADOW_BLUR_RANGE;
+  writableShadow(config).blur = Math.min(max, Math.max(min, n / 100));
+}
+
+// Angle is degrees, and WRAPS rather than clamps — the exact expression
+// core/config.js's normalise() applies. Clamping would let this panel
+// display a number normalise() then renders as something else (450 shown,
+// 90 drawn), which is precisely the "control that appears to work" failure
+// showsBrowserOnlyControls above exists to document.
+export function activeShadowAngle(config) {
+  return readShadow(config).angle;
+}
+
+export function setShadowAngle(config, deg) {
+  const n = Number(deg);
+  if (!Number.isFinite(n)) return;
+  writableShadow(config).angle = ((n % 360) + 360) % 360;
+}
+
+// Strictly boolean, because normalise() accepts `directional === true` and
+// nothing else — a panel that stored the string 'true' would read ON here
+// and render OFF.
+export function activeShadowDirectional(config) {
+  return readShadow(config).directional === true;
+}
+
+export function setShadowDirectional(config, on) {
+  writableShadow(config).directional = on === true || on === 'true';
+}
+
 // Corner radius is the one field here that ISN'T stored as a fraction —
 // core/config.js's normalise() resolves an unset `config.radius` to
 // `Math.round(w * RADIUS_RATIO)` (a fraction of canvas WIDTH, ~1.33%), but
@@ -197,6 +297,38 @@ export function setRadiusPercent(config, pct) {
 // for why those loops run BEFORE these, and touch none of this section's
 // controls at all.
 // ---------------------------------------------------------------------
+
+/**
+ * One labelled range row — the exact markup the four hand-written sliders in
+ * initFinishInspector already use, factored out when Task 5 added three
+ * more. Returns the pieces the caller needs to sync and listen; it wires no
+ * listener itself, so every handler stays visible in one place at the bottom
+ * of that function.
+ */
+function addSliderRow(section, { label, min, max, step, aria }) {
+  const row = document.createElement('div');
+  row.className = 'slider-row';
+  const labelRow = document.createElement('div');
+  labelRow.className = 'slider-label';
+  const labelEl = document.createElement('span');
+  labelEl.textContent = label;
+  const valueEl = document.createElement('span');
+  valueEl.className = 'mono slider-value';
+  labelRow.append(labelEl, valueEl);
+  row.appendChild(labelRow);
+
+  const input = document.createElement('input');
+  input.type = 'range';
+  input.className = 'slider';
+  input.min = String(min);
+  input.max = String(max);
+  input.step = String(step);
+  input.setAttribute('aria-label', aria);
+  row.appendChild(input);
+
+  section.appendChild(row);
+  return { row, input, valueEl };
+}
 
 function syncSliderFill(input, valueEl, text) {
   const min = Number(input.min) || 0;
@@ -416,6 +548,64 @@ export function initFinishInspector() {
   const shadowValueEl = shadowRow.querySelector('.slider-value');
   section.appendChild(shadowRow);
 
+  // --- shadow shape (Cycle A Task 5) ------------------------------------
+  // Distance / Angle / Blur / Directional, in that order: the two lengths
+  // bracket the direction they share, and the toggle that switches the
+  // direction on sits last, next to what it gates. Built with the same
+  // helper the four sliders above use rather than four more copies of the
+  // same fifteen lines.
+  const distanceCtl = addSliderRow(section, {
+    label: 'Distance',
+    min: SHADOW_DISTANCE_RANGE[0] * 100,
+    max: SHADOW_DISTANCE_RANGE[1] * 100,
+    step: 0.1,
+    aria: 'Shadow distance, as a percentage of canvas height',
+  });
+
+  // Degrees, not percent — and 0-360 rather than 0-359 so both ends of the
+  // travel land on "straight right". normalise() wraps 360 to 0, so the two
+  // extremes are the same shadow, which is what a circular quantity on a
+  // linear slider should do.
+  const angleCtl = addSliderRow(section, {
+    label: 'Angle',
+    min: 0,
+    max: 360,
+    step: 1,
+    aria: 'Shadow angle in degrees — 90 is straight down. Takes effect when Directional is on',
+  });
+
+  const blurCtl = addSliderRow(section, {
+    label: 'Blur',
+    min: SHADOW_BLUR_RANGE[0] * 100,
+    max: SHADOW_BLUR_RANGE[1] * 100,
+    step: 0.1,
+    aria: 'Shadow blur, as a percentage of canvas height',
+  });
+
+  // The same `inline-control-row` + `segmented segmented--mini` pattern the
+  // Frame section's Chrome theme uses, so this reads as one more of the
+  // panel's existing switches rather than a new idiom.
+  const dirRow = document.createElement('div');
+  dirRow.className = 'inline-control-row';
+  const dirLabel = document.createElement('span');
+  dirLabel.textContent = 'Directional';
+  const dirSegmented = document.createElement('div');
+  dirSegmented.className = 'segmented segmented--mini';
+  dirSegmented.setAttribute('role', 'group');
+  dirSegmented.setAttribute('aria-label', 'Directional shadow');
+  const dirButtons = [['off', 'Off'], ['on', 'On']].map(([value, label]) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'segmented-cell';
+    btn.dataset.directional = value;
+    btn.textContent = label;
+    btn.setAttribute('aria-pressed', 'false');
+    dirSegmented.appendChild(btn);
+    return btn;
+  });
+  dirRow.append(dirLabel, dirSegmented);
+  section.appendChild(dirRow);
+
   function syncPadUI() {
     const pct = activePadPercent(state.config);
     padInput.value = String(pct);
@@ -438,6 +628,30 @@ export function initFinishInspector() {
     const pct = activeShadowPercent(state.config);
     shadowInput.value = String(pct);
     syncSliderFill(shadowInput, shadowValueEl, `${pct}%`);
+  }
+
+  function syncShadowShapeUI() {
+    const distance = activeShadowDistancePercent(state.config);
+    distanceCtl.input.value = String(distance);
+    syncSliderFill(distanceCtl.input, distanceCtl.valueEl, `${distance}%`);
+
+    const angle = activeShadowAngle(state.config);
+    angleCtl.input.value = String(angle);
+    syncSliderFill(angleCtl.input, angleCtl.valueEl, `${angle}°`);
+
+    const blur = activeShadowBlurPercent(state.config);
+    blurCtl.input.value = String(blur);
+    syncSliderFill(blurCtl.input, blurCtl.valueEl, `${blur}%`);
+
+    // Angle stays ENABLED and visible whether or not this is on — see the
+    // header comment on this file's shadow-shape helpers. The toggle's own
+    // pressed state is the only thing that moves here.
+    const on = activeShadowDirectional(state.config);
+    dirButtons.forEach((btn) => {
+      const active = (btn.dataset.directional === 'on') === on;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
   }
 
   padInput.addEventListener('input', () => {
@@ -464,10 +678,37 @@ export function initFinishInspector() {
     scheduleRender();
   });
 
+  distanceCtl.input.addEventListener('input', () => {
+    setShadowDistancePercent(state.config, distanceCtl.input.value);
+    syncShadowShapeUI();
+    scheduleRender();
+  });
+
+  angleCtl.input.addEventListener('input', () => {
+    setShadowAngle(state.config, angleCtl.input.value);
+    syncShadowShapeUI();
+    scheduleRender();
+  });
+
+  blurCtl.input.addEventListener('input', () => {
+    setShadowBlurPercent(state.config, blurCtl.input.value);
+    syncShadowShapeUI();
+    scheduleRender();
+  });
+
+  dirButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      setShadowDirectional(state.config, btn.dataset.directional === 'on');
+      syncShadowShapeUI();
+      scheduleRender();
+    });
+  });
+
   syncPadUI();
   syncRadiusUI();
   syncGrainUI();
   syncShadowUI();
+  syncShadowShapeUI();
 
-  return { syncPadUI, syncRadiusUI, syncGrainUI, syncShadowUI };
+  return { syncPadUI, syncRadiusUI, syncGrainUI, syncShadowUI, syncShadowShapeUI };
 }

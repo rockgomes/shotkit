@@ -40,6 +40,57 @@ export const DEFAULTS = {
 // apart.
 export const SHADOW_SCALE_RANGE = [0, 2];
 
+// Cycle A Task 5: the rest of the shadow, as a config block.
+//
+// `distance` and `blur` are fractions of a BASE LENGTH, not pixels — the
+// same proportional-geometry rule everything else in core/ follows. For the
+// three canvas-sized call sites (paintWeb, paintWebChrome, paintPhoneChrome)
+// that base is the canvas height, and 0.040 / 0.105 are exactly the
+// `c.h * 0.040` and `c.h * 0.105` those call sites already hard-coded: the
+// numbers moved into config without changing value.
+//
+// `angle` is degrees clockwise from the positive x-axis in CANVAS space,
+// where y grows downward — so 90 is straight down, which is what the
+// non-directional construction has always done, and 0 is to the right.
+//
+// `directional: false` is the shipped look: two layers, both offset
+// straight down, angle ignored. `directional: true` offsets the direct
+// layer along `angle`; the ambient layer follows at 0.28 of the distance,
+// exactly as it already did downward.
+export const SHADOW_DEFAULTS = {
+  scale: 1,
+  distance: 0.040,
+  angle: 90,
+  blur: 0.105,
+  directional: false,
+};
+
+// Slider bounds, wide enough either side of the defaults to be worth
+// dragging and no wider. Exported (rather than left as literals in
+// core/config.js and web/inspector-frame.js) for the same reason
+// SHADOW_SCALE_RANGE above is: one source of truth for the clamp, so the UI
+// and normalise() cannot drift apart.
+export const SHADOW_DISTANCE_RANGE = [0, 0.20];
+export const SHADOW_BLUR_RANGE = [0, 0.40];
+
+// THE PHONE'S SHADOW HAS ITS OWN, LARGER BASIS, AND ALWAYS HAS.
+//
+// core/render.js's paintPhone (the mobile-layout phone, not the phone FRAME)
+// measures its shadow against the PHONE's own height, not the canvas's:
+// `box.h * 0.055` and `box.h * 0.14`, paired with alphas 0.22/0.10. A phone
+// is a fraction of the canvas tall, so a canvas-based distance would be far
+// too big for it. (Task 5's plan sketch claims all four call sites pass
+// `c.h * 0.040` / `c.h * 0.105`. Three do. This one never has — folding it
+// onto the canvas basis would have silently changed every mobile shot, and
+// moved a whole-shot golden this task is required not to move.)
+//
+// These two are that pairing, kept as ratios of the phone's height. A user
+// distance/blur is carried across as a RATIO OF ITS OWN DEFAULT (see
+// phoneShadow in core/render.js), so at the defaults the multiplier is
+// exactly 1 and the phone's numbers come out bit-for-bit as they were.
+export const PHONE_SHADOW_DISTANCE_RATIO = 0.055;
+export const PHONE_SHADOW_BLUR_RATIO = 0.14;
+
 // Screen corner radius, as a fraction of canvas WIDTH.
 export const RADIUS_RATIO = 0.0133;
 
