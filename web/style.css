@@ -65,6 +65,7 @@
 .rail-item[aria-disabled='true'],
 .segmented-cell:disabled,
 .slider:disabled,
+.slider-row:has(.slider:disabled),
 .chip:disabled,
 .select-control:disabled {
   --text-primary: var(--text-inert);
@@ -1156,6 +1157,72 @@ input {
 }
 
 /* -------------------------------------------------------------------------
+   Control primitive: disclosure (Task 5b)
+
+   The inspector's version of the sidebar's "+ Custom size" row: a button
+   that says what it controls (`aria-expanded` / `aria-controls`) over a
+   panel hidden by the global `[hidden]` rule at the top of this file. No
+   second hiding mechanism, and nothing here sets `display` on the panel
+   itself, so `[hidden] { display: none !important }` still wins.
+
+   Finish now shows ONE shadow slider and this toggle; Distance, Angle,
+   Softness and Directional live inside the panel. Rock, on Task 5's four
+   flat rows: "I feel like shadow should still be just one slider, and the
+   other controls appear only after selecting some sort of 'advanced
+   controls' for shadows."
+   ---------------------------------------------------------------------- */
+
+.disclosure-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px dashed var(--border-dashed);
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 11.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.disclosure-toggle:hover {
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+}
+
+.disclosure-toggle:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+
+/* The chevron points down when closed and up when open. A transform, not a
+   swapped icon — and neutralised under prefers-reduced-motion at the end of
+   this file along with everything else that moves. */
+.disclosure-toggle .icon {
+  flex: none;
+  transition: transform 120ms ease;
+}
+
+.disclosure-toggle.is-open .icon {
+  transform: rotate(180deg);
+}
+
+.disclosure-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px 10px 12px;
+  border: 1px dashed var(--border-dashed);
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  margin-top: -6px;
+}
+
+/* -------------------------------------------------------------------------
    Control primitive: slider row
    ---------------------------------------------------------------------- */
 
@@ -1163,6 +1230,17 @@ input {
   display: flex;
   flex-direction: column;
   gap: 5px;
+}
+
+/* A row that belongs to the control above it — Angle under Directional
+   (Task 5b), the only one so far. The indent is the whole visual claim;
+   "not available right now" is the input's own `disabled`, which routes
+   through the single off-state rule at the top of this file (that rule
+   carries `.slider-row:has(.slider:disabled)` so the label dims with the
+   track). No opacity anywhere near it. */
+.slider-row--sub {
+  padding-left: 10px;
+  border-left: 1px solid var(--border-hairline);
 }
 
 .slider-label {
@@ -1497,7 +1575,8 @@ input {
   #sidebar,
   #inspector,
   .btn,
-  .icon-btn {
+  .icon-btn,
+  .disclosure-toggle .icon {
     transition: none;
   }
 

@@ -1284,6 +1284,156 @@ asks for a change, make it, redeploy, and hand the link back before moving on.
 
 ---
 
+### Task 5b: One shadow slider, Advanced behind a disclosure, and a floor under Softness
+
+Written after Task 5 shipped and Rock dragged the four controls:
+
+> "Angle only works when directional is on, so why is it even there before the
+> directional toggle? also, I feel like shadow should still be just one slider,
+> and the other controls appear only after selecting some sort of 'advanced
+> controls' for shadows. also, blur is useless atm... you put it on zero and it
+> becomes this weird thing with the 'shadow' being sharp."
+
+then, looking at what zero actually draws:
+
+> "but still weird that we have 2 shadows, no?"
+
+and, clarifying:
+
+> "don't get me wrong, the shadow looks good atm. it just felt wrong on 0blur"
+
+**THE TWO LAYERS ARE NOT A BUG AND ARE NOT RE-ENGINEERED HERE.** `paintShadow`
+draws a broad soft layer and a tighter contact layer, inherited from
+`frame.html`; that pairing is what makes a shot look seated rather than pasted,
+and at every normal softness the two fuse into one shadow. They read as two in
+exactly one place — at softness 0, where both collapse into hard-edged
+rectangles offset by `distance` and `0.28 * distance`. Putting a floor under
+softness closes the "two shadows" report as a side effect of closing the
+"sharp" one. The offsets, the alphas and the layer relationship are untouched.
+
+**One slider by default.** Finish shows **Shadow** — the existing strength
+slider — and nothing else. Below it sits a collapsed **Advanced shadow
+settings** disclosure holding the rest, mirroring the Screen Studio panel Rock
+supplied as reference. The toggle is a `button` carrying `aria-expanded` and
+`aria-controls`, and the group it names is hidden with the global `[hidden]`
+rule — the same disclosure shape the sidebar's "+ Custom size" already uses,
+and no second hiding mechanism.
+
+**Directional first, Angle subordinate to it.** Inside Advanced the order is
+**Directional**, **Angle**, **Distance**, **Softness**. Angle is indented under
+Directional and is **disabled while Directional is off**. Task 5 deliberately
+left it enabled, reasoning that a control which vanishes confuses more than one
+that waits; Rock's reading is the opposite — a control that moves and does
+nothing reads as broken — and he is the user. It stays visible, and its off
+state is Task 3b's: `disabled` on the input, which is already one of the
+selectors in `style.css`'s single off-state rule, plus that rule extended to the
+row so the label dims with it. **No static `opacity` outside `@keyframes`**, as
+3b requires.
+
+**Blur becomes Softness, and gets a measured floor.**
+
+For the record: **Shadow Blur is in Rock's own reference.** His Screen Studio
+screenshot of Advanced shadow settings lists Directional shadow / Shadow
+Distance / Shadow Angle / Shadow Blur, and he has accepted the control. Two
+things were still wrong with ours.
+
+- **The name collides.** Screen Studio also has a *Background blur*, which
+  blurs a wallpaper and is an unrelated feature (already recorded in the spec
+  for Cycle B). Ours is renamed **Softness** in the UI, and the panel's helpers
+  with it (`activeShadowSoftnessPercent` / `setShadowSoftnessPercent`). The
+  config field stays `shadow.blur`: it is `ctx.shadowBlur`, one for one, and
+  renaming a core config key changes `normalise()`'s contract and every
+  jobs.json written against it for no gain in what is drawn.
+- **Zero gives hard-edged rectangles** — two of them. `SHADOW_BLUR_RANGE`'s
+  lower bound goes up.
+
+**How the floor was chosen — measured, not picked.** The artefact is a visible
+*edge*: a luminance step big enough to read as a line. The threshold used is
+the classic Weber one, **1% of the background — 2.55 of 255 levels per pixel**,
+measured on the worst-case white ground, and it coincides with the render's own
+8-bit banding (a smooth gradient here steps by 1-2 levels), so "below 2.55" is
+also "no sharper than the gradient it sits in".
+
+Measured **in Chromium**, on `paintShadow` alone over white, at the real box
+`layout()` produces for each canvas size, with the box's own path plus a 4px
+band excluded (the even-odd clip makes that boundary hard by construction, and
+the shot is painted over it). Seven canvas sizes x the whole Distance range,
+bisecting for the smallest softness whose worst per-pixel step clears 2.55:
+
+```
+                        worst-case softness      = shadowBlur px
+  twitter-header 1500x500      0.0674                33.7
+  twitter-post   1600x900      0.0432                38.8
+  16:9           1920x1080     0.0271                29.3
+  3:2            1800x1200     0.0311                37.2
+  4:3            2000x1500     0.0225                33.8
+  instagram      2160x2160     0.0107                23.1
+  dribbble       2800x2100     0.0200                42.0
+```
+
+The requirement is **a roughly constant number of PIXELS — ~23-42px of
+`shadowBlur`, worst case 42.0** — not a constant fraction, because edge
+sharpness is a per-pixel property while the parameter is a fraction of the
+canvas. The worst case is at *small* Distance (0.01-0.04), where the two layers
+still overlap and their slopes add — which is the same fact as the "two
+shadows" report, seen from the other side.
+
+No single fraction can therefore hold at every canvas height. The floor is
+pinned to the height the shipped default and the frozen golden both live at,
+**1200**:
+
+> **`SHADOW_BLUR_RANGE = [0.035, 0.40]`, from 42.0px / 1200.**
+
+At 1200 and above the floor over-delivers (2800x2100 gets 73px where 42 is
+needed). Below it the same fraction buys fewer pixels: at 1600x900 the measured
+requirement is 0.043 and the floor gives 31.5px, so the worst step there is 3
+levels (1.2%) rather than 2 — marginal, and nothing like the 40-level step at
+softness 0. That residual is a canvas-size policy question, not a rendering
+one.
+
+**Do the two layers stay fused at the floor?** Yes, measured. The averaged
+bottom-edge profile's derivative at softness 0, 1800x1200, Distance 0.04, has
+two clean bumps — **13.67 levels/px at the direct layer's edge and 5.00 at the
+contact layer's, 34 rows apart**. At 0.035 the largest bump anywhere in that
+profile is 1.67 levels/px, inside the 8-bit banding, with no pair standing above
+it — at every Distance from 0.01 to 0.20, at both 1800x1200 and 2800x2100. The
+contact layer is what binds the floor, incidentally: it carries 41% of the
+direct layer's alpha through 30% of its blur, so it is the sharper of the two.
+
+**MEASURE THIS IN CHROMIUM OR DO NOT MEASURE IT.** `@napi-rs/canvas` renders
+the same `shadowBlur` far fainter, and the same probe run under Node clears the
+threshold at **softness 0.005** — a floor six times too low. At softness 0 the
+two engines agree exactly (21 levels), because there is no blur to disagree
+about. This is the third instance of the pattern already recorded against Task
+3b ("a guard that reads token values is blind to `opacity`") and Task 4b ("a
+guard that renders under `@napi-rs/canvas` is blind to Chromium's rasteriser"),
+and it is the same trap that once let the alphas be retuned to 0.40/0.30 with
+every Node test green.
+
+**The default does not move.** 0.105 is well above the floor, so
+`normalise({})` is unchanged, `test/golden/shadow/default.png` and all ten
+whole-shot goldens stay byte-identical, and every existing test keeps passing.
+The only config that changes is one that asked for a softness below 0.035, which
+previously produced the sharp shape this task exists to remove.
+
+**Tests.** `test/config.test.js` gains the clamp (`{shadow:{blur:0}}` comes back
+at the floor, and the floor is above zero); `test/inspector-frame.test.js` gains
+the disclosure (exists, collapsed by default, contains all four advanced
+controls, in the Directional/Angle/Distance/Softness order) and the Angle gate
+(`shadowAngleDisabled` false only while Directional is on, and the sync function
+actually applies it). Every new assertion was run against the pre-change code
+first and confirmed red — eight tests in this cycle have turned out incapable of
+failing, and the source-scanning ones in this file are exactly the shape that
+happens to.
+
+**Files:** `core/presets.js`, `web/inspector-frame.js`, `web/style.css`,
+`web/index.html` (no change — the section is built in JS), `test/config.test.js`,
+`test/inspector-frame.test.js`, `test/contrast.test.js`, and the spec's shadow
+section.
+
+
+---
+
 ### Task 6: Frames become outsets; padding gives way, not the picture
 
 **Files:**

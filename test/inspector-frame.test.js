@@ -26,8 +26,8 @@ import {
   RADIUS_PERCENT_MAX,
   activeShadowDistancePercent,
   setShadowDistancePercent,
-  activeShadowBlurPercent,
-  setShadowBlurPercent,
+  activeShadowSoftnessPercent,
+  setShadowSoftnessPercent,
   activeShadowAngle,
   setShadowAngle,
   activeShadowDirectional,
@@ -246,24 +246,27 @@ describe('Task 5: shadow distance', () => {
   });
 });
 
-describe('Task 5: shadow blur', () => {
+// Renamed by Task 5b - the panel says Softness, the config field is still
+// `shadow.blur`. Same slider, same field, new word; see the helpers' own
+// comment in web/inspector-frame.js.
+describe('Task 5: shadow softness (Blur until Task 5b)', () => {
   it("an unset config reads back core/'s own default", () => {
-    expect(activeShadowBlurPercent({})).toBeCloseTo(SHADOW_DEFAULTS.blur * 100, 5);
-    expect(activeShadowBlurPercent({})).toBe(10.5);
+    expect(activeShadowSoftnessPercent({})).toBeCloseTo(SHADOW_DEFAULTS.blur * 100, 5);
+    expect(activeShadowSoftnessPercent({})).toBe(10.5);
   });
 
   it('writes a fraction normalise() reads back unchanged', () => {
     const config = {};
-    setShadowBlurPercent(config, 25);
+    setShadowSoftnessPercent(config, 25);
     expect(config.shadow.blur).toBeCloseTo(0.25, 6);
     expect(normalise(config).shadow.blur).toBeCloseTo(0.25, 6);
   });
 
   it('clamps at BOTH ends, to SHADOW_BLUR_RANGE', () => {
     const config = {};
-    setShadowBlurPercent(config, -1);
+    setShadowSoftnessPercent(config, -1);
     expect(config.shadow.blur).toBe(SHADOW_BLUR_RANGE[0]);
-    setShadowBlurPercent(config, 999);
+    setShadowSoftnessPercent(config, 999);
     expect(config.shadow.blur).toBe(SHADOW_BLUR_RANGE[1]);
   });
 });
@@ -374,7 +377,7 @@ describe('Task 5: every new Finish control schedules a render', () => {
   for (const setter of [
     'setShadowDistancePercent',
     'setShadowAngle',
-    'setShadowBlurPercent',
+    'setShadowSoftnessPercent',
     'setShadowDirectional',
   ]) {
     it(`${setter} is wired to a listener that calls scheduleRender()`, () => {
@@ -413,7 +416,7 @@ describe('retired Finish controls', () => {
     for (const name of ['activePadPercent', 'setPadPercent', 'activeRadiusPercent',
       'activeGrainPercent', 'activeShadowPercent', 'initFinishInspector',
       'activeShadowDistancePercent', 'setShadowDistancePercent',
-      'activeShadowBlurPercent', 'setShadowBlurPercent',
+      'activeShadowSoftnessPercent', 'setShadowSoftnessPercent',
       'activeShadowAngle', 'setShadowAngle',
       'activeShadowDirectional', 'setShadowDirectional']) {
       expect(typeof mod[name], `${name} went missing`).toBe('function');
@@ -490,7 +493,7 @@ describe('Task 6: Frame/Finish fields hit the warm colour cache, never groundFor
     // config.tone either, so the sweep must stay warm across all of them.
     setShadowDistancePercent(state.config, 9); render();
     setShadowAngle(state.config, 215); render();
-    setShadowBlurPercent(state.config, 22); render();
+    setShadowSoftnessPercent(state.config, 22); render();
     setShadowDirectional(state.config, true); render();
 
     // Structural, not just "didn't throw": the ground key genuinely never
@@ -571,5 +574,158 @@ describe('Task 6: Frame/Finish fields hit the warm colour cache, never groundFor
     const after = target.toBuffer('image/png');
 
     expect(Buffer.compare(before, after)).not.toBe(0);
+  });
+});
+
+// =====================================================================
+// Cycle A Task 5b — one slider by default, the rest behind a disclosure,
+// and Angle subordinate to Directional.
+//
+// Rock, on Task 5's four controls: "Angle only works when directional is
+// on, so why is it even there before the directional toggle? also, I feel
+// like shadow should still be just one slider, and the other controls
+// appear only after selecting some sort of 'advanced controls' for
+// shadows."
+//
+// Task 5 argued the opposite about Angle - "a control that vanishes is more
+// confusing than one that waits" - and left it enabled while it did
+// nothing. Rock's reading is that a control which moves and changes nothing
+// reads as BROKEN, and he is the user. It stays visible and goes disabled,
+// which is the state that says "not now" rather than "not here".
+// =====================================================================
+
+describe('Task 5b: Angle is subordinate to Directional', () => {
+  it('is disabled while Directional is off - including on an untouched config', async () => {
+    const { shadowAngleDisabled } = await import('../web/inspector-frame.js');
+    expect(shadowAngleDisabled({})).toBe(true);
+    const config = {};
+    setShadowDirectional(config, false);
+    expect(shadowAngleDisabled(config)).toBe(true);
+  });
+
+  it('is enabled the moment Directional goes on', async () => {
+    const { shadowAngleDisabled } = await import('../web/inspector-frame.js');
+    const config = {};
+    setShadowDirectional(config, true);
+    expect(shadowAngleDisabled(config)).toBe(false);
+  });
+
+  it('stays a real control while disabled - visible, readable, not removed', async () => {
+    const { shadowAngleDisabled } = await import('../web/inspector-frame.js');
+    const config = {};
+    setShadowAngle(config, 200);
+    expect(shadowAngleDisabled(config)).toBe(true);   // Directional still off
+    expect(activeShadowAngle(config)).toBe(200);      // and the value survives
+  });
+});
+
+// The rename. Screen Studio - Rock's own reference for this panel - has a
+// separate "Background blur" that blurs a wallpaper (spec, Cycle B), so
+// "Blur" here was the wrong word for the wrong feature. The CONFIG field
+// stays `shadow.blur`: it is `ctx.shadowBlur` one for one, and renaming a
+// core config key would change normalise()'s contract and every jobs.json
+// written against it without changing a pixel.
+describe('Task 5b: Blur is Softness in the panel, and shadow.blur in core', () => {
+  it('exports the Softness pair', async () => {
+    const mod = await import('../web/inspector-frame.js');
+    expect(typeof mod.activeShadowSoftnessPercent).toBe('function');
+    expect(typeof mod.setShadowSoftnessPercent).toBe('function');
+  });
+
+  it('no longer exports the Blur-named pair', async () => {
+    const mod = await import('../web/inspector-frame.js');
+    expect(mod.activeShadowBlurPercent).toBeUndefined();
+    expect(mod.setShadowBlurPercent).toBeUndefined();
+  });
+
+  it('writes core\'s own field, unrenamed', async () => {
+    const { setShadowSoftnessPercent } = await import('../web/inspector-frame.js');
+    const config = {};
+    setShadowSoftnessPercent(config, 12);
+    expect(config.shadow.blur).toBeCloseTo(0.12, 9);
+    expect(normalise(config).shadow.blur).toBeCloseTo(0.12, 9);
+  });
+
+  it('cannot be dragged below the floor', async () => {
+    const { setShadowSoftnessPercent, activeShadowSoftnessPercent } =
+      await import('../web/inspector-frame.js');
+    const config = {};
+    setShadowSoftnessPercent(config, 0);
+    expect(config.shadow.blur).toBe(SHADOW_BLUR_RANGE[0]);
+    expect(config.shadow.blur).toBeGreaterThan(0);
+    expect(activeShadowSoftnessPercent(config)).toBeGreaterThan(0);
+  });
+});
+
+// THE DISCLOSURE. Asserted the way every other DOM claim in this file is -
+// against initFinishInspector's own source, because this suite runs on
+// vitest's `node` environment with no document (see the note above the
+// "schedules a render" block). The four controls' ORDER is asserted against
+// exported data rather than source, and the init function is required to
+// build them by iterating that same exported list, so the two cannot drift.
+describe('Task 5b: the Advanced shadow settings disclosure', () => {
+  const SRC = readFileSync('web/inspector-frame.js', 'utf8');
+  const FINISH = SRC.slice(SRC.indexOf('export function initFinishInspector'));
+
+  /** The body of one entry in the `build` map, from its key to the next
+   *  key or the end of the map. Used to prove a control is appended into
+   *  the disclosure panel rather than straight into the section. */
+  function builderBody(key) {
+    const at = FINISH.indexOf(`${key}: () =>`);
+    if (at === -1) return null;
+    const rest = FINISH.slice(at + key.length);
+    const next = rest.search(/\n {4}[a-z]+: \(\) =>|\n {2}\};/);
+    return next === -1 ? rest : rest.slice(0, next);
+  }
+
+  it('names exactly four controls, Directional first and Angle straight after it', async () => {
+    const { ADVANCED_SHADOW_CONTROLS } = await import('../web/inspector-frame.js');
+    expect(ADVANCED_SHADOW_CONTROLS).toEqual(['directional', 'angle', 'distance', 'softness']);
+  });
+
+  it('builds them by iterating that list, so the order on screen is that order', () => {
+    expect(FINISH).toMatch(/for \(const key of ADVANCED_SHADOW_CONTROLS\)/);
+  });
+
+  it('starts collapsed', () => {
+    expect(FINISH).toMatch(/advanced\.hidden = true;/);
+  });
+
+  it('is a real disclosure - a button that says which panel it controls', () => {
+    expect(FINISH).toMatch(/advancedToggle\.setAttribute\('aria-expanded'/);
+    expect(FINISH).toMatch(/advancedToggle\.setAttribute\('aria-controls'/);
+    expect(FINISH).toMatch(/advanced\.hidden = !advancedOpen;/);
+  });
+
+  it('puts every one of the four INSIDE the panel, not in the section', () => {
+    for (const key of ['directional', 'angle', 'distance', 'softness']) {
+      const body = builderBody(key);
+      expect(body, `no builder for ${key}`).toBeTruthy();
+      expect(body, `${key} is not built into the disclosure panel`).toMatch(/\badvanced\b/);
+      expect(body, `${key} is appended straight into the section`).not.toMatch(/\bsection\b/);
+    }
+  });
+
+  // The break-it check for the slicer above: a key that does not exist must
+  // come back empty, or the four passes are an artefact of a search that
+  // matches anything.
+  it('the same slicer finds nothing for a control that does not exist', () => {
+    expect(builderBody('nonsense')).toBe(null);
+  });
+
+  it('leaves Shadow strength outside the disclosure - one slider by default', () => {
+    // The panel has to EXIST for "outside it" to mean anything: without this
+    // first line the rest of this case passed against the pre-change code,
+    // which had no disclosure at all.
+    expect(FINISH).toMatch(/const advanced = document\.createElement/);
+    expect(FINISH).toMatch(/section\.appendChild\(shadowRow\);/);
+    const strength = FINISH.slice(FINISH.indexOf('const shadowRow'), FINISH.indexOf('section.appendChild(shadowRow);'));
+    expect(strength).not.toMatch(/\badvanced\b/);
+  });
+
+  it('applies the Angle gate on every sync, from the shared helper', () => {
+    const sync = FINISH.slice(FINISH.indexOf('function syncShadowShapeUI'));
+    const body = sync.slice(0, sync.indexOf('\n  }'));
+    expect(body).toMatch(/\.disabled = shadowAngleDisabled\(state\.config\)/);
   });
 });

@@ -165,22 +165,23 @@ export function setShadowPercent(config, pct) {
   config.shadowScale = Math.min(max * 100, Math.max(min * 100, n)) / 100;
 }
 
-// --- Shadow shape (Cycle A Task 5): distance, angle, blur, directional ----
+// --- Shadow shape (Task 5, reshaped by Task 5b) ---------------------------
 //
-// FOUR DELIBERATELY MINIMAL CONTROLS. Cycle B restyles this whole section;
-// these exist so the render feature can be dragged, seen and approved,
-// because a feature with no way to reach it in the UI cannot be approved at
-// all. They follow the idiom already in this file exactly — a `slider-row`
+// FOUR CONTROLS, ALL OF THEM BEHIND "Advanced shadow settings". Task 5 put
+// Distance / Angle / Blur / Directional straight into Finish, under the
+// Shadow strength slider, and Rock's answer was that Finish should still be
+// "just one slider, and the other controls appear only after selecting some
+// sort of 'advanced controls' for shadows" — which is also how the Screen
+// Studio panel he supplied as reference is built. So Finish shows Shadow
+// and a collapsed disclosure, and these four live inside it.
+//
+// They still follow the idiom already in this file exactly — a `slider-row`
 // per number, and the same `segmented segmented--mini` for the toggle that
-// Chrome theme uses. No new control idiom, no restyling of anything around
-// them.
+// Chrome theme uses. No new control idiom, and the disclosure itself hides
+// with the global `[hidden]` rule rather than a second mechanism.
 //
-// ANGLE IS NEVER DISABLED OR HIDDEN, including while Directional is off,
-// where it does nothing. A control that vanishes is more confusing than one
-// that waits, and this section already carries one fix round about a
-// control that appeared to work and didn't — the answer there was to remove
-// the control, not to hide it. Here the control is real; it is simply the
-// second half of a pair.
+// ANGLE IS DISABLED, NOT HIDDEN, while Directional is off — see
+// shadowAngleDisabled above for why that reversed.
 
 /**
  * The effective shadow block for READING — core/'s defaults with whatever
@@ -225,11 +226,23 @@ export function setShadowDistancePercent(config, pct) {
   writableShadow(config).distance = Math.min(max, Math.max(min, n / 100));
 }
 
-export function activeShadowBlurPercent(config) {
+// SOFTNESS, NOT BLUR (Task 5b). Screen Studio - Rock's own reference for
+// this panel - also has a "Background blur", which blurs a wallpaper and is
+// an unrelated feature (spec, Cycle B), so "Blur" here named the wrong
+// thing. The CONFIG FIELD STAYS `shadow.blur`: it is `ctx.shadowBlur` one
+// for one, and renaming a core config key would change normalise()'s
+// contract and every jobs.json written against it without changing a pixel.
+// The word is the panel's; the field is canvas's.
+//
+// SHADOW_BLUR_RANGE's lower bound is no longer 0 - see its comment in
+// core/presets.js for the measurement. Because this clamps to the same
+// exported bound, the bottom of this slider IS the floor: there is no value
+// the UI can reach that normalise() would then quietly move.
+export function activeShadowSoftnessPercent(config) {
   return Math.round(readShadow(config).blur * 1000) / 10;
 }
 
-export function setShadowBlurPercent(config, pct) {
+export function setShadowSoftnessPercent(config, pct) {
   const n = Number(pct);
   if (!Number.isFinite(n)) return;
   const [min, max] = SHADOW_BLUR_RANGE;
@@ -261,6 +274,37 @@ export function activeShadowDirectional(config) {
 export function setShadowDirectional(config, on) {
   writableShadow(config).directional = on === true || on === 'true';
 }
+
+/**
+ * Angle is DISABLED while Directional is off, and stays visible (Task 5b).
+ *
+ * Task 5 left it enabled and argued the case in this file's header: "a
+ * control that vanishes is more confusing than one that waits". Rock read
+ * the same screen the other way round - "Angle only works when directional
+ * is on, so why is it even there before the directional toggle?" - and a
+ * control that moves while nothing changes reads as broken, which is worse
+ * than one that reads as not-yet-available. So it keeps its place, keeps
+ * its value, and goes disabled: the state that says "not now" rather than
+ * "not here".
+ *
+ * A separate exported predicate rather than an inline `!activeShadow...`
+ * inside the sync function, for the same reason showsBrowserOnlyControls
+ * above is one: the gate is the claim, and a claim gets a test.
+ */
+export function shadowAngleDisabled(config) {
+  return !activeShadowDirectional(config);
+}
+
+/**
+ * What lives inside "Advanced shadow settings", in the order it appears.
+ *
+ * Directional leads and Angle follows it immediately, because Angle is
+ * Directional's second half (see shadowAngleDisabled above); the two
+ * lengths come after the direction they steer. Exported and iterated by
+ * initFinishInspector rather than written out four times, so the order on
+ * screen is this array and cannot drift from it.
+ */
+export const ADVANCED_SHADOW_CONTROLS = ['directional', 'angle', 'distance', 'softness'];
 
 // Corner radius is the one field here that ISN'T stored as a fraction —
 // core/config.js's normalise() resolves an unset `config.radius` to
@@ -305,9 +349,12 @@ export function setRadiusPercent(config, pct) {
  * listener itself, so every handler stays visible in one place at the bottom
  * of that function.
  */
-function addSliderRow(section, { label, min, max, step, aria }) {
+function addSliderRow(section, { label, min, max, step, aria, sub = false }) {
   const row = document.createElement('div');
-  row.className = 'slider-row';
+  // `sub` indents the row under the control it belongs to — Angle under
+  // Directional (Task 5b), the only one so far. Indentation only; the
+  // "not now" part of that relationship is the input's own `disabled`.
+  row.className = sub ? 'slider-row slider-row--sub' : 'slider-row';
   const labelRow = document.createElement('div');
   labelRow.className = 'slider-label';
   const labelEl = document.createElement('span');
@@ -320,9 +367,17 @@ function addSliderRow(section, { label, min, max, step, aria }) {
   const input = document.createElement('input');
   input.type = 'range';
   input.className = 'slider';
-  input.min = String(min);
-  input.max = String(max);
-  input.step = String(step);
+  // Rounded to 3dp before they become attributes. These bounds arrive as
+  // `RANGE[i] * 100` and binary floating point makes that ugly in the DOM -
+  // 0.035 * 100 is 3.5000000000000004, and a range input's steps are
+  // measured FROM its min, so every value it could produce carried that
+  // tail. Rounding lands each bound exactly on the fraction core/ clamps
+  // to (3.5 / 100 === 0.035), so the slider still cannot reach a value
+  // normalise() would move.
+  const attr = (n) => String(Math.round(n * 1000) / 1000);
+  input.min = attr(min);
+  input.max = attr(max);
+  input.step = attr(step);
   input.setAttribute('aria-label', aria);
   row.appendChild(input);
 
@@ -548,63 +603,104 @@ export function initFinishInspector() {
   const shadowValueEl = shadowRow.querySelector('.slider-value');
   section.appendChild(shadowRow);
 
-  // --- shadow shape (Cycle A Task 5) ------------------------------------
-  // Distance / Angle / Blur / Directional, in that order: the two lengths
-  // bracket the direction they share, and the toggle that switches the
-  // direction on sits last, next to what it gates. Built with the same
-  // helper the four sliders above use rather than four more copies of the
-  // same fifteen lines.
-  const distanceCtl = addSliderRow(section, {
-    label: 'Distance',
-    min: SHADOW_DISTANCE_RANGE[0] * 100,
-    max: SHADOW_DISTANCE_RANGE[1] * 100,
-    step: 0.1,
-    aria: 'Shadow distance, as a percentage of canvas height',
-  });
+  // --- Advanced shadow settings (Cycle A Task 5b) -----------------------
+  // A DISCLOSURE, not four more rows. Finish's own surface is the Shadow
+  // strength slider above and this toggle; everything else about the shadow
+  // is one click away. The shape is the sidebar's "+ Custom size"
+  // disclosure — a button carrying `aria-expanded` and `aria-controls`, and
+  // a panel that answers to it — except that the panel is built once and
+  // hidden with the global `[hidden]` rule rather than torn down and
+  // rebuilt, so the controls inside keep their DOM identity across opens.
+  let advancedOpen = false;
 
-  // Degrees, not percent — and 0-360 rather than 0-359 so both ends of the
-  // travel land on "straight right". normalise() wraps 360 to 0, so the two
-  // extremes are the same shadow, which is what a circular quantity on a
-  // linear slider should do.
-  const angleCtl = addSliderRow(section, {
-    label: 'Angle',
-    min: 0,
-    max: 360,
-    step: 1,
-    aria: 'Shadow angle in degrees — 90 is straight down. Takes effect when Directional is on',
-  });
+  const advancedToggle = document.createElement('button');
+  advancedToggle.type = 'button';
+  advancedToggle.className = 'disclosure-toggle';
+  advancedToggle.setAttribute('aria-expanded', 'false');
+  advancedToggle.setAttribute('aria-controls', 'shadowAdvanced');
+  advancedToggle.innerHTML =
+    '<span>Advanced shadow settings</span>'
+    + '<svg class="icon icon-sm" aria-hidden="true"><use href="#icon-chevron-down"></use></svg>';
+  section.appendChild(advancedToggle);
 
-  const blurCtl = addSliderRow(section, {
-    label: 'Blur',
-    min: SHADOW_BLUR_RANGE[0] * 100,
-    max: SHADOW_BLUR_RANGE[1] * 100,
-    step: 0.1,
-    aria: 'Shadow blur, as a percentage of canvas height',
-  });
+  const advanced = document.createElement('div');
+  advanced.className = 'disclosure-panel';
+  advanced.id = 'shadowAdvanced';
+  advanced.hidden = true;
+  section.appendChild(advanced);
 
-  // The same `inline-control-row` + `segmented segmented--mini` pattern the
-  // Frame section's Chrome theme uses, so this reads as one more of the
-  // panel's existing switches rather than a new idiom.
-  const dirRow = document.createElement('div');
-  dirRow.className = 'inline-control-row';
-  const dirLabel = document.createElement('span');
-  dirLabel.textContent = 'Directional';
-  const dirSegmented = document.createElement('div');
-  dirSegmented.className = 'segmented segmented--mini';
-  dirSegmented.setAttribute('role', 'group');
-  dirSegmented.setAttribute('aria-label', 'Directional shadow');
-  const dirButtons = [['off', 'Off'], ['on', 'On']].map(([value, label]) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'segmented-cell';
-    btn.dataset.directional = value;
-    btn.textContent = label;
-    btn.setAttribute('aria-pressed', 'false');
-    dirSegmented.appendChild(btn);
-    return btn;
-  });
-  dirRow.append(dirLabel, dirSegmented);
-  section.appendChild(dirRow);
+  // One builder per entry in ADVANCED_SHADOW_CONTROLS, called in that
+  // array's order — so the order on screen is the order declared up there,
+  // with no second list to keep in step.
+  const build = {
+    // The same `inline-control-row` + `segmented segmented--mini` pattern
+    // the Frame section's Chrome theme uses, so this reads as one more of
+    // the panel's existing switches rather than a new idiom.
+    directional: () => {
+      const row = document.createElement('div');
+      row.className = 'inline-control-row';
+      const label = document.createElement('span');
+      label.textContent = 'Directional';
+      const segmented = document.createElement('div');
+      segmented.className = 'segmented segmented--mini';
+      segmented.setAttribute('role', 'group');
+      segmented.setAttribute('aria-label', 'Directional shadow');
+      const buttons = [['off', 'Off'], ['on', 'On']].map(([value, text]) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'segmented-cell';
+        btn.dataset.directional = value;
+        btn.textContent = text;
+        btn.setAttribute('aria-pressed', 'false');
+        segmented.appendChild(btn);
+        return btn;
+      });
+      row.append(label, segmented);
+      advanced.appendChild(row);
+      return { row, buttons };
+    },
+
+    // Degrees, not percent — and 0-360 rather than 0-359 so both ends of
+    // the travel land on "straight right". normalise() wraps 360 to 0, so
+    // the two extremes are the same shadow, which is what a circular
+    // quantity on a linear slider should do. `sub` indents it under
+    // Directional; `disabled` (in syncShadowShapeUI below) is the rest of
+    // that relationship.
+    angle: () => addSliderRow(advanced, {
+      label: 'Angle',
+      min: 0,
+      max: 360,
+      step: 1,
+      sub: true,
+      aria: 'Shadow angle in degrees — 90 is straight down. Available when Directional is on',
+    }),
+
+    distance: () => addSliderRow(advanced, {
+      label: 'Distance',
+      min: SHADOW_DISTANCE_RANGE[0] * 100,
+      max: SHADOW_DISTANCE_RANGE[1] * 100,
+      step: 0.1,
+      aria: 'Shadow distance, as a percentage of canvas height',
+    }),
+
+    // Softness, not Blur — see setShadowSoftnessPercent above. The slider's
+    // MINIMUM is SHADOW_BLUR_RANGE[0], which is no longer 0: at 0 the two
+    // shadow layers stop being a blur and become two hard-edged rectangles,
+    // which is what Rock hit. There is no longer a position on this track
+    // that draws that.
+    softness: () => addSliderRow(advanced, {
+      label: 'Softness',
+      min: SHADOW_BLUR_RANGE[0] * 100,
+      max: SHADOW_BLUR_RANGE[1] * 100,
+      step: 0.1,
+      aria: 'Shadow softness, as a percentage of canvas height',
+    }),
+  };
+
+  const ctl = {};
+  for (const key of ADVANCED_SHADOW_CONTROLS) ctl[key] = build[key]();
+  const { angle: angleCtl, distance: distanceCtl, softness: softnessCtl } = ctl;
+  const dirButtons = ctl.directional.buttons;
 
   function syncPadUI() {
     const pct = activePadPercent(state.config);
@@ -639,13 +735,18 @@ export function initFinishInspector() {
     angleCtl.input.value = String(angle);
     syncSliderFill(angleCtl.input, angleCtl.valueEl, `${angle}°`);
 
-    const blur = activeShadowBlurPercent(state.config);
-    blurCtl.input.value = String(blur);
-    syncSliderFill(blurCtl.input, blurCtl.valueEl, `${blur}%`);
+    const softness = activeShadowSoftnessPercent(state.config);
+    softnessCtl.input.value = String(softness);
+    syncSliderFill(softnessCtl.input, softnessCtl.valueEl, `${softness}%`);
 
-    // Angle stays ENABLED and visible whether or not this is on — see the
-    // header comment on this file's shadow-shape helpers. The toggle's own
-    // pressed state is the only thing that moves here.
+    // Angle stays VISIBLE and goes DISABLED while Directional is off (Task
+    // 5b) — the predicate is shared with the tests rather than inlined
+    // here. `.slider:disabled` is already one of the selectors in
+    // style.css's single off-state rule, and that rule now also carries
+    // `.slider-row:has(.slider:disabled)` so the row's label dims with the
+    // track instead of staying at full strength above a dead control.
+    angleCtl.input.disabled = shadowAngleDisabled(state.config);
+
     const on = activeShadowDirectional(state.config);
     dirButtons.forEach((btn) => {
       const active = (btn.dataset.directional === 'on') === on;
@@ -690,10 +791,17 @@ export function initFinishInspector() {
     scheduleRender();
   });
 
-  blurCtl.input.addEventListener('input', () => {
-    setShadowBlurPercent(state.config, blurCtl.input.value);
+  softnessCtl.input.addEventListener('input', () => {
+    setShadowSoftnessPercent(state.config, softnessCtl.input.value);
     syncShadowShapeUI();
     scheduleRender();
+  });
+
+  advancedToggle.addEventListener('click', () => {
+    advancedOpen = !advancedOpen;
+    advanced.hidden = !advancedOpen;
+    advancedToggle.setAttribute('aria-expanded', String(advancedOpen));
+    advancedToggle.classList.toggle('is-open', advancedOpen);
   });
 
   dirButtons.forEach((btn) => {

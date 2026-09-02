@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { normalise } from '../core/config.js';
 import { layout } from '../core/layout.js';
-import { SHADOW_SCALE_RANGE } from '../core/presets.js';
+import { SHADOW_SCALE_RANGE, SHADOW_BLUR_RANGE, SHADOW_DEFAULTS } from '../core/presets.js';
 
 describe('normalise', () => {
   it('defaults to 3:2 at 1800x1200', () => {
@@ -258,5 +258,54 @@ describe('retired vocabulary', () => {
     const c = normalise({ layout: 'web', ratio: '3:2', fit: 'cover' });
     const lay = layout(c, { web: 1440 / 900, mobile: [] });
     expect(lay.web.w / lay.web.h).toBeCloseTo(1440 / 900, 12);
+  });
+});
+
+// Cycle A Task 5b: SOFTNESS HAS A FLOOR, AND THE FLOOR IS ABOVE ZERO.
+//
+// Rock, on Task 5's Blur slider: "blur is useless atm... you put it on zero
+// and it becomes this weird thing with the 'shadow' being sharp" - and, of
+// the same render, "but still weird that we have 2 shadows, no?". Both are
+// one artefact. At blur 0 paintShadow's two layers stop being a blur at all
+// and become two hard-edged rectangles, offset by `distance` and
+// `0.28 * distance`, with a ~40-level step at each edge.
+//
+// The floor was measured in CHROMIUM, not here: @napi-rs/canvas renders the
+// same shadowBlur far fainter and clears the same threshold six times
+// sooner, so a Node measurement would have set a floor six times too low -
+// the same trap that once let the alphas be retuned to 0.40/0.30 with every
+// Node test green. The number and the method are in the plan's Task 5b.
+//
+// What IS engine-independent, and so is what this file asserts: the clamp
+// exists, the bound is above zero, and the shipped default is untouched by
+// it.
+describe('Task 5b: the softness floor', () => {
+  it('is above zero - a floor at zero is not a floor', () => {
+    expect(SHADOW_BLUR_RANGE[0]).toBeGreaterThan(0);
+  });
+
+  // BOTH assertions, deliberately. `toBe(SHADOW_BLUR_RANGE[0])` alone passed
+  // against the pre-change code, because the bound it compares to WAS zero -
+  // a test that cannot fail. The second line is what makes it a test.
+  it('clamps a zero softness up to the floor instead of drawing a hard edge', () => {
+    const blur = normalise({ shadow: { blur: 0 } }).shadow.blur;
+    expect(blur).toBe(SHADOW_BLUR_RANGE[0]);
+    expect(blur).toBeGreaterThan(0);
+  });
+
+  it('clamps a negative softness the same way', () => {
+    const blur = normalise({ shadow: { blur: -1 } }).shadow.blur;
+    expect(blur).toBe(SHADOW_BLUR_RANGE[0]);
+    expect(blur).toBeGreaterThan(0);
+  });
+
+  it('leaves the shipped default alone - it sits well above the floor', () => {
+    expect(normalise({}).shadow.blur).toBe(SHADOW_DEFAULTS.blur);
+    expect(SHADOW_DEFAULTS.blur).toBeGreaterThan(SHADOW_BLUR_RANGE[0]);
+  });
+
+  it('still clamps the top end, and the range is not inverted', () => {
+    expect(normalise({ shadow: { blur: 99 } }).shadow.blur).toBe(SHADOW_BLUR_RANGE[1]);
+    expect(SHADOW_BLUR_RANGE[1]).toBeGreaterThan(SHADOW_BLUR_RANGE[0]);
   });
 });

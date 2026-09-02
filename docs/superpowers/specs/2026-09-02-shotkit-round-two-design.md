@@ -143,6 +143,27 @@ without changing value. `directional: false` keeps the present two-layer
 ambient-plus-direct construction. `directional: true` offsets the direct layer
 along `angle` by `distance`; the ambient layer stays centred.
 
+**Task 5b, after Rock used it.** Three corrections, none of them to what is
+drawn at the defaults:
+
+- **Finish shows one shadow slider.** Strength stays in the panel; distance,
+  angle, softness and directional move behind a collapsed **Advanced shadow
+  settings** disclosure, mirroring the Screen Studio panel Rock supplied.
+- **Angle is subordinate to Directional** — ordered under it, indented, and
+  disabled while it is off. Task 5 left it enabled on the argument that a
+  vanishing control confuses; a control that moves while nothing changes
+  reads as broken, which is worse.
+- **`blur` is called Softness in the UI, and its lower bound is no longer
+  zero.** The name would otherwise collide with the Background blur above.
+  The bound is `SHADOW_BLUR_RANGE = [0.035, 0.40]`: at 0 the two layers stop
+  being a blur and become two hard-edged rectangles — which is both the
+  "sharp shadow" and the "two shadows" Rock reported. 0.035 is 42.0px of
+  `shadowBlur` (the worst measured requirement for the shadow's own edge to
+  fall below 1% Weber contrast, over seven canvas sizes and the whole
+  distance range, **measured in Chromium**) divided by 1200, the canvas
+  height the default and the frozen golden both live at. The config field
+  stays `shadow.blur`; it is `ctx.shadowBlur`.
+
 ## Strokes
 
 ```

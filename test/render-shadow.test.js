@@ -24,8 +24,10 @@ import pixelmatch from 'pixelmatch';
 import { existsSync } from 'node:fs';
 import { normalise } from '../core/config.js';
 import { paintShadow, phoneShadow } from '../core/render.js';
-import { SHADOW_DEFAULTS, PHONE_SHADOW_DISTANCE_RATIO, PHONE_SHADOW_BLUR_RATIO }
-  from '../core/presets.js';
+import {
+  SHADOW_DEFAULTS, PHONE_SHADOW_DISTANCE_RATIO, PHONE_SHADOW_BLUR_RATIO,
+  SHADOW_BLUR_RANGE,
+} from '../core/presets.js';
 
 const W = 1800, H = 1200;
 // Identical to scripts/make-shadow-golden.js. If either moves, both move.
@@ -104,8 +106,12 @@ describe('the config block', () => {
   it('distance and blur clamp at both ends, angle wraps', () => {
     expect(normalise({ shadow: { distance: -1 } }).shadow.distance).toBe(0);
     expect(normalise({ shadow: { distance: 99 } }).shadow.distance).toBe(0.20);
-    expect(normalise({ shadow: { blur: -1 } }).shadow.blur).toBe(0);
-    expect(normalise({ shadow: { blur: 99 } }).shadow.blur).toBe(0.40);
+    // Task 5b raised the LOWER bound off zero - at blur 0 the two layers
+    // are two hard rectangles, not a shadow. Asserted against the exported
+    // bound rather than a literal so the two cannot drift apart again.
+    expect(normalise({ shadow: { blur: -1 } }).shadow.blur).toBe(SHADOW_BLUR_RANGE[0]);
+    expect(SHADOW_BLUR_RANGE[0]).toBeGreaterThan(0);
+    expect(normalise({ shadow: { blur: 99 } }).shadow.blur).toBe(SHADOW_BLUR_RANGE[1]);
     expect(normalise({ shadow: { angle: 450 } }).shadow.angle).toBe(90);
     expect(normalise({ shadow: { angle: -90 } }).shadow.angle).toBe(270);
   });

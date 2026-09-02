@@ -71,7 +71,47 @@ export const SHADOW_DEFAULTS = {
 // SHADOW_SCALE_RANGE above is: one source of truth for the clamp, so the UI
 // and normalise() cannot drift apart.
 export const SHADOW_DISTANCE_RANGE = [0, 0.20];
-export const SHADOW_BLUR_RANGE = [0, 0.40];
+
+// SOFTNESS (the UI's name for `blur`) HAS A FLOOR, AND THE FLOOR IS 0.035.
+// Cycle A Task 5b. Rock: "blur is useless atm... you put it on zero and it
+// becomes this weird thing with the 'shadow' being sharp" - and of the same
+// render, "but still weird that we have 2 shadows, no?". One artefact, seen
+// twice: at blur 0 paintShadow's two layers stop being a blur at all and
+// become two hard-edged rectangles, offset by `distance` and
+// `0.28 * distance`, each with a ~40-level step at its edge.
+//
+// 0.035 is measured, not chosen. The artefact is a visible EDGE, so the
+// threshold is the classic Weber one - 1% of the background, 2.55 of 255
+// levels per pixel, on the worst-case white ground - which here coincides
+// with the render's own 8-bit banding, so "below it" also means "no sharper
+// than the gradient it sits in". Bisecting for the smallest softness that
+// clears it, over seven canvas sizes x the whole SHADOW_DISTANCE_RANGE, on
+// the real boxes layout() produces:
+//
+//   twitter-header 1500x500   0.0674 = 33.7px    3:2  1800x1200  0.0311 = 37.2px
+//   twitter-post   1600x900   0.0432 = 38.8px    4:3  2000x1500  0.0225 = 33.8px
+//   16:9           1920x1080  0.0271 = 29.3px    insta 2160x2160 0.0107 = 23.1px
+//   dribbble       2800x2100  0.0200 = 42.0px
+//
+// The requirement is a roughly constant number of PIXELS - 23-42 of
+// shadowBlur, worst case 42.0 - because edge sharpness is per-pixel while
+// this parameter is a fraction. No single fraction can hold at every canvas
+// height, so the floor is pinned to the height the shipped default and the
+// frozen golden both live at: 42.0 / 1200 = 0.035. Below 1200 tall the same
+// fraction buys fewer pixels (at 1600x900 the worst step is 3 levels rather
+// than 2 - marginal, and nothing like the 40 at softness 0).
+//
+// MEASURED IN CHROMIUM. @napi-rs/canvas renders the same shadowBlur far
+// fainter and clears the same threshold at 0.005, a floor six times too
+// low; at softness 0 the two engines agree exactly (21 levels), because
+// there is no blur to disagree about. Same trap as the alphas that were
+// once retuned to 0.40/0.30 with every Node test green. The full method and
+// the two-layer fusion check are in the plan's Task 5b.
+//
+// The default 0.105 is far above the floor, so nothing about the shipped
+// render moves: test/golden/shadow/default.png and all ten whole-shot
+// goldens stay byte-identical.
+export const SHADOW_BLUR_RANGE = [0.035, 0.40];
 
 // THE PHONE'S SHADOW HAS ITS OWN, LARGER BASIS, AND ALWAYS HAS.
 //
