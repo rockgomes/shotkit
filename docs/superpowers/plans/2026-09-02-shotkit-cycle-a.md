@@ -37,19 +37,18 @@ feedback arrived at once — several of them ("frame:none draws a stroke", "the
 browser chrome is comically big", "the contrast is bad") things he would have
 caught on day one. That is the cost this gate exists to prevent.
 
-The preview site is **`shotkit-preview`**, Netlify project
-`14e0fc4e-753c-4240-909b-86170921eb3b`, at https://shotkit-preview.netlify.app
-— separate from production (`shotkit-app`), which is never touched mid-cycle.
+**There is nothing to deploy by hand.** The repo is connected to Netlify and
+all of Cycle A lives on branch `feat/cycle-a` behind pull request #1. Every
+push rebuilds the preview at:
 
-Deploy with:
+**https://deploy-preview-1--shotkit-app.netlify.app**
 
-```bash
-npm run build
-npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
-```
+One URL for the whole cycle, always showing the latest task. Production
+(`shotkit-app`) is untouched until the PR merges.
 
-If that invocation needs the proxy-path form the production deploy used, get a
-fresh one from the Netlify MCP's `deploy-site` operation for that site id.
+CI runs on the same push — the full suite, the build, and a check that no
+golden file changed. Both it and the preview must be green before you hand
+over.
 
 Then **stop and hand Rock the URL**, saying what changed and what to look at.
 Do not start the next task. Do not assume approval from silence. A task whose
@@ -163,13 +162,19 @@ git push origin feat/shotkit-web
 
 - [ ] **Final step: deploy a preview, hand over the link, and STOP**
 
+The preview is automatic. The Commit step above already pushed to
+`feat/cycle-a`, which makes Netlify rebuild PR #1. Wait for both checks:
+
 ```bash
-npm run build
-npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
+gh pr checks 1
 ```
 
-Then give Rock the URL — https://shotkit-preview.netlify.app — and tell him
-what to look at:
+`test` and `netlify/shotkit-app/deploy-preview` must both be green before you
+hand anything over. **A task with red CI is not finished**, however good the
+preview looks — fix it, push, and wait again.
+
+Then give Rock the URL — **https://deploy-preview-1--shotkit-app.netlify.app** —
+and tell him what to look at:
 
 > Load a screenshot with Frame set to **None**. There must be no border, edge or hairline of any kind between the ground and the screenshot. Open https://shotkit-app.netlify.app in another tab for the before.
 
@@ -265,13 +270,19 @@ git push origin feat/shotkit-web
 
 - [ ] **Final step: deploy a preview, hand over the link, and STOP**
 
+The preview is automatic. The Commit step above already pushed to
+`feat/cycle-a`, which makes Netlify rebuild PR #1. Wait for both checks:
+
 ```bash
-npm run build
-npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
+gh pr checks 1
 ```
 
-Then give Rock the URL — https://shotkit-preview.netlify.app — and tell him
-what to look at:
+`test` and `netlify/shotkit-app/deploy-preview` must both be green before you
+hand anything over. **A task with red CI is not finished**, however good the
+preview looks — fix it, push, and wait again.
+
+Then give Rock the URL — **https://deploy-preview-1--shotkit-app.netlify.app** —
+and tell him what to look at:
 
 > Look at the template and ratio lists: name on the left, dimensions on the right, a clear gap between them, long names truncating with an ellipsis rather than colliding. Then confirm the left rail has no Ground section, and the Background panel still does.
 
@@ -393,13 +404,19 @@ git push origin feat/shotkit-web
 
 - [ ] **Final step: deploy a preview, hand over the link, and STOP**
 
+The preview is automatic. The Commit step above already pushed to
+`feat/cycle-a`, which makes Netlify rebuild PR #1. Wait for both checks:
+
 ```bash
-npm run build
-npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
+gh pr checks 1
 ```
 
-Then give Rock the URL — https://shotkit-preview.netlify.app — and tell him
-what to look at:
+`test` and `netlify/shotkit-app/deploy-preview` must both be green before you
+hand anything over. **A task with red CI is not finished**, however good the
+preview looks — fix it, push, and wait again.
+
+Then give Rock the URL — **https://deploy-preview-1--shotkit-app.netlify.app** —
+and tell him what to look at:
 
 > Read every label in the app — rail, toolbar, template rows, section headings, inspector labels, the export dimensions, the empty state. Nothing should require effort to read. Check the empty state too: inert controls must still look inert, not merely dim. If everything now reads at the same weight, say so — the lift went too far.
 
@@ -514,13 +531,19 @@ git push origin feat/shotkit-web
 
 - [ ] **Final step: deploy a preview, hand over the link, and STOP**
 
+The preview is automatic. The Commit step above already pushed to
+`feat/cycle-a`, which makes Netlify rebuild PR #1. Wait for both checks:
+
 ```bash
-npm run build
-npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
+gh pr checks 1
 ```
 
-Then give Rock the URL — https://shotkit-preview.netlify.app — and tell him
-what to look at:
+`test` and `netlify/shotkit-app/deploy-preview` must both be green before you
+hand anything over. **A task with red CI is not finished**, however good the
+preview looks — fix it, push, and wait again.
+
+Then give Rock the URL — **https://deploy-preview-1--shotkit-app.netlify.app** —
+and tell him what to look at:
 
 > Confirm the **Fit** control and the **Caption** field are gone from the inspector, and that nothing else moved or broke in their place.
 
@@ -789,13 +812,19 @@ git push origin feat/shotkit-web
 
 - [ ] **Final step: deploy a preview, hand over the link, and STOP**
 
+The preview is automatic. The Commit step above already pushed to
+`feat/cycle-a`, which makes Netlify rebuild PR #1. Wait for both checks:
+
 ```bash
-npm run build
-npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
+gh pr checks 1
 ```
 
-Then give Rock the URL — https://shotkit-preview.netlify.app — and tell him
-what to look at:
+`test` and `netlify/shotkit-app/deploy-preview` must both be green before you
+hand anything over. **A task with red CI is not finished**, however good the
+preview looks — fix it, push, and wait again.
+
+Then give Rock the URL — **https://deploy-preview-1--shotkit-app.netlify.app** —
+and tell him what to look at:
 
 > Drag each shadow control and watch the shot: **Distance**, **Angle**, **Blur**, and the **Directional** toggle. With Directional off, Angle should do nothing — that is correct, not a bug. Reset should return the shot to exactly the shadow it has today.
 
@@ -992,13 +1021,19 @@ git push origin feat/shotkit-web
 
 - [ ] **Final step: deploy a preview, hand over the link, and STOP**
 
+The preview is automatic. The Commit step above already pushed to
+`feat/cycle-a`, which makes Netlify rebuild PR #1. Wait for both checks:
+
 ```bash
-npm run build
-npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
+gh pr checks 1
 ```
 
-Then give Rock the URL — https://shotkit-preview.netlify.app — and tell him
-what to look at:
+`test` and `netlify/shotkit-app/deploy-preview` must both be green before you
+hand anything over. **A task with red CI is not finished**, however good the
+preview looks — fix it, push, and wait again.
+
+Then give Rock the URL — **https://deploy-preview-1--shotkit-app.netlify.app** —
+and tell him what to look at:
 
 > Load a screenshot and toggle Frame between **None** and **Browser**, then **Phone**. The screenshot itself must stay the same size in all three; the padding around it should visibly shrink to make room. This is the item that motivated the whole cycle — if the screenshot changes size, the task is not done.
 
@@ -1270,13 +1305,19 @@ git push origin feat/shotkit-web
 
 - [ ] **Final step: deploy a preview, hand over the link, and STOP**
 
+The preview is automatic. The Commit step above already pushed to
+`feat/cycle-a`, which makes Netlify rebuild PR #1. Wait for both checks:
+
 ```bash
-npm run build
-npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
+gh pr checks 1
 ```
 
-Then give Rock the URL — https://shotkit-preview.netlify.app — and tell him
-what to look at:
+`test` and `netlify/shotkit-app/deploy-preview` must both be green before you
+hand anything over. **A task with red CI is not finished**, however good the
+preview looks — fix it, push, and wait again.
+
+Then give Rock the URL — **https://deploy-preview-1--shotkit-app.netlify.app** —
+and tell him what to look at:
 
 > Set Stroke to **Light**, then **Glass**, then **Custom** with a colour, dragging the width slider through its range on each. The mat must grow outward — the screenshot must never get smaller or be covered. Take the width to its maximum and confirm nothing inverts.
 
@@ -1461,13 +1502,19 @@ git push origin feat/shotkit-web
 
 - [ ] **Final step: deploy a preview, hand over the link, and STOP**
 
+The preview is automatic. The Commit step above already pushed to
+`feat/cycle-a`, which makes Netlify rebuild PR #1. Wait for both checks:
+
 ```bash
-npm run build
-npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
+gh pr checks 1
 ```
 
-Then give Rock the URL — https://shotkit-preview.netlify.app — and tell him
-what to look at:
+`test` and `netlify/shotkit-app/deploy-preview` must both be green before you
+hand anything over. **A task with red CI is not finished**, however good the
+preview looks — fix it, push, and wait again.
+
+Then give Rock the URL — **https://deploy-preview-1--shotkit-app.netlify.app** —
+and tell him what to look at:
 
 > Turn on the Browser frame in both **Dark** and **Light**. The bar should read as a browser at a glance: three small traffic lights at the left, a centred URL pill, and a bar roughly half the height of the one at https://shotkit-app.netlify.app. Set a URL and confirm the pill fills; clear it and confirm the pill stays empty rather than showing invented text.
 
@@ -1738,13 +1785,19 @@ git push origin feat/shotkit-web
 
 - [ ] **Final step: deploy a preview, hand over the link, and STOP**
 
+The preview is automatic. The Commit step above already pushed to
+`feat/cycle-a`, which makes Netlify rebuild PR #1. Wait for both checks:
+
 ```bash
-npm run build
-npx -y @netlify/mcp@latest --site-id 14e0fc4e-753c-4240-909b-86170921eb3b
+gh pr checks 1
 ```
 
-Then give Rock the URL — https://shotkit-preview.netlify.app — and tell him
-what to look at:
+`test` and `netlify/shotkit-app/deploy-preview` must both be green before you
+hand anything over. **A task with red CI is not finished**, however good the
+preview looks — fix it, push, and wait again.
+
+Then give Rock the URL — **https://deploy-preview-1--shotkit-app.netlify.app** —
+and tell him what to look at:
 
 > Switch Background type to **Mesh** and work the **Stops**, **Spread** and **Seed** controls. Rock's complaint was that mesh had no use: check that spread visibly changes the colour range, that seed gives genuinely different fields rather than noise, and — most importantly — that a wide spread still looks *coloured* rather than grey-brown.
 
