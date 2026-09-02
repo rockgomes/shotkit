@@ -36,10 +36,13 @@ function ratio(a, b) {
 }
 
 function tokens() {
-  // Comments are stripped FIRST. tokens.css documents retired tokens by
-  // quoting their old `--name: #value` in prose, and a bare regex over the
-  // raw file happily resurrects them — a deleted token would then silently
-  // satisfy a row here instead of failing it.
+  // Comments are stripped FIRST — pre-emptively, not because anything has
+  // gone wrong yet. tokens.css documents every retired token in prose right
+  // where it used to live, and today those notes quote bare hexes only, so a
+  // raw regex and a stripped one both yield the same 25 tokens. The moment
+  // one of those notes is written in `--name: #value` form the raw regex
+  // resurrects a deleted token, and the dead-token guard below — whose whole
+  // job is to notice a removal being undone — would pass on a ghost.
   const css = readFileSync('web/tokens.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
   const out = {};
   for (const [, name, value] of css.matchAll(/(--[a-z0-9-]+):\s*(#[0-9a-fA-F]{6})/g)) {
@@ -81,20 +84,17 @@ const PAIRS = [
   ['--text-faint', '--surface-window', 4.5],
   ['--text-faint', '--surface-raised-1', 4.5],
 
-  // .section-label (497), .template-row--add (578), .custom-size-field (615),
-  // .canvas-toolbar-label (762), .control-hint (1238) and more on the window;
-  // .template-row--add is a .template-row, so its hover puts it on
-  // --border-hairline (560); the dropzone's own copy (897, 923, 935) sits on
-  // --surface-canvas.
+  // The busiest token, and since the merge (see tokens.css) the only one at
+  // the 4.5 floor. On --surface-window: .section-label, .template-row--add,
+  // .custom-size-field, .canvas-toolbar-label, .control-hint, .sampled-hue,
+  // and the two usages absorbed from --text-disabled — .template-row .dim
+  // (the "2800×2100" dimensions) and .export-footnote. On --border-hairline:
+  // .template-row--add is a .template-row, so its hover lands there, and so
+  // does .dim's. On --surface-canvas: the whole of the dropzone's copy.
+  // None of it is decoration, so all three rows are 4.5 and not 3.0.
   ['--text-fainter', '--surface-window', 4.5],
   ['--text-fainter', '--border-hairline', 4.5],
   ['--text-fainter', '--surface-canvas', 4.5],
-
-  // .template-row .dim (556) and .export-footnote (1340). The dimensions are
-  // information, not decoration, so this is a 4.5 row and not a 3.0 one — see
-  // the token's own comment in tokens.css.
-  ['--text-disabled', '--surface-window', 4.5],
-  ['--text-disabled', '--border-hairline', 4.5],
 
   // --- Inverted and one-off pairs ---------------------------------------
   // .btn-primary (270) and .chip.is-selected (1267) paint --surface-window as
@@ -129,6 +129,8 @@ describe('token contrast', () => {
   it('carries no token that nothing references', () => {
     const t2 = tokens();
     for (const dead of [
+      // Merged into --text-fainter: 1.0005:1 apart, i.e. the same colour.
+      '--text-disabled',
       '--text-subtle',
       '--color-blue', '--color-pink', '--color-cyan', '--color-indigo',
       '--color-orange', '--color-magenta', '--color-green', '--color-teal',
@@ -139,33 +141,108 @@ describe('token contrast', () => {
   });
 });
 
+
 /**
- * MEASURED, NOT GATED — deliberately.
+ * THE LADDER.
  *
- * The inert inspector sections (style.css:996) and every `:disabled` control
- * composite their own text over the window at 0.42 / 0.4 alpha. The spec asks
- * inert states to clear 3:1, and at these token values they cannot: reaching
- * 3:1 for a section label inside an inert section needs alpha ~0.68, at which
- * point the section no longer reads as off at all. Raising the tokens further
- * cannot fix it either — the composite is dominated by the alpha.
+ * Clearing 4.5:1 is a floor, and a floor can be cleared by a UI with no
+ * hierarchy left in it at all. In a dark theme the floor over the lightest
+ * text-bearing surface admits roughly one value, so every token pushed down
+ * to it converges — which is exactly how --text-fainter and --text-disabled
+ * ended up 1.0005:1 apart, two names for one colour, with every PAIRS row
+ * green. They are now one token.
  *
- * So this is recorded as a measurement rather than an assertion. It exists to
- * stop the numbers being rediscovered from scratch, and to fail loudly if the
- * inert cue is ever changed without someone re-reading them.
+ * The failure this guards is the opposite one, and it is a live temptation:
+ * the inert sections below are hard to read, and the obvious "fix" is to
+ * raise a text token until they are. Raise --text-fainter to #c6cad2 chasing
+ * that and every section label in the app collapses into secondary text —
+ * again with every PAIRS row green, because a brighter token clears its
+ * floor more easily, not less.
  *
- * At the current 0.42 / 0.4, over --surface-window:
+ * So: the rungs must stay in order, and stay apart. Both halves have been
+ * watched go red (see the task report) — order by handing the ladder a
+ * leapfrogged token, separation by handing it a merged pair.
+ */
+const LADDER = [
+  '--text-primary',    // 16.25:1 on --surface-window
+  '--text-secondary',  // 11.91
+  '--text-muted',      //  7.53
+  '--text-faint',      //  6.02
+  '--text-fainter',    //  5.26 — the floor
+];
+
+// Adjacent rungs today measure 1.3642, 1.5817, 1.2501 and 1.1455 apart. 1.10
+// sits below the tightest of those with room to spare, and far above the
+// 1.0005 that a merged pair produces. It is a "these are different colours"
+// floor, not a target: nothing should be tuned to sit just above it.
+const MIN_LADDER_STEP = 1.1;
+
+describe('the text ladder keeps its rungs', () => {
+  const t = tokens();
+
+  it('runs brightest to dimmest in the declared order', () => {
+    for (let i = 0; i < LADDER.length - 1; i += 1) {
+      const [a, b] = [LADDER[i], LADDER[i + 1]];
+      expect(
+        luminance(t[a]),
+        `${a} (${t[a]}) must stay brighter than ${b} (${t[b]})`,
+      ).toBeGreaterThan(luminance(t[b]));
+    }
+  });
+
+  it('keeps every adjacent pair visibly apart', () => {
+    for (let i = 0; i < LADDER.length - 1; i += 1) {
+      const [a, b] = [LADDER[i], LADDER[i + 1]];
+      const r = ratio(t[a], t[b]);
+      expect(
+        Number(r.toFixed(4)),
+        `${a} (${t[a]}) and ${b} (${t[b]}) are ${r.toFixed(4)}:1 apart — ` +
+          `below ${MIN_LADDER_STEP}, they are the same rung`,
+      ).toBeGreaterThanOrEqual(MIN_LADDER_STEP);
+    }
+  });
+});
+
+/**
+ * THE INERT STATE — an OPEN SPEC ITEM, awaiting Rock's decision.
  *
- *   --text-primary    3.56 / 3.35    (min alpha for 3:1: 0.40)
+ * `.inspector-section[inert]` and every `:disabled` control composite their
+ * own text over the window at 0.42 / 0.4 alpha. The spec asks inert states to
+ * clear 3:1. At 0.42 a section label reaches 1.85:1, and clearing 3:1 needs
+ * alpha ~0.68, at which point the section stops reading as off.
+ *
+ * Raising tokens is not a way out. It is not that alpha makes 3:1 unreachable
+ * in general — --text-primary already clears it at 3.56, and anything from
+ * about #d0d0d0 up clears it too. What is unreachable is clearing 3:1 FOR A
+ * SECTION LABEL without lifting that label above --text-secondary, i.e.
+ * without destroying the ladder above. That is the real bind.
+ *
+ * Measured over --surface-window, at alpha 0.42 / 0.40, with the minimum
+ * alpha each token needs to reach 3:1:
+ *
+ *   --text-primary    3.56 / 3.35    (0.37)
  *   --text-secondary  2.92 / 2.75    (0.43)
  *   --text-muted      2.23 / 2.13    (0.55)
- *   --text-faint      1.97 / 1.89    (0.63)
+ *   --text-faint      1.97 / 1.89    (0.62)
  *   --text-fainter    1.85 / 1.77    (0.68)
- *   --text-disabled   1.85 / 1.77    (0.69)
  *
- * Changing `.inspector-section[inert]`'s opacity or the `:disabled` opacity
- * is a design decision about how inert "inert" should look, not a token
- * change, and it belongs to whoever owns that decision — not to this audit.
+ * Three options are with Rock: leave it, raise the opacity, or drop `opacity`
+ * and dim the sections with explicit colours at full alpha. The third would
+ * clear the floor AND read as dimmer than today, which sounds contradictory
+ * and is not: `opacity` composites toward whatever is behind the element —
+ * here the darkest surface in the app — so it collapses contrast much faster
+ * than it reduces apparent brightness. A chosen colour spends its lightness
+ * where it is wanted; an alpha spends it on the background.
+ *
+ * Until that is decided, this file's job is to stop the figures above
+ * drifting away from the stylesheet they describe.
  */
+function inertOpacity() {
+  const css = readFileSync('web/style.css', 'utf8');
+  const m = css.match(/\.inspector-section\[inert\]\s*\{[^}]*?opacity:\s*([\d.]+)/);
+  return m ? Number(m[1]) : null;
+}
+
 function over(fg, bg, alpha) {
   const mix = (i) => {
     const f = parseInt(fg.replace('#', '').slice(i, i + 2), 16);
@@ -175,18 +252,31 @@ function over(fg, bg, alpha) {
   return '#' + [0, 2, 4].map((i) => mix(i).toString(16).padStart(2, '0')).join('');
 }
 
-describe('inert states stay inert', () => {
+describe('inert inspector sections', () => {
   const t = tokens();
 
-  // The floor that IS enforced: an inert section must stay clearly dimmer
-  // than the same text live. If a future lift ever closed that gap the cue
-  // would be gone, which is the failure mode Task 3 was warned about.
-  it('the inert inspector reads dimmer than the live one', () => {
-    for (const name of ['--text-primary', '--text-secondary', '--text-fainter']) {
-      const live = ratio(t[name], t['--surface-window']);
-      const inert = ratio(over(t[name], t['--surface-window'], 0.42), t['--surface-window']);
-      expect(inert, `${name} inert (${inert.toFixed(2)}) vs live (${live.toFixed(2)})`)
-        .toBeLessThan(live * 0.6);
+  // Read, never assumed. The table above was computed at 0.42; if the real
+  // opacity moves, every figure in it is stale and this goes red so that
+  // whoever moved it re-derives them.
+  it('is still at the 0.42 the figures above were measured at', () => {
+    expect(
+      inertOpacity(),
+      'web/style.css .inspector-section[inert] opacity changed — re-derive ' +
+        "the table in this file's comment, and revisit the open spec item",
+    ).toBe(0.42);
+  });
+
+  it('reproduces the recorded measurements', () => {
+    const a = inertOpacity();
+    for (const [name, expected] of [
+      ['--text-primary', 3.56],
+      ['--text-secondary', 2.92],
+      ['--text-muted', 2.23],
+      ['--text-faint', 1.97],
+      ['--text-fainter', 1.85],
+    ]) {
+      const r = ratio(over(t[name], t['--surface-window'], a), t['--surface-window']);
+      expect(Number(r.toFixed(2)), `${name} inert at ${a}`).toBe(expected);
     }
   });
 });

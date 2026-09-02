@@ -32,45 +32,56 @@
   --text-secondary: #c6cad2;      /* ghost button label, preset row label (lines 58,86) */
   --text-muted: #9ba1ab;          /* filename, zoom label, muted rows (lines 53,57,77) */
   --text-faint: #8a8f98;          /* secondary meta, inactive segmented text (lines 76,115) */
-  /* DEPARTS FROM THE HANDOFF — do not "restore" this to #6b7078 (lines
-     66,74). The token's own description undersells it: alongside the
-     inactive rail icons it carries every SECTION LABEL in the app
-     (TEMPLATES / RATIOS / BACKGROUND / FRAME / FINISH / EXPORT), the whole
-     of the empty state's copy (.dropzone, .dropzone-dims, .dropzone-sub),
-     the custom-size field labels, .canvas-toolbar-label, .control-hint and
-     "+ Custom size" — real text at 10-12px, not decoration, so the 4.5:1 AA
-     threshold applies and not the 3:1 UI-component one. (The --text-disabled
-     comment below asserts the opposite about #6b7078; that assertion was
-     wrong and this supersedes it.)
+  /* DEPARTS FROM THE HANDOFF, AND ABSORBS --text-disabled.
+     Do not "restore" this to #6b7078 (lines 66,74), and do not re-split it
+     into two tokens.
 
-     #6b7078 measured 3.93:1 on --surface-window #0b0c0e, 3.85:1 on
-     --surface-canvas #0e0f12 (the empty state's backdrop) and 3.38:1 on
+     WHAT IT CARRIES. Alongside the inactive rail icons: every SECTION LABEL
+     in the app (TEMPLATES / RATIOS / BACKGROUND / FRAME / FINISH / EXPORT),
+     the whole of the empty state's copy (.dropzone, .dropzone-dims,
+     .dropzone-sub), the custom-size field labels, .canvas-toolbar-label,
+     .control-hint, "+ Custom size", and — since the merge below — the
+     template row dimensions (.dim, "2800×2100") and .export-footnote. All
+     of it is real text at 10-12px, not decoration, so the 4.5:1 AA text
+     threshold applies and not the 3:1 UI-component one.
+
+     THE LIFT. #6b7078 measured 3.93:1 on --surface-window #0b0c0e, 3.85:1
+     on --surface-canvas #0e0f12 (the empty state's backdrop) and 3.38:1 on
      --border-hairline #1b1d22 — the .template-row hover background, the
      lightest surface this token is ever painted on and therefore the
-     binding constraint. All three fail 4.5:1.
+     binding constraint. All three failed 4.5:1.
 
-     #7f858d is the minimum lift: same hue (216.9°) and saturation (0.057)
-     as the original, lightness raised from 0.445 to 0.525 — only as far as
-     the binding constraint requires. It measures 4.53:1 on #1b1d22, 5.26:1
-     on #0b0c0e and 5.15:1 on #0e0f12. The step below it (#7f848d) measures
-     4.49:1 on #1b1d22 and fails. */
+     #7f858d is the minimum: same hue (216.9°) and saturation (0.057) as the
+     original, lightness raised from 0.445 to 0.525, only as far as the
+     binding constraint requires. It measures 4.5301:1 on #1b1d22, 5.2574:1
+     on #0b0c0e and 5.1491:1 on #0e0f12. The step below it, #7f848d,
+     measures 4.4864:1 and fails.
+
+     THE MERGE. This token used to have a twin, --text-disabled, on the
+     template dimensions and .export-footnote. It had its own lift history:
+     the handoff's #565b64 (lines 77,163) measured 2.87:1 on #0b0c0e and
+     2.47:1 on #1b1d22, and was raised to #7e8590 — same hue (~0.607) and
+     saturation (~0.075), the minimum that cleared 4.5:1, with #7e8490 one
+     step below measuring 4.49:1.
+
+     #7e8590 and #7f858d are 1.0005:1 apart. They are the same colour, and
+     not by accident: both tokens bind on --border-hairline, so both were
+     driven to the same floor by the same constraint. In a dark theme the
+     4.5:1 floor over the lightest text-bearing surface admits essentially
+     one value, and any token pushed to it lands there. Two names for one
+     value is a ladder rung that no longer exists, so the twin was deleted
+     and its two usages moved here.
+
+     If a future rung genuinely belongs below this one it cannot be a plain
+     colour — it has to come from a lighter surface underneath it, or from a
+     non-colour cue. test/contrast.test.js's "the text ladder keeps its
+     rungs" guard fails if anything is merged into this value again.
+
+     (An earlier version of --text-disabled's comment claimed #6b7078 and
+     #4b4f58 needed no lift because they were "icons/placeholders/a
+     separator". Both claims were void: #4b4f58/--text-subtle was dead and
+     is gone, and #6b7078 carried every section label in the app.) */
   --text-fainter: #7f858d;
-  /* DEPARTS FROM THE HANDOFF — do not "restore" this to #565b64 (lines
-     77,163). #565b64 measures 2.87:1 on #0b0c0e and 2.47:1 on
-     #1b1d22 (the .template-row hover background, its lightest surface and
-     the binding constraint), both well under the 4.5:1 AA text threshold —
-     and this token carries real information (export dimensions like
-     2880×1800) at 10.5px, not decoration. #7e8590 is the minimum lift:
-     same hue (~0.607) and saturation (~0.075) as the original, lightness
-     raised only as far as the threshold requires. It clears 4.5:1 against
-     the lightest background it sits on (4.53:1 on #1b1d22; 5.26:1 on
-     #0b0c0e) — the step below it (#7e8490) measures 4.49:1 and fails.
-     (This block originally ended by claiming #6b7078 and #4b4f58 needed no
-     change because they were icons and a separator. Both claims are now
-     void: #4b4f58/--text-subtle was dead and is gone, and #6b7078/
-     --text-fainter carries every section label in the app — see its own
-     comment above, which supersedes this one.) */
-  --text-disabled: #7e8590;
   /* `--text-subtle` (#4b4f58, the handoff's breadcrumb "/" separator, line
      52) was removed in Cycle A Task 3. It was flagged as dead in Task 7 of
      the previous cycle and left in place then; `grep -rn text-subtle web
