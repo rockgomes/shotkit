@@ -28,6 +28,65 @@
   display: none !important;
 }
 
+/* EVERY OFF STATE IN THE APP, IN ONE RULE — the second global after
+   `[hidden]`, and here for the same reason: one rule closes a whole bug
+   class instead of the instances found so far.
+
+   Task 3b's spec item 5 says inert and disabled states dim with explicit
+   colours at full alpha, never with `opacity`. `opacity` composites toward
+   whatever is BEHIND the element — on this app the darkest surface on
+   screen — so it spends lightness on the ground instead of on the thing you
+   are trying to dim, and collapses contrast far faster than it reduces
+   apparent brightness. Nine rules were still doing it after the first pass,
+   and three of them landed below 3:1: the toolbar's disabled buttons and all
+   four rail items on the EMPTY STATE — the exact screen Rock complained
+   about — were dimmer (2.50-3.51:1) than the inert inspector panels beside
+   them (3.33:1), by the very mechanism this rule exists to retire. The
+   disabled Export button's border composited to 1.50:1, below the 1.60 given
+   to --border-inert and below the 1.3 floor test/contrast.test.js asserts so
+   that "the control should still have a shape".
+
+   The mechanism is inheritance, not per-element rules: the live tokens are
+   re-declared on the element, so every descendant picks the off value up on
+   its own. Nothing here names an element's colour, so a future control
+   inside any of these states is covered for free.
+
+   Off is FLAT: all five text rungs collapse to one tone, because
+   "unavailable" is one state and not five.
+
+   Two things this rule cannot reach, each handled where it lives: the ground
+   swatches (an inline background, see .inspector-section[inert]
+   .preset-swatch below) and .zoom-btn, whose `color: inherit` takes its
+   parent's COMPUTED colour and so cannot see a custom property re-declared
+   on the button itself. */
+.inspector-section[inert],
+.zoom-btn:disabled,
+.btn:disabled,
+.rail-item[aria-disabled='true'],
+.segmented-cell:disabled,
+.slider:disabled,
+.chip:disabled,
+.select-control:disabled {
+  --text-primary: var(--text-inert);
+  --text-secondary: var(--text-inert);
+  --text-muted: var(--text-inert);
+  --text-faint: var(--text-inert);
+  --text-fainter: var(--text-inert);
+  /* the active segmented cell's label, and the slider thumb */
+  --color-white: var(--text-inert);
+  /* the selected chip's pill and the primary button's fill: both drop from
+     near-white to the inert tone, which keeps their --surface-window ink
+     legible at 3.33:1 */
+  --surface-inverse: var(--text-inert);
+  /* state fills recede to just above the window so the inert tone clears
+     3:1 over them too (3.10:1) */
+  --surface-control-active: var(--surface-inert);
+  --surface-raised-1: var(--surface-inert);
+  /* below the 3:1 a live control border owes: WCAG 1.4.11 exempts inactive
+     components, and a border as strong as a live one does not read as off */
+  --border-strong: var(--border-inert);
+}
+
 html,
 body {
   height: 100%;
@@ -227,8 +286,11 @@ input {
   color: var(--text-primary);
 }
 
+/* `color: inherit` from .zoom-stepper takes the parent's COMPUTED colour,
+   so the global off-state rule's token re-declaration cannot reach this
+   one — it needs the colour named outright. */
 .zoom-btn:disabled {
-  opacity: 0.4;
+  color: var(--text-inert);
   cursor: not-allowed;
 }
 
@@ -276,7 +338,6 @@ input {
 }
 
 .btn:disabled {
-  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -313,14 +374,15 @@ input {
   border-radius: 50%;
   border: 2px solid currentColor;
   border-top-color: transparent;
-  opacity: 0.75;
+  /* No opacity. At 0.75 over a disabled primary's fill the ring measured
+     2.71:1; at full currentColor it is 3.33:1 — the same tone as the
+     "Exporting…" label beside it, which is what it should have been. */
   animation: btn-spin 700ms linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .btn.is-loading::before {
     animation: none;
-    opacity: 0.4;
   }
 }
 
@@ -420,7 +482,6 @@ input {
 }
 
 .rail-item[aria-disabled='true'] {
-  opacity: 0.55;
   cursor: not-allowed;
 }
 
@@ -993,51 +1054,20 @@ input {
   border-bottom: none;
 }
 
-/* Properties greyed while no file is loaded (Task 7) — `[inert]` is applied
-   by attribute, not per-element id, matching the `[hidden]` convention
-   already established at the top of this file: one rule covers whichever
-   of the three inspector sections index.html marks `inert` (see that
-   file's own comment on #backgroundSection), and covers any future one
-   without a rule to add. `[inert]` already removes these from the tab
-   order and the accessibility tree (main.js toggles the attribute itself);
-   this only supplies the missing VISUAL cue, since inert alone leaves an
-   element rendered at full opacity. The Export section is deliberately not
-   part of this list — the format/scale pickers stay live and only the
-   Export button itself disables (see index.html's static `disabled`). */
-/* Task 3b replaced `opacity: 0.42` here with explicit full-alpha colours.
-   Opacity composites toward what is BEHIND the element — the darkest
-   surface in the app — so it collapsed contrast faster than it reduced
-   apparent brightness: the section ran 3.56:1 at the top down to 1.85:1 at
-   the bottom, and the bottom rung is every section label in the panel.
+/* Properties greyed while no file is loaded (Task 7). `[inert]` is applied by
+   attribute, not per-element id, matching the `[hidden]` convention at the
+   top of this file: one selector covers whichever of the three inspector
+   sections index.html marks `inert` (see that file's own comment on
+   #backgroundSection), and covers any future one without a rule to add.
+   `[inert]` already removes these from the tab order and the accessibility
+   tree (main.js toggles the attribute itself); the colour only supplies the
+   missing VISUAL cue, since inert alone leaves an element at full opacity.
+   The Export section is deliberately not in that list — the format/scale
+   pickers stay live and only the Export button itself disables.
 
-   Still ONE rule, and still driven by the attribute rather than by element
-   id, exactly as before. The mechanism is that the live tokens are
-   re-declared on this element, so every descendant picks the inert value up
-   through normal inheritance — no per-element inert rules to write, and any
-   future control inside these sections is covered for free.
-
-   The section goes FLAT, not dimmed: all five text rungs collapse to one
-   tone, because "unavailable" is one state and not five. Measurements and
-   the "more off than 0.42" proof live with the tokens in tokens.css. */
-.inspector-section[inert] {
-  --text-primary: var(--text-inert);
-  --text-secondary: var(--text-inert);
-  --text-muted: var(--text-inert);
-  --text-faint: var(--text-inert);
-  --text-fainter: var(--text-inert);
-  /* the active segmented cell's label */
-  --color-white: var(--text-inert);
-  /* the selected chip's pill: fill drops from near-white to the inert tone,
-     which keeps its --surface-window ink legible at 3.33:1 */
-  --surface-inverse: var(--text-inert);
-  /* state fills recede to just above the window so the inert tone clears
-     3:1 over them too (3.10:1) */
-  --surface-control-active: var(--surface-inert);
-  --surface-raised-1: var(--surface-inert);
-  /* below the 3:1 a live control border owes: WCAG 1.4.11 exempts inactive
-     components, and a border as strong as a live one does not read as off */
-  --border-strong: var(--border-inert);
-}
+   The dimming itself now lives in the global off-state rule at the top of
+   this file, alongside every disabled control, since Task 3b found the two
+   were the same problem. Only the part that rule cannot reach is here. */
 
 /* The one thing in an inert section that a token re-declaration cannot
    reach. The ground swatches take their fill from the live gradient through
@@ -1103,7 +1133,6 @@ input {
 }
 
 .segmented-cell:disabled {
-  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -1205,7 +1234,6 @@ input {
 }
 
 .slider:disabled {
-  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -1253,8 +1281,18 @@ input {
   font-weight: 500;
 }
 
+/* "This is true, but not what's currently in effect" — an override is
+   forcing a different hue. This was `opacity: 0.6`, and it was the worst of
+   the composited states precisely because it is NOT one: the row is live,
+   clickable, in a live panel, carrying informational text that owes 7:1.
+   Composited it measured 5.80:1 for the label and 3.60:1 for the hue.
+
+   The dim is now a step DOWN THE LADDER instead — a real 1.82x drop from
+   --text-secondary, and 8.19:1 rather than 5.80:1. The colour stops keep
+   their true colour: they are the row's content, and a sample you have
+   dimmed is a sample that lies about what was sampled. */
 .sampled-row:not(.is-active) {
-  opacity: 0.6;
+  color: var(--text-fainter);
 }
 
 .sampled-row:focus-visible {
@@ -1336,7 +1374,6 @@ input {
 }
 
 .chip:disabled {
-  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -1387,7 +1424,6 @@ input {
 }
 
 .select-control:disabled {
-  opacity: 0.4;
   cursor: not-allowed;
 }
 

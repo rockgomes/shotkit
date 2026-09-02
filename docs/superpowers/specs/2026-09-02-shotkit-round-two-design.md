@@ -275,17 +275,31 @@ Dark theme only; the light theme remains a later cycle, built from scratch.
    element there is: long, repeated lines (pane and section edges) take the
    bottom, sparse marks (the dot grid, a short divider) take the top.
 
-5. **Inert and disabled states: explicit colours at full alpha, not
+5. **Inert and disabled states: explicit colours at full alpha, never
    `opacity`.** Opacity composites toward whatever is behind the element — on
-   this app the darkest surface on screen — so it destroys contrast far faster
-   than it reduces apparent brightness. `opacity: 0.42` on an inspector section
-   ran 3.56:1 at the top down to 1.85:1 at the bottom, and the bottom rung
-   carried every section label in the panel. An inert section instead
-   re-declares the live tokens on itself at a single flat tone landing 3:1-3.5:1
-   — dimmer than 0.42 gave its brightest element, and far brighter than 0.42
-   gave its dimmest. Inert control borders are deliberately allowed below 3:1;
+   this app the darkest surface on screen — so it spends lightness on the
+   ground instead of on the thing being dimmed, and destroys contrast far
+   faster than it reduces apparent brightness. `opacity: 0.42` on an inspector
+   section ran 3.56:1 at the top down to 1.85:1 at the bottom, and the bottom
+   rung carried every section label in the panel.
+
+   Every off state — `[inert]` sections and every disabled control alike —
+   re-declares the live tokens on itself at a single flat tone landing
+   3:1-3.5:1: dimmer than 0.42 gave its brightest element, and far brighter
+   than 0.42 gave its dimmest. Off is flat, because "unavailable" is one state
+   and not five. Inert control borders are deliberately allowed below 3:1;
    WCAG 1.4.11 exempts inactive components, and a border as strong as a live
    one does not read as unavailable.
+
+   **`web/style.css` carries no static `opacity` below 1 outside
+   `@keyframes`.** That is the enforceable form of this item, and it is
+   enforced: a guard that reads token values cannot see a composited colour,
+   which is how nine rules survived the first pass with a green suite.
+
+   Dimming is not always an off state. A control that is live and clickable but
+   not currently in effect is informational, owes the full 7:1 of item 1, and
+   dims by stepping down the ladder — not by joining the inert tone and not by
+   compositing.
 
 `web/tokens.css` remains the only file in `web/` allowed to hold a raw hex, and
 `test/contrast.test.js` is the enforcement: it derives every pairing from

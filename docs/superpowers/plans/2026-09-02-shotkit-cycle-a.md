@@ -471,6 +471,68 @@ asks for a change, make it, redeploy, and hand the link back before moving on.
 
 ---
 
+### Task 3b: Contrast above the floor, and the half nobody measured
+
+Written after Task 3 shipped and Rock looked at it: *"still dim. I think our
+greys need to get closer to white. I feel like we using 'pass' as the floor...
+even the placeholder 'square' on the center of the page is so dim that I can
+barely see the dashed lines and the ratio on the corner."*
+
+Two failures, not one. **The floor was the target** — Task 3 solved each token
+to the minimum that cleared 4.5:1 and stopped there. And **the audit measured
+text only**: every border, dashed affordance and the dot grid went unchecked,
+and all of them failed badly (1.15:1 to 1.46:1), including the empty state's
+dashed frame and its ratio label, which is what Rock named.
+
+The spec's Contrast section was rewritten as five numbered items (text 7:1;
+ladder rungs 1.2:1 apart; interactive boundaries and meaningful graphics 3:1;
+decorative separators in a **1.8-2.5:1 band with a ceiling as well as a floor**;
+inert and disabled states dimmed with explicit full-alpha colours, never
+`opacity`). This task implements all five and `test/contrast.test.js` enforces
+all five.
+
+**The structural change worth knowing about.** `--border-hairline` was one
+token doing two jobs with opposite requirements: as a hairline it is decoration
+and wants to be bright, and as the row hover fill it is the lightest surface any
+LADDER token is painted on, and so the ceiling on the entire text ladder.
+Lifting it would have dropped that ceiling from 16.86:1 to 9.78:1 and made a
+7:1 floor with five rungs impossible. It was split — the hover fill keeps the
+old value as `--surface-hover`, the hairline moved. No surface token changed
+value.
+
+**What the review found, and why it matters to later tasks.** The first pass
+converted `.inspector-section[inert]` off `opacity` and left nine other rules
+on it. Three sat below 3:1, and most of them were on the empty state — its
+toolbar buttons and all four rail items rendered *dimmer than the inert panels
+beside them*. The suite could not see any of it, because it read values out of
+`tokens.css` and a composited colour exists only in the browser. So:
+
+> **A guard that reads token values is blind to `opacity`.** `web/style.css`
+> now carries **no static `opacity` below 1 outside `@keyframes`**, and
+> `test/contrast.test.js` fails on any that appears. Every off state routes
+> through **one rule** near the top of `style.css` that re-declares the live
+> tokens as `--text-inert` / `--surface-inert` / `--border-inert`, the way
+> `[hidden]` is one rule. A new disabled control inherits the treatment for
+> free; a new `:disabled` rule that is not in that selector list fails the
+> suite.
+
+Two further traps this task walked into, recorded so a later one does not:
+
+- **Dimming is not always an off state.** `.sampled-row:not(.is-active)` means
+  "true, but not currently in effect" on a live, clickable row — informational
+  text that owes 7:1, not an exempt inactive component. It steps down the
+  ladder instead of into the inert tone.
+- **A "dim" assertion must read the rule, not the tokens.** The first version
+  of that guard compared two token constants, so swapping the stylesheet to a
+  brighter token left it green. Mutation N6 caught it. Anything asserting *this
+  rule dims* has to parse the declaration.
+
+**Files:** `web/tokens.css`, `web/style.css`, `test/contrast.test.js`, and the
+spec's Contrast section.
+
+
+---
+
 ### Task 4: Delete `fit`/`cover` and the caption
 
 **Files:**

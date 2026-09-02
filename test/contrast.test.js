@@ -11,8 +11,8 @@
  * measured text only, so every border, dashed affordance and the dot grid
  * went unchecked and all of them failed badly (1.15:1 to 1.46:1).
  *
- * Task 3b replaced the spec's Contrast section with four thresholds, and this
- * file is all four of them:
+ * Task 3b replaced the spec's Contrast section with five items, and this file
+ * is all five of them:
  *
  *   1. Informational text            >= 7:1   on every surface it sits on
  *   2. Adjacent ladder rungs         >= 1.2:1 apart
@@ -21,6 +21,8 @@
  *   4. Decorative separators and the
  *      dot grid                      no WCAG duty, but VISIBLE: 1.8-2.5:1,
  *                                    a judgement call, bounded at both ends
+ *   5. Inert and disabled states     explicit colours at full alpha, never
+ *                                    `opacity` — see the last describe block
  *
  * Neither PAIRS nor NON_TEXT below is a guess. Every row was read out of
  * web/style.css and carries the line numbers it came from: a token's row
@@ -75,34 +77,34 @@ const PAIRS = [
   // lightest surface any text is painted on, so it binds every rung.
 
   // body (style.css:43) sits on --surface-window; the selected template /
-  // preset / sampled rows repaint it on --surface-raised-1 (568, 672, 1231);
-  // the active rail item on --surface-raised-2 (418); .icon-btn:hover on
-  // --surface-hover (349); .dropzone:focus copy on --surface-canvas.
+  // preset / sampled rows repaint it on --surface-raised-1 (628, 732, 1278);
+  // the active rail item on --surface-raised-2 (410); .icon-btn:hover on
+  // --surface-hover (411); .dropzone:focus copy on --surface-canvas.
   ['--text-primary', '--surface-window', TEXT_MIN],
   ['--text-primary', '--surface-canvas', TEXT_MIN],
   ['--text-primary', '--surface-raised-1', TEXT_MIN],
   ['--text-primary', '--surface-raised-2', TEXT_MIN],
   ['--text-primary', '--surface-hover', TEXT_MIN],
 
-  // .btn-ghost (261), .preset-row (660), .sampled-row (1223), .select-control
-  // (1358), and the hover states of .rail-item / .segmented-cell / .chip.
-  // Three of those hovers also swap the background to --surface-hover (265,
-  // 667, 1226). .dropzone-title (944) sits on --surface-canvas.
+  // .btn-ghost (322), .preset-row (721), .sampled-row (1266), .select-control
+  // (1413), and the hover states of .rail-item / .segmented-cell / .chip.
+  // Three of those hovers also swap the background to --surface-hover (327,
+  // 728, 1274). .dropzone-title (1001) sits on --surface-canvas.
   ['--text-secondary', '--surface-window', TEXT_MIN],
   ['--text-secondary', '--surface-hover', TEXT_MIN],
   ['--text-secondary', '--surface-canvas', TEXT_MIN],
   ['--text-secondary', '--surface-raised-1', TEXT_MIN],
 
-  // .zoom-stepper (205), .cli-status (716), .inline-control-row (1051),
-  // .slider-label (1127), .template-row (535) — whose hover lays it on
-  // --surface-hover (563) — and .dropzone:hover (908) on --surface-canvas.
+  // .zoom-stepper (261), .cli-status (780), .inline-control-row (1097),
+  // .slider-label (1172), .template-row (596) — whose hover lays it on
+  // --surface-hover (624) — and .dropzone:hover (976) on --surface-canvas.
   ['--text-muted', '--surface-window', TEXT_MIN],
   ['--text-muted', '--surface-hover', TEXT_MIN],
   ['--text-muted', '--surface-canvas', TEXT_MIN],
 
-  // .cli-command (707), .segmented-cell (1073), .chip (1305) on the window;
-  // the selected row's dimensions (574) and the active sampled row's hue
-  // (1275) on --surface-raised-1.
+  // .cli-command (771), .segmented-cell (1119), .chip (1359) on the window;
+  // the selected row's dimensions (635) and the active sampled row's hue
+  // (1338) on --surface-raised-1.
   ['--text-faint', '--surface-window', TEXT_MIN],
   ['--text-faint', '--surface-raised-1', TEXT_MIN],
 
@@ -119,14 +121,14 @@ const PAIRS = [
   ['--text-fainter', '--surface-canvas', TEXT_MIN],
 
   // --- Inverted and one-off pairs ---------------------------------------
-  // .btn-primary (272) and .chip.is-selected (1314) paint --surface-window as
+  // .btn-primary (331) and .chip.is-selected (1365) paint --surface-window as
   // INK on --surface-inverse. It is the Export button's label: same threshold.
   ['--surface-window', '--surface-inverse', TEXT_MIN],
 
-  // The active segmented cell's label (1077) on --surface-control-active.
+  // The active segmented cell's label (1127) on --surface-control-active.
   ['--color-white', '--surface-control-active', TEXT_MIN],
 
-  // The drop error strip (958/957) — an opaque pair that only ever has to
+  // The drop error strip (1023/1024) — an opaque pair that only ever has to
   // work against itself.
   ['--color-danger', '--surface-danger', TEXT_MIN],
 ];
@@ -185,16 +187,34 @@ describe('token contrast', () => {
  *   decorative token that drifts UP out of this range is as wrong as one that
  *   drifts down, and only an assertion with two ends catches that.
  *
- * ONE PAIRING IS DELIBERATELY ABSENT. `.canvas-toolbar` and `.drop-error`
- * carry a --border-hairline bottom edge with the stage underneath, so once a
- * shot is loaded that edge is adjacent to a surround: against --surround-mid
- * it measures ~1.05:1. It is not listed, because a 1px separator reads as a
- * boundary if it differs from EITHER side, and it clears 1.8 against the
- * --surface-window strip above it. More to the point, when the stage is
- * mid-grey the strip-to-stage edge is itself an enormous value step and the
- * hairline has nothing left to do. The same argument does NOT cover the
- * drag-over outline below, which sits entirely inside one backdrop — which is
- * why that one gets a real per-surround pairing instead of an excuse.
+ * TWO PAIRINGS ARE DELIBERATELY EXCLUDED, under one stated principle rather
+ * than two excuses: A SEPARATOR OWES ITS CONTRAST TO THE REGION IT TERMINATES,
+ * NOT TO THE REGION IT BELONGS TO. A 1px edge reads as a boundary if it
+ * differs from either side, and the side that matters is the one it is
+ * dividing the element FROM.
+ *
+ *   --border-hairline on --surround-mid   1.23:1  `.canvas-toolbar` and
+ *     `.drop-error` carry a hairline bottom edge with the stage underneath,
+ *     so once a shot is loaded that edge is adjacent to a surround. It clears
+ *     1.8 against the --surface-window strip above it — and when the stage is
+ *     mid-grey the strip-to-stage edge is itself an enormous value step, so
+ *     the hairline has nothing left to do.
+ *
+ *   --border-hairline on --surface-danger 1.70:1  `.drop-error`'s bottom edge
+ *     against the error strip's OWN fill. That is the region the edge belongs
+ *     to; the region it terminates against is the stage below, where it
+ *     measures 1.87:1.
+ *
+ * Neither is left as prose: `an excluded pairing still clears the floor on the
+ * side that matters` below asserts the other side of both, so the principle
+ * fails loudly if the value it rests on ever moves.
+ *
+ * The argument does NOT cover the drag-over outline, which sits entirely
+ * inside one backdrop — which is why that one gets real per-surround pairings
+ * instead. Nor does it cover --border-strong against --surface-control-active
+ * (2.80:1 before this review): that is a control boundary, not a separator,
+ * and item 3 exists to stop the arguing. --border-strong was re-solved to
+ * bind on that surface instead.
  */
 const BOUNDARY = 3.0;
 const DECOR_MIN = 1.8;
@@ -202,59 +222,64 @@ const DECOR_MAX = 2.5;
 
 const NON_TEXT = [
   // --- Interactive boundaries -------------------------------------------
-  // .zoom-stepper (205), .btn-ghost (261), .sidebar-search (467),
-  // .custom-size-input (629), .segmented (1103), the slider's unfilled track
-  // (1194-1202), .chip (1344) and .select-control (1399) all draw
+  // .zoom-stepper (259), .btn-ghost (320), .sidebar-search (528),
+  // .custom-size-input (687), .segmented (1107), the slider's unfilled track
+  // (1197-1205), .chip (1356) and .select-control (1410) all draw
   // --border-strong straight onto the window.
   ['--border-strong', '--surface-window', BOUNDARY, BOUNDARY],
   // .btn-ghost keeps that border while :hover paints --surface-hover under
-  // it (261 + 265) — the lightest backdrop --border-strong ever has, and so
-  // the binding one.
+  // it (320 + 327).
   ['--border-strong', '--surface-hover', BOUNDARY, BOUNDARY],
-  // .template-row.is-selected (571), .preset-row.is-selected (675) and
-  // .sampled-row.is-active (1277) put it on the selected row's own fill.
+  // .template-row.is-selected (629), .preset-row.is-selected (733) and
+  // .sampled-row.is-active (1279) put it on the selected row's own fill.
   ['--border-strong', '--surface-raised-1', BOUNDARY, BOUNDARY],
-  // .dropzone:hover (917) swaps the dashed frame's colour to it.
+  // .dropzone:hover (975) swaps the dashed frame's colour to it.
   ['--border-strong', '--surface-canvas', BOUNDARY, BOUNDARY],
-  // The drag-over outline's light-surround override (825).
+  // The .segmented container's border (1107) runs against the ACTIVE cell's
+  // fill (1126) wherever that cell is first or last — `overflow: hidden` on
+  // the container means the fill reaches the border. This is the lightest
+  // backdrop --border-strong has anywhere, and it was missed in the first
+  // pass: the token was solved against --surface-hover and measured 2.80 here.
+  ['--border-strong', '--surface-control-active', BOUNDARY, BOUNDARY],
+  // The drag-over outline's light-surround override (883).
   ['--border-strong', '--surround-light', BOUNDARY, BOUNDARY],
 
-  // The empty state's dashed frame (909) — the thing Rock named. Also
-  // .template-row--add (583) and .custom-size-form (603) on the window, and
-  // because .template-row--add IS a .template-row its hover fill (563) lands
+  // The empty state's dashed frame (967) — the thing Rock named. Also
+  // .template-row--add (641) and .custom-size-form (661) on the window, and
+  // because .template-row--add IS a .template-row its hover fill (624) lands
   // under the same dashes.
   ['--border-dashed', '--surface-canvas', BOUNDARY, BOUNDARY],
   ['--border-dashed', '--surface-window', BOUNDARY, BOUNDARY],
   ['--border-dashed', '--surface-hover', BOUNDARY, BOUNDARY],
 
   // Focus rings. Every `outline: 2px solid var(--text-primary)` in the file
-  // (236, 284, 353, 432, 489, 590, 642, 922, 1137, 1239, 1287, 1370, 1421);
+  // (298, 345, 415, 493, 550, 648, 700, 980, 1140, 1241, 1299, 1381, 1431);
   // the row outlines use outline-offset: -2px so they land on the row's own
   // fill rather than the window.
   ['--text-primary', '--surface-window', BOUNDARY, BOUNDARY],
   ['--text-primary', '--surface-raised-1', BOUNDARY, BOUNDARY],
-  // .dropzone:focus-visible (922), and the drag-over outline (820) on the
+  // .dropzone:focus-visible (980), and the drag-over outline (878) on the
   // empty stage and on the two dark surrounds. The light surround is the
   // override row above.
   ['--text-primary', '--surface-canvas', BOUNDARY, BOUNDARY],
   ['--text-primary', '--surround-dark', BOUNDARY, BOUNDARY],
   ['--text-primary', '--surround-mid', BOUNDARY, BOUNDARY],
 
-  // Hover borders on .custom-size-input (638), .chip (1360) and
-  // .select-control (1412) — a lift off --border-strong, so they must clear
+  // Hover borders on .custom-size-input (696), .chip (1372) and
+  // .select-control (1423) — a lift off --border-strong, so they must clear
   // the boundary floor in their own right.
   ['--text-fainter', '--surface-window', BOUNDARY, BOUNDARY],
 
-  // The CLI-connected status dot (729) — a 6px indicator carrying state that
+  // The CLI-connected status dot (787) — a 6px indicator carrying state that
   // nothing else in that card carries.
   ['--color-status-green', '--surface-window', BOUNDARY, BOUNDARY],
-  // The slider thumb (1217, 1228).
+  // The slider thumb (1220, 1231).
   ['--color-white', '--surface-window', BOUNDARY, BOUNDARY],
-  // The .btn-primary fill (272) and the selected chip's pill (1353-1354):
+  // The .btn-primary fill (331) and the selected chip's pill (1365-1366):
   // filled controls whose boundary IS the fill.
   ['--surface-inverse', '--surface-window', BOUNDARY, BOUNDARY],
 
-  // The app-mark glyph (146, 386) on the brand gradient's two stops. WCAG
+  // The app-mark glyph (205, 448) on the brand gradient's two stops. WCAG
   // 1.4.3 exempts logotypes from the text threshold, so this is held at the
   // graphic floor rather than at 7:1 — moving it means restating the brand
   // colours, which is a design decision and not a contrast fix.
@@ -262,15 +287,15 @@ const NON_TEXT = [
   ['--color-white', '--color-brand-end', BOUNDARY, BOUNDARY],
 
   // --- Decorative -------------------------------------------------------
-  // Pane and section separators: #toolbar (127), #rail (374), #sidebar (453),
-  // .canvas-toolbar (757), .drop-error (967), #inspector (985),
-  // .inspector-section (994). Bottom of the range on purpose — these are the
+  // Pane and section separators: #toolbar (186), #rail (436), #sidebar (514),
+  // .canvas-toolbar (815), .drop-error (1022), #inspector (1040),
+  // .inspector-section (1049). Bottom of the range on purpose — these are the
   // longest and most repeated lines in the layout.
   ['--border-hairline', '--surface-window', DECOR_MIN, DECOR_MAX],
   ['--border-hairline', '--surface-canvas', DECOR_MIN, DECOR_MAX],
-  // .toolbar-divider (160) and .cli-card (702): short, so the top of it.
+  // .toolbar-divider (219) and .cli-card (760): short, so the top of it.
   ['--border-subtle', '--surface-window', DECOR_MIN, DECOR_MAX],
-  // The stage dot grid (779): 1px dots on a 22px pitch, the sparsest mark in
+  // The stage dot grid (837): 1px dots on a 22px pitch, the sparsest mark in
   // the app, so also the top of the range.
   ['--dot-grid-dot', '--surface-canvas', DECOR_MIN, DECOR_MAX],
 ];
@@ -299,6 +324,27 @@ describe('non-text contrast', () => {
   // threshold cannot see: a dashed stroke covers about half its own path, so
   // it is set a step ABOVE the solid boundary token deliberately, and the
   // decorative pair must stay under both of them.
+  // The two pairings the header excludes, asserted from the other side so the
+  // principle is a measurement and not a paragraph. Each entry is
+  // [separator, the region it BELONGS to (excluded), the region it
+  // TERMINATES against (must clear the floor)].
+  it('an excluded pairing still clears the floor on the side that matters', () => {
+    const t2 = tokens();
+    for (const [edge, belongsTo, terminates] of [
+      ['--border-hairline', '--surround-mid', '--surface-window'],
+      ['--border-hairline', '--surface-danger', '--surface-canvas'],
+    ]) {
+      const weak = ratio(t2[edge], t2[belongsTo]);
+      const load = ratio(t2[edge], t2[terminates]);
+      expect(
+        Number(load.toFixed(2)),
+        `${edge} is excused against ${belongsTo} (${weak.toFixed(2)}:1) only ` +
+          `because it terminates against ${terminates} — where it now measures ` +
+          `${load.toFixed(2)}:1. That excuse has just expired.`,
+      ).toBeGreaterThanOrEqual(DECOR_MIN);
+    }
+  });
+
   it('keeps the border tokens in their intended order', () => {
     const t2 = tokens();
     const on = (k) => ratio(t2[k], t2['--surface-window']);
@@ -371,46 +417,103 @@ describe('the text ladder keeps its rungs', () => {
 });
 
 /**
- * THE INERT STATE — decided in Task 3b, and no longer an open spec item.
+ * OFF STATES — inert, disabled, and "true but not in effect".
  *
- * `.inspector-section[inert]` was `opacity: 0.42`. Opacity was the wrong
+ * `.inspector-section[inert]` was `opacity: 0.42`. Opacity is the wrong
  * instrument: it composites toward whatever is BEHIND the element — here the
  * darkest surface in the app — so it collapses contrast far faster than it
  * reduces apparent brightness. The section ran 3.56:1 at the top down to
  * 1.85:1 at the bottom, and the bottom rung is every section label in it.
  *
- * The rule now re-declares the live tokens on the inert element, so every
- * descendant inherits an explicit full-alpha colour. Two things follow, and
- * both are asserted below:
+ * THE FIRST PASS CONVERTED ONE RULE AND LEFT NINE. That is the same failure
+ * that created this task — a category named in the policy and left
+ * unenforced — and the review caught it, so this file now enforces the
+ * category instead of the instance. Measured in Chrome before the fix, on
+ * --surface-window:
  *
- *   - the section clears 3:1 EVERYWHERE, including over its own state fills;
- *   - it reads as MORE off than 0.42 did, not less — its brightest element is
- *     dimmer than 0.42 gave the brightest rung, while its dimmest is far
- *     brighter than 0.42 gave the dimmest.
+ *   .zoom-btn:disabled           0.4    2.78     BELOW 3:1
+ *   .btn:disabled  fill          0.4    3.51
+ *                  border        0.4    1.50     below --border-inert's 1.60
+ *   .btn.is-loading::before      0.75   2.71     BELOW 3:1
+ *   .rail-item[aria-disabled]    0.55   3.19
+ *   .segmented-cell:disabled     0.4    2.50     BELOW 3:1
+ *   .slider:disabled  track      0.4    1.50
+ *   .chip:disabled               0.4    2.50     BELOW 3:1
+ *   .select-control:disabled     0.4    3.16
+ *   .sampled-row:not(.is-active) 0.6    5.80 label / 3.60 hue, against 7:1
  *
- * The second is the one worth guarding, because it is the claim that sounds
- * contradictory. `over()` below reconstructs what 0.42 would do to today's
- * tokens, so the comparison is against a live baseline rather than against
- * five numbers copied out of an old comment.
+ * The empty state — the exact screen Rock complained about — carried most of
+ * those: its toolbar buttons, both zoom steppers and all four rail items were
+ * DIMMER than the inert inspector panels beside them, by the mechanism item 5
+ * exists to retire. And the last row is not a disabled control at all: it is
+ * live, clickable, informational text in a live panel.
+ *
+ * So the guard below is categorical, not a list of ratios. It parses
+ * web/style.css and fails on ANY static `opacity` below 1 outside
+ * `@keyframes` — because a composited colour is invisible to every other
+ * assertion in this file, which reads values out of tokens.css. That is
+ * exactly why nine rules survived a green suite. `over()` is kept, and used
+ * to prove the replacements beat what they replaced rather than to bless a
+ * new composite.
  */
 const OLD_INERT_ALPHA = 0.42;
 
-function inertRule() {
-  const css = readFileSync('web/style.css', 'utf8');
-  const m = css.match(/\.inspector-section\[inert\]\s*\{([^}]*)\}/);
-  return m ? m[1] : null;
+/** Innermost CSS rules, with `@keyframes` blocks removed first — a keyframe
+ *  step is `opacity: 0` by design and is motion, not state. */
+function rules() {
+  let css = readFileSync('web/style.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  // Brace-count the @keyframes bodies out rather than regexing them, so a
+  // nested block can never leave a stray `}` behind to confuse the scan.
+  for (;;) {
+    const at = css.search(/@keyframes[^{]*\{/);
+    if (at === -1) break;
+    let i = css.indexOf('{', at);
+    let depth = 0;
+    let end = i;
+    for (; end < css.length; end += 1) {
+      if (css[end] === '{') depth += 1;
+      else if (css[end] === '}') {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    css = css.slice(0, at) + css.slice(end + 1);
+  }
+  // `[^{}]` on both sides matches innermost blocks only, so an @media
+  // wrapper is skipped and the rules inside it are what come back.
+  return [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, sel, body]) => ({
+    selector: sel.trim().replace(/\s+/g, ' '),
+    body,
+  }));
+}
+
+/** The one rule that dims every off state, found by its declarations rather
+ *  than by a selector this test would then be free to disagree with. */
+function offStateRule() {
+  return rules().find((r) => r.body.includes('--text-fainter: var(--text-inert)'));
 }
 
 /** The ground swatches carry an inline background written by
- *  web/inspector-background.js, so the inert rule's token re-declarations
- *  cannot reach them and no assertion on tokens.css can see them either. The
- *  factor is read out of the stylesheet rather than assumed. */
+ *  web/inspector-background.js, so the off-state rule's token
+ *  re-declarations cannot reach them and no assertion on tokens.css can see
+ *  them either. The factor is read out of the stylesheet rather than assumed. */
 function inertSwatchBrightness() {
-  const css = readFileSync('web/style.css', 'utf8');
-  const m = css.match(
-    /\.inspector-section\[inert\][^{]*\.(?:preset-swatch|sampled-stop)[^{]*\{[^}]*?filter:\s*brightness\(([\d.]+)\)/,
+  const r = rules().find(
+    (x) => x.selector.includes('[inert]') && /filter:\s*brightness/.test(x.body),
   );
+  const m = r && r.body.match(/filter:\s*brightness\(([\d.]+)\)/);
   return m ? Number(m[1]) : null;
+}
+
+/** The token a rule actually sets `color` to. Read, never assumed: the first
+ *  version of the .sampled-row assertion below compared --text-secondary to
+ *  --text-fainter as CONSTANTS, so swapping the stylesheet back to a token
+ *  one rung down left it green. It was a false guard and the mutation run
+ *  caught it (N6). Anything claiming "this rule dims" has to read the rule. */
+function declaredColour(selector) {
+  const r = rules().find((x) => x.selector === selector);
+  const m = r && r.body.match(/(?:^|;)\s*color:\s*var\((--[a-z0-9-]+)\)/);
+  return m ? m[1] : null;
 }
 
 function over(fg, bg, alpha) {
@@ -422,28 +525,61 @@ function over(fg, bg, alpha) {
   return '#' + [0, 2, 4].map((i) => mix(i).toString(16).padStart(2, '0')).join('');
 }
 
-describe('inert inspector sections', () => {
+describe('off states dim with colour, never with opacity', () => {
   const t = tokens();
 
-  // Read, never assumed. If someone puts `opacity` back on this rule, every
-  // measurement below becomes a description of something the browser is no
-  // longer drawing.
-  it('dims with colour, not with opacity', () => {
-    const rule = inertRule();
-    expect(rule, 'web/style.css has no .inspector-section[inert] rule').toBeTruthy();
+  it('leaves no static opacity anywhere in web/style.css', () => {
+    const offenders = [];
+    for (const r of rules()) {
+      // `transition: ... opacity 120ms` names the property; it does not set
+      // a value. Only a real declaration counts.
+      for (const [, value] of r.body.matchAll(/(?:^|;)\s*opacity\s*:\s*([\d.]+)/g)) {
+        if (Number(value) < 1) offenders.push(`${r.selector} { opacity: ${value} }`);
+      }
+    }
     expect(
-      /(^|[;{\s])opacity\s*:/.test(rule),
-      'opacity is back on .inspector-section[inert] — it composites toward ' +
-        'the darkest surface behind the panel, which is what made the old ' +
-        'bottom rung 1.85:1. Dim with the inert tokens instead.',
-    ).toBe(false);
-    for (const declared of ['--text-fainter', '--color-white', '--surface-inverse', '--border-strong']) {
+      offenders,
+      'opacity composites toward the darkest surface behind the element, so ' +
+        'these ratios exist in the browser and in NO other assertion in this ' +
+        'file — which is how nine of them survived a green suite:\n  ' +
+        offenders.join('\n  '),
+    ).toEqual([]);
+  });
+
+  it('routes every off state through the one rule', () => {
+    const rule = offStateRule();
+    expect(rule, 'no rule re-declares the ladder tokens as --text-inert').toBeTruthy();
+
+    for (const declared of [
+      '--text-primary', '--text-secondary', '--text-muted', '--text-faint',
+      '--text-fainter', '--color-white', '--surface-inverse',
+      '--surface-control-active', '--surface-raised-1', '--border-strong',
+    ]) {
       expect(
-        rule.includes(`${declared}:`),
-        `${declared} is not re-declared on the inert rule, so it keeps its ` +
-          'live value inside a section that is supposed to read as off',
+        rule.body.includes(`${declared}:`),
+        `${declared} is not re-declared on the off-state rule, so it keeps ` +
+          'its live value inside something that is supposed to read as off',
       ).toBe(true);
     }
+
+    // Every state selector in the file has to be in that rule's list. A
+    // single compound ending in :disabled / [inert] / [aria-disabled] is a
+    // state rule; anything with a descendant combinator, or ending in :hover
+    // or :focus-visible, is a variant riding on one and inherits from it.
+    const covered = new Set(offStateRule().selector.split(',').map((x) => x.trim()));
+    const missed = [];
+    for (const r of rules()) {
+      for (const part of r.selector.split(',').map((x) => x.trim())) {
+        if (part.includes(' ')) continue;
+        if (!/(:disabled|\[inert\]|\[aria-disabled='true'\])$/.test(part)) continue;
+        if (!covered.has(part)) missed.push(part);
+      }
+    }
+    expect(
+      missed,
+      `these state rules are not in the off-state selector list, so they ` +
+        `render at full live strength: ${missed.join(', ')}`,
+    ).toEqual([]);
   });
 
   it('dims the inline-styled ground swatches to the same tone as the rest', () => {
@@ -455,7 +591,7 @@ describe('inert inspector sections', () => {
     expect(
       b,
       'no brightness filter on the inert ground swatches — an inline-styled ' +
-        'pale swatch ignores every token re-declaration on the inert rule',
+        'pale swatch ignores every token re-declaration on the off-state rule',
     ).toBeTruthy();
     // A near-white swatch, multiplied down, should land on the inert tone
     // rather than above it. #f9f7fa is a real one, read out of the running app.
@@ -473,10 +609,12 @@ describe('inert inspector sections', () => {
     ).toBe(true);
   });
 
-  it('lands the inert tone in the 3:1-3.5:1 band on every surface in the section', () => {
-    // --surface-window is the section's own background; --surface-inert is
-    // what the rule collapses --surface-control-active and --surface-raised-1
-    // to, so it is the lightest thing inert text is drawn on.
+  it('lands the inert tone in the 3:1-3.5:1 band on every surface it is drawn on', () => {
+    // --surface-window is the panel's own background; --surface-inert is what
+    // the rule collapses --surface-control-active and --surface-raised-1 to,
+    // so it is the lightest thing off-state text is drawn on. The third is
+    // the disabled primary button, whose fill becomes the inert tone and
+    // whose ink stays --surface-window.
     for (const bg of ['--surface-window', '--surface-inert']) {
       const r = ratio(t['--text-inert'], t[bg]);
       expect(
@@ -489,6 +627,75 @@ describe('inert inspector sections', () => {
       Number(onWindow.toFixed(2)),
       'inert text above 3.5:1 stops reading as unavailable',
     ).toBeLessThanOrEqual(3.5);
+  });
+
+  it('beats every composite it replaced', () => {
+    const win = t['--surface-window'];
+    const inert = ratio(t['--text-inert'], win);
+    const inertBorder = ratio(t['--border-inert'], win);
+
+    // The three that were BELOW 3:1 in the browser, reconstructed from live
+    // tokens rather than copied out of a report.
+    for (const [what, token, alpha] of [
+      ['.zoom-btn:disabled', '--text-muted', 0.4],
+      ['.segmented-cell:disabled', '--text-faint', 0.4],
+      ['.chip:disabled', '--text-faint', 0.4],
+    ]) {
+      const was = ratio(over(t[token], win, alpha), win);
+      expect(
+        Number(inert.toFixed(2)),
+        `${what} composited to ${was.toFixed(2)}:1 and the inert tone is ` +
+          `${inert.toFixed(2)}:1 — the replacement has to be an improvement`,
+      ).toBeGreaterThan(Number(was.toFixed(2)));
+      expect(Number(was.toFixed(2)), `${what} was the failing case`).toBeLessThan(3.0);
+    }
+
+    // The disabled Export button's border had less shape than an inert one.
+    const borderWas = ratio(over(t['--border-strong'], win, 0.4), win);
+    expect(
+      Number(inertBorder.toFixed(2)),
+      `.btn:disabled composited its border to ${borderWas.toFixed(2)}:1, below ` +
+        `--border-inert's ${inertBorder.toFixed(2)}:1 — the live disabled ` +
+        'control had less shape than the inert one',
+    ).toBeGreaterThan(Number(borderWas.toFixed(2)));
+
+    // .sampled-row is not an off state: it is live, clickable, informational
+    // text in a live panel, so it steps down the LADDER instead of into the
+    // inert tone, and it still owes 7:1. Both tokens are read out of the
+    // stylesheet — see declaredColour's comment.
+    const base = declaredColour('.sampled-row');
+    const dim = declaredColour('.sampled-row:not(.is-active)');
+    expect(base, '.sampled-row sets no colour to step down FROM').toBeTruthy();
+    expect(dim, '.sampled-row:not(.is-active) no longer dims at all').toBeTruthy();
+
+    const sampledWas = ratio(over(t[base], win, 0.6), win);
+    const sampledNow = ratio(t[dim], win);
+    expect(Number(sampledWas.toFixed(2))).toBeLessThan(TEXT_MIN);
+    expect(
+      Number(sampledNow.toFixed(2)),
+      `.sampled-row:not(.is-active) composited to ${sampledWas.toFixed(2)}:1 at ` +
+        `opacity 0.6; ${dim} gives ${sampledNow.toFixed(2)}:1, and this is live, ` +
+        'clickable, informational text',
+    ).toBeGreaterThanOrEqual(TEXT_MIN);
+    // ...and the dim still has to BE a dim. One ladder rung is 1.22; this
+    // asks for more, or the inactive row stops reading as inactive.
+    const drop = ratio(t[base], win) / sampledNow;
+    expect(
+      Number(drop.toFixed(2)),
+      `${base} -> ${dim} is only ${drop.toFixed(2)}x — an inactive sampled row ` +
+        'that close to an active one has stopped saying anything',
+    ).toBeGreaterThanOrEqual(1.5);
+  });
+
+  it('names the inert colour on the one control the off-state rule cannot reach', () => {
+    // .zoom-btn is `color: inherit`, which takes .zoom-stepper's COMPUTED
+    // colour — a custom property re-declared on the button itself is invisible
+    // to it. If this declaration goes, the disabled zoom glyphs quietly return
+    // to full live --text-muted and nothing else in this file would notice.
+    expect(
+      declaredColour('.zoom-btn:disabled'),
+      '.zoom-btn:disabled must name --text-inert outright',
+    ).toBe('--text-inert');
   });
 
   it('reads as more off than the 0.42 it replaced', () => {

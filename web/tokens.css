@@ -62,15 +62,18 @@
                                      token to --border-strong; it holds an
                                      <input>, so it is an interactive boundary
                                      and owes 3:1, not a judgement call. */
-  --border-strong: #636978;       /* was #26282e (1.33:1). Every interactive
+  --border-strong: #696e7f;       /* was #26282e (1.33:1). Every interactive
                                      boundary: control borders, the search
                                      field, the slider track, the selected
-                                     template / preset / sampled row. 3.07:1
-                                     on --surface-hover, which is the lightest
-                                     backdrop any of them sits on (.btn-ghost
-                                     keeps this border while its hover fill
-                                     lands underneath it); 3.56:1 on
-                                     --surface-window. */
+                                     template / preset / sampled row. 3.03:1
+                                     on --surface-control-active, which is the
+                                     lightest backdrop any of them sits on -
+                                     the .segmented container's border runs
+                                     against the ACTIVE cell's fill wherever
+                                     that cell is first or last. 3.32:1 on
+                                     --surface-hover (.btn-ghost keeps this
+                                     border while its hover fill lands under
+                                     it), 3.86:1 on --surface-window. */
   --border-dashed: #6c7384;       /* was #2c2f36 (1.43:1 on --surface-canvas -
                                      the empty-state frame Rock could not see).
                                      3.55:1 on --surface-hover, 4.04:1 on
@@ -90,9 +93,15 @@
      we using 'pass' as the floor" — he was right, and 4.5 was the floor.
 
      Every rung's ratio is measured on --surface-hover (#1b1d22), the
-     lightest surface any of them is ever painted on (the row/button hover
-     fill) and therefore the binding one. On the window they all measure
-     ~1.16x higher.
+     lightest surface any LADDER TOKEN is ever painted on (the row/button
+     hover fill) and therefore the binding one. On the window they all
+     measure ~1.16x higher.
+
+     "Any ladder token", not "any text": --surface-control-active (#22252b)
+     is lighter still, and white on it is 15.36:1 rather than 16.86:1. No
+     rung lands there — the only text it carries is --color-white, on the
+     active segmented cell — so the ceiling arithmetic below is unaffected.
+     Putting a rung on it would change that.
 
        --text-primary    15.72:1   was 14.00
        --text-secondary  12.88     was 10.26
