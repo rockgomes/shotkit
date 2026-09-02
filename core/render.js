@@ -639,12 +639,14 @@ function drawFitted(ctx, box, image, fit) {
  * `bounds` is the rect the tile has to hold; the tile is that rect rounded
  * outward to whole pixels, so it lands on the target at INTEGER coordinates
  * and `drawImage` copies it one-for-one with no resampling of any kind.
- * `paint` draws into it in ordinary canvas coordinates (the tile carries the
- * translation), and should draw GENEROUSLY - past `mask` on every side,
- * which is what drawFitted's clamp does for a screenshot and what the
- * TILE_BLEED overshoot on paintChrome's bar does for the browser's title
- * bar. `mask` is the rounded rect that then cuts the shape, in one
- * `destination-in` fill: the shot's single antialiased edge.
+ * `paint(tctx, at)` fills it in: `at(rect)` shifts a canvas-space rect into
+ * tile space (the tile deliberately carries NO transform - see the comment
+ * on that inside), and everything drawn should be drawn GENEROUSLY, past
+ * `mask` on every side. That is what drawFitted's clamp does for a
+ * screenshot and what the TILE_BLEED overshoot on paintChrome's bar does
+ * for the browser's title bar. `mask` is the rounded rect that then cuts
+ * the shape, in one `destination-in` fill: the shot's single antialiased
+ * edge.
  *
  * `makeCanvas` is the factory core/ is handed (composeWithMeta's fourth
  * argument). This file never creates a canvas itself - there is no
@@ -819,6 +821,14 @@ const TRAFFIC_DOT_COLOURS = ['#ff5f57', '#febc2e', '#28c840'];
  * 'phone' is painted by paintPhoneChrome below instead - its frame carries
  * no bar (chrome.barH is 0 per layout.js's chromeFor()), so there is nothing
  * for this function to draw for that kind.
+ *
+ * ONLY EVER CALLED INTO A TILE, like drawFitted (Task 4d), and from exactly
+ * one place: paintWebChrome's `placeShot` callback, which hands it a `box`
+ * already shifted into tile space. The bar deliberately overshoots the
+ * frame's left, right and top by TILE_BLEED and relies on the tile's mask to
+ * cut it - see the comment on that fill. Calling this straight onto the
+ * target canvas would paint a bar a pixel wider than its frame, with square
+ * top corners.
  *
  * `c.url` (Task 6) is drawn into the pill, centred both ways exactly like
  * the mockup's `justify-content:center;align-items:center` (HTML line
