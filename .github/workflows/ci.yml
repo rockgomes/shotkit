@@ -13,8 +13,13 @@ concurrency:
 
 jobs:
   test:
-    # macos-13 PINS THE ARCHITECTURE TO x64, and that is the whole point —
-    # do not "modernise" this to macos-latest.
+    # THIS PINS THE ARCHITECTURE TO x64, and that is the whole point — do not
+    # "modernise" this to macos-latest, which is arm64.
+    #
+    # The label matters: `macos-13` was GitHub's x64 image and is RETIRED — a
+    # job requesting it is accepted and then queues forever with no runner
+    # assigned, which looks like a slow CI rather than a broken one. The
+    # current x64 label is `macos-15-intel`.
     #
     # test/golden/render/ holds pixel-exact PNGs compared with pixelmatch at
     # threshold 0 (and a 1e-5 ratio budget). @napi-rs/canvas ships a different
@@ -28,7 +33,7 @@ jobs:
     # has to move, the goldens must be regenerated on the new architecture in
     # the same commit, and the whole set re-reviewed — they are the project's
     # only pixel-level guarantee.
-    runs-on: macos-13
+    runs-on: macos-15-intel
 
     steps:
       - uses: actions/checkout@v4
