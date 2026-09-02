@@ -344,6 +344,29 @@ model, the rendered preset tiles, Angle (17), per-control Resets (18).
 
 Each cycle is its own plan, run task by task, stopping after every task.
 
+## Carried forward — the accent colour
+
+Raised by Rock 2026-09-02, after approving Task 3b: *"I think we are too BW and
+not using our main accent color (which seems to be purple maybe?). just hold
+this suggestion for later."*
+
+He is right that it is barely used. The palette has `--color-brand-start`
+`#5b6cff` and `--color-brand-end` `#a24ff0` — an indigo-to-purple gradient — and
+they appear on exactly one thing, the app-mark glyph. Everything else in the
+chrome is neutral. The contrast work of Task 3/3b raised the greys but did not
+introduce any colour, so the app is now a brighter greyscale rather than a
+brighter design.
+
+**Deliberately not acted on in Cycle A.** Introducing an accent is a visual
+identity decision, not a contrast fix, and folding it into a task about
+readability is how the two would get confused. Candidates when it is taken up:
+selected states in the rail and template list, the active segmented cell, focus
+rings, slider fills, and the sampled-ground indicator — all places where the
+app currently says "active" with lightness alone.
+
+Any accent must clear the same bars Task 3b set: 3:1 as a component boundary,
+7:1 if it carries text, in both themes once the light theme exists.
+
 ## Out of scope
 
 - The light theme — still its own later cycle, designed from scratch, not
