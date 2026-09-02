@@ -39,6 +39,13 @@ import { paintGround, paintWeb, roundRect } from '../core/render.js';
  *
  * The result is an assertion with no tuned constant in it, on all four edges
  * and around a corner, for `frame: none`, `browser` and `phone`.
+ *
+ * TASK 4D ADDED TWO MORE FAMILIES BELOW, and left everything above
+ * untouched. The blend is the shot's colour at the boundary; those two are
+ * the shot's SHAPE there — that it keeps the picture it was given (the
+ * screenshot is no longer clipped, so nothing can be cut off it), and that
+ * its straight edges run into its corner arcs without a step. All three
+ * describe the same one-pixel line, from three directions.
  */
 
 const GROUND = ['#f7f4ff', '#ece6fb', '#ded3f5'];
@@ -86,13 +93,13 @@ function windowCaptureSource() {
   return cv;
 }
 
-function scene(frameKind, image, stops = GROUND) {
-  const c = normalise({ layout: 'web', ratio: '3:2', frameKind });
+function scene(frameKind, image, stops = GROUND, extra = {}) {
+  const c = normalise({ layout: 'web', ratio: '3:2', frameKind, ...extra });
   const lay = layout(c, { web: SRC_W / SRC_H, mobile: [] });
   const cv = createCanvas(c.w, c.h);
   const ctx = cv.getContext('2d');
   paintGround(ctx, c, stops);
-  paintWeb(ctx, c, lay.web, image, stops);
+  paintWeb(ctx, c, lay.web, image, createCanvas);
   return { c, box: lay.web, ctx };
 }
 
@@ -406,4 +413,227 @@ describe('a transparent source shows the ground, not a fill and not the shadow',
     expect(actual, 'the phone screen is showing a white fill').not.toEqual([255, 255, 255]);
     expect(Math.max(...actual), 'a near-white fill is showing through').toBeLessThan(120);
   });
+});
+
+/**
+ * THE SCREENSHOT KEEPS EVERY PIXEL IT WAS GIVEN (Cycle A Task 4d).
+ *
+ * Task 4c stopped the halo by snapping the screenshot's destination rect
+ * outward onto the pixel grid inside a clip. The clip then cut the part of
+ * the picture that had been pushed past it, and Rock reported it the day it
+ * shipped: "1px is cut from the top and left of the screenshot" as soon as
+ * the corner radius is above zero.
+ *
+ * Measuring it needs a source whose outermost row and column are
+ * identifiable AFTER they have been blended with a ground and a
+ * neighbouring row, which no single render can give you. So the marker is
+ * rendered twice, black and white, and subtracted:
+ *
+ *   out(m) = a * m + b   =>   a = (out(255) - out(0)) / 255
+ *
+ * `a` is exactly how much of that one source row reached each pixel, with
+ * the body, the ground and the shadow all cancelling. Summed down a column
+ * that crosses the top edge, it is how much of the row SURVIVED, in
+ * destination pixels; a source row is `box.h / SRC_H` destination pixels
+ * tall, and all of it is inside the box, so anything less than that is
+ * picture the user handed us and did not get back.
+ *
+ * Sampled at the middle of each edge, deliberately: at a large radius the
+ * corners cut the marker legitimately, and this is a test about the straight
+ * run, not about the arc.
+ */
+
+// Black, with the outermost row and column painted `mark` — the picture's
+// first row and first column, and nothing else.
+function markedSource(mark) {
+  const cv = createCanvas(SRC_W, SRC_H);
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, SRC_W, SRC_H);
+  ctx.fillStyle = mark;
+  ctx.fillRect(0, 0, SRC_W, 1);
+  ctx.fillRect(0, 0, 1, SRC_H);
+  return cv;
+}
+
+// How much of the marker reached (x, y), 0..1.
+function markerCoverage(dark, light) {
+  return (x, y) => (px(light.ctx, x, y)[0] - px(dark.ctx, x, y)[0]) / 255;
+}
+
+describe('the screenshot keeps every pixel it was given', () => {
+  // Radius 0 (Rock's own control case — intact before this task), a tiny
+  // one (2px is 0.1% of the 1800px canvas, the radius slider's first step,
+  // and where he saw the cut appear), and a large one.
+  for (const radius of [0, 2, 120]) {
+    const dark = scene('none', markedSource('#000000'), GROUND, { radius });
+    const light = scene('none', markedSource('#ffffff'), GROUND, { radius });
+    const a = markerCoverage(dark, light);
+    const b = dark.box;
+
+    it(`radius ${radius}: the source's first row survives the top edge`, () => {
+      const x = Math.round(b.x + b.w / 2);
+      let ink = 0;
+      for (let y = Math.floor(b.y) - 2; y <= Math.floor(b.y) + 4; y++) ink += a(x, y);
+      const rowHeight = b.h / SRC_H;      // one source row, in canvas pixels
+      expect(
+        ink,
+        `top: ${ink.toFixed(3)} of the source's first row came through, ` +
+        `out of ${rowHeight.toFixed(3)} destination pixels`,
+      ).toBeGreaterThan(rowHeight * 0.95);
+    });
+
+    it(`radius ${radius}: the source's first column survives the left edge`, () => {
+      const y = Math.round(b.y + b.h / 2);
+      let ink = 0;
+      for (let x = Math.floor(b.x) - 2; x <= Math.floor(b.x) + 4; x++) ink += a(x, y);
+      const colWidth = b.w / SRC_W;
+      expect(
+        ink,
+        `left: ${ink.toFixed(3)} of the source's first column came through, ` +
+        `out of ${colWidth.toFixed(3)} destination pixels`,
+      ).toBeGreaterThan(colWidth * 0.95);
+    });
+  }
+});
+
+/**
+ * THE STRAIGHT EDGE MEETS THE ARC WITHOUT A STEP (Cycle A Task 4d).
+ *
+ * Rock's second report: "a visible spike where the straight edge meets the
+ * corner arc", seen without zooming. Under a clip, the straight edges and
+ * the arc stop agreeing — in Chromium the shot overshoots the clip by a
+ * whole pixel along the right and bottom but follows the arc around the
+ * curve, so the two meet in a step.
+ *
+ * The measurement walks the corner row by row and asks where the shot's
+ * edge IS, sub-pixel, from how much of each row it covers:
+ *
+ *   edgeX(y) = window edge -/+ sum over x of coverage(x, y)
+ *
+ * done twice — once from the shot's own coverage, once from the path's —
+ * and compares them. The shot's coverage is normalised by its plateau along
+ * the straight run first, because the browser frame paints a 1px hairline
+ * over its own edge and scales every reading there by (1 - 0.09); that is a
+ * constant, not a step, and dividing it out is what lets one metric serve
+ * all three frames.
+ *
+ * TOLERANCES ARE IN PIXELS AND ARE STATED: no column's boundary may sit
+ * more than 0.35px off the path's, and no two adjacent columns may differ
+ * by more than 0.35px in that error.
+ *
+ * SAID PLAINLY: THIS ASSERTION CANNOT FAIL IN NODE ON THE CODE IT WAS
+ * WRITTEN AGAINST, and it is here anyway. The clip artefact is Chromium's,
+ * exactly like Task 4b's covering-fillRect overshoot. Run against the
+ * pre-fix core, this exact walk reads:
+ *
+ *   Chromium, clip + snapped drawImage   worst 2.939px, worst step 1.234px
+ *   Chromium, tile + clamp + one mask    worst 0.009px, worst step 0.012px
+ *   @napi-rs/canvas, either              worst 0.031px, worst step 0.021px
+ *
+ * So it was confirmed red the one way it can be — in Chrome, on this
+ * geometry, eight times its tolerance — and it stays here in Node as the
+ * guard that the technique which fixed it keeps working. See
+ * test/render-clip-safety.test.js for the structural half and
+ * docs/verification-2026-09-01.md for the browser measurement.
+ */
+
+/**
+ * The walk. `u` runs ALONG the bottom edge and into the corner; `v` runs
+ * ACROSS it, from inside the shot to outside. Summing coverage down v gives
+ * the boundary's sub-pixel position for that column, so the whole corner
+ * becomes one curve of numbers - flat along the straight run, rising through
+ * the arc - and a step in it is a step you can see.
+ *
+ * The bottom edge and not the left one, deliberately: Chromium's clip
+ * overshoots on the right and bottom only, so the bottom-edge-into-arc join
+ * is where the artefact actually is. The left edge agrees with its arc in
+ * both engines even on the broken code.
+ */
+function boundaryWalk(cov, x0, x1, y0, y1) {
+  const cols = [];
+  for (let x = x0; x <= x1; x++) {
+    let sum = 0;
+    for (let y = y0; y <= y1; y++) sum += cov(x, y);
+    cols.push([x, y0 + sum, sum]);
+  }
+  return cols;
+}
+
+/**
+ * `rect`/`radius` describe the shot; the window is its bottom-right corner
+ * plus enough straight edge to calibrate against. Returns the worst
+ * disagreement with the path and the worst step between neighbouring
+ * columns, both in pixels.
+ */
+function cornerJoin(label, shotCov, pathCov, rect, radius) {
+  const xc = Math.floor(rect.x + rect.w), yc = Math.floor(rect.y + rect.h);
+  // Along the edge: thirty pixels of straight run, the join, and the arc as
+  // far as the point where it is climbing two pixels for every one across
+  // (d = 0.894r). Past that it is nearly vertical, one column holds most of
+  // the boundary, and a position measured by summing down that column stops
+  // meaning anything - which is a limit of the ruler, not of the shot.
+  const x0 = xc - Math.ceil(radius) - 30;
+  const x1 = Math.floor(rect.x + rect.w - radius * 0.11);
+  // Across it: deep enough inside to hold the whole rise of the arc.
+  const y0 = yc - Math.ceil(radius) - 6, y1 = yc + 3;
+  const shot = boundaryWalk(shotCov, x0, x1, y0, y1);
+  const path = boundaryWalk(pathCov, x0, x1, y0, y1);
+
+  // The plateau: the straight run, clear of the arc. The browser frame
+  // paints a 1px hairline over its own bottom edge and scales every reading
+  // there by (1 - 0.09); that is a constant, not a step, and dividing it
+  // out is what lets one metric serve all three frames.
+  const straight = x => x < rect.x + rect.w - radius - 4;
+  let sShot = 0, sPath = 0;
+  shot.forEach(([x, , sum], i) => {
+    if (straight(x)) { sShot += sum; sPath += path[i][2]; }
+  });
+  expect(sPath, `${label}: no straight columns in the window`).toBeGreaterThan(4);
+  const plateau = sShot / sPath;
+  expect(plateau, `${label}: the shot barely covers its own straight edge`)
+    .toBeGreaterThan(0.8);
+
+  // And the arc has to be IN the window, or this measures a flat line and
+  // proves nothing - the mistake a draft of the transparency case below
+  // made, and the reason six tests in this cycle could not fail.
+  const rise = path[0][1] - path[path.length - 1][1];
+  expect(rise, `${label}: the window does not actually cross the arc`)
+    .toBeGreaterThan(radius * 0.4);
+
+  let worst = 0, worstAt = null, jump = 0, jumpAt = null, prev = null;
+  shot.forEach(([x, , sum], i) => {
+    const d = (y0 + sum / plateau) - path[i][1];
+    if (Math.abs(d) > worst) { worst = Math.abs(d); worstAt = `x=${x} (${d.toFixed(3)}px)`; }
+    if (prev !== null && Math.abs(d - prev) > jump) {
+      jump = Math.abs(d - prev); jumpAt = `x=${x} (${(d - prev).toFixed(3)}px)`;
+    }
+    prev = d;
+  });
+  return { worst, worstAt, jump, jumpAt };
+}
+
+describe('the straight edge meets the corner arc without a step', () => {
+  const TOL = 0.35;
+
+  const cases = [
+    ['frame: none', 'none', s => s.box, s => s.box.radius],
+    ['phone frame', 'phone', s => s.box.chrome.screen, s => s.box.chrome.innerRadius],
+    ['browser frame', 'browser',
+      s => ({ x: s.box.x, y: s.box.y, w: s.box.w, h: s.box.h }),
+      s => s.box.chrome.radius],
+  ];
+
+  for (const [label, frameKind, rectOf, radiusOf] of cases) {
+    it(`${label} — the bottom edge runs into its arc continuously`, () => {
+      const dark = scene(frameKind, flatSource('#141414'));
+      const light = scene(frameKind, flatSource('#c8c8c8'));
+      const rect = rectOf(dark), radius = radiusOf(dark);
+      const k = coverage(dark.c, rect, radius);
+      const a = (x, y) => (px(light.ctx, x, y)[0] - px(dark.ctx, x, y)[0]) / 180;
+      const r = cornerJoin(label, a, k, rect, radius);
+      expect(r.worst, `${label}: worst column ${r.worstAt}`).toBeLessThanOrEqual(TOL);
+      expect(r.jump, `${label}: worst step ${r.jumpAt}`).toBeLessThanOrEqual(TOL);
+    });
+  }
 });

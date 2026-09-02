@@ -49,47 +49,112 @@ export const SHADOW_RGB = '12,14,20';
  * exactly zero everywhere, and it costs nothing to go there: the shadow's
  * own worst-case error against inset 1 is identical (max 5-6 levels, mean
  * ~1.2 over the pixels that move at all).
+ *
+ * STILL LOAD-BEARING AFTER TASK 4D, for a second reason. paintShadow now
+ * clips the box out of itself (even-odd) so the caster cannot land under
+ * the shot at all, which looks like it should make an inset pointless. It
+ * does not: at inset 0 the caster's path and the clip's boundary are the
+ * SAME rounded rect, both antialiased, so the boundary pixel would get
+ * black at k * (1 - k) - about 0.24 of it at k = 0.6 - and that is a dark
+ * ring, the same artefact in the opposite direction. The inset is what
+ * keeps the caster's own antialiased edge two pixels clear of the clip's.
  */
 const SHADOW_SOURCE_INSET = 2;
 
 /**
- * Whether a screenshot's destination rectangle is snapped outward onto the
- * device pixel grid before it is drawn. Task 4c. Always true at every call
- * site; the parameter exists so `drawFitted` can still reproduce its old
- * output byte-for-byte when it is not passed.
+ * How far a shot's own drawing is pushed past the mask that shapes it,
+ * inside its offscreen tile, in device pixels. Task 4d.
  *
- * A device-pixel operation, in the same category as `lineWidth = 1` and
- * SHADOW_SOURCE_INSET above, and listed beside them in the plan's Global
- * Constraints for the same reason: what it compensates for is one pixel
- * wide at every canvas size.
+ * A rasterisation constant, the third in this file's small set alongside
+ * `lineWidth = 1` and SHADOW_SOURCE_INSET above, and listed with them in
+ * the plan's Global Constraints for the same reason: what it compensates
+ * for is one pixel wide at every canvas size.
  *
- * Why it exists. A clip mask is antialiased, and so are the edges of the
- * rectangle `drawImage` is asked to fill. When the two coincide, their
- * coverages MULTIPLY: a boundary pixel the geometry says is 60% inside the
- * box got the screenshot at 0.6 x 0.6 = 0.36, and the other 0.64 kept
- * whatever was painted behind it. That is a one-pixel halo of the backing
- * colour around the whole shot, worst at the corners, and it is what Rock
- * reported three times. Measured on a flat #1e1e1e source, box.x = 62.4,
- * ground 234, against a rasterised coverage of 0.600:
+ * THE RULE THIS ENCODES: A SHOT GETS EXACTLY ONE ANTIALIASED EDGE, AND IT
+ * IS THE MASK'S. Every part drawn inside a tile - the screenshot, the
+ * browser's title bar - is drawn one pixel PAST where the shot ends, so it
+ * has no partial coverage of its own along that line; `placeShot` then
+ * cuts the shape once, with a single `destination-in` fill of the rounded
+ * path, and stamps the result down at integer coordinates.
  *
- *   drawImage at the exact box    boundary 168   (image coverage 0.36)
- *   drawImage snapped outward     boundary 113   (image coverage 0.60)
- *   ideal 0.6*30 + 0.4*237        = 112.8
+ * Why one edge and not two. A mask and a `drawImage` rect that land on the
+ * same line are each antialiased, and their coverages MULTIPLY: a boundary
+ * pixel the geometry puts 60% inside got the screenshot at 0.6 x 0.6 =
+ * 0.36 and kept whatever was behind it for the other 0.64. That is a
+ * one-pixel halo of the backing colour around every shot, worst at the
+ * corners, and it is what Rock reported three times. Measured in Chromium
+ * on this exact geometry, screenshot coverage against the path's own:
  *
- * @napi-rs/canvas is additionally inconsistent about WHICH edges it
- * antialiases at all - a dest rect at y = 60.5 painted nothing into row 60,
- * and one ending at x = 150.4 nothing into column 150, while the opposite
- * two edges blended correctly. Snapping sidesteps the whole question rather
- * than modelling it: a rect on whole pixels has no partial coverage of its
- * own, so the CLIP is the only mask on the boundary pixel, in any engine.
+ *   tile, no bleed     left 0.361 (path 0.600)   top 0.000 (path 0.502)
+ *                      right 0.361 (0.596)       bottom 0.250 (0.502)
+ *   tile, bleed 1      left 0.600  top 0.500  right 0.594  bottom 0.500
  *
- * What it costs. The drawn rect grows by less than one pixel per axis, so
- * the picture is resampled at up to 0.05% off its previous scale and no
- * point in it moves by as much as a pixel. That is why every golden moved
- * across the whole screenshot, not just at its edges: same picture, redrawn
- * on the grid. A flat source is byte-identical inside the box.
+ * The bleed is an EDGE CLAMP - the source's own outermost row and column,
+ * stretched one pixel outward under `destination-over` - and not a scaled-
+ * up second copy of the whole picture. Both fix the coverage identically;
+ * the clamp also keeps the boundary pixel's COLOUR exact, because it
+ * extends the edge pixels rather than resampling the picture off its own
+ * grid. On a source whose first row is a distinct colour, Chromium reads
+ * that row at the top boundary pixel as 218,90,218 with the clamp and
+ * 172,136,172 with a scaled copy, against 218,90,218 for the row itself.
+ * `destination-over` is what keeps it to the ring: it can only fill pixels
+ * the picture left transparent, so a window capture's own transparent
+ * corners stay transparent and nothing in the interior is touched.
+ *
+ * What this replaced, and why that had to go. Task 4c solved the same
+ * multiplication by snapping the screenshot's destination rect outward
+ * onto the pixel grid inside a `ctx.clip()`. It worked, and it cost two
+ * things. It resampled the picture at up to 0.05% off its own scale (7-12%
+ * of pixels in every golden), and - because the drawn rect now reached the
+ * clip - it exposed the clip itself, which in Chromium does not agree with
+ * the path it was built from. Measured, same geometry, walking the shot's
+ * implied edge position row by row up the bottom-right corner:
+ *
+ *   clip + snapped drawImage   rows 1110-1121 track the arc to 0.03px,
+ *                              row 1122 +0.45px, row 1123 +14.0px
+ *   tile + bleed + mask        worst row 0.031px, worst step 0.026px
+ *
+ * Fourteen pixels of shot sticking out where the straight edge meets the
+ * arc, plus a full pixel of overshoot along the right and bottom edges
+ * (coverage 1.000 where the path says 0.596 and 0.502) and, at the other
+ * two edges, up to a whole source row cut off - "1px is cut from the top
+ * and left" and "a visible spike where the straight edge meets the corner
+ * arc", both reported without zooming. It is the same Chromium behaviour
+ * Task 4b measured for a covering `fillRect` (see fillRoundRect): a
+ * non-rectangular clip is rasterised against rounded device bounds, not
+ * against its path. @napi-rs/canvas reproduces none of it - the Node
+ * numbers for the same walk are 0.031px worst and 0.021px worst step,
+ * before and after - so it is guarded structurally, in
+ * test/render-clip-safety.test.js, and measured in
+ * docs/verification-2026-09-01.md.
+ *
+ * NOTHING IS CLIPPED AND NOTHING IS PAINTED BEHIND A SHOT ANY MORE. Both
+ * followed from the same question Rock asked - "I don't understand why we
+ * are rendering anything behind it at all" - and he was right: the only
+ * reason a backing ever existed was paintShadow's opaque caster showing
+ * through partial coverage. paintShadow now clips that caster out of the
+ * box (see its doc comment), so the honest answer behind a shot is the
+ * ground that is already there.
  */
-const SNAP_TO_PIXELS = true;
+const TILE_BLEED = 1;
+
+/**
+ * Tile bitmaps are allocated at a whole multiple of this many pixels per
+ * axis, always at least the size the shot needs. Task 4d.
+ *
+ * Not a rendering constant - it changes nothing that is painted. The extra
+ * strip is transparent, `destination-in` clears it with everything else
+ * outside the mask, and compositing a transparent strip is a no-op. It is
+ * an ALLOCATION constant, and it exists because `makeCanvas` implementations
+ * are entitled to pool by size: web/state.js keeps one canvas per `WxH` it
+ * has been asked for, so a tile sized to the exact box would mint a new
+ * multi-megabyte canvas on every frame of a padding drag and keep every one
+ * of them. Quantised, a full sweep of the padding slider on an 1800x1200
+ * canvas asks for eight distinct tile sizes instead of about two hundred.
+ * The cost is at most 63 unused pixels per axis - about 7% of the tile's
+ * area on a full-width web shot.
+ */
+const TILE_QUANTUM = 64;
 
 function hexToRgb(hex) {
   const h = hex.replace('#', '');
@@ -113,19 +178,10 @@ function rgba(hex, a) {
  * (translate to the centre, scale Y by ry/rx) and let a circular gradient of
  * radius rx come out elliptical once the scale is undone by `restore`.
  */
-function radial(ctx, c, hex, cxPct, cyPct, rxPct, ryPct, stopPct, area) {
+function radial(ctx, c, hex, cxPct, cyPct, rxPct, ryPct, stopPct) {
   const cx = c.w * cxPct, cy = c.h * cyPct;
   const rx = c.w * rxPct, ry = c.h * ryPct;
   ctx.save();
-  // THE PATH IS TRACED BEFORE THE TRANSFORM, DELIBERATELY. Path coordinates
-  // are transformed by the CTM as each segment is added, so tracing `area`
-  // here keeps it in canvas space; a gradient, by contrast, is transformed
-  // by the CTM in effect when it is PAINTED. That is the whole trick that
-  // lets an area-restricted ground reuse this elliptical gradient unchanged:
-  // canvas-space path, scaled-space gradient, one fill. Verified against the
-  // unrestricted path below - every pixel inside `area` is byte-identical
-  // with and without it (test/render-ground.test.js).
-  if (area) roundRect(ctx, area.x, area.y, area.w, area.h, area.radius);
   ctx.translate(cx, cy);
   ctx.scale(1, ry / rx);
   const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
@@ -134,30 +190,10 @@ function radial(ctx, c, hex, cxPct, cyPct, rxPct, ryPct, stopPct, area) {
   g.addColorStop(1, rgba(hex, 0));
   ctx.fillStyle = g;
   // generous rect: the scaled space is taller/shorter than the canvas
-  if (area) ctx.fill();
-  else ctx.fillRect(-c.w * 2, -c.h * 2, c.w * 4, c.h * 4);
+  ctx.fillRect(-c.w * 2, -c.h * 2, c.w * 4, c.h * 4);
   ctx.restore();
 }
 
-/**
- * Fill the whole canvas, or just `area` (a rounded rect: {x,y,w,h,radius}),
- * with whatever fillStyle is already set. The ground painters below run
- * through this so a single one of them can serve both jobs: painting the
- * backdrop, and painting the backdrop BACK over paintShadow's opaque caster
- * inside a shot's own box (Task 4c).
- *
- * The area form fills the PATH and never clips. A `ctx.clip()` plus a
- * covering `fillRect` would be the obvious way to write it and is the exact
- * shape Task 4b removed: in Chromium a fill that covers its clip rasterises
- * against the clip's rounded-out device bounds and overshoots ~4px on the
- * right and bottom. See fillRoundRect's doc comment below, and
- * test/render-clip-safety.test.js.
- */
-function fillArea(ctx, c, area) {
-  if (!area) { ctx.fillRect(0, 0, c.w, c.h); return; }
-  roundRect(ctx, area.x, area.y, area.w, area.h, area.radius);
-  ctx.fill();
-}
 
 /**
  * The ground: a 166deg linear gradient through the three stops, with a
@@ -175,9 +211,9 @@ function fillArea(ctx, c, area) {
  * `c.bgType` picks the background: 'linear' (default), 'solid', or 'mesh'.
  * Callers keep calling this one function - the split is invisible downstream.
  */
-export function paintGround(ctx, c, stops, area = null) {
-  if (c.bgType === 'solid') return paintSolid(ctx, c, stops, area);
-  if (c.bgType === 'mesh')  return paintMesh(ctx, c, stops, area);
+export function paintGround(ctx, c, stops) {
+  if (c.bgType === 'solid') return paintSolid(ctx, c, stops);
+  if (c.bgType === 'mesh')  return paintMesh(ctx, c, stops);
 
   const [g1, g2, g3] = stops;
 
@@ -191,12 +227,12 @@ export function paintGround(ctx, c, stops, area = null) {
   lin.addColorStop(0.52, g2);
   lin.addColorStop(1, g3);
   ctx.fillStyle = lin;
-  fillArea(ctx, c, area);
+  ctx.fillRect(0, 0, c.w, c.h);
 
   // radial-gradient(115% 85% at 22% 6%,  g1 0%, transparent 58%)
-  radial(ctx, c, g1, 0.22, 0.06, 1.15, 0.85, 0.58, area);
+  radial(ctx, c, g1, 0.22, 0.06, 1.15, 0.85, 0.58);
   // radial-gradient(105% 90% at 88% 97%, g3 0%, transparent 62%)
-  radial(ctx, c, g3, 0.88, 0.97, 1.05, 0.90, 0.62, area);
+  radial(ctx, c, g3, 0.88, 0.97, 1.05, 0.90, 0.62);
 }
 
 /**
@@ -204,9 +240,9 @@ export function paintGround(ctx, c, stops, area = null) {
  * background, and still "from the product" since g2 is itself derived from
  * the screenshot's own accent (see core/ground.js).
  */
-export function paintSolid(ctx, c, stops, area = null) {
+export function paintSolid(ctx, c, stops) {
   ctx.fillStyle = stops[1];
-  fillArea(ctx, c, area);
+  ctx.fillRect(0, 0, c.w, c.h);
 }
 
 /**
@@ -224,7 +260,7 @@ export function paintSolid(ctx, c, stops, area = null) {
  * Positions and radii come from mulberry32, the same PRNG noiseTile already
  * uses, seeded from c.seed so the field is reproducible and re-exportable.
  */
-export function paintMesh(ctx, c, stops, area = null) {
+export function paintMesh(ctx, c, stops) {
   const [g1, , g3] = stops;
   const blobColours = [g1, g3];
   const BLOB_COUNT = 6;
@@ -232,7 +268,7 @@ export function paintMesh(ctx, c, stops, area = null) {
   // base fill - the field of blobs is laid over this, same role g2 plays in
   // the linear gradient's midpoint.
   ctx.fillStyle = stops[1];
-  fillArea(ctx, c, area);
+  ctx.fillRect(0, 0, c.w, c.h);
 
   const rnd = mulberry32(c.seed ?? 1);
   const short = Math.min(c.w, c.h);
@@ -248,14 +284,14 @@ export function paintMesh(ctx, c, stops, area = null) {
     g.addColorStop(0, rgba(colour, 0.75));
     g.addColorStop(1, rgba(colour, 0));
     ctx.fillStyle = g;
-    fillArea(ctx, c, area);
+    ctx.fillRect(0, 0, c.w, c.h);
   }
 
   // Same two corner radials the linear path uses, so a mesh ground still
   // reads as belonging to the same system: top-left highlight, bottom-right
   // deepening.
-  radial(ctx, c, g1, 0.22, 0.06, 1.15, 0.85, 0.58, area);
-  radial(ctx, c, g3, 0.88, 0.97, 1.05, 0.90, 0.62, area);
+  radial(ctx, c, g1, 0.22, 0.06, 1.15, 0.85, 0.58);
+  radial(ctx, c, g3, 0.88, 0.97, 1.05, 0.90, 0.62);
 }
 
 /**
@@ -388,8 +424,18 @@ export function paintGrain(ctx, c, makeCanvas) {
  * device frames.
  */
 export function roundRect(ctx, x, y, w, h, r) {
-  const rr = Math.max(0, Math.min(r, w / 2, h / 2));
   ctx.beginPath();
+  traceRoundRect(ctx, x, y, w, h, r);
+}
+
+/**
+ * The same shape, added to whatever path is already open instead of
+ * starting a fresh one. Only paintShadow needs it, to trace the canvas and
+ * the box as two subpaths of ONE even-odd path; every other caller wants
+ * roundRect above, which is this plus the `beginPath` it used to inline.
+ */
+function traceRoundRect(ctx, x, y, w, h, r) {
+  const rr = Math.max(0, Math.min(r, w / 2, h / 2));
   ctx.moveTo(x + rr, y);
   ctx.arcTo(x + w, y,     x + w, y + h, rr);
   ctx.arcTo(x + w, y + h, x,     y + h, rr);
@@ -457,6 +503,26 @@ function fillRoundRect(ctx, x, y, w, h, r, style) {
  * outside [0,1]), so the clamp below is a second, defensive line - the
  * product actually painted can never exceed a real alpha regardless of what
  * a caller passes.
+ *
+ * THE BOX IS CLIPPED OUT OF ITS OWN SHADOW (Task 4d). Everything this
+ * function draws lands strictly OUTSIDE `box`: the even-odd clip below is
+ * the canvas with the box path punched out of it, so the blur still spills
+ * outward exactly as before while the opaque caster - and the inner half
+ * of the blur, which nothing ever saw anyway - never reaches a pixel the
+ * shot will sit on.
+ *
+ * That is what lets every painter above stop drawing a backing. Until now
+ * this caster was the ONLY reason anything was painted behind a shot:
+ * frame.html's white `--screen-bg` card, then (Task 4c) a second pass of
+ * the ground over it. Both existed to hide an opaque black rectangle that
+ * should not have been under the picture in the first place, and both were
+ * themselves visible - as a white halo, and through any transparent pixel
+ * in the source. Rock asked the right question: "I don't understand why we
+ * are rendering anything behind it at all." Nothing is, now.
+ *
+ * The clip's outer ring is `ctx.canvas`, which every canvas 2D context
+ * exposes - it is the surface being painted, not a DOM lookup, and reading
+ * it is not engine detection.
  */
 export function paintShadow(ctx, box, spreadY, blur, a1, a2, scale = 1) {
   // The opaque source rect is INSET by SHADOW_SOURCE_INSET, so it stops
@@ -488,6 +554,16 @@ export function paintShadow(ctx, box, spreadY, blur, a1, a2, scale = 1) {
   // through the corners, which is the one place the inset must still hold.
   const sr = box.radius - inset;
 
+  ctx.save();
+  // Everything except the box: the whole surface, with the box's own path
+  // punched out of it, even-odd. Traced as one path so the two subpaths
+  // are a single clip region - two separate clips would intersect, not
+  // subtract.
+  ctx.beginPath();
+  ctx.rect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  traceRoundRect(ctx, box.x, box.y, box.w, box.h, box.radius);
+  ctx.clip('evenodd');
+
   for (const [dy, b, baseAlpha] of [[spreadY, blur, a1], [spreadY * 0.28, blur * 0.3, a2]]) {
     const a = Math.min(1, Math.max(0, baseAlpha * scale));
     ctx.save();
@@ -499,58 +575,157 @@ export function paintShadow(ctx, box, spreadY, blur, a1, a2, scale = 1) {
     ctx.fill();
     ctx.restore();
   }
+
+  ctx.restore();
 }
 
 /**
- * Draw `image` into `box` with object-fit and object-position: top center.
- * Assumes the path is already clipped by the caller.
+ * Draw `image` into `box` with object-fit and object-position: top center,
+ * at the box's TRUE rect - no rounding, no snapping, no clip - and then
+ * clamp its outermost row and column one pixel further out.
  *
- * `snap` (Task 4c, default false - byte-identical to every call that omits
- * it) puts the drawn rect's edges on whole device pixels, outside the box
- * rather than inside it, so the caller's clip is the only antialiased mask
- * on the boundary pixel. See SNAP_TO_PIXELS at the top of this file for the
- * measurements and for why a screenshot drawn at exactly its box leaves a
- * one-pixel halo of whatever is behind it.
+ * ONLY EVER CALLED INTO A TILE, never straight onto the target canvas. The
+ * clamped pixels are deliberately outside the shot; `placeShot` below cuts
+ * them off with the single mask that gives the shot its shape. Drawing this
+ * onto the target directly would paint a one-pixel skirt around the
+ * picture. That is why nothing here clips: a clip on this rect would be a
+ * second antialiased edge on the same line as the mask, which is the bug
+ * (see TILE_BLEED at the top of this file).
  *
- * Only a TIGHT axis is snapped - one whose drawn size already reaches the
- * box, and whose edges therefore coincide with that clip. A letterboxed axis
- * (a 'contain' fit of a ratio the box does not share) ends well inside the
- * box, where no such boundary exists and snapping would only move the
- * letterbox. When the box carries the image's own ratio, which is every real
- * web shot, both axes are tight and all four edges land on the grid.
+ * The clamp is four `drawImage` calls under `destination-over`, each taking
+ * a one-pixel source strip - the image's own first/last row and column -
+ * and stretching it TILE_BLEED pixels beyond the drawn rect. Two properties
+ * matter and neither is incidental:
  *
- * Snapping outward is deliberately not a uniform scale. Growing the rect
- * uniformly until it overhangs by a whole pixel was tried first and costs
- * four times as much resampling (0.19% against 0.05%) for the same result,
- * because it has to move the far edge by a full pixel to move the near one
- * off the boundary. The aspect ratio does shift by up to a pixel-per-axis
- * as a result - 0.05% on a 1675px box - which is a smaller distortion than
- * the resampling either version performs.
+ *  - `destination-over` can only fill pixels the picture left transparent,
+ *    so the interior is bit-for-bit the plain `drawImage` above it. A macOS
+ *    window capture's transparent corners stay transparent.
+ *  - the strips carry the edge's OWN colour. Redrawing the whole picture a
+ *    pixel larger fixes the coverage just as well and shifts the boundary
+ *    colour, because it resamples the picture off its own grid: measured in
+ *    Chromium on a source whose first row is a distinct colour, the top
+ *    boundary pixel reads 218,90,218 clamped and 172,136,172 scaled, where
+ *    the row itself is 218,90,218.
+ *
+ * A 'cover' fit overflows the box on one axis; those strips land outside
+ * the mask and are cut away with everything else, which costs two thin
+ * draws and keeps this function free of a special case.
  */
-function drawFitted(ctx, box, image, fit, snap = false) {
+function drawFitted(ctx, box, image, fit) {
   const ir = image.width / image.height;
   const br = box.w / box.h;
   let dw, dh;
   if (fit === 'cover' ? ir > br : ir < br) { dh = box.h; dw = box.h * ir; }
   else                                     { dw = box.w; dh = box.w / ir; }
 
-  let dx = box.x + (box.w - dw) / 2, dy = box.y;                          // top center
-
-  if (snap) {
-    // A hair of slack, because a "tight" dimension is usually computed from
-    // the box's own ratio and can miss it by a float ulp.
-    const tight = (drawn, boxed) => drawn >= boxed - boxed * 1e-9;
-    if (tight(dw, box.w)) {
-      const x0 = Math.floor(box.x), x1 = Math.ceil(box.x + box.w);
-      dx = x0; dw = x1 - x0;
-    }
-    if (tight(dh, box.h)) {
-      const y0 = Math.floor(box.y), y1 = Math.ceil(box.y + box.h);
-      dy = y0; dh = y1 - y0;
-    }
-  }
-
+  const dx = box.x + (box.w - dw) / 2, dy = box.y;                        // top center
   ctx.drawImage(image, dx, dy, dw, dh);
+
+  const b = TILE_BLEED;
+  const iw = image.width, ih = image.height;
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-over';
+  ctx.drawImage(image, 0,      0,      iw, 1,  dx - b,      dy - b,      dw + b * 2, b * 2);
+  ctx.drawImage(image, 0,      ih - 1, iw, 1,  dx - b,      dy + dh - b, dw + b * 2, b * 2);
+  ctx.drawImage(image, 0,      0,      1, ih,  dx - b,      dy - b,      b * 2, dh + b * 2);
+  ctx.drawImage(image, iw - 1, 0,      1, ih,  dx + dw - b, dy - b,      b * 2, dh + b * 2);
+  ctx.restore();
+}
+
+/**
+ * Compose one shot in its own offscreen canvas, cut its shape once, and
+ * stamp it down.
+ *
+ * `bounds` is the rect the tile has to hold; the tile is that rect rounded
+ * outward to whole pixels, so it lands on the target at INTEGER coordinates
+ * and `drawImage` copies it one-for-one with no resampling of any kind.
+ * `paint` draws into it in ordinary canvas coordinates (the tile carries the
+ * translation), and should draw GENEROUSLY - past `mask` on every side,
+ * which is what drawFitted's clamp does for a screenshot and what the
+ * TILE_BLEED overshoot on paintChrome's bar does for the browser's title
+ * bar. `mask` is the rounded rect that then cuts the shape, in one
+ * `destination-in` fill: the shot's single antialiased edge.
+ *
+ * `makeCanvas` is the factory core/ is handed (composeWithMeta's fourth
+ * argument). This file never creates a canvas itself - there is no
+ * `document` in the CLI or in the test harness, and reaching for one would
+ * be exactly the engine assumption the plan's Global Constraints forbid.
+ *
+ * Cost: one canvas the size of the shot, per shot, per render, and it is
+ * worth reading the two numbers separately because they disagree.
+ *
+ * IN THE BROWSER - the product, and the thing that re-renders on every
+ * slider drag - it is free. Chromium, the standard 1800x1200 web case with
+ * its shadow, 60 renders each, forced to flush every frame:
+ *
+ *   Task 4c   backing fill + clip + snapped drawImage   mean 74.8ms
+ *   Task 4d   clipped shadow + tile                     mean 71.1ms
+ *
+ * Slightly faster, in fact: both are dominated by the two shadow blurs, and
+ * clipping the box out of the shadow gives the blur less to cover than the
+ * tile costs to blit.
+ *
+ * IN @napi-rs/canvas it is NOT free - a software rasteriser has to compose
+ * and then blit a second full-size surface. Same case, colour analysis
+ * excluded (it dwarfs everything at ~200ms and is cached across drags - see
+ * composeWithMeta's `precomputedMeta`), mean of 40:
+ *
+ *   frame: none  3.7ms -> 26.3ms      browser  3.7ms -> 29.2ms
+ *   phone frame  3.7ms -> 29.0ms      web+mobile (two shots)  3.8ms -> 36.4ms
+ *
+ * Almost all of it is the tile blit: an EMPTY 1728x1088 tile costs 4.7ms to
+ * draw onto the target there. That is the CLI's and the test suite's bill,
+ * not a user's - the full suite went from 31.1s to 29.4s, because the
+ * goldens spend their time elsewhere - and it buys an edge that is correct
+ * in both engines. It is the reason TILE_QUANTUM exists and the reason this
+ * function tiles the SHOT rather than the whole canvas.
+ */
+function placeShot(ctx, makeCanvas, bounds, mask, paint) {
+  const ox = Math.floor(bounds.x), oy = Math.floor(bounds.y);
+  const w = Math.max(1, Math.ceil(bounds.x + bounds.w) - ox);
+  const h = Math.max(1, Math.ceil(bounds.y + bounds.h) - oy);
+
+  // Rounded up to TILE_QUANTUM (see its comment): the extra strip is never
+  // painted into and is cleared by the mask below along with everything else
+  // outside the shot, so it costs allocation and nothing else.
+  const aw = Math.ceil(w / TILE_QUANTUM) * TILE_QUANTUM;
+  const ah = Math.ceil(h / TILE_QUANTUM) * TILE_QUANTUM;
+
+  const tile = makeCanvas(aw, ah);
+  const tctx = tile.getContext('2d');
+  // The factory is free to hand back a pooled canvas (web/state.js does),
+  // so start from a known-empty one rather than trusting it to be fresh.
+  tctx.clearRect(0, 0, aw, ah);
+
+  // THE TILE CARRIES NO TRANSFORM, AND THAT IS NOT A STYLE CHOICE. Setting
+  // `translate(-ox, -oy)` and letting `paint` work in canvas coordinates is
+  // the obvious way to write this and it is silently, catastrophically
+  // broken under @napi-rs/canvas: a `destination-in` fill whose path lies
+  // outside the UNTRANSFORMED canvas bounds is culled, and a culled
+  // destination-in clears the entire surface. Measured - a 512x1024 tile,
+  // translate(-ox, 0), the mask traced at x = ox + 1: correct for every ox
+  // up to 500, and empty for every ox from 550 on. A phone in the mobile
+  // layout sits at x = 670, so the first version of this shipped phones
+  // with no screenshot in them at all and the goldens caught it. Offsetting
+  // the coordinates instead has no such edge, in any engine.
+  //
+  // `at` is how a painter reaches tile space: it shifts a rect and keeps
+  // every other field, so `at(box)` is still a box, chrome and all.
+  const at = r => ({ ...r, x: r.x - ox, y: r.y - oy });
+
+  paint(tctx, at);
+
+  // ONE MASK, ONE EDGE. destination-in keeps the tile only where this fill
+  // lands, and clears it everywhere else - including the parts of the tile
+  // the path never reaches, which is how the corners get cut.
+  const m = at(mask);
+  tctx.globalCompositeOperation = 'destination-in';
+  roundRect(tctx, m.x, m.y, m.w, m.h, m.radius);
+  tctx.fillStyle = '#000';
+  tctx.fill();
+  tctx.globalCompositeOperation = 'source-over';
+
+  ctx.drawImage(tile, ox, oy);
 }
 
 /**
@@ -559,16 +734,16 @@ function drawFitted(ctx, box, image, fit, snap = false) {
  * `.web::after` inset hairline is deliberately NOT ported - see the note at
  * the end of this function.
  */
-export function paintWeb(ctx, c, box, image, stops) {
+export function paintWeb(ctx, c, box, image, makeCanvas) {
   // A device frame replaces everything below with a chrome-specific
   // painter: browser goes to paintWebChrome, phone to paintPhoneChrome.
   // box.chrome is null for frameKind: 'none' - the only branch this adds -
   // so every line below it is completely untouched, reached exactly as
   // before whenever there is no frame.
-  if (box.chrome?.kind === 'phone') return paintPhoneChrome(ctx, c, box, image);
-  if (box.chrome) return paintWebChrome(ctx, c, box, image, stops);
+  if (box.chrome?.kind === 'phone') return paintPhoneChrome(ctx, c, box, image, makeCanvas);
+  if (box.chrome) return paintWebChrome(ctx, c, box, image, makeCanvas);
 
-  // shadow first, on an opaque rect, then the screen over it.
+  // The shadow, cast around the box rather than under it.
   //
   // Alphas are frame.html's makeWeb() values UNCHANGED: 0.17 / 0.07. Do not
   // retune these - see paintShadow's doc comment above (a prior pass did,
@@ -578,40 +753,18 @@ export function paintWeb(ctx, c, box, image, stops) {
   // the alphas themselves stay exactly as written here.
   paintShadow(ctx, box, c.h * 0.040, c.h * 0.105, 0.17, 0.07, c.shadowScale);
 
-  // THE GROUND GOES BEHIND THE SCREENSHOT, NOT A WHITE FILL (Task 4c).
+  // NOTHING IS PAINTED BEHIND THE SCREENSHOT (Task 4d). This line was
+  // `fillRoundRect(..., '#ffffff')` - frame.html's `--screen-bg`, a white
+  // card - and then, briefly, a second pass of the ground over the same
+  // path. Both were there to cover paintShadow's opaque caster, and both
+  // leaked around the picture's own edge because a backing can only ever
+  // show through partial coverage. The caster is clipped out of the box
+  // now, so what is behind the shot is the ground that was already there.
   //
-  // This used to be `fillRoundRect(..., '#ffffff')` - frame.html's
-  // `--screen-bg`, a white card behind the picture. Two things were wrong
-  // with it. The screenshot is drawn over it at the box's own antialiased
-  // edge, so along the whole perimeter the white was only ever PARTLY
-  // painted over and survived as a one-pixel halo (159 where an honest
-  // blend of a #1e1e1e shot over a 179 ground is 104); and where a source
-  // is genuinely transparent - macOS window captures carry transparent
-  // corners and an alpha shadow - it showed as white, not as the backdrop.
-  //
-  // Re-painting the ground here instead answers both, and it is the ground
-  // this exact canvas already has: paintGround is deterministic and its
-  // gradients are canvas-space, so the second pass lands the same colours
-  // on the same pixels as the first. It also covers paintShadow's opaque
-  // black caster, which is why deleting the white fill outright is NOT the
-  // fix - that just swaps a white halo for a black one.
-  //
-  // It is a path fill, never a clip plus a covering fillRect: see fillArea.
-  // Grain is deliberately not re-applied (it is ground-only, Task 4b, and
-  // re-tiling it here would need a scratch canvas core/ has no way to make);
-  // a transparent source therefore shows ungrained ground inside the box.
-  paintGround(ctx, c, stops, box);
-
-  ctx.save();
-  roundRect(ctx, box.x, box.y, box.w, box.h, box.radius);
-  ctx.clip();
   // A LITERAL 'contain'. `c.fit` is gone (Cycle A Task 4) - the web screen
   // never crops. drawFitted stays because paintPhone still calls it with
   // 'cover' for the phone's own screen, which is a different decision.
-  // SNAP_TO_PIXELS makes the clip above the only mask on the edge pixel -
-  // see its doc comment at the top of this file.
-  drawFitted(ctx, box, image, 'contain', SNAP_TO_PIXELS);
-  ctx.restore();
+  placeShot(ctx, makeCanvas, box, box, (t, at) => drawFitted(t, at(box), image, 'contain'));
 
   // NO STROKE HERE, DELIBERATELY. frame.html stroked an inset hairline on
   // every unframed screen; it read as an unrequested border and was the
@@ -683,19 +836,31 @@ export function paintChrome(ctx, c, box, theme) {
   const t = chromeColours(theme);
   const barX = box.x, barY = box.y, barW = box.w, barH = chrome.barH;
 
-  // bar fill
+  // bar fill, overshooting left, right and top by TILE_BLEED.
+  //
+  // THIS FUNCTION IS ONLY EVER CALLED INTO A TILE (from paintWebChrome
+  // below), where the mask is what gives the frame its shape - so the bar
+  // has to reach PAST the frame's left, right and top edges rather than
+  // stop on them. Stopping on them would put the bar's own antialiased
+  // edge on the same line as the mask's and multiply the two, which is a
+  // pale seam down the frame's top corners: the same defect TILE_BLEED
+  // exists to prevent for the screenshot. The bottom edge is not bled: it
+  // meets the screenshot, an interior boundary the mask never touches, and
+  // an exact fillRect edge is what should land there.
   ctx.fillStyle = t.bar;
-  ctx.fillRect(barX, barY, barW, barH);
+  ctx.fillRect(barX - TILE_BLEED, barY - TILE_BLEED,
+               barW + TILE_BLEED * 2, barH + TILE_BLEED);
 
   // bar's own bottom hairline: `border-bottom:1px solid {{fBorder}}` on the
   // bar div itself, distinct from the frame's outer border painted by
-  // paintWebChrome.
+  // paintWebChrome. Bled sideways for the same reason as the fill - its two
+  // ends land on the frame's edge otherwise.
   ctx.save();
   ctx.strokeStyle = t.border;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(barX, barY + barH - 0.5);
-  ctx.lineTo(barX + barW, barY + barH - 0.5);
+  ctx.moveTo(barX - TILE_BLEED, barY + barH - 0.5);
+  ctx.lineTo(barX + barW + TILE_BLEED, barY + barH - 0.5);
   ctx.stroke();
   ctx.restore();
 
@@ -762,7 +927,7 @@ export function paintChrome(ctx, c, box, theme) {
  * 'phone' to paintPhoneChrome instead, so this function's body is exactly
  * what it was before the phone frame existed.
  */
-function paintWebChrome(ctx, c, box, image, stops) {
+function paintWebChrome(ctx, c, box, image, makeCanvas) {
   const chrome = box.chrome;
   const outer = { x: box.x, y: box.y, w: box.w, h: box.h, radius: chrome.radius };
   const t = chromeColours(c.chromeTheme);
@@ -773,45 +938,32 @@ function paintWebChrome(ctx, c, box, image, stops) {
   // multiplies on top, same as every other paintShadow call site.
   paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07, c.shadowScale);
 
-  // The ground, not `t.body`, backs this frame (Task 4c) - same change and
-  // same reasoning as the unframed screen above (see paintWeb). fBodyBg was
-  // white in the light theme, and `chrome.screen` is flush with the frame on
-  // three sides (chromeFor gives the browser no bezel), so that white was
-  // the halo Rock reported, on the left, right and bottom edges of every
-  // light-theme browser shot; in the dark theme the same leak was #101114
-  // and read as a dark one instead. The body is not lost as a design
-  // element, because it was never visible: the bar covers its whole strip
-  // and the screenshot covers everything below. What it did do was back the
-  // screenshot, and the ground does that honestly.
-  paintGround(ctx, c, stops, outer);
-
-  ctx.save();
-  roundRect(ctx, outer.x, outer.y, outer.w, outer.h, outer.radius);
-  ctx.clip();
-
-  // Straight into the interior - no fit/cover/contain maths belongs here;
-  // `screen` already carries the source's exact ratio, so 'contain' is a
-  // no-op fit and drawFitted is used only for SNAP_TO_PIXELS (see its doc
-  // comment) - the snap that keeps this clip the only mask on the edge.
-  drawFitted(ctx, chrome.screen, image, 'contain', SNAP_TO_PIXELS);
-
-  // THE BAR IS PAINTED AFTER THE SCREENSHOT, DELIBERATELY (Task 4c). The
-  // screenshot's top edge and the bar's bottom edge are the same line, and
-  // the screenshot's snapped rect now reaches past it. Painting the bar last
-  // puts an exact, path-accurate fillRect edge on that boundary instead of
-  // drawImage's own unreliable one, and covers the bleed. Nothing else
-  // depends on the order: the two abut, they never overlap by design.
-  //
-  // paintChrome's bar IS a fillRect, and is safe: it covers only the top of
-  // this clip, never the whole of it, and only a covering fill triggers the
-  // overshoot fillArea/fillRoundRect document. Measured: a full-width bar
-  // inside this clip lands exactly on its own edges.
-  paintChrome(ctx, c, box, c.chromeTheme);
-
-  ctx.restore();
+  // The whole frame is composed in one tile and cut once (Task 4d). There
+  // is no body fill behind it and no ground re-painted under it: `fBodyBg`
+  // was white in the light theme and #101114 in the dark one, and since the
+  // bar covers its whole strip and the screenshot covers everything below,
+  // the only thing it ever did was leak at the frame's own edge - on the
+  // left, right and bottom of every light-theme browser shot. Ground was
+  // then tried in its place and leaked identically, because the leak is
+  // partial coverage, not the colour. Nothing goes behind it now.
+  placeShot(ctx, makeCanvas, outer, outer, (tc, at) => {
+    // Straight into the interior - no fit/cover/contain maths belongs here;
+    // `screen` already carries the source's exact ratio, so 'contain' is a
+    // no-op fit and drawFitted is used for its bleed (see its doc comment).
+    drawFitted(tc, at(chrome.screen), image, 'contain');
+    // THE BAR IS PAINTED AFTER THE SCREENSHOT, DELIBERATELY. The
+    // screenshot's top edge and the bar's bottom edge are the same line,
+    // and the screenshot's bleed now reaches a pixel past it. Painting the
+    // bar last puts an exact fillRect edge on that boundary and covers the
+    // bleed. Nothing else depends on the order: the two abut, they never
+    // overlap by design.
+    paintChrome(tc, c, at(box), c.chromeTheme);
+  });
 
   // outer hairline: `border:1px solid {{fBorder}}` on the mockup's frame
-  // wrapper.
+  // wrapper. Stroked on the target, not in the tile: half its width falls
+  // outside the frame, which is where the mask ends and is exactly what the
+  // CSS border does.
   ctx.save();
   ctx.strokeStyle = t.border;
   ctx.lineWidth = 1;
@@ -874,7 +1026,7 @@ function paintDeviceHairline(ctx, box) {
  * 0.22/0.10 pairing stays reserved for an actual mobile-layout phone box, per
  * the doc comment on paintPhone below - do not blend the two.
  */
-function paintPhoneChrome(ctx, c, box, image) {
+function paintPhoneChrome(ctx, c, box, image, makeCanvas) {
   const chrome = box.chrome;
   const outer = { x: box.x, y: box.y, w: box.w, h: box.h, radius: chrome.radius };
 
@@ -883,24 +1035,26 @@ function paintPhoneChrome(ctx, c, box, image) {
   // other paintShadow call site.
   paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07, c.shadowScale);
 
+  // The device body needs no tile: it is a path FILL, so its own edge is
+  // already the single antialiased boundary between the device and the
+  // ground, and paintShadow no longer casts anything underneath it.
   paintDeviceBody(ctx, outer);
 
-  // No fill behind the screen (Task 4c). There used to be a white one, and
-  // on a dark screenshot inside this dark bezel it read as a white ring:
-  // the screenshot only partly covers the screen's antialiased edge, so the
-  // white behind it survived along the whole perimeter. Nothing replaces it,
-  // and deliberately not the ground - what is behind a phone's screen is the
-  // phone. paintDeviceBody above has already filled the bezel colour across
-  // this whole area (and over paintShadow's caster), so the boundary pixel
-  // blends screenshot into device, which is the honest answer, and a
-  // transparent source shows the device rather than a hole. Backing it with
-  // the ground instead was measured: it puts a +52-level light halo inside
-  // the bezel, which is the reported bug again in a new colour.
-  ctx.save();
-  roundRect(ctx, chrome.screen.x, chrome.screen.y, chrome.screen.w, chrome.screen.h, chrome.innerRadius);
-  ctx.clip();
-  drawFitted(ctx, chrome.screen, image, 'contain', SNAP_TO_PIXELS);
-  ctx.restore();
+  // The screen is its own tile, cut to the bezel's inner radius. WHAT IS
+  // BEHIND A PHONE'S SCREEN IS THE PHONE - the device body above has
+  // already filled this whole area, so the screen's boundary pixel blends
+  // screenshot into device, and a transparent source shows the device
+  // rather than a hole. That is drawn content, not a backing hiding a
+  // shadow caster, and it is deliberately not the ground: backing this
+  // screen with the ground instead was measured at +52 levels of light
+  // halo inside the bezel, which is the reported bug in a new colour.
+  //
+  // Unlike paintPhone's mobile screenshots (always 'cover'), chrome.screen
+  // carries the source image's own ratio - layout.js's frameRatio() sizes
+  // the frame FROM the picture - so 'contain' is a no-op fit here.
+  const screen = { ...chrome.screen, radius: chrome.innerRadius };
+  placeShot(ctx, makeCanvas, chrome.screen, screen,
+    (t, at) => drawFitted(t, at(chrome.screen), image, 'contain'));
 
   paintDeviceHairline(ctx, outer);
 }
@@ -922,31 +1076,24 @@ function paintPhoneChrome(ctx, c, box, image) {
  * here. `c.shadowScale` (Task 6b) multiplies on top of 0.22/0.10 - it does
  * not change them.
  */
-export function paintPhone(ctx, c, box, image) {
+export function paintPhone(ctx, c, box, image, makeCanvas) {
   paintShadow(ctx, box, box.h * 0.055, box.h * 0.14, 0.22, 0.10, c.shadowScale);
 
   // body - shared with the phone frame's paintPhoneChrome via
-  // paintDeviceBody, defined above. Same fill, same clip, same order as
-  // before this was pulled out - this call is byte-for-byte what used to be
-  // inlined here.
+  // paintDeviceBody, defined above. A path fill, so its edge against the
+  // ground is already a single antialiased boundary.
   paintDeviceBody(ctx, box);
 
-  // screen, inset by the bezel. Always cover, anchored top center.
+  // screen, inset by the bezel. Always cover, anchored top center, and
+  // backed by the device for the reasons paintPhoneChrome sets out above.
   const inner = {
     x: box.x + box.frame,
     y: box.y + box.frame,
     w: box.w - box.frame * 2,
     h: box.h - box.frame * 2,
   };
-  // No fill behind the screen, same change and same reasoning as
-  // paintPhoneChrome above (Task 4c): paintDeviceBody has already covered
-  // this area with the bezel colour, and a white fill under a cover-fitted
-  // screenshot only ever showed as a ring around the screen's own edge.
-  ctx.save();
-  roundRect(ctx, inner.x, inner.y, inner.w, inner.h, box.innerRadius);
-  ctx.clip();
-  drawFitted(ctx, inner, image, 'cover', SNAP_TO_PIXELS);
-  ctx.restore();
+  placeShot(ctx, makeCanvas, inner, { ...inner, radius: box.innerRadius },
+    (t, at) => drawFitted(t, at(inner), image, 'cover'));
 
   // inset 0 0 0 1px rgba(255,255,255,0.10) - shared via paintDeviceHairline,
   // same as the body above.

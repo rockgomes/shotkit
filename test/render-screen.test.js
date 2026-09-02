@@ -18,7 +18,7 @@ async function scene(overrides = {}) {
   const cv = createCanvas(c.w, c.h);
   const ctx = cv.getContext('2d');
   paintGround(ctx, c, GROUND);
-  paintWeb(ctx, c, lay.web, img, GROUND);
+  paintWeb(ctx, c, lay.web, img, createCanvas);
   return { c, lay, ctx, img };
 }
 
@@ -167,7 +167,7 @@ describe('frame: none draws no stroke', () => {
     const cv = createCanvas(c.w, c.h);
     const ctx = cv.getContext('2d');
     paintGround(ctx, c, GROUND);
-    paintWeb(ctx, c, lay.web, img, GROUND);
+    paintWeb(ctx, c, lay.web, img, createCanvas);
 
     const b = lay.web;
     const midY = Math.round(b.y + b.h / 2);
@@ -273,7 +273,7 @@ describe('frame: none leaves no dark rim at the box boundary', () => {
     const cv = createCanvas(c.w, c.h);
     const ctx = cv.getContext('2d');
     paintGround(ctx, c, GROUND);
-    paintWeb(ctx, c, lay.web, img, GROUND);
+    paintWeb(ctx, c, lay.web, img, createCanvas);
     return { c, box: lay.web, ctx, gctx: groundOnly(c) };
   }
 
@@ -360,7 +360,7 @@ describe('paintWeb never crops', () => {
     const cv = createCanvas(c.w, c.h);
     const ctx = cv.getContext('2d');
     paintGround(ctx, c, GROUND);
-    paintWeb(ctx, c, box, img, GROUND);
+    paintWeb(ctx, c, box, img, createCanvas);
 
     const [r, g, b] = px(ctx, box.x + 4, box.y + 4);
     expect(`${r},${g},${b}`).toBe('255,0,0');

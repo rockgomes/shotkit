@@ -20,7 +20,8 @@ Copied from the spec. Every task's requirements implicitly include these.
 - `core/` has **zero runtime dependencies**. It may import only its own relative files.
 - `web/tokens.css` is the **only** file in `web/` allowed to contain a raw hex colour.
 - `[hidden] { display: none !important; }` stays a **single global rule**. Do not add per-element `hidden` handling.
-- Geometry in `core/` is **proportional to the canvas**, never fixed pixels, except these documented minimums: `lineWidth = 1`, the 240px grain tile, `PHONE_BEZEL_MIN = 3`, `SHADOW_SOURCE_INSET = 2` (added in Task 1's follow-up; like `lineWidth = 1` it exists to cover antialiased coverage, which is a fixed pixel count at every canvas size — see its comment in `core/render.js` for the measurements that set it), and `SNAP_TO_PIXELS` (Task 4c — the screenshot's destination rectangle is rounded outward onto the device pixel grid; same category, same reason, measurements in its own comment).
+- Geometry in `core/` is **proportional to the canvas**, never fixed pixels, except these documented minimums: `lineWidth = 1`, the 240px grain tile, `PHONE_BEZEL_MIN = 3`, `SHADOW_SOURCE_INSET = 2` (added in Task 1's follow-up; like `lineWidth = 1` it exists to cover antialiased coverage, which is a fixed pixel count at every canvas size — see its comment in `core/render.js` for the measurements that set it), and `TILE_BLEED = 1` (Task 4d — how far a shot's own drawing is pushed past the mask that cuts it, inside its offscreen tile; same category, same reason, measurements in its own comment). `SNAP_TO_PIXELS` was Task 4c's version of the same idea and is **gone** — Task 4d removed it along with the clip it was compensating for. `TILE_QUANTUM = 64` is also a raw pixel number but is not geometry at all: it rounds a tile's ALLOCATION up so a pooling `makeCanvas` cannot mint a canvas per frame, and changes nothing that is painted.
+- **Nothing is painted behind a shot, and nothing is drawn inside a clip** (Task 4d). Each shot is composed in its own offscreen tile through the injected `makeCanvas`, drawn one pixel past its own edge, and cut once with a `destination-in` fill; `paintShadow` clips the box out of itself so there is no caster to cover. `test/render-clip-safety.test.js` enforces both structurally.
 - **Do not retune `paintShadow`'s alphas.** `0.17 / 0.07` for web and browser, `0.22 / 0.10` for phones. These were broken once by tuning against `@napi-rs/canvas` while the browser — the actual product — would have shipped a shadow ~65 RGB levels too dark, with every Node test green. `frame.html` is deleted, so they cannot be re-derived.
 - Run `npx vitest run` before and after every task. Commit only green.
 - After each task, push the branch. Do not merge to `main` mid-cycle.
@@ -861,6 +862,134 @@ fixture premise it actually depends on.
 `test/render-edge-blend.test.js` (new), `test/render-clip-safety.test.js`,
 `test/export-scale-fidelity.test.js`, `test/render-screen.test.js`,
 `test/render-frames.test.js`, all ten render goldens.
+
+
+---
+
+### Task 4d: the clip, and why nothing goes behind a shot
+
+Written after Task 4c shipped. The edge numbers were right — within a level
+of ideal on every edge and corner — and Rock opened the preview and found two
+new things the same day, plus the question that turned out to be the whole
+task:
+
+> "1px is cut from the top and left of the screenshot" — as soon as the
+> corner radius is above zero. At radius 0 the image is intact.
+
+> "a visible spike where the straight edge meets the corner arc" — without
+> zooming.
+
+> "I don't understand why we are rendering anything behind it at all."
+
+**He was right about the third one, and it explains the first two.** Task 4c
+snapped the screenshot's destination rect outward so that the clip would be
+the only antialiased mask on the boundary pixel. It worked, and it pushed the
+drawn rect out far enough to touch the clip for the first time — and in
+Chromium a non-rectangular clip does not agree with the path it was built
+from. That is Task 4b's finding reaching `drawImage`:
+
+> **A clip is rasterised against rounded-out device bounds, not against its
+> path.** The snapped rect starts at `floor(box.x)` and the clip cuts at
+> `box.x`, so 39% of the source's first row and 30% of its first column were
+> thrown away; on the right and bottom the same asymmetry runs the other way
+> and the shot overshoots the clip by a whole pixel, coverage 1.000 where the
+> path says 0.596. Walking the bottom-right corner row by row, the shot
+> tracks the arc to within 0.03px for eleven rows and then steps **14.0px**
+> off it in one row. A straight edge that overshoots by a pixel, meeting a
+> curve that does not: that is the spike.
+
+And the backing existed for exactly one reason. `paintShadow` casts from an
+**opaque black rounded rect**, which sits between the ground and the shot and
+shows through wherever the shot does not fully cover — the corners and the
+antialiased edge. frame.html covered it with a white `--screen-bg` card;
+Task 4c covered it with a second pass of the ground. Both leaked, because a
+backing can only ever be seen through partial coverage.
+
+**The fix is one rule.** *A shot gets exactly one antialiased edge, and it is
+the mask's.* Each shot is composed in its own offscreen canvas
+(`placeShot`, through the injected `makeCanvas` — `core/` still creates
+nothing), everything in it is drawn **one pixel past** where the shot ends,
+the shape is cut once with a `destination-in` fill of the rounded path, and
+the finished tile is stamped down at integer coordinates. No clip, no
+snapping, no backing:
+
+- `SNAP_TO_PIXELS` is gone and the picture is drawn at its true rect again.
+- The bleed is an **edge clamp** — the source's own outermost row and column
+  stretched outward under `destination-over` — not a scaled-up second copy.
+  Both fix the coverage; only the clamp keeps the boundary pixel's colour,
+  because it extends edge pixels instead of resampling the picture off its
+  grid (Chromium: 218,90,218 clamped, 172,136,172 scaled, against a row that
+  is 218,90,218). `destination-over` is what keeps it to the ring, so a
+  window capture's transparent corners stay transparent.
+- **A tile with no clamp is the halo again**, in full: the picture's own edge
+  and the mask's multiply, 0.6 x 0.6 = 0.36. Measured, and the reason the
+  clamp is not a flourish.
+- `paintShadow` clips the box out of itself (even-odd), so the blur still
+  spills outward and the opaque caster never lands under the shot. The white
+  fill, the ground re-paint, `paintGround`'s `area` parameter and `fillArea`
+  are all deleted.
+- `SHADOW_SOURCE_INSET` **stays**, for a new reason: at inset 0 the caster's
+  path and the clip's boundary would be the same rounded rect, both
+  antialiased, and the boundary pixel would get black at `k(1-k)` — a dark
+  ring instead of a light one.
+- The phone keeps its device body. That is drawn content, not a backing
+  hiding a caster: what is behind a phone's screen is the phone, and Task 4c
+  measured the alternative at +52 levels of halo inside the bezel. It is a
+  path fill, so its own edge against the ground is already single.
+
+Before and after, measured in Chrome on the app's own `frame: none` geometry:
+
+| | left | right | top | bottom | corner (worst step) |
+|---|---|---|---|---|---|
+| path coverage | 0.600 | 0.596 | 0.502 | 0.502 | — |
+| Task 4c | 0.600 | **1.000** | 0.500 | **1.000** | **1.234px** |
+| Task 4d | 0.600 | 0.594 | 0.500 | 0.500 | 0.012px |
+| source row/column kept | 70% | — | 61% | — | (4c) |
+| source row/column kept | 98% | — | 98% | — | (4d) |
+
+**Four things worth carrying forward.**
+
+- **A `destination-in` fill under a `translate` is culled against the
+  UNTRANSFORMED canvas bounds in `@napi-rs/canvas`, and a culled
+  `destination-in` clears the whole surface.** The obvious way to write
+  `placeShot` — translate the tile and let painters keep working in canvas
+  coordinates — therefore rendered phones with no screenshot in them at all
+  whenever the phone sat past x = 512. The goldens caught it. The tile
+  carries no transform; painters get an `at(rect)` shifter instead.
+- **Tile bitmaps are allocated on a 64px grid (`TILE_QUANTUM`).** Nothing
+  about the render changes — the extra strip is transparent and the mask
+  clears it — but `makeCanvas` implementations are entitled to pool by size,
+  and `web/state.js` does. Sized to the exact box, a padding drag would mint
+  and keep a new multi-megabyte canvas every frame; quantised, the whole
+  sweep asks for eight sizes.
+- **The cost is a browser number and a Node number and they disagree.**
+  Chromium: 74.8ms → 71.1ms for the standard web case — slightly *faster*,
+  because both are dominated by the shadow blurs and the shadow now has the
+  box clipped out of it. `@napi-rs/canvas`: 3.7ms → 26.3ms, almost all of it
+  the tile blit (an empty 1728x1088 tile costs 4.7ms to draw there). That is
+  the CLI's and the suite's bill, not a user's; the full suite went from
+  31.1s to 29.4s.
+- **The corner-continuity assertion cannot fail in Node, and it is in the
+  suite anyway.** Same shape as Task 4b: skia reads 0.031px worst error on
+  the pre-fix core where Chromium reads 2.939px against a 0.35px tolerance.
+  It was confirmed red the one way it can be, in Chrome, and the structural
+  guard — *nothing is drawn inside a clip* — is what actually holds the line.
+  The content-preservation assertions are not like that: all six went red in
+  Node, reporting 0.714 of 1.163 destination pixels at the top edge.
+
+**Goldens: all ten regenerated, and the point of the number is which way it
+moved.** Against the Task 4c goldens, 2.8-11.7% of pixels change — that is
+4c's resampling churn being *undone*. Against the goldens from **before** 4c,
+which is where the picture's own grid came from, 0.22-0.35% change, 75-97% of
+them on a shot's edge or corner arc, and the rest is 1 level of rounding over
+at most 0.08% of the canvas. The picture is back where it was; only its edge
+moved.
+
+**Files:** `core/render.js`, `core/index.js`,
+`test/render-edge-blend.test.js`, `test/render-clip-safety.test.js`,
+`test/render-frames.test.js`, `test/render-screen.test.js`,
+`test/inspector-frame.test.js`, all ten render goldens,
+`docs/verification-2026-09-01.md`.
 
 
 ---

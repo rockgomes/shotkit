@@ -827,3 +827,140 @@ the suite-wide budget, so the other 320 tests keep a tight one — for them a
 20s hang IS the bug signal. The `describe(name, { timeout }, fn)` form was
 verified to actually apply, not be silently ignored, with a throwaway test
 that sleeps 24s and passes under it.
+
+---
+
+# Task 4d — the clip itself, measured in Chrome
+
+Task 4c stopped a one-pixel halo by snapping the screenshot's destination
+rect outward onto the pixel grid, inside the `ctx.clip()` every painter had
+always used. The edge numbers came right. Rock opened the preview and
+reported two new things the same day:
+
+> "1px is cut from the top and left of the screenshot" — as soon as the
+> corner radius is above zero. At radius 0 the image is intact.
+
+> "a visible spike where the straight edge meets the corner arc" — visible
+> without zooming.
+
+Both are the clip, and both are invisible to this suite: `@napi-rs/canvas`
+does not reproduce either. This section is the browser measurement that
+stands in for the pixel test, exactly as Task 4b's does above.
+
+## The measurement
+
+A standalone page, canvas 1800x1200, box `{x:62.4, y:76.5, w:1675.2,
+h:1047, radius:24}` — the app's own `frame: none` geometry at the default
+padding — rendering the same scene four ways and reading the result back
+with `getImageData`. Two flat sources (`#141414` and `#c8c8c8`) isolate the
+screenshot's own contribution from everything painted over it:
+
+```
+out(S) = a * S + b   =>   a = (out(light) - out(dark)) / (light - dark)
+```
+
+`a` is how much of the screenshot reached each pixel. The path's own
+coverage comes from filling the same rounded rect white on black.
+
+### Edge coverage — the shot against the path it is supposed to follow
+
+```
+                                   left     right     top      bottom
+path coverage                      0.600    0.596     0.502    0.502
+A  clip + snapped drawImage        0.600    1.000     0.500    1.000
+C  tile + edge clamp + one mask    0.600    0.594     0.500    0.500
+D  tile, no clamp                  0.361    0.361     0.000    0.250
+```
+
+**A overshoots its own clip by a whole pixel on the right and bottom.** That
+is the same Chromium behaviour Task 4b measured for a covering `fillRect` —
+a non-rectangular clip is rasterised against rounded-out device bounds, not
+against its path — reaching `drawImage` for the first time because Task 4c's
+snap pushed the drawn rect out far enough to touch those bounds. Before 4c
+the picture faded out inside the clip and never met it.
+
+The other side of the same asymmetry is the report about the top and left:
+the snapped rect starts at `floor(box.x)`, the clip cuts at `box.x`, and
+what falls between them is picture. Measured as marker survival — a source
+whose first row and column are a distinct colour, rendered twice and
+subtracted, summed across the boundary:
+
+```
+                                   top row survived   left column survived
+one source row/column is           1.163 px           1.163 px
+A  clip + snapped drawImage        0.714 px (61%)     0.812 px (70%)
+C  tile + edge clamp               1.141 px (98%)     1.141 px (98%)
+```
+
+This half IS reproducible in Node — `@napi-rs/canvas` reads 0.714 and 0.812
+for A too, to three decimal places — which is why it is a real test rather
+than a note in this file: `test/render-edge-blend.test.js`'s "the screenshot
+keeps every pixel it was given", six assertions at three radii, all six red
+against the pre-fix core.
+
+**D is why the clamp is not optional.** A tile whose picture is drawn at the
+true rect and then masked has two antialiased edges again — its own and the
+mask's — and they multiply: 0.6 x 0.6 = 0.36. That is Task 4c's halo back in
+full. The clamp draws the source's outermost row and column one pixel past
+the shot under `destination-over`, so the picture has no partial coverage of
+its own along the line the mask cuts.
+
+### The corner join — where the straight edge meets the arc
+
+Walking the bottom-right corner column by column and reading the boundary's
+sub-pixel position out of each column's coverage, normalised by the straight
+run (this is the metric `test/render-edge-blend.test.js` uses, tolerance
+0.35px):
+
+```
+                                   worst column     worst step
+A  clip + snapped drawImage        2.939 px         1.234 px
+C  tile + edge clamp + one mask    0.009 px         0.012 px
+@napi-rs/canvas, either            0.031 px         0.021 px
+```
+
+Walking it row by row instead makes the shape of it plainer — A tracks the
+arc to within 0.03px for eleven rows and then leaves it:
+
+```
+row    1119    1120    1121    1122     1123
+A      0.000  -0.004  +0.028  +0.451  +14.008
+C      0.000  +0.002  +0.006  -0.005   -0.031
+```
+
+Fourteen pixels of shot sticking out along the bottom edge where the arc has
+already turned away from it. That is the spike, and it is one pixel of
+overshoot on a straight edge meeting a curve that has none.
+
+### Colour at the boundary — why the clamp and not a scaled copy
+
+Redrawing the whole picture one pixel larger behind itself fixes the
+coverage identically, and shifts the boundary colour, because it resamples
+the picture off its own grid. On a source whose first row is a distinct
+colour:
+
+```
+the row itself                     218,90,218
+C  edge clamp                      218,90,218
+B  scaled second copy              172,136,172
+```
+
+## What was NOT established
+
+- **Which Chromium version, and whether it is GPU-dependent.** Measured in
+  the Chrome this machine runs, once. Not checked across versions, not
+  checked with GPU rasterisation forced off, not checked in Safari or
+  Firefox. The fix does not depend on which engines are affected — it
+  removes the clip rather than working around it.
+- **Whether the +1 on right/bottom and the +4 of Task 4b are the same
+  constant.** They are the same asymmetry (right and bottom, radius > 0) and
+  are treated as one behaviour here, but the magnitudes differ and nothing
+  was done to reconcile them.
+- **The `destination-in` culling bug this fix walked into** is a
+  `@napi-rs/canvas` defect, not Chromium's, and is recorded where it can do
+  some good: in `placeShot`'s doc comment in `core/render.js`. A
+  `destination-in` fill whose path lies outside the untransformed canvas
+  bounds is culled, and a culled `destination-in` clears the whole surface —
+  so the first version of this task, which put a `translate` on the tile,
+  rendered phones with no screenshot at all whenever the phone sat past
+  x = 512. The goldens caught it. It is not reproduced in Chromium.

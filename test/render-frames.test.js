@@ -33,7 +33,7 @@ async function scene(overrides = {}) {
   const cv = createCanvas(c.w, c.h);
   const ctx = cv.getContext('2d');
   paintGround(ctx, c, GROUND);
-  paintWeb(ctx, c, lay.web, img, GROUND);
+  paintWeb(ctx, c, lay.web, img, createCanvas);
   return { c, lay, ctx, img };
 }
 
@@ -275,7 +275,7 @@ describe('paintWeb - screenshot placement inside chrome.screen', () => {
     const cv = createCanvas(c.w, c.h);
     const ctx = cv.getContext('2d');
     paintGround(ctx, c, GROUND);
-    paintWeb(ctx, c, lay.web, img, GROUND);
+    paintWeb(ctx, c, lay.web, img, createCanvas);
 
     // Independent oracle: draw the raw image directly into chrome.screen on
     // a blank canvas - no ground, no bar, no clipping from paintWeb at all.
@@ -338,7 +338,7 @@ describe('paintWeb - phone frame', () => {
     const cv = createCanvas(c.w, c.h);
     const ctx = cv.getContext('2d');
     paintGround(ctx, c, GROUND);
-    paintWeb(ctx, c, lay.web, img, GROUND);
+    paintWeb(ctx, c, lay.web, img, createCanvas);
 
     // Independent oracle, exactly as the browser-frame test above: a plain
     // drawImage into chrome.screen on a blank canvas, no bezel, no clipping.

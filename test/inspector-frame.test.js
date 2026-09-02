@@ -233,6 +233,17 @@ describe('retired Finish controls', () => {
 // thumbnail - groundFor running again - or a differently-sized grain
 // tile), this fails immediately and says which control did it, instead of
 // merely running slower.
+//
+// THE GUARD NAMES THE TWO SIZES IT CARES ABOUT rather than refusing every
+// allocation (Task 4d). Shots are now composed in per-shot offscreen tiles,
+// and a tile's size follows the shot's own box - so `pad` legitimately asks
+// for a canvas size it has never asked for before, and refusing all
+// allocation would fail on a change that costs a buffer rather than a
+// colour analysis. The expensive thing has always been groundFor, and its
+// fingerprint is a request for the SAMPLE THUMBNAIL's exact size; the grain
+// tile's is 240 at scale 1. Those two are what must never be re-requested,
+// and those two are what throw. `state._groundKey` below is the same claim
+// made structurally, and neither assertion is load-bearing alone.
 // ---------------------------------------------------------------------
 
 beforeEach(() => {
@@ -244,12 +255,17 @@ beforeEach(() => {
 describe('Task 6: Frame/Finish fields hit the warm colour cache, never groundFor', () => {
   it('a full sweep of frameKind/chromeTheme/url/pad/radius/grain/shadow allocates zero new scratch canvases', async () => {
     const web = await loadImage('samples/fieldset.png');
+    // core/index.js's sampleOf: the source, scaled to fit inside 800px.
+    const s = Math.min(1, 800 / web.width, 800 / web.height);
+    const thumb = `${Math.max(1, Math.floor(web.width * s))}x${Math.max(1, Math.floor(web.height * s))}`;
+    const coldSizes = new Set([thumb, '240x240']);   // sample thumbnail, grain tile
     let armed = false;
     const guardedFactory = (w, h) => {
-      if (armed) {
+      if (armed && coldSizes.has(`${w}x${h}`)) {
         throw new Error(
-          `a Frame/Finish control asked for a NEW ${w}x${h} scratch canvas - ` +
-          'should have hit the warm colour cache instead (see web/state.js\'s groundKeyFor)',
+          `a Frame/Finish control asked for a NEW ${w}x${h} scratch canvas - that is ` +
+          'the sample thumbnail or the grain tile, so the colour cache went cold ' +
+          '(see web/state.js\'s groundKeyFor)',
         );
       }
       return mkCanvas(w, h);
