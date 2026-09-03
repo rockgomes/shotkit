@@ -70,67 +70,80 @@ export const PHONE_BEZEL_MIN = 3;
 // contain. It comes back once it has an actual design.
 export const FRAME_KINDS = ['none', 'browser', 'phone'];
 
-// --- Device frame geometry ----------------------------------------------
-// Source: design_handoff_backdrop_1a/Backdrop Mockups.dc.html, section
-// id="1a" ("Obsidian" — the only in-scope screen per that folder's README;
-// 1b/1c are explicitly out of scope, and were checked anyway: neither
-// renders a browser frame at a different, disagreeing scale worth using,
-// and neither renders a macOS or iPhone frame at all).
+// --- Browser frame geometry ---------------------------------------------
 //
-// The canvas artboard in 1a is 560x420px, and the browser frame inside it
-// is sized to `width:76%` of that artboard (README: "Inside, browser frame
-// at 76% width"). So the frame's own width in mockup pixels is:
-//   frameW = 560 * 0.76 = 425.6
-// Every ratio below is <measured mockup px> / 425.6 — a fraction of the
-// FRAME's own width, the same convention phoneBox() already uses for the
-// phone's bezel (w * 0.019) and corner radius (w * 0.125), so a frame drawn
-// at any canvas size keeps identical proportions.
+// REMEASURED IN CYCLE A TASK 8, AND THE OLD NUMBERS ARE GONE. Round one
+// took these from the Backdrop handoff's own 425.6px-wide mockup, and the
+// result was the first thing Rock said about the browser frame: "our
+// current one is comically big and ugly". The bar was 7.5% of the window
+// width; a real one is 4.1%.
+//
+// Source: the Figma community file *Apple iOS Browser Mockup - Safari &
+// Chrome*, file key `ashXeowHsiwznytlLbuvuS`, page "Browser Mockup",
+// symbols `Desktop / Safari / Light` (node 1:3179, 1280 wide) and
+// `Desktop / Safari / Dark` (node 1:3209, 1268 wide). Read as LAYER
+// GEOMETRY through the Figma MCP, not pixel-counted off a raster, so every
+// number below is exact. The Light symbol is the one measured: it is the
+// clean 1280 frame, where the Dark one is 1268 wide with its toolbar
+// offset a stray -1px - authoring slop, not a design difference (the two
+// agree on every value that matters: 53px bar, 24px window radius, 484x28
+// pill, traffic lights 12px at x=21).
+//
+// It is a careful reconstruction of Safari rather than a screenshot of it,
+// and that is CORRECT here: shotkit draws a stylised browser for a
+// Dribbble shot, so the idealised form is the right register. A real
+// screenshot would carry toolbar clutter and retina artefacts we would
+// then have to strip back out.
+//
+// Every ratio is <measured px> / 1280 - a fraction of the FRAME's own
+// width, the same convention phoneBox() uses for the phone's bezel, so a
+// frame drawn at any canvas size keeps identical proportions.
 
-// Bar (title bar) height. HTML line ~101:
-//   <div style="...height:32px;padding:0 11px;background:{{ fBg }};...">
-// 32 / 425.6 = 10/133.
-export const BROWSER_BAR_RATIO = 10 / 133; // ≈ 0.075188
+// Bar (toolbar) height. `toolbar` (1:3181) is 1280 x 53 at y=0.
+// WAS 10/133 = 0.0752, from the handoff's 32px bar on a 425.6px frame.
+export const BROWSER_BAR_RATIO = 53 / 1280; // = 0.04140625
 
-// Outer frame corner radius (also the browser body's own radius — both are
-// `border-radius:10px` on the same wrapper). HTML line ~100:
-//   <div style="width:76%;border-radius:10px;...">
-// 10 / 425.6 = 25/1064.
-export const BROWSER_RADIUS_RATIO = 25 / 1064; // ≈ 0.023496
+// Outer window corner radius. The `Desktop / Safari / Light` symbol itself
+// carries `border-radius: 24px` with `overflow: clip`, so 24 is the corner
+// the window actually shows. (Its `toolbar` child has its own 10px top
+// corners, which the 24px clip overrides and which are therefore NOT the
+// visible radius - do not use 10 here.) `Body` (1:3180) has no radius at
+// all; it is a plain rect behind the clip. WAS 25/1064 = 0.0235, which at
+// 1280 would have been 30px.
+export const BROWSER_RADIUS_RATIO = 24 / 1280; // = 0.01875
 
-// Traffic-light dot diameter. HTML line ~102:
-//   <span style="width:8px;height:8px;border-radius:50%;...">
-// 8 / 425.6 = 5/266.
-export const CHROME_DOT_RATIO = 5 / 266; // ≈ 0.018797
+// Traffic lights. `Core / Traffic Lights (Big Sur)` (1:35) is 52 x 12 at
+// x=21, y=20 in the bar, and its own SVG puts the three circles at cx 6,
+// 26 and 46 with r=6 - so 12px across, 20px centre to centre, and the
+// group's left edge 21px from the window's.
+export const TRAFFIC_DOT_RATIO = 12 / 1280;    // = 0.009375, diameter
+export const TRAFFIC_GAP_RATIO = 20 / 1280;    // = 0.015625, centre to centre
+export const TRAFFIC_INSET_RATIO = 21 / 1280;  // = 0.01640625, frame edge to first dot's edge
 
-// Gap between the three traffic-light dots. HTML line ~102:
-//   <div style="display:flex;gap:5px">...
-// 5 / 425.6 = 25/2128.
-export const CHROME_DOT_GAP_RATIO = 25 / 2128; // ≈ 0.011749
+// URL pill. `URL Form` (4008:386) is 484 x 28 at x=398, y=12. It is
+// CENTRED, not flowed after the dots: 398 + 484/2 = 640, exactly half of
+// 1280, and the Figma node carries `left:50%; translateX(-50%)` to say so.
+// Round one's pill filled whatever width was left after the dot group,
+// which is why it never lined up with anything.
+export const URL_PILL_WIDTH_RATIO = 484 / 1280;   // = 0.378125
+export const URL_PILL_HEIGHT_RATIO = 28 / 1280;   // = 0.021875
 
-// Bar's own left/right padding. HTML line ~101: `padding:0 11px`.
-// 11 / 425.6 = 55/2128.
-export const CHROME_BAR_PADDING_RATIO = 55 / 2128; // ≈ 0.025847
+// Pill corner radius, read off the `URL Background` SVG's own path
+// (`M0 9.6 C ...`): 9.6px on a 28px-tall pill. WAS 25/2128 = 0.01175,
+// which against the new 28px pill would be 15px - past half its height, so
+// it would have collapsed into a stadium.
+export const URL_PILL_RADIUS_RATIO = 9.6 / 1280; // = 0.0075
 
-// Gap between the dot group and the URL pill. HTML line ~101: `gap:8px` on
-// the bar itself (coincidentally the same 8px as the dot diameter, but a
-// distinct measurement — the bar's own flex gap, not the dot size).
-// 8 / 425.6 = 5/266.
-export const CHROME_BAR_GAP_RATIO = 5 / 266; // ≈ 0.018797
+// Pill text size. `URL Address` (4008:390) is SF Pro Display Medium 14px.
+// WAS 5/224 = 0.0223, sized for the old 45/1064 pill; at 1280 that is
+// 28.6px, which would not fit inside a 28px pill at all. This is the
+// change that makes the URL legible instead of clipped.
+export const URL_PILL_FONT_RATIO = 14 / 1280; // = 0.0109375
 
-// URL pill height. HTML line ~103:
-//   <div style="flex:1;height:18px;border-radius:5px;...">
-// 18 / 425.6 = 45/1064.
-export const URL_PILL_HEIGHT_RATIO = 45 / 1064; // ≈ 0.042293
-
-// URL pill corner radius. Same element, `border-radius:5px`.
-// 5 / 425.6 = 25/2128 (coincidentally equal to CHROME_DOT_GAP_RATIO — both
-// are a real, distinct 5px measurement in the mockup).
-export const URL_PILL_RADIUS_RATIO = 25 / 2128; // ≈ 0.011749
-
-// URL pill text size, Geist Mono. HTML line ~103, same element as above:
-//   font-family:'Geist Mono',monospace;font-size:9.5px
-// 9.5 / 425.6 = 95/4256 = 5/224 exactly.
-export const URL_PILL_FONT_RATIO = 5 / 224; // ≈ 0.022321
+// Vertical placement, stated once because both groups share it: the dots
+// (20 + 12/2 = 26) and the pill (12 + 28/2 = 26) are both centred in the
+// 53px bar, whose own centre is 26.5. The half-pixel is authoring slop;
+// paintChrome centres both and does not reproduce it.
 
 // Named export sizes. Real platform dimensions, not ratios — a Dribbble shot is
 // 2800x2100 (4:3 at @2x), which is what the site actually wants.

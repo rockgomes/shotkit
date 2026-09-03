@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { normalise } from '../core/config.js';
 import { layout } from '../core/layout.js';
-import { MIN_MARGIN_RATIO } from '../core/presets.js';
+import { MIN_MARGIN_RATIO, BROWSER_BAR_RATIO } from '../core/presets.js';
 
 const cfg = (o = {}) => normalise({ layout: 'web', ...o });
 
@@ -501,10 +501,16 @@ describe('frames grow outward', () => {
     expect(lay.web.y).toBeLessThan(lay.web.chrome.screen.y);
   });
 
+  // `pad: 0.02` puts the safe box exactly on MIN_MARGIN_RATIO, so ANY
+  // outset has to scale the composite. It used to be enough to turn the
+  // browser frame on at the default padding - Task 8 rebuilt the bar from
+  // 7.5% of the window width to 4.1%, and at 3:2 that now fits inside the
+  // default padding with room to spare. That is the feature working, so
+  // the test moves its premise rather than its assertion.
   it('scales the whole composite uniformly when the floor does bind', () => {
-    const bare = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'none' }),
+    const bare = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'none', pad: 0.02 }),
                         { web: FLOORED_SRC, mobile: [] }).web;
-    const framed = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser' }),
+    const framed = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser', pad: 0.02 }),
                           { web: FLOORED_SRC, mobile: [] }).web;
     const screen = framed.chrome.screen;
     // Uniform: width and height lose the same factor, so the picture is
@@ -567,7 +573,7 @@ describe('stroke insets', () => {
     // width, which is exactly what a mat leaking into the bar would break.
     for (const out of [bare, mat]) {
       expect(out.web.chrome.barH)
-        .toBeCloseTo(out.web.chrome.screen.w * (10 / 133), 9);
+        .toBeCloseTo(out.web.chrome.screen.w * BROWSER_BAR_RATIO, 9);
     }
     // The screenshot starts a full stroke further in than it used to.
     expect(mat.web.chrome.screen.x - mat.web.x).toBeCloseTo(mat.web.strokeWidth, 9);

@@ -9,10 +9,10 @@
  */
 
 import {
-  CHROME_DOT_RATIO,
-  CHROME_DOT_GAP_RATIO,
-  CHROME_BAR_PADDING_RATIO,
-  CHROME_BAR_GAP_RATIO,
+  TRAFFIC_DOT_RATIO,
+  TRAFFIC_GAP_RATIO,
+  TRAFFIC_INSET_RATIO,
+  URL_PILL_WIDTH_RATIO,
   URL_PILL_HEIGHT_RATIO,
   URL_PILL_RADIUS_RATIO,
   URL_PILL_FONT_RATIO,
@@ -872,15 +872,46 @@ export function paintWeb(ctx, c, box, image, makeCanvas) {
 // identical in both frame.html locations that render them (line ~48, the
 // outer app-window traffic lights, and line ~102, the inner browser-frame
 // ones being ported here).
+//
+// TASK 8 CHECKED THESE AGAINST THE SAFARI REFERENCE. Reported in full
+// because the task required a verdict either way:
+//
+//   value        handoff (was)          Safari reference        verdict
+//   dark bar     #1b1d22                #191c1f                agree (2 levels)
+//   dark body    #101114                #0c0f12                agree (4 levels)
+//   light bar    #f6f7f9                #ffffff                CHANGED
+//   light pill   #ffffff                #f0f0f0                CHANGED
+//   dark pill    rgba(255,255,255,.07)  #434343                CHANGED
+//
+// The dark pair are within a few levels and are the app's own palette, so
+// they stay. The pills did not merely differ in value, they differed in
+// SIGN: our light pill was LIGHTER than its bar, where a browser's URL
+// field is recessed - darker than the chrome around it. That reads wrong at
+// any size, so the light bar goes to the reference's white and the light
+// pill to its #f0f0f0, restoring the relationship.
+//
+// The dark pill stays a translucent white rather than the reference's flat
+// #434343: the reference is neutral grey and our bar is blue-grey, so a
+// literal port would sit as a colour-cast patch inside it. 0.16 over
+// #1b1d22 lands at #40424a - the same lightness as #434343, carrying the
+// bar's own hue. That is a port of the relationship, not of the number, and
+// it is written down here rather than left as a mystery constant.
 const CHROME_THEME = {
-  dark:  { bar: '#1b1d22', body: '#101114', border: 'rgba(255,255,255,0.09)', pill: 'rgba(255,255,255,0.07)', pillText: '#9ba1ab' },
-  light: { bar: '#f6f7f9', body: '#ffffff', border: '#e3e5ea',                pill: '#ffffff',                pillText: '#5c6470' },
+  dark:  { bar: '#1b1d22', body: '#101114', border: 'rgba(255,255,255,0.09)', pill: 'rgba(255,255,255,0.16)', pillText: '#9ba1ab' },
+  light: { bar: '#ffffff', body: '#ffffff', border: '#e3e5ea',                pill: '#f0f0f0',                pillText: '#5c6470' },
 };
 
 function chromeColours(theme) {
   return theme === 'light' ? CHROME_THEME.light : CHROME_THEME.dark;
 }
 
+// The macOS traffic lights, theme-independent. Kept at the saturated
+// system values the handoff used, NOT swapped for the Safari reference's
+// own #EE6A5F / #F5BD4F / #61C454 - those are its matte reconstruction of
+// the same three lights, each with a darker ring, and at the size these
+// draw here (12/1280 of the frame - about 17px on a 1800px canvas) the
+// ring is sub-pixel and the muted fills just read as dimmer dots. Recorded
+// so the difference is a decision rather than an oversight.
 const TRAFFIC_DOT_COLOURS = ['#ff5f57', '#febc2e', '#28c840'];
 
 /**
@@ -946,28 +977,30 @@ export function paintChrome(ctx, c, box, theme) {
   ctx.stroke();
   ctx.restore();
 
-  // traffic-light dots: left-aligned with the bar's own left padding
-  const padX = box.w * CHROME_BAR_PADDING_RATIO;
-  const dotD = box.w * CHROME_DOT_RATIO;
-  const dotGap = box.w * CHROME_DOT_GAP_RATIO;
+  // Traffic lights: three dots at TRAFFIC_INSET_RATIO from the window's own
+  // left edge, TRAFFIC_GAP_RATIO apart CENTRE TO CENTRE (not edge to edge -
+  // the reference's circles sit at cx 6, 26, 46, so the gap is the stride),
+  // vertically centred in the bar.
+  const dotD = box.w * TRAFFIC_DOT_RATIO;
   const cy = barY + barH / 2;
-  let cx = barX + padX + dotD / 2;
+  let cx = barX + box.w * TRAFFIC_INSET_RATIO + dotD / 2;
   for (const colour of TRAFFIC_DOT_COLOURS) {
     ctx.beginPath();
     ctx.fillStyle = colour;
     ctx.arc(cx, cy, dotD / 2, 0, Math.PI * 2);
     ctx.fill();
-    cx += dotD + dotGap;
+    cx += box.w * TRAFFIC_GAP_RATIO;
   }
 
-  // URL pill: fills the rest of the bar's width after the dot group and the
-  // bar's own flex gap, up to the same right padding as the left.
-  const dotsGroupW = dotD * 3 + dotGap * 2;
-  const barGap = box.w * CHROME_BAR_GAP_RATIO;
+  // URL pill: a FIXED width, CENTRED in the window. Round one sized it to
+  // whatever was left after the dot group and the bar's padding, so it was
+  // never centred on anything and grew with the frame in a way the
+  // reference's never does. Both facts come straight from the Figma node -
+  // 484 wide, and left:50% with a -50% translate.
+  const pillW = box.w * URL_PILL_WIDTH_RATIO;
   const pillH = box.w * URL_PILL_HEIGHT_RATIO;
   const pillR = box.w * URL_PILL_RADIUS_RATIO;
-  const pillX = barX + padX + dotsGroupW + barGap;
-  const pillW = (barX + barW - padX) - pillX;
+  const pillX = barX + (barW - pillW) / 2;
   const pillY = cy - pillH / 2;
   roundRect(ctx, pillX, pillY, pillW, pillH, pillR);
   ctx.fillStyle = t.pill;
@@ -983,7 +1016,11 @@ export function paintChrome(ctx, c, box, theme) {
     roundRect(ctx, pillX, pillY, pillW, pillH, pillR);
     ctx.clip();
     ctx.fillStyle = t.pillText;
-    ctx.font = `${box.w * URL_PILL_FONT_RATIO}px 'Geist Mono', ui-monospace, 'SFMono-Regular', monospace`;
+    // A UI SANS, NOT A MONO. The reference sets this in SF Pro Display
+    // Medium - a browser's address bar is system UI text, and Geist Mono at
+    // this size read as a code snippet pasted into the chrome. `system-ui`
+    // resolves to SF Pro on macOS, which is the reference's own face.
+    ctx.font = `500 ${box.w * URL_PILL_FONT_RATIO}px system-ui, -apple-system, 'Segoe UI', 'Geist', sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(c.url, pillX + pillW / 2, pillY + pillH / 2);

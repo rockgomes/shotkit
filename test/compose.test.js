@@ -347,7 +347,13 @@ describe('pixel-diff against frozen renders', () => {
     const a = target.getContext('2d').getImageData(0, 0, target.width, target.height);
     const b = rc.getContext('2d').getImageData(0, 0, ref.width, ref.height);
     const diff = pixelmatch(a.data, b.data, null, ref.width, ref.height, { threshold: 0 });
-    expect(diff / (ref.width * ref.height)).toBeGreaterThan(5e-4);
+    // Lowered from 5e-4 by Task 8, and only because the TEXT got smaller:
+    // the pill font went from 5/224 of the frame width to the reference's
+    // 14/1280, roughly half, so there are about half as many glyph pixels
+    // to differ. Measured after the rebuild: 704 of 2,160,000 pixels, a
+    // ratio of 3.26e-4, against this 2.5e-4 bound. Recorded so a future
+    // change that quietly stops drawing the text cannot slip under it.
+    expect(diff / (ref.width * ref.height)).toBeGreaterThan(2.5e-4);
   });
 
   // Task 6b, the same "break it and watch it go red" discipline: the loop

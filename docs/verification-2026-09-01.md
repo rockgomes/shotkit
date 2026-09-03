@@ -1038,3 +1038,108 @@ pre-existing goldens stayed byte-identical across the regeneration
 in `test/compose.test.js` prove `stroke-light.png` guards the stroke rather
 than merely matching itself: the same config at style `none` differs by
 more than 2% of pixels, and `glass` against the `light` golden likewise.
+
+---
+
+# Cycle A Task 8 — the browser chrome, remeasured
+
+Every number came from the Figma community file *Apple iOS Browser Mockup —
+Safari & Chrome*, file key `ashXeowHsiwznytlLbuvuS`, page "Browser Mockup",
+read as **layer geometry** through the Figma MCP — not pixel-counted off a
+raster. Symbols: `Desktop / Safari / Light` (node `1:3179`, 1280 wide) and
+`Desktop / Safari / Dark` (node `1:3209`, 1268 wide).
+
+## The two numbers the plan left open
+
+**1. The window corner radius: 24px on a 1280 frame → `24/1280 = 0.01875`.**
+
+Source: the `Desktop / Safari / Light` symbol itself carries
+`border-radius: 24px` with `overflow: clip`. Confirmed on the Dark symbol,
+which carries the same 24. The old value (`25/1064 = 0.0235`) would have
+been 30px at that width.
+
+Two near-misses worth recording, because either would have been wrong:
+`Body` (`1:3180`) has **no** radius at all — it is a plain rect behind the
+clip — and the `toolbar` child carries its own `rounded-tl-10 rounded-tr-10`,
+which the parent's 24px clip overrides. Neither is the visible corner.
+
+**2. The theme colours — three agree, three did not.**
+
+| value | handoff (was) | Safari reference | verdict |
+|---|---|---|---|
+| dark bar | `#1b1d22` | `#191c1f` | agree, 2 levels |
+| dark body | `#101114` | `#0c0f12` | agree, 4 levels |
+| light bar | `#f6f7f9` | `#ffffff` | **changed** |
+| light pill | `#ffffff` | `#f0f0f0` | **changed** |
+| dark pill | `rgba(255,255,255,.07)` | `#434343` | **changed** |
+
+The pills did not merely differ in value, they differed in **sign**: our
+light pill was *lighter* than its bar, where a browser's address field is
+recessed. The light bar goes to white and the light pill to `#f0f0f0`,
+restoring the relationship. The dark pill goes to `rgba(255,255,255,0.16)`
+rather than the reference's flat `#434343` — that lands at `#40424a`, the
+same lightness, but keeps the bar's blue-grey hue instead of dropping a
+neutral patch into it. A port of the relationship, not of the number.
+
+## A third change the plan did not anticipate
+
+**The pill font was 2× too large.** `URL_PILL_FONT_RATIO` was `5/224`
+(0.0223), sized for the old 45/1064 pill. The reference sets its address
+text at 14px in a 28px pill → `14/1280 = 0.0109`. Against the new pill, the
+old ratio would have been 28.6px of text inside a 28px pill: it simply would
+not fit. Changed, and the face changed with it — the reference uses SF Pro
+Display Medium, and Geist Mono at this size read as a code snippet pasted
+into the chrome.
+
+Also read off the `URL Background` SVG's own path (`M0 9.6 C …`): the pill
+radius is 9.6px, so `9.6/1280 = 0.0075`. The old `25/2128` would have been
+15px on a 28px pill — past half its height, collapsing it into a stadium.
+
+## Traffic lights: kept ours, deliberately
+
+The reference's own SVG uses `#EE6A5F / #F5BD4F / #61C454`, each with a
+0.5px darker ring. Those are its matte reconstruction of the three lights.
+At the size these draw here — `12/1280` of the frame, about 17px on an
+1800px canvas — the ring is sub-pixel and the muted fills read as dimmer
+dots, so the saturated system values (`#ff5f57 / #febc2e / #28c840`) stay.
+Recorded so the difference is a decision, not an oversight.
+
+Geometry confirmed from the same SVG: circles at cx 6, 26, 46 with r=6 — so
+12px across and **20px centre to centre**. The old constant was an
+edge-to-edge gap; the new one is a stride, and `paintChrome` was changed to
+match.
+
+## Does it look right
+
+Rendered the new `browser-dark` golden and the reference's own screenshot
+(node `1:3209`) scaled to a common 1200px window width, stacked. Bar height,
+traffic-light size and inset, and pill height and centring all line up.
+
+**What ours deliberately omits:** the reference's six toolbar buttons —
+sidebar, back, forward, shield, share, new tab, tabs. Those are exported SVG
+assets; drawing them would mean hand-authoring vectors we do not have, which
+is the one thing the design-to-code guidance says never to do. The bar is
+therefore chrome + lights + address field, and nothing invented.
+
+## Goldens
+
+Five changed, exactly the five predicted: `browser-dark`, `browser-light`,
+`browser-url`, `square-browser`, `stroke-browser`. The other eight —
+`web`, `mobile`, `web-mobile`, `mesh`, `phone`, `shadow-heavy`,
+`stroke-light`, `stroke-glass` — are byte-identical.
+
+## Three tests moved, and why none of them was weakened
+
+- **`the browser-url golden actually discriminates`** — bound lowered from
+  5e-4 to 2.5e-4. Only because the text halved in size: measured 704 of
+  2,160,000 pixels (3.26e-4) after the rebuild. The guard still fails if the
+  text stops being drawn.
+- **`scales the whole composite uniformly when the floor does bind`** — its
+  premise stopped holding. A browser composite at 3:2 used to cross
+  `MIN_MARGIN_RATIO` at the default padding; with a 4.1% bar it now fits
+  with room to spare, which is the feature working. The test moved to
+  `pad: 0.02` so the floor binds again; the assertion is unchanged.
+- **`does not make the browser title bar taller`** (Task 7) — was comparing
+  against a hardcoded `10/133`. Now imports `BROWSER_BAR_RATIO`. That
+  literal was exactly the drift this codebase keeps warning about, and it
+  was mine.
