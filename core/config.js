@@ -2,6 +2,7 @@ import {
   RATIOS, HUES, DEFAULTS, RADIUS_RATIO, TEMPLATES, DEFAULT_ANGLE, SCALES, FRAME_KINDS,
   LAYOUTS, TONES, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
   STROKE_STYLES, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
+  MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
 } from './presets.js';
 
 function num(v, fallback) {
@@ -92,6 +93,23 @@ export function normalise(input = {}) {
     // sensible to land. Width is clamped to STROKE_WIDTH_RANGE here, the
     // same defensive clamp shadowScale gets, so a stale jobs.json or a
     // runaway slider can never reach layout.js unbounded.
+    // Task 9. `stops` and `spread` only - `seed` stays the top-level field
+    // it always was, for the one-value-one-home reason spelled out beside
+    // MESH_DEFAULTS in presets.js. Both are clamped here, the same
+    // defensive clamp shadowScale and stroke.width get.
+    mesh: (() => {
+      const m = input.mesh || {};
+      return {
+        stops: Math.min(
+          MESH_STOPS_RANGE[1],
+          Math.max(MESH_STOPS_RANGE[0], Math.round(num(m.stops, MESH_DEFAULTS.stops))),
+        ),
+        spread: Math.min(
+          MESH_SPREAD_RANGE[1],
+          Math.max(MESH_SPREAD_RANGE[0], num(m.spread, MESH_DEFAULTS.spread)),
+        ),
+      };
+    })(),
     stroke: (() => {
       const s = input.stroke || {};
       const style = STROKE_STYLES.includes(s.style) ? s.style : STROKE_DEFAULTS.style;

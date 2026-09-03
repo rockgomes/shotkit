@@ -176,6 +176,38 @@ function rgba(hex, a) {
 }
 
 /**
+ * Hex to HSL, hue in degrees. `s` is 0 for a neutral grey, and paintMesh
+ * checks that before deriving anything - a grey ground must stay grey.
+ */
+function hexToHsl(hex) {
+  const [r, g, b] = hexToRgb(hex).map(v => v / 255);
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  const l = (mx + mn) / 2;
+  if (d === 0) return { h: 0, s: 0, l };
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h;
+  if (mx === r) h = ((g - b) / d) % 6;
+  else if (mx === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  return { h: ((h * 60) % 360 + 360) % 360, s, l };
+}
+
+/**
+ * HSL back to a hex string, so `rgba()` above stays untouched - it parses
+ * hex and nothing else, and every colour in this file goes through it.
+ */
+function hslToHex(h, s, l) {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const hp = (((h % 360) + 360) % 360) / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  const m = l - c / 2;
+  const seg = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]][Math.floor(hp) % 6];
+  return '#' + seg
+    .map(v => Math.round((v + m) * 255).toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/**
  * An elliptical radial gradient, faded to transparent at `stop`.
  * CSS: radial-gradient(<rx>% <ry>% at <cx>% <cy>%, colour 0%, transparent stop%)
  *
@@ -254,40 +286,79 @@ export function paintSolid(ctx, c, stops) {
  * A seeded mesh ground: soft radial blobs scattered over the middle stop,
  * finished with the same two corner radials the linear path uses.
  *
- * Colour comes ONLY from the three sampled stops (g1 and g3, alternating -
- * g2 is already the base fill). That is deliberate, not an oversight: this
- * library's whole premise is that the ground comes from the product's own
- * accent colour, never an invented hue. A mesh that painted in colours the
- * screenshot doesn't have would break the same "dark UI gets a mid-tone
- * ground" contract core/ground.js exists to uphold, just with prettier
- * blobs. See test/render-mesh.test.js's hue-spread test for the guard.
+ * CYCLE A TASK 9 REPLACED THE COLOUR MODEL, AND THE OLD COMMENT HERE SAID
+ * THE OPPOSITE, so the reasoning is worth restating rather than quietly
+ * swapping. It used to paint from g1 and g3 alternately - two tints of ONE
+ * hue - on the argument that anything else would invent a colour the
+ * screenshot does not have and break core/ground.js's "the ground comes
+ * from the product" rule. The argument was right; the conclusion was too
+ * strong. It left mesh unable to do the single thing a mesh gradient is
+ * for, and Rock said so: "I still don't know what mesh does."
+ *
+ * The rule is now PARAMETERISED instead of absolute. `c.mesh.spread` is a
+ * hue arc in degrees, CENTRED on the ground's own hue, so the mesh wanders
+ * a bounded distance from the colour the screenshot actually produced and
+ * never off to an unrelated one. At spread 0 every blob is the base hue and
+ * the old guarantee holds exactly - which is what
+ * test/render-mesh.test.js's "at spread 0, stays within the ground palette"
+ * asserts, and it is the pre-Task-9 test kept alive rather than deleted.
+ *
+ * ONLY THE HUE VARIES. Each blob keeps the saturation and lightness of a
+ * sampled stop - g1 for the first pass, g3 for the second - so the light
+ * and dark play that made the old field read as a ground is untouched, and
+ * a dark ground cannot suddenly sprout bright blobs. A near-grey ground has
+ * no hue to rotate around, so it is left alone entirely: spread does
+ * nothing there, on purpose.
  *
  * Positions and radii come from mulberry32, the same PRNG noiseTile already
  * uses, seeded from c.seed so the field is reproducible and re-exportable.
  */
 export function paintMesh(ctx, c, stops) {
   const [g1, , g3] = stops;
-  const blobColours = [g1, g3];
-  const BLOB_COUNT = 6;
+  const { stops: n, spread } = c.mesh;
 
   // base fill - the field of blobs is laid over this, same role g2 plays in
   // the linear gradient's midpoint.
   ctx.fillStyle = stops[1];
   ctx.fillRect(0, 0, c.w, c.h);
 
+  const base = hexToHsl(stops[1]);
+  // A ground with no chroma has no hue to rotate around; rotating one out
+  // of rounding noise is exactly the invented colour this must not produce.
+  const canRotate = base.s > 0.04;
+
+  // n hues across `spread` degrees, centred on the ground's own. Each is
+  // then given a sampled stop's own saturation and lightness, so the pair
+  // of passes below stays light-over-dark exactly as it always was.
+  const donors = [hexToHsl(g1), hexToHsl(g3)];
+  const blobColours = [];
+  for (let pass = 0; pass < 2; pass++) {
+    const d = donors[pass];
+    for (let i = 0; i < n; i++) {
+      const t = n === 1 ? 0 : i / (n - 1) - 0.5;
+      blobColours.push(canRotate
+        ? hslToHex(base.h + t * spread, d.s, d.l)
+        : (pass === 0 ? g1 : g3));
+    }
+  }
+
   const rnd = mulberry32(c.seed ?? 1);
   const short = Math.min(c.w, c.h);
   const margin = short * 0.12;
 
-  for (let i = 0; i < BLOB_COUNT; i++) {
+  // TWO PASSES OF n BLOBS, one per hue in each - not `i % 2` over two
+  // colours, which is what made the old field two-tone. The per-blob alpha
+  // is 0.62, down from 0.75: with up to ten overlapping blobs instead of
+  // six, the old value averaged the hues toward grey, which is the muddy
+  // failure test/render-mesh.test.js's "a wide spread does not wash the
+  // colour out" exists to catch. Lower the alpha, never that threshold.
+  for (let i = 0; i < blobColours.length; i++) {
     const cx = margin + rnd() * (c.w - margin * 2);
     const cy = margin + rnd() * (c.h - margin * 2);
     const r = short * (0.40 + rnd() * 0.35);   // 40-75% of the shorter side
-    const colour = blobColours[i % blobColours.length];
-
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-    g.addColorStop(0, rgba(colour, 0.75));
-    g.addColorStop(1, rgba(colour, 0));
+    g.addColorStop(0, rgba(blobColours[i], 0.62));
+    g.addColorStop(1, rgba(blobColours[i], 0));
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, c.w, c.h);
   }

@@ -245,3 +245,26 @@ export const STROKE_STYLES = ['none', 'light', 'glass', 'custom'];
 export const STROKE_WIDTH_RANGE = [0, 0.06];
 
 export const STROKE_DEFAULTS = { style: 'none', width: 0.008, color: '#ffffff' };
+
+// --- Mesh (Cycle A Task 9) ----------------------------------------------
+//
+// Mesh was two tints of ONE hue with a reroll button, which is why it could
+// only ever look like a blotchier linear gradient. Rock: "I still don't know
+// what mesh does. you're gonna need to show me the value of it."
+//
+// `stops` is how many distinct hues are placed. `spread` is the total hue
+// arc in DEGREES they are distributed across, CENTRED on the ground's own
+// hue - so a sampled mesh still belongs to the screenshot it came from, and
+// spread 0 reproduces the single-hue behaviour exactly. That centring is
+// what keeps core/ground.js's "the ground comes from the product" rule
+// intact while still letting the mesh do something a linear ramp cannot.
+//
+// NO `seed` HERE, DELIBERATELY. `seed` already exists at the top level of
+// the config, is already clamped, and already has a UI control. Giving it a
+// second home inside this block would create two writable sources for one
+// value - which is precisely how Task 5b killed the shadow slider: a nested
+// default silently outranked the flat field, and the control went dead
+// while still displaying the old number. One value, one home.
+export const MESH_STOPS_RANGE = [3, 5];
+export const MESH_SPREAD_RANGE = [0, 180];
+export const MESH_DEFAULTS = { stops: 4, spread: 70 };

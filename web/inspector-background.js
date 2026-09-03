@@ -37,6 +37,7 @@
 // drives every visual in this panel at once.
 import {
   HUES, TONES, BG_TYPES, DEFAULT_ANGLE, DEFAULTS, groundFor, groundFromMeta,
+  MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
 } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
 import { activeGroundKey, renderGroundSwatches } from './sidebar.js';
@@ -115,6 +116,53 @@ export function clampSeed(n) {
 
 export function setSeed(config, n) {
   config.seed = clampSeed(n);
+}
+
+// --- Mesh stops and spread (Cycle A Task 9) ------------------------------
+//
+// `config.mesh` is a nested block ({ stops, spread }) matching core/config.js.
+// SEED IS NOT IN IT and must not be moved into it: it already lives at the
+// top level with its own clamp and its own control above, and a second
+// writable home for one value is how Task 5b killed the shadow slider.
+//
+// Both writers seed from MESH_DEFAULTS first and the current block second,
+// so changing one field never resets the other - the same ordering rule
+// spelled out on the stroke writers in web/inspector-frame.js, and for the
+// same reason.
+export function activeMeshStops(config) {
+  const m = config.mesh || {};
+  const n = Math.round(Number(m.stops));
+  return Number.isFinite(n)
+    ? Math.min(MESH_STOPS_RANGE[1], Math.max(MESH_STOPS_RANGE[0], n))
+    : MESH_DEFAULTS.stops;
+}
+
+export function setMeshStops(config, n) {
+  const v = Math.round(Number(n));
+  if (!Number.isFinite(v)) return;
+  config.mesh = {
+    ...MESH_DEFAULTS,
+    ...(config.mesh || {}),
+    stops: Math.min(MESH_STOPS_RANGE[1], Math.max(MESH_STOPS_RANGE[0], v)),
+  };
+}
+
+export function activeMeshSpread(config) {
+  const m = config.mesh || {};
+  const v = Number(m.spread);
+  return Number.isFinite(v)
+    ? Math.min(MESH_SPREAD_RANGE[1], Math.max(MESH_SPREAD_RANGE[0], v))
+    : MESH_DEFAULTS.spread;
+}
+
+export function setMeshSpread(config, deg) {
+  const v = Number(deg);
+  if (!Number.isFinite(v)) return;
+  config.mesh = {
+    ...MESH_DEFAULTS,
+    ...(config.mesh || {}),
+    spread: Math.min(MESH_SPREAD_RANGE[1], Math.max(MESH_SPREAD_RANGE[0], v)),
+  };
 }
 
 /** `tone` is 'auto' | 'light' | 'mid' from the UI; `config.tone` (what
@@ -417,6 +465,53 @@ export function initBackgroundInspector() {
   seedRow.append(seedLabel, seedStepper);
   section.appendChild(seedRow);
 
+  // --- Stops and Spread (mesh only, Task 9) ---------------------------
+  // Without these, `spread` and `stops` are unreachable - which is exactly
+  // the state that made mesh useless in the first place, and there would be
+  // no way for anyone to judge whether it is worth having. Deliberately
+  // minimal; Cycle B's Background rework replaces them. Same idioms as the
+  // Seed stepper above and the Angle slider below - no new control
+  // vocabulary is invented here.
+  const stopsRow = document.createElement('div');
+  stopsRow.id = 'backgroundStopsRow';
+  stopsRow.className = 'inline-control-row';
+  stopsRow.hidden = true;
+  const stopsLabel = document.createElement('span');
+  stopsLabel.textContent = 'Stops';
+  const stopsStepper = document.createElement('div');
+  stopsStepper.className = 'zoom-stepper';
+  const stopsMinus = document.createElement('button');
+  stopsMinus.type = 'button';
+  stopsMinus.className = 'zoom-btn';
+  stopsMinus.setAttribute('aria-label', 'Fewer mesh colour stops');
+  stopsMinus.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-minus"></use></svg>';
+  const stopsValueEl = document.createElement('span');
+  stopsValueEl.className = 'zoom-value mono';
+  const stopsPlus = document.createElement('button');
+  stopsPlus.type = 'button';
+  stopsPlus.className = 'zoom-btn';
+  stopsPlus.setAttribute('aria-label', 'More mesh colour stops');
+  stopsPlus.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-plus"></use></svg>';
+  stopsStepper.append(stopsMinus, stopsValueEl, stopsPlus);
+  stopsRow.append(stopsLabel, stopsStepper);
+  section.appendChild(stopsRow);
+
+  const spreadRow = document.createElement('div');
+  spreadRow.id = 'backgroundSpreadRow';
+  spreadRow.className = 'slider-row';
+  spreadRow.hidden = true;
+  spreadRow.innerHTML = '<div class="slider-label"><span>Spread</span><span class="mono slider-value"></span></div>';
+  const spreadInput = document.createElement('input');
+  spreadInput.type = 'range';
+  spreadInput.className = 'slider';
+  spreadInput.min = String(MESH_SPREAD_RANGE[0]);
+  spreadInput.max = String(MESH_SPREAD_RANGE[1]);
+  spreadInput.step = '1';
+  spreadInput.setAttribute('aria-label', 'Mesh hue spread, in degrees around the ground’s own hue');
+  spreadRow.appendChild(spreadInput);
+  const spreadValueEl = spreadRow.querySelector('.slider-value');
+  section.appendChild(spreadRow);
+
   // --- Tone -----------------------------------------------------------
   // Labelled deliberately so the RULE reads, not a vibe: a dark UI gets a
   // MID-TONE ground (never a dark one) so the shot separates from it — see
@@ -508,7 +603,20 @@ export function initBackgroundInspector() {
       btn.setAttribute('aria-pressed', String(active));
     });
     seedRow.hidden = type !== 'mesh';
-    if (!seedRow.hidden) syncSeedUI();
+    stopsRow.hidden = type !== 'mesh';
+    spreadRow.hidden = type !== 'mesh';
+    if (!seedRow.hidden) { syncSeedUI(); syncMeshUI(); }
+  }
+
+  function syncMeshUI() {
+    const stops = activeMeshStops(state.config);
+    stopsValueEl.textContent = String(stops);
+    stopsMinus.disabled = stops <= MESH_STOPS_RANGE[0];
+    stopsPlus.disabled = stops >= MESH_STOPS_RANGE[1];
+
+    const spread = activeMeshSpread(state.config);
+    spreadInput.value = String(spread);
+    syncSliderFill(spreadInput, spreadValueEl, `${Math.round(spread)}°`);
   }
 
   function syncSeedUI() {
@@ -570,6 +678,22 @@ export function initBackgroundInspector() {
     const current = Number.isFinite(state.config.seed) ? state.config.seed : DEFAULTS.seed;
     setSeed(state.config, current + 1);
     syncSeedUI();
+    scheduleRender();
+  });
+
+  stopsMinus.addEventListener('click', () => {
+    setMeshStops(state.config, activeMeshStops(state.config) - 1);
+    syncMeshUI();
+    scheduleRender();
+  });
+  stopsPlus.addEventListener('click', () => {
+    setMeshStops(state.config, activeMeshStops(state.config) + 1);
+    syncMeshUI();
+    scheduleRender();
+  });
+  spreadInput.addEventListener('input', () => {
+    setMeshSpread(state.config, spreadInput.value);
+    syncMeshUI();
     scheduleRender();
   });
 

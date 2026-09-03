@@ -284,6 +284,10 @@ describe('pixel-diff against frozen renders', () => {
     ['stroke-light',   { ratio: '3:2', stroke: { style: 'light', width: 0.02 } },  { web: 'samples/fieldset.png' }],
     ['stroke-glass',   { ratio: '3:2', stroke: { style: 'glass', width: 0.02 } },  { web: 'samples/fieldset.png' }],
     ['stroke-browser', { ratio: '3:2', frameKind: 'browser', stroke: { style: 'light', width: 0.015 } }, { web: 'samples/fieldset.png' }],
+    // Task 9: the `mesh` case above uses the defaults, so it would freeze
+    // the default field and prove nothing about `spread` or `stops`
+    // reaching the canvas. This is the wide, five-stop end of the range.
+    ['mesh-wide', { ratio: '3:2', bgType: 'mesh', seed: 7, mesh: { stops: 5, spread: 140 } }, { web: 'samples/fieldset.png' }],
   ];
 
   for (const [name, cfg, files] of CASES) {

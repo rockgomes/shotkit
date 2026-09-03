@@ -1264,3 +1264,103 @@ Nine changed — every golden that draws an inset hairline: `browser-dark`,
 `stroke-glass`, `phone`, `mobile`, `web-mobile`. The four with no hairline
 anywhere — `web`, `mesh`, `shadow-heavy`, `stroke-light` — are
 byte-identical, which is the check that the change did only what it claims.
+
+---
+
+# Cycle A Task 9 — mesh rebuilt
+
+Rock: *"I still don't know what mesh does. you're gonna need to show me the
+value of it."* It was two tints of ONE hue with a reroll button, so it could
+only ever look like a blotchier linear gradient.
+
+## The rule that had to be changed, not broken
+
+`paintMesh`'s own doc comment used to argue that painting in anything but the
+three sampled stops "would break the same 'dark UI gets a mid-tone ground'
+contract core/ground.js exists to uphold". A test enforced it:
+`circularSpread < 40°`.
+
+The argument was right and the conclusion was too strong. The rule is now
+**parameterised**: `spread` is a hue arc in degrees, **centred on the
+ground's own hue**, so the mesh wanders a bounded distance from the colour
+the screenshot actually produced and never off to an unrelated one. At spread
+0 every blob is the base hue and the old guarantee holds exactly — which is
+what the old test now asserts, restated rather than deleted, alongside a new
+one that the arc never exceeds the spread it was given.
+
+**Only the hue varies.** Each blob keeps a sampled stop's saturation and
+lightness — g1 for the first pass, g3 for the second — so the light/dark play
+that made the field read as a ground is untouched, and a dark ground cannot
+sprout bright blobs. A near-grey ground has no hue to rotate around and is
+left alone entirely; spread does nothing there, on purpose.
+
+**`seed` is NOT in the mesh block**, deliberately, though the plan specified
+`mesh: { stops, spread, seed }`. It already lives at the top level with its
+own clamp and its own control. A second writable home for one value is
+exactly how Task 5b killed the shadow slider — a nested default silently
+outranked the flat field and the control went dead while still displaying the
+old number. One value, one home; guarded by a test that asserts
+`config.mesh.seed` stays undefined.
+
+## The three gates
+
+**1. Distinguishable — PASS.** Measured: a spread mesh spans more 15° hue
+buckets than a linear ground of the same base. Visually it is not close, on a
+ground with any real chroma: on an ember ground, spread 140 shows distinct
+orange, yellow-green and red regions where the linear ramp is one orange
+sweep.
+
+**2. Steerable — PASS.** Spread, stop count and seed each change the bytes,
+each with its own test. Spread 0 → 70 → 140 → 180 is a visible progression;
+two seeds at the same spread give genuinely different fields, not noise.
+
+**3. Not muddy — PASS**, and the per-blob alpha came down from 0.75 to 0.62
+to keep it that way once there could be ten overlapping blobs instead of six.
+Mean chroma over the sample grid, ground `#ece6fb`:
+
+| render | mean chroma |
+|---|---|
+| linear ground | 21.17 (floor at ×0.75 = **15.88**) |
+| mesh, spread 0 | 24.54 |
+| mesh, spread 70 (default) | 23.77 |
+| mesh, spread 140 | 19.63 |
+| mesh, spread 180 (range max) | **17.31** — 9% clear of the floor |
+
+### What the anti-mud gate does not catch, stated rather than left to be found
+
+The plan's version measured at spread 140. It is measured at **180** here,
+the top of `MESH_SPREAD_RANGE`, because a gate that stops short of the
+range's own maximum does not cover the range.
+
+More importantly: **raising the per-blob alpha to 0.85 does not trip it.**
+Checked directly. Alpha is not the lever that muds this construction — the
+blobs are drawn `source-over`, so the topmost mostly replaces rather than
+averages, and it is SPREAD that pulls chroma down. So this is a floor on the
+worst case a user can reach, not a detector of every possible way to make
+mud. That is why the task also requires a human to look, and why a second
+assertion measures the widest spread against the mesh's OWN spread-0 render
+(70.5% against a 65% floor) so the claim holds whatever ground it is handed.
+
+## Two things worth Rock's attention, not defects
+
+- **On the shipped lavender ground, mesh is faint at any spread.** So is the
+  linear gradient. That is the palette, not the mesh — and it is his own
+  earlier feedback ("our selection is good, but poor... their colors are too
+  faint"), already carried into the spec for Cycle B. The ember comparison
+  above is the control that separates the two.
+- **The default spread of 70 is subtle.** Deliberately conservative, since it
+  becomes the look of every mesh shot. Raising it is a one-number change in
+  `MESH_DEFAULTS` if he wants it louder.
+
+## Goldens and speed
+
+`mesh` changed — the point of the task — and `mesh-wide` is new, covering the
+wide, five-stop end of the range that the default-config `mesh` case says
+nothing about. Nothing else moved.
+
+The plan's tests compared renders with
+`expect(Buffer.from(getImageData(...))).toEqual(...)`. Vitest deep-equals
+that element by element across 8.6 million entries, and each such assertion
+took **25–70 seconds**. Rewritten to `Buffer.compare` on the PNG bytes, the
+idiom the rest of the file already used: same claim, 3.8s for the whole file
+instead of ~170s.

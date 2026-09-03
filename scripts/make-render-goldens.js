@@ -70,6 +70,12 @@ const CASES = [
   ['stroke-light',   { ratio: '3:2', stroke: { style: 'light', width: 0.02 } },  { web: 'samples/fieldset.png', mobile: [] }],
   ['stroke-glass',   { ratio: '3:2', stroke: { style: 'glass', width: 0.02 } },  { web: 'samples/fieldset.png', mobile: [] }],
   ['stroke-browser', { ratio: '3:2', frameKind: 'browser', stroke: { style: 'light', width: 0.015 } }, { web: 'samples/fieldset.png', mobile: [] }],
+  // Task 9: a SECOND mesh case, at a wide spread and the maximum stop
+  // count. The `mesh` case above uses the defaults, so on its own it would
+  // freeze the default field and say nothing about whether `spread` or
+  // `stops` reach the canvas at all - the exact gap that let the old
+  // two-tone mesh sit there looking like a feature.
+  ['mesh-wide', { ratio: '3:2', bgType: 'mesh', seed: 7, mesh: { stops: 5, spread: 140 } }, { web: 'samples/fieldset.png', mobile: [] }],
 ];
 
 for (const [name, cfg, files] of CASES) {
