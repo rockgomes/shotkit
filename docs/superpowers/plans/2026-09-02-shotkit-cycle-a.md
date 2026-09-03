@@ -2148,7 +2148,7 @@ asks for a change, make it, redeploy, and hand the link back before moving on.
 - Consumes: Task 6's outset layout — changing `BROWSER_BAR_RATIO` must flow through `frameInsets` with no further layout edits. Task 7's stroke wraps the frame.
 - Produces: no signature change. `paintChrome(ctx, c, box, theme)` keeps its shape; only what it draws and the ratios change.
 
-- [ ] **Step 1: Take the measurements as given — they are already made**
+- [x] **Step 1: Take the measurements as given — they are already made**
 
 These were measured from the Figma community file *Apple iOS Browser Mockup —
 Safari & Chrome*, file key `ashXeowHsiwznytlLbuvuS`, symbol
@@ -2208,7 +2208,7 @@ If you cannot obtain the corner radius, **stop and report** rather than
 guessing or keeping the old value silently. Everything else in this task can
 proceed on the table above.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Add to `test/render-frames.test.js`:
 
@@ -2258,12 +2258,12 @@ describe('browser chrome proportions', () => {
 
 Write `framedScene` alongside the file's existing helpers if one does not already exist; do not duplicate an existing harness.
 
-- [ ] **Step 3: Run and watch them fail**
+- [x] **Step 3: Run and watch them fail**
 
 Run: `npx vitest run test/render-frames.test.js -t 'browser chrome proportions'`
 Expected: the ratio test FAILS at `0.0752`; the traffic-light test FAILS (there are none today).
 
-- [ ] **Step 4: Apply the measured ratios and draw the chrome**
+- [x] **Step 4: Apply the measured ratios and draw the chrome**
 
 Update `BROWSER_BAR_RATIO` and `BROWSER_RADIUS_RATIO` in `core/presets.js` to the measured values, replacing the `10/133` and `25/1064` comments with the new measurement and its source. Add:
 
@@ -2286,12 +2286,12 @@ const TRAFFIC_COLOURS = ['#ff5f57', '#febc2e', '#28c840'];
 
 Keep the pill empty when `c.url` is null. Do not invent placeholder text — that rule has held since Task 6.
 
-- [ ] **Step 5: Run and watch them pass**
+- [x] **Step 5: Run and watch them pass**
 
 Run: `npx vitest run test/render-frames.test.js`
 Expected: PASS.
 
-- [ ] **Step 6: Regenerate and compare against the references**
+- [x] **Step 6: Regenerate and compare against the references**
 
 ```bash
 node scripts/make-render-goldens.js && npx vitest run
@@ -2301,7 +2301,7 @@ node scripts/make-render-goldens.js && npx vitest run
 
 Then put the new `browser-dark` golden next to the reference screenshot and say in the report whether the proportions match. If the bar still reads as too tall, the measurement was wrong — re-measure, do not nudge.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add core test scripts
@@ -2309,7 +2309,7 @@ git commit -m "feat(core): rebuild the browser chrome from measured reference pr
 git push origin feat/cycle-a
 ```
 
-- [ ] **Final step: deploy a preview, hand over the link, and STOP**
+- [x] **Final step: deploy a preview, hand over the link, and STOP**
 
 The preview is automatic. The Commit step above already pushed to
 `feat/cycle-a`, which makes Netlify rebuild PR #1. Wait for both checks:
