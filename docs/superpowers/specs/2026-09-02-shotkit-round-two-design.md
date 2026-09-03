@@ -373,17 +373,40 @@ Every one of these has been verified repeatedly and must still hold:
   persistence against a `localStorage` stub.
 - Contrast recomputed across the token pairs and the generated hues.
 
-## Three cycles
+## Four cycles
 
-**A — Render.** Items 1–9, plus three app fixes that touch nothing in the
-inspector and so cannot collide: contrast (19), label spacing (11), Ground
-dedup (12). Contrast rides here deliberately rather than waiting two cycles.
+Revised 2026-09-03, after Cycle A shipped. The original split put Background
+and selection in one cycle; three things changed that.
 
-**B — Background and selection.** Item 7's restructure, item 10's selection
-model, the rendered preset tiles, Angle (17), per-control Resets (18).
+First, the per-element model (Structural decision 1) turned out to be the
+single cause of every dead control Rock found while approving Cycle A — Frame
+and Padding on a mobile shot, Corner radius under either frame, and the
+missing browser frame for mobile. Second, the selection model *needs* it:
+selecting the phone is meaningless unless the phone has a settings block to
+show. Third, the Background rebuild grew — the palette, a dark ground, the
+accent colour and mesh's second hearing all landed in it.
 
-**C — Shell.** Zoom and pan (15), new/close project (14), nameable custom sizes
-(13), export dropdown (16).
+So B splits in two, and Rock chose the order: fix the controls that lie
+before rebuilding what they control.
+
+**A — Render.** *Shipped 2026-09-03.* Items 1–9, plus three app fixes that
+touch nothing in the inspector and so cannot collide: contrast (19), label
+spacing (11), Ground dedup (12). Item 8's shadow rework was built and
+reverted; item 9's mesh was built and withheld.
+
+**B — Elements and selection.** Structural decision 1 (`elements: { web,
+mobile }`), item 10's selection model, and every control that currently does
+nothing: Corner radius live under all three frames, a bounded phone radius, a
+browser frame for a mobile shot, and an explicit disabled state for anything
+that still cannot act.
+
+**C — Background and palette.** Item 7's type-first restructure, the rendered
+preset tiles, a stronger ground palette, the dark ground, the accent colour,
+Angle (17), per-control Resets (18), and mesh's second hearing — mesh is
+judged again there, on a ground that can carry it, with a shot on top.
+
+**D — Shell.** Zoom and pan (15), new/close project (14), nameable custom
+sizes (13), export dropdown (16).
 
 Each cycle is its own plan, run task by task, stopping after every task.
 
@@ -553,7 +576,11 @@ brighter design.
 
 **Deliberately not acted on in Cycle A.** Introducing an accent is a visual
 identity decision, not a contrast fix, and folding it into a task about
-readability is how the two would get confused. Candidates when it is taken up:
+readability is how the two would get confused.
+
+**It lands in Cycle C**, Rock's call on 2026-09-03: it is a palette decision,
+and doing it alongside the ground palette makes one visual-identity pass
+rather than two. Candidates when it is taken up:
 selected states in the rail and template list, the active segmented cell, focus
 rings, slider fills, and the sampled-ground indicator — all places where the
 app currently says "active" with lightness alone.
