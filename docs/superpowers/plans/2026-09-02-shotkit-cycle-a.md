@@ -2347,7 +2347,7 @@ asks for a change, make it, redeploy, and hand the link back before moving on.
 - Consumes: nothing from Tasks 5–8.
 - Produces: `normalise()` returns `mesh: { stops, spread, seed }`. `paintMesh(ctx, c, stops)` keeps its signature — `stops` is still the three-entry ground array; the extra hues are derived inside from `c.mesh` and the ground's own hue. Cycle B's Background panel reads `MESH_STOPS_RANGE` and `MESH_SPREAD_RANGE`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Replace the weak assertions in `test/render-mesh.test.js` (keep any existing determinism test) and add:
 
@@ -2411,12 +2411,12 @@ describe('mesh has real colour variety', () => {
 
 `meshScene` builds a config with `bgType: 'mesh'` unless overridden, runs `paintGround`, and returns `{ c, ctx }`.
 
-- [ ] **Step 2: Run and watch them fail**
+- [x] **Step 2: Run and watch them fail**
 
 Run: `npx vitest run test/render-mesh.test.js`
 Expected: the variety and stop-count tests FAIL — today's mesh uses two tints of one hue and ignores any stop count.
 
-- [ ] **Step 3: Add the vocabulary**
+- [x] **Step 3: Add the vocabulary**
 
 In `core/presets.js`:
 
@@ -2433,7 +2433,7 @@ export const MESH_DEFAULTS = { stops: 4, spread: 70, seed: 1 };
 
 In `core/config.js` add a `mesh` block clamping `stops` (rounded, into range), `spread` (into range) and `seed` (rounded, using the existing `SEED` bounds). Keep the top-level `seed` input working by folding it in the way Task 5 folded `shadowScale`.
 
-- [ ] **Step 4: Rewrite `paintMesh`**
+- [x] **Step 4: Rewrite `paintMesh`**
 
 ```js
 export function paintMesh(ctx, c, stops) {
@@ -2477,12 +2477,12 @@ export function paintMesh(ctx, c, stops) {
 
 `hueOf(hex)` and `hslString(h, s, l)` are small local helpers — add them next to the existing `rgba` helper in `core/render.js`. `rgba()` must accept whatever `hslString` produces; if it only parses hex, have `hslString` return hex so `rgba` is untouched.
 
-- [ ] **Step 5: Run and watch them pass**
+- [x] **Step 5: Run and watch them pass**
 
 Run: `npx vitest run test/render-mesh.test.js`
 Expected: all PASS.
 
-- [ ] **Step 6: Regenerate goldens**
+- [x] **Step 6: Regenerate goldens**
 
 Add a second mesh case so spread is exercised, with a comment in the file's style:
 
@@ -2494,7 +2494,7 @@ Run: `node scripts/make-render-goldens.js && npx vitest run`
 
 `mesh` changes (expected — that is the point of the task) and `mesh-wide` is new. Nothing else may move.
 
-- [ ] **Step 7: Hold it to the three gates**
+- [x] **Step 7: Hold it to the three gates**
 
 "Useful" is not a matter of taste here. Mesh earns its place only if it does
 something a linear gradient cannot, which is three specific things. All three
@@ -2518,7 +2518,7 @@ gate. If a gate **fails** and you cannot make it pass, say so plainly and
 stop: the spec keeps deleting mesh on the table, and taking that option is
 better than shipping a control that does nothing.
 
-- [ ] **Step 8: Add the anti-mud test**
+- [x] **Step 8: Add the anti-mud test**
 
 Add to `test/render-mesh.test.js`:
 
@@ -2559,7 +2559,7 @@ overlap, or narrow the default spread — **not** in the threshold. Moving the
 0.75 to make a muddy mesh pass is exactly the failure this gate exists to
 catch.
 
-- [ ] **Step 9: Add the mesh controls so this can be previewed**
+- [x] **Step 9: Add the mesh controls so this can be previewed**
 
 The Background panel already shows a **Seed** stepper when the type is Mesh
 (`#backgroundSeedRow`). Add two more alongside it, on the same show-when-mesh
@@ -2584,7 +2584,7 @@ Add matching tests to the existing inspector test file, in the style already
 there — assert the control writes the value, clamps at both ends, and that
 `render()` is scheduled.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add core web test scripts
@@ -2592,7 +2592,7 @@ git commit -m "feat(core): rebuild mesh with real multi-hue stops, spread and se
 git push origin feat/cycle-a
 ```
 
-- [ ] **Final step: deploy a preview, hand over the link, and STOP**
+- [x] **Final step: deploy a preview, hand over the link, and STOP**
 
 The preview is automatic. The Commit step above already pushed to
 `feat/cycle-a`, which makes Netlify rebuild PR #1. Wait for both checks:
