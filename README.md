@@ -59,7 +59,8 @@ to three. Then:
   can judge a pale ground honestly, and it can never reach the exported pixels.
 - **Inspector** — Background (the sampled hue first, then hue/angle/type/tone
   overrides), Frame (none, browser chrome, or phone; chrome theme and URL pill),
-  Finish (padding, radius, grain, shadow strength), and Export.
+  Finish (padding, radius, grain, shadow strength, and an opt-in stroke —
+  light, glass or a custom colour), and Export.
 - **Export** — PNG, JPEG or WebP at 1×, 2× or 3×. Filenames come from the source
   file, e.g. `fieldset--web@2x.png`.
 
@@ -155,7 +156,8 @@ analysed. Exact, not approximate — `lum` and `chroma` do not depend on the hue
 Also exported, so a host never has to hardcode a valid value:
 `RATIOS`, `HUES`, `DEFAULTS`, `TEMPLATES`, `FRAME_KINDS`, `SCALES`,
 `DEFAULT_ANGLE`, `LAYOUTS`, `TONES`, `BG_TYPES`, `CHROME_THEMES`,
-`SHADOW_SCALE_RANGE`.
+`SHADOW_SCALE_RANGE`, `STROKE_STYLES`, `STROKE_WIDTH_RANGE`,
+`STROKE_DEFAULTS`, `MESH_STOPS_RANGE`, `MESH_SPREAD_RANGE`, `MESH_DEFAULTS`.
 
 ```
 RATIOS       3:2 1800×1200 · 4:3 2000×1500 · 16:9 1920×1080 · 1:1 1500×1500
@@ -167,7 +169,19 @@ LAYOUTS      web · mobile · web+mobile          TONES   light · mid
 FRAME_KINDS  none · browser · phone
 BG_TYPES     linear · solid · mesh              SCALES  1 · 2 · 3
 CHROME_THEMES dark · light                      DEFAULT_ANGLE 166
+STROKE_STYLES none · light · glass · custom     width 0–0.06 of the shorter side
+MESH         stops 3–5 · spread 0–180°          defaults stops 4 · spread 70°
 ```
+
+**Frames and strokes are outsets.** The screenshot's box is computed first, from
+the source image's own ratio; the browser bar, the phone bezel and the stroke
+then grow *outward* from it. Turning a frame on consumes padding rather than
+shrinking the picture. Only when the composite would cross `MIN_MARGIN_RATIO`
+(2% of the shorter canvas side) does the whole thing scale down uniformly.
+
+**`bgType: 'mesh'` renders, but the app does not offer it.** `UI_BG_TYPES` in
+`web/inspector-background.js` withholds it — see "Not built yet" below. `core/`
+is unaffected: a config carrying `mesh` composes exactly as it always did.
 
 `shadowScale` is a **multiplier** over the renderer's verified shadow alphas, not
 a replacement for them: `1` reproduces the original values exactly, and
@@ -257,14 +271,27 @@ Honest list. None of these is half-done; they are simply not there.
 - **Named device frames.** The phone frame is called `phone`, deliberately
   unnamed, because it promises no specific device size. Device presets would
   extend that frame rather than replace it.
+- **The mesh ground, in the app.** Built and tested — `paintMesh` places 3–5
+  hues across a `spread` arc centred on the ground's own hue, with two goldens
+  and sixteen tests — and then withheld from the panel. A shot is a screenshot
+  with a *border* of ground around it, and on the current palette that border
+  shows almost nothing, mesh and linear alike. What fails is the palette, so
+  mesh is judged again after the palette work rather than tuned now. Restoring
+  it is one line (`UI_BG_TYPES`).
+- **Per-element settings.** Frame, stroke, radius and shadow belong to the
+  desktop element only, so on a mobile-only shot the Frame, Padding and Corner
+  radius controls do nothing, and the corner radius does nothing under either
+  frame. A phone frame around a desktop screenshot works; a browser frame
+  around a mobile one does not exist. All of it is one cause — the next cycle's
+  `elements: { web, mobile }` block.
 - **Golden coverage at a second canvas size, for most compositions.** Partly
   closed, not open: `square-browser.png` pixel-verifies the web layout with a
   browser frame at 1:1 1500×1500, and `test/export-scale-fidelity.test.js`
   renders at 4:3 2000×1500 — a size no golden covers — and measures the painted
   corner radius directly. What is still 3:2-only is everything else: the mobile
   and web+mobile layouts, the mesh ground, the phone frame, the
-  light chrome theme, the URL pill and the shadow multiplier each have exactly
-  one golden, all at 1800×1200. Since every geometric quantity is a fraction of
+  light chrome theme, the URL pill, the shadow multiplier and each stroke style
+  have exactly one golden, all at 1800×1200. Since every geometric quantity is a fraction of
   the canvas it was handed, a stray fixed-pixel literal in one of those painters
   would still show its face first at another size.
 - **A CLI.** The old one is gone and nothing replaced it. `core/` is a library, so
