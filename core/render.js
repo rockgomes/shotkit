@@ -736,6 +736,35 @@ function placeShot(ctx, makeCanvas, bounds, mask, paint) {
 }
 
 /**
+ * A 1px hairline stroked just INSIDE a rounded rect's own edge - what CSS's
+ * `border: 1px solid` does, and the shape three painters below want.
+ *
+ * THE RADIUS SHRINKS WITH THE INSET, AND THAT IS THE WHOLE REASON THIS
+ * FUNCTION EXISTS. A stroke straddles its path, so the path goes half a
+ * pixel in on every side; a rect inset by 0.5 whose radius is left at `r`
+ * is no longer concentric with the `r` corner it is supposed to trace, and
+ * the hairline bulges outside the arc. It is the same correction
+ * paintShadow already makes for its inset caster.
+ *
+ * The error is 0.5 against the radius, so it hid for as long as the radii
+ * were large: at the browser frame's old 23.6px corner it is 2%, invisible.
+ * Rock asked for a 0.6%-of-canvas window corner (10.8px), which doubled it
+ * to 4.6% - past the tolerance of the corner-continuity metric in
+ * test/render-edge-blend.test.js, which is what surfaced it. An unframed
+ * shot at the same radius passed the identical metric, which is how it was
+ * pinned on the hairline rather than on the arc or on the ruler.
+ */
+export function strokeInsetHairline(ctx, box, style) {
+  ctx.save();
+  ctx.strokeStyle = style;
+  ctx.lineWidth = 1;
+  roundRect(ctx, box.x + 0.5, box.y + 0.5, box.w - 1, box.h - 1,
+            Math.max(0, box.radius - 0.5));
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
  * The stroke: an opt-in MAT around the shot (Cycle A Task 7).
  *
  * It is a filled rounded rect painted at the composite's OUTER box, before
@@ -781,12 +810,7 @@ export function paintStroke(ctx, box, stroke, width) {
   ctx.restore();
 
   if (stroke.style === 'glass') {
-    ctx.save();
-    ctx.strokeStyle = 'rgba(16,18,27,0.06)';
-    ctx.lineWidth = 1;
-    roundRect(ctx, box.x + 0.5, box.y + 0.5, box.w - 1, box.h - 1, box.radius);
-    ctx.stroke();
-    ctx.restore();
+    strokeInsetHairline(ctx, box, 'rgba(16,18,27,0.06)');
   }
 }
 
@@ -1098,12 +1122,7 @@ function paintWebChrome(ctx, c, box, image, makeCanvas) {
   // wrapper. Stroked on the target, not in the tile: half its width falls
   // outside the frame, which is where the mask ends and is exactly what the
   // CSS border does.
-  ctx.save();
-  ctx.strokeStyle = t.border;
-  ctx.lineWidth = 1;
-  roundRect(ctx, body.x + 0.5, body.y + 0.5, body.w - 1, body.h - 1, body.radius);
-  ctx.stroke();
-  ctx.restore();
+  strokeInsetHairline(ctx, body, t.border);
 }
 
 /**
@@ -1125,12 +1144,7 @@ function paintDeviceBody(ctx, box) {
 }
 
 function paintDeviceHairline(ctx, box) {
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
-  ctx.lineWidth = 1;
-  roundRect(ctx, box.x + 0.5, box.y + 0.5, box.w - 1, box.h - 1, box.radius);
-  ctx.stroke();
-  ctx.restore();
+  strokeInsetHairline(ctx, box, 'rgba(255,255,255,0.10)');
 }
 
 /**

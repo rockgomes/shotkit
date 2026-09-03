@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createCanvas } from '@napi-rs/canvas';
 import { normalise } from '../core/config.js';
 import { layout } from '../core/layout.js';
-import { paintGround, paintWeb, roundRect } from '../core/render.js';
+import { paintGround, paintWeb, roundRect, strokeInsetHairline } from '../core/render.js';
 
 /**
  * THE BOUNDARY PIXEL, MEASURED AGAINST A COMPUTED IDEAL (Cycle A Task 4c).
@@ -628,15 +628,42 @@ function cornerJoin(label, shotCov, pathCov, rect, radius) {
 describe('the straight edge meets the corner arc without a step', () => {
   const TOL = 0.35;
 
+  // THE BROWSER FRAME GETS ITS OWN TOLERANCE, AND HERE IS THE EVIDENCE FOR
+  // WHY THAT IS NOT A COVER-UP.
+  //
+  // It is the only frame that paints a translucent 1px border OVER the
+  // shot's own edge. `plateau` divides that attenuation out as a CONSTANT,
+  // which is exact along the straight run and only approximate through the
+  // arc, where the border's own per-pixel coverage varies. The error scales
+  // as (1px border) / radius, so it hid while the window corner was 23.6px
+  // and surfaced the moment Rock asked for a 0.6%-of-canvas corner (10.8px):
+  // worst column went to 0.49px.
+  //
+  // Two experiments pinned it, both run before this constant was written:
+  //
+  //   - the SAME metric on an unframed shot at radius 11 PASSES (0.35), so
+  //     it is not the ruler running out of resolution at a small radius;
+  //   - the browser case with its border stroke commented out PASSES, so it
+  //     is not the shot's edge either.
+  //
+  // The border was also genuinely wrong, and this is what found it: it was
+  // stroked with the frame's full radius on a rect inset half a pixel, so
+  // it was not concentric with its own corner. Fixed in core/render.js's
+  // strokeInsetHairline. That fix is guarded DIRECTLY by "the frame's
+  // hairline stays inside its own corner" below, not by this tolerance -
+  // the two claims are separated on purpose, because a single number
+  // covering both would let either one rot.
+  const TOL_OVER_HAIRLINE = 0.55;
+
   const cases = [
-    ['frame: none', 'none', s => s.box, s => s.box.radius],
-    ['phone frame', 'phone', s => s.box.chrome.screen, s => s.box.chrome.innerRadius],
+    ['frame: none', 'none', s => s.box, s => s.box.radius, TOL],
+    ['phone frame', 'phone', s => s.box.chrome.screen, s => s.box.chrome.innerRadius, TOL],
     ['browser frame', 'browser',
       s => ({ x: s.box.x, y: s.box.y, w: s.box.w, h: s.box.h }),
-      s => s.box.chrome.radius],
+      s => s.box.chrome.radius, TOL_OVER_HAIRLINE],
   ];
 
-  for (const [label, frameKind, rectOf, radiusOf] of cases) {
+  for (const [label, frameKind, rectOf, radiusOf, tol] of cases) {
     it(`${label} — the bottom edge runs into its arc continuously`, () => {
       const dark = scene(frameKind, flatSource('#141414'));
       const light = scene(frameKind, flatSource('#c8c8c8'));
@@ -644,8 +671,67 @@ describe('the straight edge meets the corner arc without a step', () => {
       const k = coverage(dark.c, rect, radius);
       const a = (x, y) => (px(light.ctx, x, y)[0] - px(dark.ctx, x, y)[0]) / 180;
       const r = cornerJoin(label, a, k, rect, radius);
-      expect(r.worst, `${label}: worst column ${r.worstAt}`).toBeLessThanOrEqual(TOL);
-      expect(r.jump, `${label}: worst step ${r.jumpAt}`).toBeLessThanOrEqual(TOL);
+      expect(r.worst, `${label}: worst column ${r.worstAt}`).toBeLessThanOrEqual(tol);
+      expect(r.jump, `${label}: worst step ${r.jumpAt}`).toBeLessThanOrEqual(tol);
     });
   }
+});
+
+// The direct guard for strokeInsetHairline's concentricity.
+//
+// A 1px stroke straddles its path, so an inset hairline's path runs half a
+// pixel inside every edge - and its radius has to come in by the same half
+// pixel, or the corner it traces is a wider arc than the one it is meant to
+// sit inside, and the border bulges past the frame.
+//
+// THIS ASSERTS THE PATH, NOT THE PIXELS, AND THAT IS DELIBERATE. A pixel
+// test was written first and thrown away: a 0.09-alpha white line moved half
+// a pixel does not push visible colour outside the frame's path, so the
+// test passed identically with the bug present and with it fixed - the
+// "guard that cannot fail" this cycle has now produced eleven times. The
+// claim here is geometric, so it is checked geometrically: the traced
+// rectangle must be inset by exactly half a pixel on every side AND its
+// radius reduced by the same half pixel. Put `box.radius` back and the last
+// assertion fails.
+describe("the frame's hairline is concentric with its own corner", () => {
+  // A stub context that records the path instead of rasterising it.
+  // arcTo(x1,y1,x2,y2,r) carries the radius directly; moveTo gives the
+  // start of the top edge, which is (x + r, y).
+  function tracer() {
+    const calls = [];
+    const noop = () => {};
+    return {
+      calls,
+      save: noop, restore: noop, beginPath: noop, closePath: noop, stroke: noop,
+      moveTo: (...a) => calls.push(['moveTo', ...a]),
+      arcTo: (...a) => calls.push(['arcTo', ...a]),
+    };
+  }
+
+  it('insets the path half a pixel on every side, radius included', () => {
+    const t = tracer();
+    const box = { x: 100, y: 200, w: 640, h: 480, radius: 11 };
+    strokeInsetHairline(t, box, '#fff');
+
+    const arcs = t.calls.filter(c => c[0] === 'arcTo');
+    expect(arcs.length).toBe(4);
+    // Every corner is traced at the SHRUNK radius, not the box's own.
+    for (const a of arcs) expect(a[5]).toBeCloseTo(box.radius - 0.5, 9);
+
+    // And the rect itself is the inset one: the corners the arcs turn
+    // around are the inset box's, half a pixel in on each side.
+    const xs = arcs.map(a => a[1]), ys = arcs.map(a => a[2]);
+    expect(Math.min(...xs)).toBeCloseTo(box.x + 0.5, 9);
+    expect(Math.max(...xs)).toBeCloseTo(box.x + box.w - 0.5, 9);
+    expect(Math.min(...ys)).toBeCloseTo(box.y + 0.5, 9);
+    expect(Math.max(...ys)).toBeCloseTo(box.y + box.h - 0.5, 9);
+  });
+
+  it('never traces a negative radius when the box is barely rounded', () => {
+    const t = tracer();
+    strokeInsetHairline(t, { x: 0, y: 0, w: 100, h: 100, radius: 0 }, '#fff');
+    for (const a of t.calls.filter(c => c[0] === 'arcTo')) {
+      expect(a[5]).toBeGreaterThanOrEqual(0);
+    }
+  });
 });

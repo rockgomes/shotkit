@@ -1191,3 +1191,76 @@ pill text 13.7px.
   no url must differ from the golden. That is the claim the golden exists to
   make, and it cannot be eroded by the text shrinking — only by the text
   disappearing.
+
+## Task 8, round three — the window corner at 0.6%, and a bug it uncovered
+
+Rock: *"our base browser view can have less rounded corners. based on our
+sliders, 0.6% would be it."*
+
+The Corner radius slider reads in percent of CANVAS width, so 0.6% is 10.8px
+on an 1800px canvas. At 3:2 the frame is 1675.2px wide, so
+`BROWSER_RADIUS_RATIO = 11 / CHROME_REF_WIDTH` lands on **10.80px = 0.600%
+of the canvas exactly**. Stated in the same `<px>/CHROME_REF_WIDTH`
+vocabulary as everything else so it stays comparable to Safari's own 24.
+
+This is now the one browser value that is deliberately NOT the reference's,
+and a consequence worth stating: the frameless screenshot's own corner is
+`RADIUS_RATIO`, 1.33% of canvas width, so turning the browser frame on now
+tightens the corner noticeably. Two different corners on two different
+objects; Cycle B's per-element model is where they stop being unrelated.
+
+### The bug the smaller corner exposed
+
+Every inset hairline in `core/render.js` — the browser frame's border, the
+phone body's highlight, the glass stroke's outer line — was stroked with its
+box's FULL radius on a rect inset half a pixel. A 1px stroke straddles its
+path, so the path really does run half a pixel inside each edge, and the
+radius has to come in by the same half pixel or the arc traced is wider than
+the corner it sits inside. The border bulged.
+
+The error is 0.5 against the radius, so it hid while the corners were large:
+2% at the browser's old 23.6px corner, 4.6% at 10.8px. Fixed in one place,
+`strokeInsetHairline`, now shared by all three call sites — the same
+correction `paintShadow` already makes for its inset caster.
+
+**How it was pinned, because two suspects looked identical.** The
+corner-continuity metric in `test/render-edge-blend.test.js` went red at
+0.49px against a 0.35 tolerance. Two experiments separated the causes:
+
+- the SAME metric on an UNFRAMED shot at radius 11 **passed** — so it was
+  not the ruler running out of resolution at a small radius;
+- the browser case with the border stroke commented out **passed** — so it
+  was not the shot's edge either.
+
+Both suspects were real, and they were tangled in one number:
+
+1. the hairline was genuinely non-concentric (fixed);
+2. the metric divides the border's attenuation out as a CONSTANT, which is
+   exact on the straight run and only approximate through the arc — an error
+   that scales as 1px / radius and so grew when the corner halved.
+
+They are now guarded separately: the browser case carries its own documented
+`TOL_OVER_HAIRLINE = 0.55` for (2), and (1) has a direct test of its own.
+
+### The direct guard, and the pixel test that was thrown away
+
+The first version of that guard looked for painted pixels outside the
+frame's path. **It passed identically with the bug present and with it
+fixed** — a 0.09-alpha white line moved half a pixel does not push visible
+colour past an arc. That is the eleventh test in this cycle that could not
+fail, and it was deleted rather than tuned.
+
+The replacement asserts the PATH, not the pixels: `strokeInsetHairline` is
+called with a stub context that records `moveTo`/`arcTo`, and the traced
+rectangle must be inset half a pixel on every side with its radius reduced
+by the same half pixel. Confirmed red against `box.radius` (`expected 11 to
+be close to 10.5`) and green after. A second case checks a radius of 0 never
+traces a negative one.
+
+### Goldens
+
+Nine changed — every golden that draws an inset hairline: `browser-dark`,
+`browser-light`, `browser-url`, `square-browser`, `stroke-browser`,
+`stroke-glass`, `phone`, `mobile`, `web-mobile`. The four with no hairline
+anywhere — `web`, `mesh`, `shadow-heavy`, `stroke-light` — are
+byte-identical, which is the check that the change did only what it claims.

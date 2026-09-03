@@ -132,14 +132,29 @@ export const CHROME_REF_WIDTH = 1280 / 0.75; // = 1706.666...
 // WAS 10/133 = 0.0752, from the handoff's 32px bar on a 425.6px frame.
 export const BROWSER_BAR_RATIO = 53 / CHROME_REF_WIDTH; // = 0.03105
 
-// Outer window corner radius. The `Desktop / Safari / Light` symbol itself
+// Outer window corner radius. THE ONE VALUE HERE THAT IS NOT THE
+// REFERENCE'S. Safari's is 24: the `Desktop / Safari / Light` symbol itself
 // carries `border-radius: 24px` with `overflow: clip`, so 24 is the corner
 // the window actually shows. (Its `toolbar` child has its own 10px top
 // corners, which the 24px clip overrides and which are therefore NOT the
-// visible radius - do not use 10 here.) `Body` (1:3180) has no radius at
-// all; it is a plain rect behind the clip. WAS 25/1064 = 0.0235, which at
-// 1280 would have been 30px.
-export const BROWSER_RADIUS_RATIO = 24 / CHROME_REF_WIDTH; // = 0.0140625
+// visible radius - do not use 10 here. `Body`, 1:3180, has no radius at all;
+// it is a plain rect behind the clip.)
+//
+// Rock asked for less: "our base browser view can have less rounded
+// corners. based on our sliders, 0.6% would be it." The Corner radius
+// slider reads in percent of CANVAS width, so 0.6% is 10.8px on an 1800px
+// canvas - and at 3:2 the frame is 1675.2px wide, so 11/1706.67 of the
+// frame lands on 10.80px, which is 0.600% of the canvas exactly. Stated in
+// the same <px>/CHROME_REF_WIDTH vocabulary as everything else so it stays
+// comparable to Safari's own 24.
+//
+// A DELIBERATE CONSEQUENCE, so it is not a surprise later: the frameless
+// screenshot's own corner is RADIUS_RATIO, 1.33% of canvas width, so
+// turning the browser frame on now tightens the corner noticeably. The
+// slider governs the former and this constant the latter; they are
+// different corners on different objects, and Cycle B's per-element model
+// is where they stop being two unrelated numbers.
+export const BROWSER_RADIUS_RATIO = 11 / CHROME_REF_WIDTH; // = 0.006445
 
 // Traffic lights. `Core / Traffic Lights (Big Sur)` (1:35) is 52 x 12 at
 // x=21, y=20 in the bar, and its own SVG puts the three circles at cx 6,
