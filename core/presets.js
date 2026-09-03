@@ -95,13 +95,42 @@ export const FRAME_KINDS = ['none', 'browser', 'phone'];
 // screenshot would carry toolbar clutter and retina artefacts we would
 // then have to strip back out.
 //
-// Every ratio is <measured px> / 1280 - a fraction of the FRAME's own
-// width, the same convention phoneBox() uses for the phone's bezel, so a
-// frame drawn at any canvas size keeps identical proportions.
+// Every ratio is <measured px> / CHROME_REF_WIDTH - a fraction of the
+// FRAME's own width, the same convention phoneBox() uses for the phone's
+// bezel, so a frame drawn at any canvas size keeps identical proportions.
+
+// AND THE DIVISOR IS NOT 1280, WHICH IS THE WHOLE POINT OF THIS CONSTANT.
+//
+// The reference window is 1280px wide, so dividing by 1280 draws its chrome
+// at the size it would be if our frame were a 1280px browser window. It is
+// not: at 3:2 the frame is 1675px wide, and every one of these ratios is
+// then multiplied back up by that. The bar came out at 69px - correct as a
+// proportion, and still visibly taller than the bar on a real desktop.
+// Rock, after seeing the first rebuild: "I still feel like it's too big...
+// in the small image the bar is almost as tall as the bar I have right now
+// on my desktop. i think this could be, proportionally, about 1/4 shorter."
+//
+// He is describing a real property of browser chrome: its height is FIXED.
+// A Safari window twice as wide still has a 53px toolbar - the chrome does
+// not grow with the window, only the page does. Our frame is 1675px wide,
+// so the honest divisor is the width of the window we are pretending to
+// draw, not 1280.
+//
+// 1280 / 0.75 = 1706.67, which is Rock's "about 1/4 shorter" exactly. It
+// also lands within 2% of 1675.2 - our actual frame width at 3:2 - so the
+// bar now draws at very close to a literal 53 canvas pixels, which is what
+// a real Safari bar would be. Two independent routes to the same number.
+//
+// EVERY RATIO BELOW SHARES THIS DIVISOR, deliberately. Shrinking the bar
+// alone would leave a 28px pill in a 40px bar - the reference's internal
+// proportions are what make it read as a browser, and they are preserved
+// exactly. What changes is only how large the whole window chrome is
+// relative to the screenshot inside it.
+export const CHROME_REF_WIDTH = 1280 / 0.75; // = 1706.666...
 
 // Bar (toolbar) height. `toolbar` (1:3181) is 1280 x 53 at y=0.
 // WAS 10/133 = 0.0752, from the handoff's 32px bar on a 425.6px frame.
-export const BROWSER_BAR_RATIO = 53 / 1280; // = 0.04140625
+export const BROWSER_BAR_RATIO = 53 / CHROME_REF_WIDTH; // = 0.03105
 
 // Outer window corner radius. The `Desktop / Safari / Light` symbol itself
 // carries `border-radius: 24px` with `overflow: clip`, so 24 is the corner
@@ -110,35 +139,35 @@ export const BROWSER_BAR_RATIO = 53 / 1280; // = 0.04140625
 // visible radius - do not use 10 here.) `Body` (1:3180) has no radius at
 // all; it is a plain rect behind the clip. WAS 25/1064 = 0.0235, which at
 // 1280 would have been 30px.
-export const BROWSER_RADIUS_RATIO = 24 / 1280; // = 0.01875
+export const BROWSER_RADIUS_RATIO = 24 / CHROME_REF_WIDTH; // = 0.0140625
 
 // Traffic lights. `Core / Traffic Lights (Big Sur)` (1:35) is 52 x 12 at
 // x=21, y=20 in the bar, and its own SVG puts the three circles at cx 6,
 // 26 and 46 with r=6 - so 12px across, 20px centre to centre, and the
 // group's left edge 21px from the window's.
-export const TRAFFIC_DOT_RATIO = 12 / 1280;    // = 0.009375, diameter
-export const TRAFFIC_GAP_RATIO = 20 / 1280;    // = 0.015625, centre to centre
-export const TRAFFIC_INSET_RATIO = 21 / 1280;  // = 0.01640625, frame edge to first dot's edge
+export const TRAFFIC_DOT_RATIO = 12 / CHROME_REF_WIDTH;    // = 0.00703, diameter
+export const TRAFFIC_GAP_RATIO = 20 / CHROME_REF_WIDTH;    // = 0.01172, centre to centre
+export const TRAFFIC_INSET_RATIO = 21 / CHROME_REF_WIDTH;  // = 0.01230, frame edge to first dot's edge
 
 // URL pill. `URL Form` (4008:386) is 484 x 28 at x=398, y=12. It is
 // CENTRED, not flowed after the dots: 398 + 484/2 = 640, exactly half of
 // 1280, and the Figma node carries `left:50%; translateX(-50%)` to say so.
 // Round one's pill filled whatever width was left after the dot group,
 // which is why it never lined up with anything.
-export const URL_PILL_WIDTH_RATIO = 484 / 1280;   // = 0.378125
-export const URL_PILL_HEIGHT_RATIO = 28 / 1280;   // = 0.021875
+export const URL_PILL_WIDTH_RATIO = 484 / CHROME_REF_WIDTH;   // = 0.28359
+export const URL_PILL_HEIGHT_RATIO = 28 / CHROME_REF_WIDTH;   // = 0.01641
 
 // Pill corner radius, read off the `URL Background` SVG's own path
 // (`M0 9.6 C ...`): 9.6px on a 28px-tall pill. WAS 25/2128 = 0.01175,
 // which against the new 28px pill would be 15px - past half its height, so
 // it would have collapsed into a stadium.
-export const URL_PILL_RADIUS_RATIO = 9.6 / 1280; // = 0.0075
+export const URL_PILL_RADIUS_RATIO = 9.6 / CHROME_REF_WIDTH; // = 0.005625
 
 // Pill text size. `URL Address` (4008:390) is SF Pro Display Medium 14px.
 // WAS 5/224 = 0.0223, sized for the old 45/1064 pill; at 1280 that is
 // 28.6px, which would not fit inside a 28px pill at all. This is the
 // change that makes the URL legible instead of clipped.
-export const URL_PILL_FONT_RATIO = 14 / 1280; // = 0.0109375
+export const URL_PILL_FONT_RATIO = 14 / CHROME_REF_WIDTH; // = 0.0082
 
 // Vertical placement, stated once because both groups share it: the dots
 // (20 + 12/2 = 26) and the pill (12 + 28/2 = 26) are both centred in the

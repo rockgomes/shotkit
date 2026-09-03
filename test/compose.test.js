@@ -347,13 +347,31 @@ describe('pixel-diff against frozen renders', () => {
     const a = target.getContext('2d').getImageData(0, 0, target.width, target.height);
     const b = rc.getContext('2d').getImageData(0, 0, ref.width, ref.height);
     const diff = pixelmatch(a.data, b.data, null, ref.width, ref.height, { threshold: 0 });
-    // Lowered from 5e-4 by Task 8, and only because the TEXT got smaller:
-    // the pill font went from 5/224 of the frame width to the reference's
-    // 14/1280, roughly half, so there are about half as many glyph pixels
-    // to differ. Measured after the rebuild: 704 of 2,160,000 pixels, a
-    // ratio of 3.26e-4, against this 2.5e-4 bound. Recorded so a future
-    // change that quietly stops drawing the text cannot slip under it.
-    expect(diff / (ref.width * ref.height)).toBeGreaterThan(2.5e-4);
+    // Lowered twice by Task 8, and BOTH TIMES only because the text got
+    // smaller - never to make a failing render pass. The pill font went
+    // from 5/224 of the frame width to 14/1280 (the measured reference),
+    // then to 14/1706.67 when Rock asked for the whole chrome a quarter
+    // shorter. Measured at each step, out of 2,160,000 pixels:
+    //
+    //   before Task 8   ~1080 px   5.00e-4  (the original bound)
+    //   after remeasure    704 px   3.26e-4
+    //   after 3/4 chrome   514 px   2.38e-4  <- now, against 1.8e-4
+    //
+    // A bound that keeps being lowered is a bound worth distrusting, so the
+    // second assertion below does not depend on glyph COUNT at all.
+    expect(diff / (ref.width * ref.height)).toBeGreaterThan(1.8e-4);
+
+    // The size-independent half: the same config with NO url must differ
+    // from this golden too. That is the claim the golden actually exists to
+    // make - it carries drawn text - and it cannot be eroded by the text
+    // getting smaller, only by the text disappearing.
+    const empty = await run(
+      { ratio: '3:2', frameKind: 'browser', chromeTheme: 'dark' },
+      { web: 'samples/fieldset.png' },
+    );
+    const e = empty.target.getContext('2d').getImageData(0, 0, ref.width, ref.height);
+    const emptyDiff = pixelmatch(e.data, b.data, null, ref.width, ref.height, { threshold: 0 });
+    expect(emptyDiff).toBeGreaterThan(0);
   });
 
   // Task 6b, the same "break it and watch it go red" discipline: the loop

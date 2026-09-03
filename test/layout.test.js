@@ -501,17 +501,24 @@ describe('frames grow outward', () => {
     expect(lay.web.y).toBeLessThan(lay.web.chrome.screen.y);
   });
 
-  // `pad: 0.02` puts the safe box exactly on MIN_MARGIN_RATIO, so ANY
-  // outset has to scale the composite. It used to be enough to turn the
-  // browser frame on at the default padding - Task 8 rebuilt the bar from
-  // 7.5% of the window width to 4.1%, and at 3:2 that now fits inside the
-  // default padding with room to spare. That is the feature working, so
-  // the test moves its premise rather than its assertion.
+  // THE PREMISE MOVED TWICE, AND THE ASSERTION NEVER DID. Turning a browser
+  // frame on used to cross MIN_MARGIN_RATIO all by itself at the default
+  // padding. Task 8 took the bar from 7.5% of the window width to 4.1%, and
+  // then to 3.1% at Rock's "about 1/4 shorter" - so it now fits inside the
+  // default padding twice over. That is the feature working, not a
+  // regression, so this test chases a config where the floor still binds
+  // rather than loosening what it checks.
+  //
+  // `pad: 0.02` puts the safe box exactly on the floor, and a SQUARE source
+  // makes height the binding dimension: the screenshot already fills the
+  // safe box's full height, so any bar at all has to push past it.
+  const SQUARE_SRC = 1;
   it('scales the whole composite uniformly when the floor does bind', () => {
     const bare = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'none', pad: 0.02 }),
-                        { web: FLOORED_SRC, mobile: [] }).web;
+                        { web: SQUARE_SRC, mobile: [] }).web;
     const framed = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser', pad: 0.02 }),
-                          { web: FLOORED_SRC, mobile: [] }).web;
+                          { web: SQUARE_SRC, mobile: [] }).web;
+    expect(framed.w).toBeLessThan(bare.w);   // the floor really did bind
     const screen = framed.chrome.screen;
     // Uniform: width and height lose the same factor, so the picture is
     // scaled, never squashed.

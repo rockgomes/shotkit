@@ -1143,3 +1143,51 @@ Five changed, exactly the five predicted: `browser-dark`, `browser-light`,
   against a hardcoded `10/133`. Now imports `BROWSER_BAR_RATIO`. That
   literal was exactly the drift this codebase keeps warning about, and it
   was mine.
+
+## Task 8, round two — the whole chrome at 3/4
+
+Rock, on the first rebuild: *"I still feel like it's too big. like, in the
+small image the bar is almost as tall as the bar I have right now on my
+desktop. i think this could be, proportionally, about 1/4 shorter in
+height."*
+
+He was describing a real property the first pass missed. **Browser chrome
+has a FIXED height.** A Safari window twice as wide still has a 53px
+toolbar — the chrome does not grow with the window, only the page does.
+Dividing the measurements by 1280 drew the reference's chrome at the size it
+would be *if our frame were a 1280px window*. It is not: at 3:2 the frame is
+1675px wide, and every ratio was multiplied back up by that. The bar came out
+at 69px — proportionally faithful, and taller than any real one.
+
+**Fix: `CHROME_REF_WIDTH = 1280 / 0.75 = 1706.67`**, the single divisor every
+browser ratio now shares. Two independent routes agree on it:
+
+- Rock's "about 1/4 shorter" is exactly the 0.75.
+- 1706.67 is within 2% of 1675.2, our actual frame width at 3:2 — so the bar
+  now draws at **52.0px** against a real Safari's **53px**. Very nearly
+  literal.
+
+**Every ratio shares the divisor, deliberately.** Shrinking the bar alone
+would have left a 28px pill inside a 40px bar. The reference's internal
+proportions are what make it read as a browser, and they are preserved to the
+decimal: pill height is 52.8% of bar height here and 52.8% in the reference.
+
+At a 1675.2px frame: bar 52.0, window radius 23.6, dot 11.8, pill 475×27.5,
+pill text 13.7px.
+
+### Two tests moved again, and the second one is the interesting failure
+
+- **`scales the whole composite uniformly when the floor does bind`** — its
+  premise broke for the second time in one task. The bar is now small enough
+  that a browser composite clears `MIN_MARGIN_RATIO` even at `pad: 0.02`. The
+  test now uses a SQUARE source, so the screenshot already fills the safe
+  box's height and any bar at all must push past it, and it asserts up front
+  that the floor really did bind rather than trusting the setup.
+- **`the browser-url golden actually discriminates`** — its bound has now
+  been lowered twice in one task, both times because the text got smaller:
+  5.00e-4 → 3.26e-4 → 2.38e-4 (514 of 2,160,000 pixels). **A bound that keeps
+  being lowered is a bound worth distrusting**, so the test gained a second
+  assertion that does not depend on glyph count at all: the same config with
+  no url must differ from the golden. That is the claim the golden exists to
+  make, and it cannot be eroded by the text shrinking — only by the text
+  disappearing.
