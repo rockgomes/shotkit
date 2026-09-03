@@ -453,6 +453,36 @@ the phone already wants a bounded radius for the same reason (see the
 carried-forward note above). Disabling is the fallback if the frame's radius
 turns out to be tied to geometry that cannot move.
 
+## Mesh is built, and withheld — Rock 2026-09-03
+
+Item 9 of the list ("Mesh rebuilt so it is worth having") was built in Cycle
+A Task 9 and passes all three gates it was given: it spans real hue variety,
+`spread`/`stops`/`seed` each steer it, and it does not go muddy at the widest
+spread. Rock then used it:
+
+> *"honestly, I can barely see anything. like, I can see it on your
+> screenshots, but when there's a screen on top, there isn't much to see, and
+> our current colors are very faint. I'm not sure about this. would it be a
+> good idea to turn mesh option off for now and revisit it later?"*
+
+**He is diagnosing it correctly, and the diagnosis is why this is a hide and
+not a delete.** A shot is a screenshot with a border of ground around it. Any
+ground effect only has that border to work in, and on a pale palette the
+border shows almost nothing — the linear gradient included. What fails is the
+palette, not the mesh: rendered on a saturated ground the same mesh is
+unmistakable.
+
+So the way in is closed (`UI_BG_TYPES` in `web/inspector-background.js`) and
+nothing else is: `paintMesh`, the `mesh` config block, `MESH_*` in presets,
+both goldens and all sixteen tests stay, fully guarded. Restoring it is one
+line.
+
+**Revisit it after the palette work**, which is already in this spec's
+Background section — bigger, truer preset tiles and a stronger set of
+grounds. Mesh should be judged again then, on a ground that can carry it, and
+with a shot on top rather than on its own. If it still cannot be seen at that
+point, delete it rather than hiding it a second time.
+
 ## Carried forward — Background panel, from Rock 2026-09-02
 
 Raised while approving Task 5, and explicitly deferred by him: *"I guess this

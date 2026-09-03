@@ -100,6 +100,31 @@ export function setAngle(config, deg) {
   config.angle = ((Math.round(n) % 360) + 360) % 360;
 }
 
+// WHAT THE PANEL OFFERS, which is deliberately NOT all of BG_TYPES.
+//
+// Mesh is withheld from the UI as of 2026-09-03, at Rock's call, after he
+// used the rebuilt version: "I can barely see anything... when there's a
+// screen on top, there isn't much to see, and our current colors are very
+// faint. would it be a good idea to turn mesh option off for now and
+// revisit it later?"
+//
+// He is diagnosing it correctly, and the diagnosis is the reason this is a
+// HIDE AND NOT A DELETE. Cycle A Task 9's three gates all pass on their own
+// terms - mesh spans real hue variety, spread/stops/seed all steer it, and
+// it does not go muddy - but a shot is a screenshot with a border of ground
+// around it, and on a pale palette that border shows almost nothing. What
+// fails is the palette, which Cycle B rewrites anyway. So `paintMesh`, its
+// config block, its tests and both its goldens all stay, fully guarded;
+// only the way in is closed.
+//
+// TO RESTORE IT: delete this constant and map over BG_TYPES again below.
+// Nothing else has to come back, because nothing else went away.
+export const UI_BG_TYPES = BG_TYPES.filter(t => t !== 'mesh');
+
+// Still validated against core's BG_TYPES, not against UI_BG_TYPES above: a
+// jobs.json or a saved config carrying `mesh` is a legitimate input that
+// core/ renders correctly, and this function's job is to reject nonsense,
+// not to enforce what the panel happens to show today.
 export function setBgType(config, type) {
   if (!BG_TYPES.includes(type)) return;
   config.bgType = type;
@@ -428,7 +453,7 @@ export function initBackgroundInspector() {
   typeSegmented.setAttribute('role', 'group');
   typeSegmented.setAttribute('aria-label', 'Background type');
   const TYPE_LABELS = { linear: 'Linear', solid: 'Solid', mesh: 'Mesh' };
-  const typeButtons = BG_TYPES.map((type) => {
+  const typeButtons = UI_BG_TYPES.map((type) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'segmented-cell';
@@ -596,7 +621,11 @@ export function initBackgroundInspector() {
   }
 
   function syncTypeUI() {
-    const type = BG_TYPES.includes(state.config.bgType) ? state.config.bgType : DEFAULTS.bgType;
+    // UI_BG_TYPES, not BG_TYPES: a config carrying a type the panel does
+    // not offer (mesh, today) must not leave the section showing that
+    // type's own rows with no button selected to explain them.
+    const type = UI_BG_TYPES.includes(state.config.bgType)
+      ? state.config.bgType : DEFAULTS.bgType;
     typeButtons.forEach((btn) => {
       const active = btn.dataset.type === type;
       btn.classList.toggle('is-active', active);

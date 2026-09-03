@@ -6,6 +6,7 @@ import {
 import { state, bindCanvas, render } from '../web/state.js';
 import { selectGround, activeGroundKey } from '../web/sidebar.js';
 import {
+  UI_BG_TYPES,
   activeMeshStops,
   setMeshStops,
   activeMeshSpread,
@@ -533,5 +534,33 @@ describe('mesh stops and spread (Task 9)', () => {
     setMeshSpread(config, 'wide');
     expect(activeMeshStops(config)).toBe(4);
     expect(activeMeshSpread(config)).toBe(MESH_DEFAULTS.spread);
+  });
+});
+
+// --- Mesh withheld from the panel (2026-09-03) ---------------------------
+//
+// Rock's call after using the rebuilt mesh: it cannot carry a shot on a pale
+// palette, and the palette is Cycle B's work. These assert the shape of that
+// decision - the way IN is closed, the feature is not deleted - so that
+// restoring it later is one line rather than an archaeology exercise.
+describe('mesh is withheld from the Background panel, not removed', () => {
+  it('the panel does not offer mesh', () => {
+    expect(UI_BG_TYPES).not.toContain('mesh');
+    expect(UI_BG_TYPES).toContain('linear');
+    expect(UI_BG_TYPES).toContain('solid');
+  });
+
+  it('core still accepts and renders it, so nothing was thrown away', () => {
+    expect(normalise({ bgType: 'mesh' }).bgType).toBe('mesh');
+    const config = {};
+    setBgType(config, 'mesh');
+    expect(config.bgType).toBe('mesh');
+  });
+
+  it('and the mesh controls still work for whatever does set it', () => {
+    const config = {};
+    setMeshStops(config, 5);
+    setMeshSpread(config, 120);
+    expect(normalise(config).mesh).toEqual({ stops: 5, spread: 120 });
   });
 });
