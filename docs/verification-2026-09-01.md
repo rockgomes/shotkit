@@ -599,3 +599,768 @@ Driven against the live origin, not a local server:
 - **The two real-hardware items from Task 7** — an OS-level Reduce Motion
   toggle, and a real window drag across the 900px breakpoint. Still worth
   thirty seconds on the live site.
+
+---
+
+# Task 4b — grain scope, and the white edge nobody could reproduce
+
+Date: 2026-09-02. Branch `feat/cycle-a`, on top of `e75e6b9`.
+
+Two defects, reported together and unrelated in cause. One is testable in
+Node and is tested. The other is a **Chromium-only rasterisation bug** that
+`@napi-rs/canvas` does not reproduce, so this record — not a green test — is
+the evidence for it.
+
+## 1. Grain was painted over everything (testable, tested)
+
+`composeWithMeta`'s paint order was ground → shot → **grain last**, and
+`paintGrain` is an unclipped `soft-light` `fillRect` across the whole canvas.
+So the noise landed on the screenshot and the phones, not only on the ground.
+
+Measured, `@napi-rs/canvas`, flat `#808080` source, `grain: 1`, sampling the
+screenshot's interior 8px inside each edge:
+
+```
+before:  105 distinct colours, per-channel spread 104/104/104
+after:     1 distinct colour,  per-channel spread   0/  0/  0
+```
+
+`test/render-grain-scope.test.js` asserts exactly that, for the web screen
+and for a phone, plus a third case proving the ground is still grained (so
+the fix cannot be satisfied by turning grain off). Confirmed red against the
+unfixed code before the fix landed: two of its three cases failed with the
+"105 colours" reading above.
+
+**Fix:** `paintGrain` moved to immediately after `paintGround`, rather than
+clipped around the shots. The reasoning is in `core/index.js` at the call
+site: an even-odd clip around every shot box would modulate the grain along
+its own antialiased boundary, producing a 1px ring at the shot's edge — the
+exact artefact Task 1 spent two rounds removing.
+
+## 2. The white edge on dark screenshots (browser only, NOT testable here)
+
+Reported as *"I just tried using a dark image there, and they have a white
+stroke"* and *"even the roundness of the corner is off"*.
+
+Reproduced in Chrome through the app's own drop handler (dev server on
+:5188, a real `DragEvent` with a `DataTransfer`, measured only after the
+canvas's pixels had actually changed), flat `#1e1e1e` 1512x982 source,
+default settings, 1800x1200 canvas:
+
+```
+13,864 pixels at exactly 255,255,255, alpha 255
+right edge   x 1728-1731   (the shot's box ends at x = 1727.75)
+bottom edge  y 1138-1143   (the shot's box ends at y = 1137.60)
+```
+
+### It is not grain
+
+Bisecting `composeWithMeta` stage by stage in the browser: after
+`paintGround` 0 white pixels, after `paintWeb` 13,864, after `paintGrain`
+still 13,864. Grain was a red herring.
+
+### The mechanism
+
+`paintWeb` clipped to a rounded rect and then filled the body with
+`ctx.fillRect` covering that whole clip. In Chromium, **a `fillRect` that
+covers its clip region is rasterised against the clip mask's rounded-out
+device bounds instead of its own rectangle**, and for an antialiased
+non-rectangular clip those bounds overshoot the path.
+
+Measured directly, canvas 1800x1200, box `{x:100, y:100, w:1600, h:1000}` —
+so the true right edge is 1700 and the true bottom is 1100. Last painted
+pixel:
+
+```
+radius 0      clip + fillRect     right 1699  bottom 1099   exact
+radius 2      clip + fillRect     right 1703  bottom 1103   +4 / +4
+radius 4      clip + fillRect     right 1703  bottom 1103   +4 / +4
+radius 8      clip + fillRect     right 1703  bottom 1103   +4 / +4
+radius 12     clip + fillRect     right 1703  bottom 1103   +4 / +4
+radius 16     clip + fillRect     right 1703  bottom 1103   +4 / +4
+radius 24     clip + fillRect     right 1703  bottom 1103   +4 / +4
+radius 32     clip + fillRect     right 1703  bottom 1103   +4 / +4
+radius 48     clip + fillRect     right 1703  bottom 1103   +4 / +4
+radius 64     clip + fillRect     right 1703  bottom 1103   +4 / +4
+radius 96     clip + fillRect     right 1703  bottom 1103   +4 / +4
+
+radius 24     clip + fill(path)   right 1699  bottom 1099   exact
+radius 24     clip + drawImage    right 1699  bottom 1099   exact
+radius 24     plain rect clip     right 1699  bottom 1099   exact
+radius 24     no clip, fillRect   right 1699  bottom 1099   exact
+```
+
+The overshoot is a constant +4 on the right and bottom, independent of the
+radius, absent on the left and top, and absent at radius 0 (where the path
+degenerates to a rectangle). Only a fill that COVERS the clip triggers it: a
+small rect inside the clip is exact (`fillRect(200,200,400,60)` inside the
+same clip → 200,200..599,259, correct to the pixel), and so is a bar
+spanning the full clip width at the top (100,100..1699,159, correct).
+
+Intersecting an exact `rect()` clip with the rounded clip does **not** help —
+measured, still 13,868 near-white pixels — because the combined clip is
+still non-rectangular. The fix is not "clip differently", it is "fill the
+path you already have instead of a rectangle over it".
+
+### Why it reads as a white stroke and a wrong corner
+
+The overshooting fill is the screen's own body colour, `#ffffff`. On a pale
+screenshot it is invisible. On a dark one it is a 4px white band down the
+right edge and a 6px band along the bottom, and at the bottom-right corner
+the leaked rounded rect's curve does not coincide with the shot's, so the
+corner reads as the wrong radius. Both of Rock's sentences describe the same
+bug. Before/after at 10x: `docs/2026-09-02-task-4b-clip-leak.png`.
+
+### Why there is no pixel test for it
+
+`@napi-rs/canvas` clips exactly, so the same scene renders clean in Node
+both before and after the fix. A pixel assertion would pass in both
+directions — vacuous, which this cycle has already shipped five times. The
+guard is structural instead: `test/render-clip-safety.test.js` scans
+`core/render.js` for any `fillRect` inside a `ctx.clip()` block and for the
+five painters that must route their body fill through `fillRoundRect`.
+Confirmed red against the pre-fix file: 7 of its 9 cases fail, naming all
+five leaking `fillRect` sites.
+
+Its known limit is stated in the file: the scan is lexical, so a covering
+`fillRect` reached only at runtime across a call boundary would slip past
+it. The one such call that exists today — `paintChrome`'s title bar, inside
+`paintWebChrome`'s clip — was measured and is safe, because it does not
+cover the clip.
+
+### Confirmed fixed, in the browser, through the app
+
+Same flat `#1e1e1e` drop, after the fix:
+
+```
+pixels at 255,255,255 : 0
+pixels >= 245 on every channel : 0
+right edge profile  : 30, 30, 30, 81, 168, 170, ...   (one AA pixel)
+bottom edge profile : 30, 30, 30, 99, 156, 156, ...   (one AA pixel)
+screenshot interior : 1 distinct colour
+```
+
+### A second thing the fix corrected, in Node as well
+
+Filling the path instead of a covering rect also changed the single boundary
+pixel at every shot edge, and changed it towards the truth. Phone frame,
+`box.x = 62.4` (so 60% body coverage on pixel 62), body `17,19,24` on ground
+`231,233,240`:
+
+```
+ideal blend   ~103
+before         160,162,168
+after          113,114,119
+```
+
+The old rendering carried a light 1px halo on every edge, in Node and in the
+browser. It is now within 10 levels of the correct coverage blend. This
+accounts for ~5,100 of the changed pixels in each regenerated golden.
+
+## 3. Goldens
+
+All ten regenerated. The change was attributed before regenerating, by
+composing the same cases against the pre-fix core and the post-fix core:
+
+```                     clip fix alone (grain 0)      total change
+web             5,187 px, max delta  8     434,037 px, max delta 19
+phone           5,083 px, max delta 51     540,170 px, max delta 61
+mobile          5,898 px, max delta 48     860,713 px, max delta 55
+browser-dark    5,091 px, max delta 48     572,907 px, max delta 53
+```
+
+The clip fix touches ~5,100 pixels per case — the shot's perimeter, which is
+~5,460 pixels for the 3:2 web box. Everything else is the grain move: large
+inside the shot (max delta 19 on a light screenshot, 61 on the dark phone
+body — soft-light lightens dark pixels hardest, which is why the complaint
+came from a dark screenshot), and at most 3-4 levels outside it, where the
+only change is that the shadow is now painted over grain rather than under
+it.
+
+One assertion moved with them: `test/compose.test.js`'s "the browser-url
+golden actually discriminates" measured 0.00201 and now measures 0.000816,
+still ~80x its pass threshold. The drop is `pixelmatch`'s `includeAA: false`
+finally working — grain over the URL text used to defeat its antialias
+heuristic, so glyph edges counted as differences. With clean text they are
+correctly skipped and only glyph bodies count, which is the stricter
+measurement. The threshold and the recorded number were updated together,
+with that reasoning in the test.
+
+## What was NOT established
+
+- **The exact Skia code path.** The behaviour is characterised (constant +4,
+  right and bottom, only when the fill covers a non-rectangular clip) but
+  not traced to a Chromium source line, and no upstream bug was filed or
+  looked for.
+- **Whether it is size-dependent.** A small case — 200x150 canvas, box
+  100.3x80.7, radius 12 — showed no overshoot. Every case at shot-sized
+  geometry did. The threshold between them was not located, so nobody should
+  treat a small repro's cleanliness as disproof.
+- **Other browsers.** Measured in Chrome only. Not checked in Safari or
+  Firefox. The fix does not depend on which is affected.
+
+## 4. The CI timeout this task hit on the way through
+
+The first push of Task 4b went red on CI — `export-scale-fidelity.test.js`
+timed out at 20s — and it was worth ruling out as a regression before
+treating it as a budget problem.
+
+It is not a regression. The same test was timed on `HEAD~1` (the pre-Task-4b
+commit, in a worktree, same machine, same `node_modules`) and on the fix:
+
+```
+                        first case      second case
+HEAD~1 (before)         5.4s / 5.6s     3.6s / 3.9s
+Task 4b (after)         5.3s / 6.5s     3.1s / 5.2s
+under full-suite load   9.5s            4.5s
+```
+
+Identical within noise. The test composes the same shot at 1x, 2x and 3x, and
+3x of 2000x1500 is 27 megapixels through `@napi-rs/canvas`; at 9.5s under
+load it had 2.1x headroom against the suite-wide 20s, and CI's shared
+`macos-15-intel` runner is slower than this machine. It was always marginal —
+the Task 7 record above already notes it timing out once, in the previous
+cycle, for the same reason.
+
+Fixed by scoping a measured 90s timeout to that one file rather than raising
+the suite-wide budget, so the other 320 tests keep a tight one — for them a
+20s hang IS the bug signal. The `describe(name, { timeout }, fn)` form was
+verified to actually apply, not be silently ignored, with a throwaway test
+that sleeps 24s and passes under it.
+
+---
+
+# Task 4d — the clip itself, measured in Chrome
+
+Task 4c stopped a one-pixel halo by snapping the screenshot's destination
+rect outward onto the pixel grid, inside the `ctx.clip()` every painter had
+always used. The edge numbers came right. Rock opened the preview and
+reported two new things the same day:
+
+> "1px is cut from the top and left of the screenshot" — as soon as the
+> corner radius is above zero. At radius 0 the image is intact.
+
+> "a visible spike where the straight edge meets the corner arc" — visible
+> without zooming.
+
+Both are the clip, and both are invisible to this suite: `@napi-rs/canvas`
+does not reproduce either. This section is the browser measurement that
+stands in for the pixel test, exactly as Task 4b's does above.
+
+## The measurement
+
+A standalone page, canvas 1800x1200, box `{x:62.4, y:76.5, w:1675.2,
+h:1047, radius:24}` — the app's own `frame: none` geometry at the default
+padding — rendering the same scene four ways and reading the result back
+with `getImageData`. Two flat sources (`#141414` and `#c8c8c8`) isolate the
+screenshot's own contribution from everything painted over it:
+
+```
+out(S) = a * S + b   =>   a = (out(light) - out(dark)) / (light - dark)
+```
+
+`a` is how much of the screenshot reached each pixel. The path's own
+coverage comes from filling the same rounded rect white on black.
+
+### Edge coverage — the shot against the path it is supposed to follow
+
+```
+                                   left     right     top      bottom
+path coverage                      0.600    0.596     0.502    0.502
+A  clip + snapped drawImage        0.600    1.000     0.500    1.000
+C  tile + edge clamp + one mask    0.600    0.594     0.500    0.500
+D  tile, no clamp                  0.361    0.361     0.000    0.250
+```
+
+**A overshoots its own clip by a whole pixel on the right and bottom.** That
+is the same Chromium behaviour Task 4b measured for a covering `fillRect` —
+a non-rectangular clip is rasterised against rounded-out device bounds, not
+against its path — reaching `drawImage` for the first time because Task 4c's
+snap pushed the drawn rect out far enough to touch those bounds. Before 4c
+the picture faded out inside the clip and never met it.
+
+The report about the top and left is a plainer thing, and NOT
+Chromium-specific: the snapped rect starts at `floor(box.x)`, the clip cuts
+at `box.x`, and what falls between them is picture. It is ordinary clipping
+of an overhang the snap created. Measured as marker survival — a source
+whose first row and column are a distinct colour, rendered twice and
+subtracted, summed across the boundary:
+
+```
+                                   top row survived   left column survived
+one source row/column is           1.163 px           1.163 px
+A  clip + snapped drawImage        0.714 px (61%)     0.812 px (70%)
+C  tile + edge clamp               1.141 px (98%)     1.141 px (98%)
+```
+
+This half IS reproducible in Node — `@napi-rs/canvas` reads 0.714 and 0.812
+for A too, to three decimal places — which is why it is a real test rather
+than a note in this file: `test/render-edge-blend.test.js`'s "the screenshot
+keeps every pixel it was given", six assertions at three radii, all six red
+against the pre-fix core.
+
+**D is why the clamp is not optional.** A tile whose picture is drawn at the
+true rect and then masked has two antialiased edges again — its own and the
+mask's — and they multiply: 0.6 x 0.6 = 0.36. That is Task 4c's halo back in
+full. The clamp draws the source's outermost row and column one pixel past
+the shot under `destination-over`, so the picture has no partial coverage of
+its own along the line the mask cuts.
+
+### The corner join — where the straight edge meets the arc
+
+Walking the bottom-right corner column by column and reading the boundary's
+sub-pixel position out of each column's coverage, normalised by the straight
+run (this is the metric `test/render-edge-blend.test.js` uses, tolerance
+0.35px):
+
+```
+                                   worst column     worst step
+A  clip + snapped drawImage        2.939 px         1.234 px
+C  tile + edge clamp + one mask    0.009 px         0.012 px
+@napi-rs/canvas, either            0.031 px         0.021 px
+```
+
+Walking it row by row instead makes the shape of it plainer — A tracks the
+arc to within 0.03px for eleven rows and then leaves it:
+
+```
+row    1119    1120    1121    1122     1123
+A      0.000  -0.004  +0.028  +0.451  +14.008
+C      0.000  +0.002  +0.006  -0.005   -0.031
+```
+
+Fourteen pixels of shot sticking out along the bottom edge where the arc has
+already turned away from it. That is the spike, and it is one pixel of
+overshoot on a straight edge meeting a curve that has none.
+
+### Colour at the boundary — why the clamp and not a scaled copy
+
+Redrawing the whole picture one pixel larger behind itself fixes the
+coverage identically, and shifts the boundary colour, because it resamples
+the picture off its own grid. On a source whose first row is a distinct
+colour:
+
+```
+the row itself                     218,90,218
+C  edge clamp                      218,90,218
+B  scaled second copy              172,136,172
+```
+
+## What was NOT established
+
+- **Which Chromium version, and whether it is GPU-dependent.** Measured in
+  the Chrome this machine runs, once. Not checked across versions, not
+  checked with GPU rasterisation forced off, not checked in Safari or
+  Firefox. The fix does not depend on which engines are affected — it
+  removes the clip rather than working around it.
+- **Whether the +1 on right/bottom and the +4 of Task 4b are the same
+  constant.** They are the same asymmetry (right and bottom, radius > 0) and
+  are treated as one behaviour here, but the magnitudes differ and nothing
+  was done to reconcile them.
+- **The `destination-in` culling bug this fix walked into** is a
+  `@napi-rs/canvas` defect, not Chromium's, and is recorded where it can do
+  some good: in `placeShot`'s doc comment in `core/render.js`. A
+  `destination-in` fill whose path lies outside the untransformed canvas
+  bounds is culled, and a culled `destination-in` clears the whole surface —
+  so the first version of this task, which put a `translate` on the tile,
+  rendered phones with no screenshot at all whenever the phone sat past
+  x = 512. The goldens caught it. It is not reproduced in Chromium.
+
+---
+
+# Cycle A Task 7 — strokes
+
+Measured in Chrome on this machine, against the dev server, by rendering
+`core/` directly (no UI) onto a 1800x1200 canvas with a fully black
+1440x900 source and the lavender ground — the same probe Rock's own bug
+reports were reproduced with.
+
+## The phone body's inner highlight: LEFT AS IT WAS
+
+`paintDeviceHairline` (`core/render.js`) strokes `rgba(255,255,255,0.10)`
+just inside every phone body, and it still does so unconditionally.
+
+That is deliberate. It is the DEVICE's own highlight — the same thing the
+browser frame's `t.border` is — not an edge treatment on anyone's
+screenshot. The complaint that opened round two was a hairline on a *bare*
+screenshot, which Task 1 removed; a phone that is drawn as a phone reads
+wrong without its highlight, exactly as the browser frame would without its
+border. A `mobile` stroke, when Cycle B gives the phone element one, paints
+OUTSIDE it, so the two never compete.
+
+No code changed for this. It is written down because the task required a
+position rather than a silence.
+
+## What the mat does, measured
+
+`stroke: { style: 'light', width: 0.02 }`, so 24px on a 1200-high canvas:
+
+| probe | no stroke | light mat |
+|---|---|---|
+| 3px inside the composite's left edge | `0,0,0` (shot) | `255,255,255` |
+| 2px inside `inner`'s left edge | — | `0,0,0` (shot) |
+| 3px outside the composite, right | `207,200,223` | `207,202,224` |
+| 3px outside the composite, bottom | `187,179,206` | `189,180,207` |
+
+The mat reads pure white on all four sides; the picture starts, still pure
+black, immediately inside `inner`; and outside the composite is ground. No
+band of body colour on the right or bottom — Task 4b's `fillRoundRect` rule
+holds through a path fill too. `glass` measured `248,246,254` over the pale
+ground (translucent, as intended) and `custom` measured exactly `255,0,170`
+for `#ff00aa`.
+
+## One defect found, and it was only visible in Chromium
+
+The first version handed `paintChrome` the OUTER box. With a mat on, the
+title bar was then drawn one stroke-width too high and ended one
+stroke-width short of the screenshot, leaving a band of bare white mat
+between the bar and the picture — **16 rows** of `255,255,255` at a 1.5%
+stroke, found by scanning the composite's centre column top to bottom.
+
+Nothing in the suite could have caught it as it stood. The unstroked frame
+is unaffected (the outer box and the frame body are the same rect then), and
+the `stroke-browser` golden had been generated from the broken render, so it
+agreed with itself. `test/render-stroke.test.js`'s "leaves no gap between
+the browser bar and the screenshot" is the guard, confirmed red against the
+pre-fix line and green after; the golden was regenerated.
+
+The neighbouring test in that file — "wraps the browser window without
+moving the bar off the screenshot" — passes in BOTH states. It guards other
+claims (the screenshot sits under the bar; the mat sits above it) and is
+not, on its own, a guard against the gap.
+
+## Goldens
+
+Three added — `stroke-light`, `stroke-glass`, `stroke-browser`. All ten
+pre-existing goldens stayed byte-identical across the regeneration
+(`git status` reported only the three new files), which is the proof that
+`STROKE_DEFAULTS.style: 'none'` really is a no-op. Two discriminator tests
+in `test/compose.test.js` prove `stroke-light.png` guards the stroke rather
+than merely matching itself: the same config at style `none` differs by
+more than 2% of pixels, and `glass` against the `light` golden likewise.
+
+---
+
+# Cycle A Task 8 — the browser chrome, remeasured
+
+Every number came from the Figma community file *Apple iOS Browser Mockup —
+Safari & Chrome*, file key `ashXeowHsiwznytlLbuvuS`, page "Browser Mockup",
+read as **layer geometry** through the Figma MCP — not pixel-counted off a
+raster. Symbols: `Desktop / Safari / Light` (node `1:3179`, 1280 wide) and
+`Desktop / Safari / Dark` (node `1:3209`, 1268 wide).
+
+## The two numbers the plan left open
+
+**1. The window corner radius: 24px on a 1280 frame → `24/1280 = 0.01875`.**
+
+Source: the `Desktop / Safari / Light` symbol itself carries
+`border-radius: 24px` with `overflow: clip`. Confirmed on the Dark symbol,
+which carries the same 24. The old value (`25/1064 = 0.0235`) would have
+been 30px at that width.
+
+Two near-misses worth recording, because either would have been wrong:
+`Body` (`1:3180`) has **no** radius at all — it is a plain rect behind the
+clip — and the `toolbar` child carries its own `rounded-tl-10 rounded-tr-10`,
+which the parent's 24px clip overrides. Neither is the visible corner.
+
+**2. The theme colours — three agree, three did not.**
+
+| value | handoff (was) | Safari reference | verdict |
+|---|---|---|---|
+| dark bar | `#1b1d22` | `#191c1f` | agree, 2 levels |
+| dark body | `#101114` | `#0c0f12` | agree, 4 levels |
+| light bar | `#f6f7f9` | `#ffffff` | **changed** |
+| light pill | `#ffffff` | `#f0f0f0` | **changed** |
+| dark pill | `rgba(255,255,255,.07)` | `#434343` | **changed** |
+
+The pills did not merely differ in value, they differed in **sign**: our
+light pill was *lighter* than its bar, where a browser's address field is
+recessed. The light bar goes to white and the light pill to `#f0f0f0`,
+restoring the relationship. The dark pill goes to `rgba(255,255,255,0.16)`
+rather than the reference's flat `#434343` — that lands at `#40424a`, the
+same lightness, but keeps the bar's blue-grey hue instead of dropping a
+neutral patch into it. A port of the relationship, not of the number.
+
+## A third change the plan did not anticipate
+
+**The pill font was 2× too large.** `URL_PILL_FONT_RATIO` was `5/224`
+(0.0223), sized for the old 45/1064 pill. The reference sets its address
+text at 14px in a 28px pill → `14/1280 = 0.0109`. Against the new pill, the
+old ratio would have been 28.6px of text inside a 28px pill: it simply would
+not fit. Changed, and the face changed with it — the reference uses SF Pro
+Display Medium, and Geist Mono at this size read as a code snippet pasted
+into the chrome.
+
+Also read off the `URL Background` SVG's own path (`M0 9.6 C …`): the pill
+radius is 9.6px, so `9.6/1280 = 0.0075`. The old `25/2128` would have been
+15px on a 28px pill — past half its height, collapsing it into a stadium.
+
+## Traffic lights: kept ours, deliberately
+
+The reference's own SVG uses `#EE6A5F / #F5BD4F / #61C454`, each with a
+0.5px darker ring. Those are its matte reconstruction of the three lights.
+At the size these draw here — `12/1280` of the frame, about 17px on an
+1800px canvas — the ring is sub-pixel and the muted fills read as dimmer
+dots, so the saturated system values (`#ff5f57 / #febc2e / #28c840`) stay.
+Recorded so the difference is a decision, not an oversight.
+
+Geometry confirmed from the same SVG: circles at cx 6, 26, 46 with r=6 — so
+12px across and **20px centre to centre**. The old constant was an
+edge-to-edge gap; the new one is a stride, and `paintChrome` was changed to
+match.
+
+## Does it look right
+
+Rendered the new `browser-dark` golden and the reference's own screenshot
+(node `1:3209`) scaled to a common 1200px window width, stacked. Bar height,
+traffic-light size and inset, and pill height and centring all line up.
+
+**What ours deliberately omits:** the reference's six toolbar buttons —
+sidebar, back, forward, shield, share, new tab, tabs. Those are exported SVG
+assets; drawing them would mean hand-authoring vectors we do not have, which
+is the one thing the design-to-code guidance says never to do. The bar is
+therefore chrome + lights + address field, and nothing invented.
+
+## Goldens
+
+Five changed, exactly the five predicted: `browser-dark`, `browser-light`,
+`browser-url`, `square-browser`, `stroke-browser`. The other eight —
+`web`, `mobile`, `web-mobile`, `mesh`, `phone`, `shadow-heavy`,
+`stroke-light`, `stroke-glass` — are byte-identical.
+
+## Three tests moved, and why none of them was weakened
+
+- **`the browser-url golden actually discriminates`** — bound lowered from
+  5e-4 to 2.5e-4. Only because the text halved in size: measured 704 of
+  2,160,000 pixels (3.26e-4) after the rebuild. The guard still fails if the
+  text stops being drawn.
+- **`scales the whole composite uniformly when the floor does bind`** — its
+  premise stopped holding. A browser composite at 3:2 used to cross
+  `MIN_MARGIN_RATIO` at the default padding; with a 4.1% bar it now fits
+  with room to spare, which is the feature working. The test moved to
+  `pad: 0.02` so the floor binds again; the assertion is unchanged.
+- **`does not make the browser title bar taller`** (Task 7) — was comparing
+  against a hardcoded `10/133`. Now imports `BROWSER_BAR_RATIO`. That
+  literal was exactly the drift this codebase keeps warning about, and it
+  was mine.
+
+## Task 8, round two — the whole chrome at 3/4
+
+Rock, on the first rebuild: *"I still feel like it's too big. like, in the
+small image the bar is almost as tall as the bar I have right now on my
+desktop. i think this could be, proportionally, about 1/4 shorter in
+height."*
+
+He was describing a real property the first pass missed. **Browser chrome
+has a FIXED height.** A Safari window twice as wide still has a 53px
+toolbar — the chrome does not grow with the window, only the page does.
+Dividing the measurements by 1280 drew the reference's chrome at the size it
+would be *if our frame were a 1280px window*. It is not: at 3:2 the frame is
+1675px wide, and every ratio was multiplied back up by that. The bar came out
+at 69px — proportionally faithful, and taller than any real one.
+
+**Fix: `CHROME_REF_WIDTH = 1280 / 0.75 = 1706.67`**, the single divisor every
+browser ratio now shares. Two independent routes agree on it:
+
+- Rock's "about 1/4 shorter" is exactly the 0.75.
+- 1706.67 is within 2% of 1675.2, our actual frame width at 3:2 — so the bar
+  now draws at **52.0px** against a real Safari's **53px**. Very nearly
+  literal.
+
+**Every ratio shares the divisor, deliberately.** Shrinking the bar alone
+would have left a 28px pill inside a 40px bar. The reference's internal
+proportions are what make it read as a browser, and they are preserved to the
+decimal: pill height is 52.8% of bar height here and 52.8% in the reference.
+
+At a 1675.2px frame: bar 52.0, window radius 23.6, dot 11.8, pill 475×27.5,
+pill text 13.7px.
+
+### Two tests moved again, and the second one is the interesting failure
+
+- **`scales the whole composite uniformly when the floor does bind`** — its
+  premise broke for the second time in one task. The bar is now small enough
+  that a browser composite clears `MIN_MARGIN_RATIO` even at `pad: 0.02`. The
+  test now uses a SQUARE source, so the screenshot already fills the safe
+  box's height and any bar at all must push past it, and it asserts up front
+  that the floor really did bind rather than trusting the setup.
+- **`the browser-url golden actually discriminates`** — its bound has now
+  been lowered twice in one task, both times because the text got smaller:
+  5.00e-4 → 3.26e-4 → 2.38e-4 (514 of 2,160,000 pixels). **A bound that keeps
+  being lowered is a bound worth distrusting**, so the test gained a second
+  assertion that does not depend on glyph count at all: the same config with
+  no url must differ from the golden. That is the claim the golden exists to
+  make, and it cannot be eroded by the text shrinking — only by the text
+  disappearing.
+
+## Task 8, round three — the window corner at 0.6%, and a bug it uncovered
+
+Rock: *"our base browser view can have less rounded corners. based on our
+sliders, 0.6% would be it."*
+
+The Corner radius slider reads in percent of CANVAS width, so 0.6% is 10.8px
+on an 1800px canvas. At 3:2 the frame is 1675.2px wide, so
+`BROWSER_RADIUS_RATIO = 11 / CHROME_REF_WIDTH` lands on **10.80px = 0.600%
+of the canvas exactly**. Stated in the same `<px>/CHROME_REF_WIDTH`
+vocabulary as everything else so it stays comparable to Safari's own 24.
+
+This is now the one browser value that is deliberately NOT the reference's,
+and a consequence worth stating: the frameless screenshot's own corner is
+`RADIUS_RATIO`, 1.33% of canvas width, so turning the browser frame on now
+tightens the corner noticeably. Two different corners on two different
+objects; Cycle B's per-element model is where they stop being unrelated.
+
+### The bug the smaller corner exposed
+
+Every inset hairline in `core/render.js` — the browser frame's border, the
+phone body's highlight, the glass stroke's outer line — was stroked with its
+box's FULL radius on a rect inset half a pixel. A 1px stroke straddles its
+path, so the path really does run half a pixel inside each edge, and the
+radius has to come in by the same half pixel or the arc traced is wider than
+the corner it sits inside. The border bulged.
+
+The error is 0.5 against the radius, so it hid while the corners were large:
+2% at the browser's old 23.6px corner, 4.6% at 10.8px. Fixed in one place,
+`strokeInsetHairline`, now shared by all three call sites — the same
+correction `paintShadow` already makes for its inset caster.
+
+**How it was pinned, because two suspects looked identical.** The
+corner-continuity metric in `test/render-edge-blend.test.js` went red at
+0.49px against a 0.35 tolerance. Two experiments separated the causes:
+
+- the SAME metric on an UNFRAMED shot at radius 11 **passed** — so it was
+  not the ruler running out of resolution at a small radius;
+- the browser case with the border stroke commented out **passed** — so it
+  was not the shot's edge either.
+
+Both suspects were real, and they were tangled in one number:
+
+1. the hairline was genuinely non-concentric (fixed);
+2. the metric divides the border's attenuation out as a CONSTANT, which is
+   exact on the straight run and only approximate through the arc — an error
+   that scales as 1px / radius and so grew when the corner halved.
+
+They are now guarded separately: the browser case carries its own documented
+`TOL_OVER_HAIRLINE = 0.55` for (2), and (1) has a direct test of its own.
+
+### The direct guard, and the pixel test that was thrown away
+
+The first version of that guard looked for painted pixels outside the
+frame's path. **It passed identically with the bug present and with it
+fixed** — a 0.09-alpha white line moved half a pixel does not push visible
+colour past an arc. That is the eleventh test in this cycle that could not
+fail, and it was deleted rather than tuned.
+
+The replacement asserts the PATH, not the pixels: `strokeInsetHairline` is
+called with a stub context that records `moveTo`/`arcTo`, and the traced
+rectangle must be inset half a pixel on every side with its radius reduced
+by the same half pixel. Confirmed red against `box.radius` (`expected 11 to
+be close to 10.5`) and green after. A second case checks a radius of 0 never
+traces a negative one.
+
+### Goldens
+
+Nine changed — every golden that draws an inset hairline: `browser-dark`,
+`browser-light`, `browser-url`, `square-browser`, `stroke-browser`,
+`stroke-glass`, `phone`, `mobile`, `web-mobile`. The four with no hairline
+anywhere — `web`, `mesh`, `shadow-heavy`, `stroke-light` — are
+byte-identical, which is the check that the change did only what it claims.
+
+---
+
+# Cycle A Task 9 — mesh rebuilt
+
+Rock: *"I still don't know what mesh does. you're gonna need to show me the
+value of it."* It was two tints of ONE hue with a reroll button, so it could
+only ever look like a blotchier linear gradient.
+
+## The rule that had to be changed, not broken
+
+`paintMesh`'s own doc comment used to argue that painting in anything but the
+three sampled stops "would break the same 'dark UI gets a mid-tone ground'
+contract core/ground.js exists to uphold". A test enforced it:
+`circularSpread < 40°`.
+
+The argument was right and the conclusion was too strong. The rule is now
+**parameterised**: `spread` is a hue arc in degrees, **centred on the
+ground's own hue**, so the mesh wanders a bounded distance from the colour
+the screenshot actually produced and never off to an unrelated one. At spread
+0 every blob is the base hue and the old guarantee holds exactly — which is
+what the old test now asserts, restated rather than deleted, alongside a new
+one that the arc never exceeds the spread it was given.
+
+**Only the hue varies.** Each blob keeps a sampled stop's saturation and
+lightness — g1 for the first pass, g3 for the second — so the light/dark play
+that made the field read as a ground is untouched, and a dark ground cannot
+sprout bright blobs. A near-grey ground has no hue to rotate around and is
+left alone entirely; spread does nothing there, on purpose.
+
+**`seed` is NOT in the mesh block**, deliberately, though the plan specified
+`mesh: { stops, spread, seed }`. It already lives at the top level with its
+own clamp and its own control. A second writable home for one value is
+exactly how Task 5b killed the shadow slider — a nested default silently
+outranked the flat field and the control went dead while still displaying the
+old number. One value, one home; guarded by a test that asserts
+`config.mesh.seed` stays undefined.
+
+## The three gates
+
+**1. Distinguishable — PASS.** Measured: a spread mesh spans more 15° hue
+buckets than a linear ground of the same base. Visually it is not close, on a
+ground with any real chroma: on an ember ground, spread 140 shows distinct
+orange, yellow-green and red regions where the linear ramp is one orange
+sweep.
+
+**2. Steerable — PASS.** Spread, stop count and seed each change the bytes,
+each with its own test. Spread 0 → 70 → 140 → 180 is a visible progression;
+two seeds at the same spread give genuinely different fields, not noise.
+
+**3. Not muddy — PASS**, and the per-blob alpha came down from 0.75 to 0.62
+to keep it that way once there could be ten overlapping blobs instead of six.
+Mean chroma over the sample grid, ground `#ece6fb`:
+
+| render | mean chroma |
+|---|---|
+| linear ground | 21.17 (floor at ×0.75 = **15.88**) |
+| mesh, spread 0 | 24.54 |
+| mesh, spread 70 (default) | 23.77 |
+| mesh, spread 140 | 19.63 |
+| mesh, spread 180 (range max) | **17.31** — 9% clear of the floor |
+
+### What the anti-mud gate does not catch, stated rather than left to be found
+
+The plan's version measured at spread 140. It is measured at **180** here,
+the top of `MESH_SPREAD_RANGE`, because a gate that stops short of the
+range's own maximum does not cover the range.
+
+More importantly: **raising the per-blob alpha to 0.85 does not trip it.**
+Checked directly. Alpha is not the lever that muds this construction — the
+blobs are drawn `source-over`, so the topmost mostly replaces rather than
+averages, and it is SPREAD that pulls chroma down. So this is a floor on the
+worst case a user can reach, not a detector of every possible way to make
+mud. That is why the task also requires a human to look, and why a second
+assertion measures the widest spread against the mesh's OWN spread-0 render
+(70.5% against a 65% floor) so the claim holds whatever ground it is handed.
+
+## Two things worth Rock's attention, not defects
+
+- **On the shipped lavender ground, mesh is faint at any spread.** So is the
+  linear gradient. That is the palette, not the mesh — and it is his own
+  earlier feedback ("our selection is good, but poor... their colors are too
+  faint"), already carried into the spec for Cycle B. The ember comparison
+  above is the control that separates the two.
+- **The default spread of 70 is subtle.** Deliberately conservative, since it
+  becomes the look of every mesh shot. Raising it is a one-number change in
+  `MESH_DEFAULTS` if he wants it louder.
+
+## Goldens and speed
+
+`mesh` changed — the point of the task — and `mesh-wide` is new, covering the
+wide, five-stop end of the range that the default-config `mesh` case says
+nothing about. Nothing else moved.
+
+The plan's tests compared renders with
+`expect(Buffer.from(getImageData(...))).toEqual(...)`. Vitest deep-equals
+that element by element across 8.6 million entries, and each such assertion
+took **25–70 seconds**. Rewritten to `Buffer.compare` on the PNG bytes, the
+idiom the rest of the file already used: same claim, 3.8s for the whole file
+instead of ~170s.

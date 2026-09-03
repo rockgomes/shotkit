@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { normalise } from '../core/config.js';
 import { layout } from '../core/layout.js';
-import { paintGround, paintWeb } from '../core/render.js';
+import { paintGround, paintWeb, paintShadow } from '../core/render.js';
 
 const GROUND = ['#f7f4ff', '#ece6fb', '#ded3f5'];
 
@@ -18,7 +18,7 @@ async function scene(overrides = {}) {
   const cv = createCanvas(c.w, c.h);
   const ctx = cv.getContext('2d');
   paintGround(ctx, c, GROUND);
-  paintWeb(ctx, c, lay.web, img);
+  paintWeb(ctx, c, lay.web, img, createCanvas);
   return { c, lay, ctx, img };
 }
 
@@ -150,5 +150,229 @@ describe('paintWeb - shadowScale (Task 6b)', () => {
     const doubleDarkening = darkeningAt(atDouble.c, atDouble.lay, atDouble.ctx);
     const runawayDarkening = darkeningAt(atRunaway.c, atRunaway.lay, atRunaway.ctx);
     expect(runawayDarkening).toBe(doubleDarkening);
+  });
+});
+
+describe('frame: none draws no stroke', () => {
+  it('leaves no darker ring just inside the screen edge', async () => {
+    // A pure white source image. With no stroke, every pixel just inside the
+    // box edge must be white - a hairline would darken the first row/column.
+    const img = createCanvas(1440, 900);
+    const ictx = img.getContext('2d');
+    ictx.fillStyle = '#ffffff';
+    ictx.fillRect(0, 0, 1440, 900);
+
+    const c = normalise({ layout: 'web', ratio: '3:2', frameKind: 'none' });
+    const lay = layout(c, { web: 1440 / 900, mobile: [] });
+    const cv = createCanvas(c.w, c.h);
+    const ctx = cv.getContext('2d');
+    paintGround(ctx, c, GROUND);
+    paintWeb(ctx, c, lay.web, img, createCanvas);
+
+    const b = lay.web;
+    const midY = Math.round(b.y + b.h / 2);
+    const midX = Math.round(b.x + b.w / 2);
+
+    // The FIRST FULLY INTERIOR pixel on each edge - not two pixels in. The
+    // hairline was stroked at `box.x + 0.5` with `lineWidth: 1`, so it
+    // straddles the box boundary and lands on exactly this pixel and the
+    // partially-covered one outside it. Sampling further in (the plan said
+    // 2px) clears the hairline entirely and the test cannot fail.
+    for (const [x, y, edge] of [
+      [Math.ceil(b.x), midY, 'left'],
+      [Math.floor(b.x + b.w) - 1, midY, 'right'],
+      [midX, Math.ceil(b.y), 'top'],
+      [midX, Math.floor(b.y + b.h) - 1, 'bottom'],
+    ]) {
+      const [r, g, bl] = px(ctx, x, y);
+      expect(`${edge}:${r},${g},${bl}`).toBe(`${edge}:255,255,255`);
+    }
+  });
+});
+
+// The bug this suite exists for, and why the test above did not catch it.
+//
+// Task 1 deleted paintWeb's unconditional hairline, and the test above went
+// green - but the rendered shot still had a dark border. There were two
+// sources, not one. The second was paintShadow: to make canvas cast a blur it
+// must fill an opaque shape, and it filled `box` itself, in black, on exactly
+// the geometry the screen is then painted on. Both fills are antialiased on
+// that same rounded path, so at the boundary pixel the body covered only `k`
+// of the black beneath it and the rest showed through.
+//
+// The test above samples the first FULLY INTERIOR pixel, where the body's
+// coverage is 1 and the black is completely hidden - so it could never see
+// this. These tests sample the BOUNDARY pixel, where it lived.
+describe('paintShadow leaves no dark rim of its own', () => {
+  // A solid ground, so "unchanged" is exact rather than approximate, and a
+  // box on deliberately fractional coordinates so every edge is antialiased
+  // (on integer coordinates there is no partial coverage and no bug to see).
+  const BOX = { x: 100.4, y: 80.6, w: 600, h: 400, radius: 24 };
+
+  function shadowOnly(scale) {
+    const cv = createCanvas(900, 700);
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(0, 0, 900, 700);
+    paintShadow(ctx, BOX, 40, 100, 0.17, 0.07, scale);
+    return ctx;
+  }
+
+  it('keeps its opaque source fill clear of the box boundary', () => {
+    // This is the invariant for ALL FOUR call sites at once - the unframed
+    // screen, the browser frame, and both phone painters all reach the fill
+    // through this one function, and every one of them paints an opaque body
+    // over `box` afterwards. If the fill stays clear of the boundary here, no
+    // caller can leak it, whatever box it passes.
+    //
+    // The composed framed renders cannot assert this themselves: the browser
+    // and phone bodies are near-black, so black bleeding out from under them
+    // is indistinguishable from the body itself. That is what made this bug
+    // invisible on the frames and glaring on the unframed white screen.
+    //
+    // shadowScale 0 isolates the fill: the blur contributes literally nothing
+    // at alpha 0, so anything that changed a pixel here is the opaque rect.
+    // That is also why the bug outlived Task 1 - it was never the shadow.
+    const ctx = shadowOnly(0);
+    const changed = [];
+    for (const [edge, at] of [
+      ['left',   (k) => [Math.floor(BOX.x) + k, Math.round(BOX.y + BOX.h / 2)]],
+      ['right',  (k) => [Math.floor(BOX.x + BOX.w) - k, Math.round(BOX.y + BOX.h / 2)]],
+      ['top',    (k) => [Math.round(BOX.x + BOX.w / 2), Math.floor(BOX.y) + k]],
+      ['bottom', (k) => [Math.round(BOX.x + BOX.w / 2), Math.floor(BOX.y + BOX.h) - k]],
+    ]) {
+      for (let k = 0; k < 2; k++) {
+        const [x, y] = at(k);
+        const [r, g, b] = px(ctx, x, y);
+        if (r !== 128 || g !== 128 || b !== 128) changed.push(`${edge}+${k}@(${x},${y})=${r},${g},${b}`);
+      }
+    }
+    // Unfixed, the fill lands on `box` exactly and all eight of these read
+    // black or nearly so - 21,21,21 on the left boundary, 0,0,0 one pixel in.
+    expect(changed).toEqual([]);
+  });
+
+  it('still casts the shadow it is there to cast', () => {
+    // The guard on the guard: if the fill were simply dropped rather than
+    // inset, the test above would pass and the product would lose its shadow.
+    const ctx = shadowOnly(1);
+    const below = px(ctx, Math.round(BOX.x + BOX.w / 2), Math.round(BOX.y + BOX.h) + 20);
+    expect(below[0]).toBeLessThan(128);
+  });
+});
+
+describe('frame: none leaves no dark rim at the box boundary', () => {
+  function whiteScene(overrides) {
+    const img = createCanvas(1440, 900);
+    const ictx = img.getContext('2d');
+    ictx.fillStyle = '#ffffff';
+    ictx.fillRect(0, 0, 1440, 900);
+
+    const c = normalise({ layout: 'web', ratio: '3:2', frameKind: 'none', ...overrides });
+    const lay = layout(c, { web: 1440 / 900, mobile: [] });
+    const cv = createCanvas(c.w, c.h);
+    const ctx = cv.getContext('2d');
+    paintGround(ctx, c, GROUND);
+    paintWeb(ctx, c, lay.web, img, createCanvas);
+    return { c, box: lay.web, ctx, gctx: groundOnly(c) };
+  }
+
+  // Boundary pixel first, then three inward. k = 0 is the partially covered
+  // pixel the existing test skips.
+  function edgeWalk(box) {
+    const midY = Math.round(box.y + box.h / 2);
+    const midX = Math.round(box.x + box.w / 2);
+    const out = [];
+    for (const [edge, at] of [
+      ['left',   (k) => [Math.floor(box.x) + k, midY]],
+      ['right',  (k) => [Math.floor(box.x + box.w) - k, midY]],
+      ['top',    (k) => [midX, Math.floor(box.y) + k]],
+      ['bottom', (k) => [midX, Math.floor(box.y + box.h) - k]],
+    ]) for (let k = 0; k < 4; k++) out.push([edge, k, ...at(k)]);
+    return out;
+  }
+
+  it('has no pixel at or inside the edge darker than the ground, per channel (shadow off)', () => {
+    // With the shadow off, the ground under the box edge is untouched, so a
+    // white screenshot over it can only ever lighten a pixel. Any channel
+    // that came back darker is the shadow's opaque fill showing through - the
+    // only other thing paintWeb draws near this edge.
+    const { box, ctx, gctx } = whiteScene({ shadowScale: 0 });
+    const darker = [];
+    for (const [edge, k, x, y] of edgeWalk(box)) {
+      const p = px(ctx, x, y);
+      const g = px(gctx, x, y);
+      for (let ch = 0; ch < 3; ch++) {
+        if (p[ch] < g[ch]) darker.push(`${edge}+${k}@(${x},${y}) ch${ch} ${p[ch]}<${g[ch]}`);
+      }
+    }
+    // Measured margins with the fill inset: every boundary pixel is 2-19
+    // levels LIGHTER than the ground. Unfixed, the left boundary pixel reads
+    // 167,166,167 against a 239,234,252 ground - 72 to 85 levels darker.
+    expect(darker).toEqual([]);
+  });
+
+  it('has no pixel at or inside the edge darker than the ground, at the shipping shadow', () => {
+    // Same walk at the default shadowScale of 1, which is what actually
+    // ships. Compared on total brightness rather than per channel: the
+    // shadow legitimately darkens the ground the boundary pixel is half made
+    // of, and on this lilac ground that costs the blue channel a level or
+    // two while the pixel as a whole still reads lighter.
+    const { box, ctx, gctx } = whiteScene({});
+    const sum = (a) => a[0] + a[1] + a[2];
+    const darker = [];
+    for (const [edge, k, x, y] of edgeWalk(box)) {
+      const d = sum(px(ctx, x, y)) - sum(px(gctx, x, y));
+      if (d < 0) darker.push(`${edge}+${k}@(${x},${y}) ${d}`);
+    }
+    // Unfixed, the left boundary pixel reads 166,166,167 against a
+    // 239,234,252 ground: -227 on this sum, against a floor of 0.
+    expect(darker).toEqual([]);
+  });
+});
+
+// Cycle A Task 4: paintWeb passes a LITERAL 'contain' to drawFitted. The
+// config field it used to read is gone, so this guards the constant rather
+// than the field: hand paintWeb a box whose ratio deliberately disagrees
+// with the image's, and the image must be letterboxed inside it, never
+// scaled up and cropped. drawFitted itself stays - paintPhone still calls it
+// with 'cover' for the phone screen, which is a different thing.
+describe('paintWeb never crops', () => {
+  it('letterboxes into a box whose ratio disagrees with the image, even with a stale fit: cover', () => {
+    // 400x200 source (ratio 2.0). The left quarter is red; everything else
+    // is white.
+    const img = createCanvas(400, 200);
+    const ictx = img.getContext('2d');
+    ictx.fillStyle = '#ffffff';
+    ictx.fillRect(0, 0, 400, 200);
+    ictx.fillStyle = '#ff0000';
+    ictx.fillRect(0, 0, 100, 200);
+
+    // A tall, narrow box (ratio 0.5) - nothing like the source's 2.0.
+    //   contain: the full 400px width maps onto the box's 200px width, so
+    //            the box's left edge shows the red column.
+    //   cover:   the image is blown up to 800px wide and centred, so the
+    //            box's left edge lands at source x=150 - white, and the red
+    //            column is cropped off entirely.
+    // Hand-built, so it must carry what layout.js's webBox() always
+    // attaches: `inner` (the interior the shot is placed into - identical
+    // to the box itself when there is no mat) and `strokeWidth` 0. Task 7
+    // made paintWeb read both; it deliberately does not fall back to `box`
+    // when they are missing, because a silent fallback would let a real
+    // layout bug render as if nothing were wrong.
+    const box = {
+      x: 100, y: 100, w: 200, h: 400, radius: 0, chrome: null,
+      strokeWidth: 0,
+      inner: { x: 100, y: 100, w: 200, h: 400, radius: 0 },
+    };
+
+    const c = normalise({ layout: 'web', ratio: '3:2', fit: 'cover' });
+    const cv = createCanvas(c.w, c.h);
+    const ctx = cv.getContext('2d');
+    paintGround(ctx, c, GROUND);
+    paintWeb(ctx, c, box, img, createCanvas);
+
+    const [r, g, b] = px(ctx, box.x + 4, box.y + 4);
+    expect(`${r},${g},${b}`).toBe('255,0,0');
   });
 });

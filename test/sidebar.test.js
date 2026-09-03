@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { readFileSync } from 'node:fs';
 import { TEMPLATES, RATIOS, HUES, normalise } from '../core/index.js';
 import { state, bindCanvas, render } from '../web/state.js';
 import {
@@ -265,5 +266,47 @@ describe('ground preset swatches tell the truth about a loaded (dark) image', ()
     // gradientFor() were still using a cached/stale pre-image value, they
     // would be identical instead.
     expect(afterImage).not.toBe(beforeImage);
+  });
+});
+
+// ---------------------------------------------------------------------
+// Cycle A Task 2: the rail's Ground group is gone, because it was a second
+// copy of the inspector's Background presets.
+//
+// THIS SUITE HAS NO DOM. Every test file in test/ runs on vitest's `node`
+// environment (vitest.config.js) and this file's own split is explicit
+// about it: "Pure helpers: ... no DOM". There is no jsdom, no mount
+// helper, and adding one for two assertions would be a second harness
+// nobody else uses. So the removal is asserted where it actually lives —
+// the shipped markup, and the module's exports — rather than by
+// simulating a browser.
+// ---------------------------------------------------------------------
+
+describe('the rail does not duplicate the Background panel', () => {
+  it('ships no ground swatch list in the sidebar markup', () => {
+    const html = readFileSync('web/index.html', 'utf8');
+    const start = html.indexOf('<aside id="sidebar"');
+    const rail = html.slice(start, html.indexOf('</aside>', start));
+    expect(start).toBeGreaterThan(-1);
+    // .preset-list / .preset-row is the ground swatch markup (built by
+    // renderGroundSwatches, and previously seeded by a static placeholder
+    // in the rail). The Background panel builds its own at runtime; the
+    // rail must ship none.
+    expect(rail).not.toMatch(/preset-list|preset-row|preset-swatch/);
+  });
+
+  it('initSidebar no longer renders ground swatches', () => {
+    const src = readFileSync('web/sidebar.js', 'utf8');
+    const init = src.slice(src.indexOf('export function initSidebar'));
+    expect(init).not.toMatch(/renderGroundSwatches\(/);
+  });
+
+  it('still exports renderGroundSwatches for the inspector', async () => {
+    const mod = await import('../web/sidebar.js');
+    expect(typeof mod.renderGroundSwatches).toBe('function');
+    // And the inspector is still the caller that needs it.
+    expect(readFileSync('web/inspector-background.js', 'utf8')).toMatch(
+      /renderGroundSwatches\(presetList/,
+    );
   });
 });

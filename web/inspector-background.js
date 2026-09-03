@@ -37,6 +37,7 @@
 // drives every visual in this panel at once.
 import {
   HUES, TONES, BG_TYPES, DEFAULT_ANGLE, DEFAULTS, groundFor, groundFromMeta,
+  MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
 } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
 import { activeGroundKey, renderGroundSwatches } from './sidebar.js';
@@ -99,6 +100,31 @@ export function setAngle(config, deg) {
   config.angle = ((Math.round(n) % 360) + 360) % 360;
 }
 
+// WHAT THE PANEL OFFERS, which is deliberately NOT all of BG_TYPES.
+//
+// Mesh is withheld from the UI as of 2026-09-03, at Rock's call, after he
+// used the rebuilt version: "I can barely see anything... when there's a
+// screen on top, there isn't much to see, and our current colors are very
+// faint. would it be a good idea to turn mesh option off for now and
+// revisit it later?"
+//
+// He is diagnosing it correctly, and the diagnosis is the reason this is a
+// HIDE AND NOT A DELETE. Cycle A Task 9's three gates all pass on their own
+// terms - mesh spans real hue variety, spread/stops/seed all steer it, and
+// it does not go muddy - but a shot is a screenshot with a border of ground
+// around it, and on a pale palette that border shows almost nothing. What
+// fails is the palette, which Cycle B rewrites anyway. So `paintMesh`, its
+// config block, its tests and both its goldens all stay, fully guarded;
+// only the way in is closed.
+//
+// TO RESTORE IT: delete this constant and map over BG_TYPES again below.
+// Nothing else has to come back, because nothing else went away.
+export const UI_BG_TYPES = BG_TYPES.filter(t => t !== 'mesh');
+
+// Still validated against core's BG_TYPES, not against UI_BG_TYPES above: a
+// jobs.json or a saved config carrying `mesh` is a legitimate input that
+// core/ renders correctly, and this function's job is to reject nonsense,
+// not to enforce what the panel happens to show today.
 export function setBgType(config, type) {
   if (!BG_TYPES.includes(type)) return;
   config.bgType = type;
@@ -115,6 +141,53 @@ export function clampSeed(n) {
 
 export function setSeed(config, n) {
   config.seed = clampSeed(n);
+}
+
+// --- Mesh stops and spread (Cycle A Task 9) ------------------------------
+//
+// `config.mesh` is a nested block ({ stops, spread }) matching core/config.js.
+// SEED IS NOT IN IT and must not be moved into it: it already lives at the
+// top level with its own clamp and its own control above, and a second
+// writable home for one value is how Task 5b killed the shadow slider.
+//
+// Both writers seed from MESH_DEFAULTS first and the current block second,
+// so changing one field never resets the other - the same ordering rule
+// spelled out on the stroke writers in web/inspector-frame.js, and for the
+// same reason.
+export function activeMeshStops(config) {
+  const m = config.mesh || {};
+  const n = Math.round(Number(m.stops));
+  return Number.isFinite(n)
+    ? Math.min(MESH_STOPS_RANGE[1], Math.max(MESH_STOPS_RANGE[0], n))
+    : MESH_DEFAULTS.stops;
+}
+
+export function setMeshStops(config, n) {
+  const v = Math.round(Number(n));
+  if (!Number.isFinite(v)) return;
+  config.mesh = {
+    ...MESH_DEFAULTS,
+    ...(config.mesh || {}),
+    stops: Math.min(MESH_STOPS_RANGE[1], Math.max(MESH_STOPS_RANGE[0], v)),
+  };
+}
+
+export function activeMeshSpread(config) {
+  const m = config.mesh || {};
+  const v = Number(m.spread);
+  return Number.isFinite(v)
+    ? Math.min(MESH_SPREAD_RANGE[1], Math.max(MESH_SPREAD_RANGE[0], v))
+    : MESH_DEFAULTS.spread;
+}
+
+export function setMeshSpread(config, deg) {
+  const v = Number(deg);
+  if (!Number.isFinite(v)) return;
+  config.mesh = {
+    ...MESH_DEFAULTS,
+    ...(config.mesh || {}),
+    spread: Math.min(MESH_SPREAD_RANGE[1], Math.max(MESH_SPREAD_RANGE[0], v)),
+  };
 }
 
 /** `tone` is 'auto' | 'light' | 'mid' from the UI; `config.tone` (what
@@ -218,8 +291,8 @@ export function computeSampledMeta(images, makeCanvas = defaultMakeCanvas) {
  * `addFiles()` — which calls `render()` SYNCHRONOUSLY, not through
  * `scheduleRender()`'s rAF debounce, so `state.meta` is guaranteed to
  * already reflect `state.config` exactly as it stands at that instant; see
- * web/sidebar.js's `refreshGrounds` header comment for the same guarantee
- * it already relies on). Every OTHER call in this file (a hue drag, a
+ * web/sidebar.js's "Ground swatch gradients" header comment, which relies
+ * on the same guarantee for the preset swatches). Every OTHER call in this file (a hue drag, a
  * preset click, a tone toggle, Sampled's own click) reads the cache via
  * `createSampledCache().refresh` below WITHOUT invalidating it first, so it
  * never re-evaluates this trust at a moment `state.meta` could be
@@ -380,7 +453,7 @@ export function initBackgroundInspector() {
   typeSegmented.setAttribute('role', 'group');
   typeSegmented.setAttribute('aria-label', 'Background type');
   const TYPE_LABELS = { linear: 'Linear', solid: 'Solid', mesh: 'Mesh' };
-  const typeButtons = BG_TYPES.map((type) => {
+  const typeButtons = UI_BG_TYPES.map((type) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'segmented-cell';
@@ -416,6 +489,53 @@ export function initBackgroundInspector() {
   seedStepper.append(seedMinus, seedValueEl, seedPlus);
   seedRow.append(seedLabel, seedStepper);
   section.appendChild(seedRow);
+
+  // --- Stops and Spread (mesh only, Task 9) ---------------------------
+  // Without these, `spread` and `stops` are unreachable - which is exactly
+  // the state that made mesh useless in the first place, and there would be
+  // no way for anyone to judge whether it is worth having. Deliberately
+  // minimal; Cycle B's Background rework replaces them. Same idioms as the
+  // Seed stepper above and the Angle slider below - no new control
+  // vocabulary is invented here.
+  const stopsRow = document.createElement('div');
+  stopsRow.id = 'backgroundStopsRow';
+  stopsRow.className = 'inline-control-row';
+  stopsRow.hidden = true;
+  const stopsLabel = document.createElement('span');
+  stopsLabel.textContent = 'Stops';
+  const stopsStepper = document.createElement('div');
+  stopsStepper.className = 'zoom-stepper';
+  const stopsMinus = document.createElement('button');
+  stopsMinus.type = 'button';
+  stopsMinus.className = 'zoom-btn';
+  stopsMinus.setAttribute('aria-label', 'Fewer mesh colour stops');
+  stopsMinus.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-minus"></use></svg>';
+  const stopsValueEl = document.createElement('span');
+  stopsValueEl.className = 'zoom-value mono';
+  const stopsPlus = document.createElement('button');
+  stopsPlus.type = 'button';
+  stopsPlus.className = 'zoom-btn';
+  stopsPlus.setAttribute('aria-label', 'More mesh colour stops');
+  stopsPlus.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-plus"></use></svg>';
+  stopsStepper.append(stopsMinus, stopsValueEl, stopsPlus);
+  stopsRow.append(stopsLabel, stopsStepper);
+  section.appendChild(stopsRow);
+
+  const spreadRow = document.createElement('div');
+  spreadRow.id = 'backgroundSpreadRow';
+  spreadRow.className = 'slider-row';
+  spreadRow.hidden = true;
+  spreadRow.innerHTML = '<div class="slider-label"><span>Spread</span><span class="mono slider-value"></span></div>';
+  const spreadInput = document.createElement('input');
+  spreadInput.type = 'range';
+  spreadInput.className = 'slider';
+  spreadInput.min = String(MESH_SPREAD_RANGE[0]);
+  spreadInput.max = String(MESH_SPREAD_RANGE[1]);
+  spreadInput.step = '1';
+  spreadInput.setAttribute('aria-label', 'Mesh hue spread, in degrees around the ground’s own hue');
+  spreadRow.appendChild(spreadInput);
+  const spreadValueEl = spreadRow.querySelector('.slider-value');
+  section.appendChild(spreadRow);
 
   // --- Tone -----------------------------------------------------------
   // Labelled deliberately so the RULE reads, not a vibe: a dark UI gets a
@@ -501,14 +621,31 @@ export function initBackgroundInspector() {
   }
 
   function syncTypeUI() {
-    const type = BG_TYPES.includes(state.config.bgType) ? state.config.bgType : DEFAULTS.bgType;
+    // UI_BG_TYPES, not BG_TYPES: a config carrying a type the panel does
+    // not offer (mesh, today) must not leave the section showing that
+    // type's own rows with no button selected to explain them.
+    const type = UI_BG_TYPES.includes(state.config.bgType)
+      ? state.config.bgType : DEFAULTS.bgType;
     typeButtons.forEach((btn) => {
       const active = btn.dataset.type === type;
       btn.classList.toggle('is-active', active);
       btn.setAttribute('aria-pressed', String(active));
     });
     seedRow.hidden = type !== 'mesh';
-    if (!seedRow.hidden) syncSeedUI();
+    stopsRow.hidden = type !== 'mesh';
+    spreadRow.hidden = type !== 'mesh';
+    if (!seedRow.hidden) { syncSeedUI(); syncMeshUI(); }
+  }
+
+  function syncMeshUI() {
+    const stops = activeMeshStops(state.config);
+    stopsValueEl.textContent = String(stops);
+    stopsMinus.disabled = stops <= MESH_STOPS_RANGE[0];
+    stopsPlus.disabled = stops >= MESH_STOPS_RANGE[1];
+
+    const spread = activeMeshSpread(state.config);
+    spreadInput.value = String(spread);
+    syncSliderFill(spreadInput, spreadValueEl, `${Math.round(spread)}°`);
   }
 
   function syncSeedUI() {
@@ -573,6 +710,22 @@ export function initBackgroundInspector() {
     scheduleRender();
   });
 
+  stopsMinus.addEventListener('click', () => {
+    setMeshStops(state.config, activeMeshStops(state.config) - 1);
+    syncMeshUI();
+    scheduleRender();
+  });
+  stopsPlus.addEventListener('click', () => {
+    setMeshStops(state.config, activeMeshStops(state.config) + 1);
+    syncMeshUI();
+    scheduleRender();
+  });
+  spreadInput.addEventListener('input', () => {
+    setMeshSpread(state.config, spreadInput.value);
+    syncMeshUI();
+    scheduleRender();
+  });
+
   toneButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
       setTone(state.config, btn.dataset.tone);
@@ -591,9 +744,10 @@ export function initBackgroundInspector() {
   syncToneUI();
 
   // Returned so web/main.js can tell this panel to re-derive "Sampled" the
-  // moment a screenshot decodes — the same handshake Task 4's
-  // `refreshGrounds` already uses for the sidebar's own preset previews
-  // (see web/main.js's `handleFiles`).
+  // moment a screenshot decodes (see web/main.js's `handleFiles`). It also
+  // re-renders the preset swatches, which is the whole of that handshake
+  // now: the rail had its own copy (`refreshGrounds`) until Cycle A Task 2
+  // removed its duplicate Ground group.
   return {
     refreshSampled: () => {
       sampledCache.invalidate(); // force the next refresh() below to recompute

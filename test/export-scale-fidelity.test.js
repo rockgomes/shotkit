@@ -58,7 +58,33 @@ beforeEach(() => {
   state.surround = 'mid';
 });
 
-describe('export scale fidelity - the property no golden PNG can see', () => {
+// This file gets its own timeout, above vitest.config.js's suite-wide 20s.
+//
+// It is the most expensive test in the suite by a wide margin: the first case
+// composes the SAME shot at 1x, 2x and 3x, and 3x of a 2000x1500 canvas is
+// 6000x4500 - 27 megapixels through @napi-rs/canvas - then pixel-diffs it
+// against a downscale. That is legitimately slow, not hung, and it is the
+// whole point of the test.
+//
+// Measured on the dev machine (x64 Mac, same architecture CI pins):
+//
+//   standalone, 3 runs        5.3s / 6.5s / 5.3s   (first case)
+//   under full-suite load     9.5s                 (first case)
+//
+// 9.5s against a 20s budget is 2.1x headroom, and CI's shared macos-15-intel
+// runner is slower than this machine - so it timed out there while every
+// local run passed. Timings before and after Cycle A Task 4b were measured
+// and are identical (5.4s vs 5.3s standalone), so this is a budget that was
+// always marginal, not a regression.
+//
+// 90s is ~9x the measured full-suite worst case. It is deliberately scoped to
+// this file rather than raised globally: the other 320 tests run in
+// milliseconds and should keep a tight budget, because for them a 20s hang IS
+// the bug signal. If this needs raising again, remeasure first - do not just
+// bump it.
+const SCALE_TEST_TIMEOUT = 90_000;
+
+describe('export scale fidelity - the property no golden PNG can see', { timeout: SCALE_TEST_TIMEOUT }, () => {
   it('2x and 3x renders are exactly proportional in size and the same composition as 1x, at a canvas size no golden PNG covers', async () => {
     const web = await loadImage('samples/fieldset.png');
     const target = createCanvas(10, 10);
@@ -96,10 +122,9 @@ describe('export scale fidelity - the property no golden PNG can see', () => {
     // bgType: 'solid' + tone: 'mid' (the same trick core/'s own scale test
     // uses, test/compose.test.js) gives a flat mid-lightness ground that is
     // nowhere close to white - grain: 0 keeps the diagonal scan below from
-    // tripping on noise near its white-fill threshold. Neither affects
-    // radius or layout, only what colour surrounds the box, which is the
-    // whole point: it makes "is this pixel inside the box's white fill yet"
-    // an unambiguous question.
+    // tripping on noise near its threshold. Neither affects radius or
+    // layout, only what colour surrounds the box, which is the whole point:
+    // it makes "is this pixel inside the box yet" an unambiguous question.
     const config = { ratio: '4:3', bgType: 'solid', tone: 'mid', grain: 0 };
     const web = await loadImage('samples/fieldset.png');
     const target = createCanvas(10, 10);
@@ -130,10 +155,24 @@ describe('export scale fidelity - the property no golden PNG can see', () => {
       // circle at distance r*(sqrt(2)-1) from the corner point - geometry,
       // not a magic number: solve |t/sqrt2 - r| = r/sqrt2 for the point
       // where the diagonal's distance to the centre first equals r.
-      // paintWeb fills the box with pure #ffffff before drawing the
-      // screenshot into it (core/render.js), so "first opaque near-white
-      // pixel" is exactly the arc boundary, regardless of the screenshot's
-      // own content.
+      // What makes "first opaque near-white pixel" the arc boundary is the
+      // SCREENSHOT's own top-left corner, which is near-white in
+      // samples/fieldset.png - asserted just below, because until Cycle A
+      // Task 4c paintWeb painted a white card behind the picture and this
+      // scan leant on that instead. The card is gone (it survived as a
+      // one-pixel halo around every shot); the fixture still answers the
+      // question, but it has to be checked rather than assumed.
+      const srcCorner = (() => {
+        const probe = mk(1, 1);
+        probe.getContext('2d').drawImage(web, 0, 0, 8, 8, 0, 0, 1, 1);
+        return probe.getContext('2d').getImageData(0, 0, 1, 1).data;
+      })();
+      expect(
+        Math.min(srcCorner[0], srcCorner[1], srcCorner[2]),
+        'samples/fieldset.png is no longer near-white at its top-left, so the ' +
+        'scan below can no longer find the arc - give it a fixture that is',
+      ).toBeGreaterThan(250);
+
       let crossingDistance = null;
       for (let d = 0; d < box.radius * 2 + 20; d += 0.5) {
         const x = Math.round(box.x + d / Math.SQRT2);
@@ -146,7 +185,7 @@ describe('export scale fidelity - the property no golden PNG can see', () => {
         }
       }
 
-      expect(crossingDistance, `scale ${scale}: never found the box's white fill along the diagonal`).not.toBeNull();
+      expect(crossingDistance, `scale ${scale}: never found the screenshot along the diagonal`).not.toBeNull();
       const measuredRadius = crossingDistance / (Math.SQRT2 - 1);
 
       // A few px of slack for antialiasing at the arc boundary - not for

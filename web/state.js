@@ -27,7 +27,13 @@ export const state = {
 // composeWithMeta never creates a canvas itself — it asks `makeCanvas(w, h)`
 // for one every time it needs scratch space: the full-resolution target, one
 // down-sampled (<=800px) thumbnail per source image for its colour analysis,
-// and a tile for the grain pass. During a slider drag this can run at up to
+// a tile for the grain pass, and (Cycle A Task 4d) one tile per shot, which
+// is where the shot is composed and cut before it is stamped onto the
+// canvas. Those shot tiles are the only ones whose size follows the
+// geometry, so they are the only ones a padding drag can ask for a new size
+// of; core/ rounds their allocation up to a 64px grid (`TILE_QUANTUM`)
+// precisely so that this pool stays small instead of growing by one
+// multi-megabyte canvas per frame. During a slider drag this can run at up to
 // 60fps (see the rAF debounce below), so reusing canvas elements by size —
 // instead of allocating a fresh one on every single call — avoids garbage
 // pressure that has nothing to do with core/'s own per-render work. This is
@@ -91,7 +97,7 @@ export function bindCanvas(el, canvasFactory = defaultMakeCanvas) {
 // re-derives hue, luminance and chroma from the screenshot's own pixels
 // every time it runs — measured, ~200ms of a ~216ms full render; layout,
 // painting and grain together are single-digit ms. Padding, radius, angle,
-// frame, caption etc. never touch it — only the images themselves,
+// frame, shadow etc. never touch it — only the images themselves,
 // `config.ground` (which normalise() turns into forceHue) and `config.tone`
 // do.
 //
@@ -125,7 +131,7 @@ let metaCache = null; // { key, meta } | null
 /** The only fields that can change what groundFor computes: the images
  *  themselves (by identity — `__id`, tagged in decode.js) and whichever of
  *  `config`'s fields normalise() turns into forceHue/tone. Everything else
- *  in `config` (pad, radius, angle, frame, caption, scale, template, ...)
+ *  in `config` (pad, radius, angle, frame, shadow, scale, template, ...)
  *  is deliberately absent from this key — including any of those would
  *  bust the cache on every layout-only change and throw away the whole
  *  point of caching groundFor's result at all. */

@@ -28,6 +28,65 @@
   display: none !important;
 }
 
+/* EVERY OFF STATE IN THE APP, IN ONE RULE — the second global after
+   `[hidden]`, and here for the same reason: one rule closes a whole bug
+   class instead of the instances found so far.
+
+   Task 3b's spec item 5 says inert and disabled states dim with explicit
+   colours at full alpha, never with `opacity`. `opacity` composites toward
+   whatever is BEHIND the element — on this app the darkest surface on
+   screen — so it spends lightness on the ground instead of on the thing you
+   are trying to dim, and collapses contrast far faster than it reduces
+   apparent brightness. Nine rules were still doing it after the first pass,
+   and three of them landed below 3:1: the toolbar's disabled buttons and all
+   four rail items on the EMPTY STATE — the exact screen Rock complained
+   about — were dimmer (2.50-3.51:1) than the inert inspector panels beside
+   them (3.33:1), by the very mechanism this rule exists to retire. The
+   disabled Export button's border composited to 1.50:1, below the 1.60 given
+   to --border-inert and below the 1.3 floor test/contrast.test.js asserts so
+   that "the control should still have a shape".
+
+   The mechanism is inheritance, not per-element rules: the live tokens are
+   re-declared on the element, so every descendant picks the off value up on
+   its own. Nothing here names an element's colour, so a future control
+   inside any of these states is covered for free.
+
+   Off is FLAT: all five text rungs collapse to one tone, because
+   "unavailable" is one state and not five.
+
+   Two things this rule cannot reach, each handled where it lives: the ground
+   swatches (an inline background, see .inspector-section[inert]
+   .preset-swatch below) and .zoom-btn, whose `color: inherit` takes its
+   parent's COMPUTED colour and so cannot see a custom property re-declared
+   on the button itself. */
+.inspector-section[inert],
+.zoom-btn:disabled,
+.btn:disabled,
+.rail-item[aria-disabled='true'],
+.segmented-cell:disabled,
+.slider:disabled,
+.chip:disabled,
+.select-control:disabled {
+  --text-primary: var(--text-inert);
+  --text-secondary: var(--text-inert);
+  --text-muted: var(--text-inert);
+  --text-faint: var(--text-inert);
+  --text-fainter: var(--text-inert);
+  /* the active segmented cell's label, and the slider thumb */
+  --color-white: var(--text-inert);
+  /* the selected chip's pill and the primary button's fill: both drop from
+     near-white to the inert tone, which keeps their --surface-window ink
+     legible at 3.33:1 */
+  --surface-inverse: var(--text-inert);
+  /* state fills recede to just above the window so the inert tone clears
+     3:1 over them too (3.10:1) */
+  --surface-control-active: var(--surface-inert);
+  --surface-raised-1: var(--surface-inert);
+  /* below the 3:1 a live control border owes: WCAG 1.4.11 exempts inactive
+     components, and a border as strong as a live one does not read as off */
+  --border-strong: var(--border-inert);
+}
+
 html,
 body {
   height: 100%;
@@ -227,8 +286,11 @@ input {
   color: var(--text-primary);
 }
 
+/* `color: inherit` from .zoom-stepper takes the parent's COMPUTED colour,
+   so the global off-state rule's token re-declaration cannot reach this
+   one — it needs the colour named outright. */
 .zoom-btn:disabled {
-  opacity: 0.4;
+  color: var(--text-inert);
   cursor: not-allowed;
 }
 
@@ -262,7 +324,7 @@ input {
 }
 
 .btn-ghost:hover:not(:disabled) {
-  background: var(--border-hairline);
+  background: var(--surface-hover);
 }
 
 .btn-primary {
@@ -276,7 +338,6 @@ input {
 }
 
 .btn:disabled {
-  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -313,14 +374,15 @@ input {
   border-radius: 50%;
   border: 2px solid currentColor;
   border-top-color: transparent;
-  opacity: 0.75;
+  /* No opacity. At 0.75 over a disabled primary's fill the ring measured
+     2.71:1; at full currentColor it is 3.33:1 — the same tone as the
+     "Exporting…" label beside it, which is what it should have been. */
   animation: btn-spin 700ms linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .btn.is-loading::before {
     animation: none;
-    opacity: 0.4;
   }
 }
 
@@ -346,7 +408,7 @@ input {
 
 .icon-btn:hover {
   color: var(--text-primary);
-  background: var(--border-hairline);
+  background: var(--surface-hover);
 }
 
 .icon-btn:focus-visible {
@@ -420,7 +482,6 @@ input {
 }
 
 .rail-item[aria-disabled='true'] {
-  opacity: 0.55;
   cursor: not-allowed;
 }
 
@@ -461,7 +522,10 @@ input {
   height: 30px;
   padding: 0 10px;
   margin-bottom: 8px;
-  border: 1px solid var(--border-subtle);
+  /* --border-strong, not --border-subtle: this box holds an <input>, so its
+     edge is an interactive component boundary and owes 3:1 rather than the
+     judgement call the two decorative border tokens get (Task 3b). */
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   color: var(--text-fainter);
   flex: none;
@@ -512,6 +576,18 @@ input {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
+  /* A <button> sizes to max-content, not to its <li>, and that shrink-wrap is
+     the mechanism behind "Dribbble shot2800×2100": with the box collapsed onto
+     its two spans, `justify-content: space-between` above has no free space to
+     distribute, so the labels sit flush at every rail width and every row ends
+     at a different x. `width: 100%` is the fix — it gives space-between
+     something to distribute, which puts the dimensions in a real right-hand
+     column, fills the hover/selected background across the row, and makes the
+     whole 201px a click target. `max-width` then caps a row whose content
+     exceeds the rail, which is what lets the ellipsis rule below fire. */
+  width: 100%;
+  max-width: 100%;
   height: 32px;
   padding: 0 10px;
   border: 1px solid transparent;
@@ -523,13 +599,29 @@ input {
   text-align: left;
 }
 
+/* The name truncates; the dimensions never do — they are the information the
+   row exists to carry, and the column they line up in. `min-width: 0` is what
+   lets the name shrink at all: a flex item's automatic minimum size is its
+   content, so without it a long name would push the row past the cap above and
+   out under the panel edge rather than ellipsing. */
+.template-row > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.template-row > .dim {
+  flex: none;
+}
+
 .template-row .dim {
   font-size: 10.5px;
-  color: var(--text-disabled);
+  color: var(--text-fainter);
 }
 
 .template-row:hover:not(.is-selected) {
-  background: var(--border-hairline);
+  background: var(--surface-hover);
 }
 
 .template-row.is-selected {
@@ -633,7 +725,7 @@ input {
 }
 
 .preset-row:hover:not(.is-selected) {
-  background: var(--border-hairline);
+  background: var(--surface-hover);
 }
 
 .preset-row.is-selected {
@@ -650,17 +742,13 @@ input {
   flex: none;
 }
 
-.preset-swatch--aurora {
-  background: linear-gradient(135deg, var(--color-blue), var(--color-pink));
-}
-
-.preset-swatch--slate {
-  background: linear-gradient(135deg, var(--color-slate), var(--color-charcoal));
-}
-
-.preset-swatch--candy {
-  background: linear-gradient(135deg, var(--color-orange), var(--color-magenta));
-}
+/* `.preset-swatch--aurora/--slate/--candy` (three fixed gradient chips from
+   the design handoff) lived here — removed with the rail's Ground list they
+   were the only markup for (Cycle A Task 2). The surviving `.preset-swatch`
+   above is still real: web/sidebar.js's `renderGroundSwatches` builds it and
+   sets `style.background` from the live hue, so the chip's colour comes from
+   the ground itself rather than from three hard-coded modifiers. Their six
+   `--color-*` tokens went with them, in tokens.css. */
 
 .sidebar-spacer {
   flex: 1;
@@ -778,9 +866,21 @@ input {
   background-color: var(--surround-light);
 }
 
+/* The drop target's own outline, and the one graphic in the app drawn over
+   four different backdrops: the empty-state canvas and all three surrounds
+   (`is-drag-over` is added on dragenter regardless of whether a shot is
+   already loaded — web/main.js:517). No single colour clears 3:1 on both
+   --surround-light and --surround-mid: white reaches only 1.21 on the light
+   one, and black only 2.50 on the mid one. So it is bright
+   by default — --text-primary, the same token every focus ring in this file
+   already uses — and flips dark on the light surround only. Task 3b. */
 .canvas-surface.is-drag-over {
-  outline: 2px dashed var(--border-strong);
+  outline: 2px dashed var(--text-primary);
   outline-offset: -10px;
+}
+
+.canvas-surface.has-content[data-surround='light'].is-drag-over {
+  outline-color: var(--border-strong);
 }
 
 .render-canvas {
@@ -954,19 +1054,39 @@ input {
   border-bottom: none;
 }
 
-/* Properties greyed while no file is loaded (Task 7) — `[inert]` is applied
-   by attribute, not per-element id, matching the `[hidden]` convention
-   already established at the top of this file: one rule covers whichever
-   of the three inspector sections index.html marks `inert` (see that
-   file's own comment on #backgroundSection), and covers any future one
-   without a rule to add. `[inert]` already removes these from the tab
-   order and the accessibility tree (main.js toggles the attribute itself);
-   this only supplies the missing VISUAL cue, since inert alone leaves an
-   element rendered at full opacity. The Export section is deliberately not
-   part of this list — the format/scale pickers stay live and only the
-   Export button itself disables (see index.html's static `disabled`). */
-.inspector-section[inert] {
-  opacity: 0.42;
+/* Properties greyed while no file is loaded (Task 7). `[inert]` is applied by
+   attribute, not per-element id, matching the `[hidden]` convention at the
+   top of this file: one selector covers whichever of the three inspector
+   sections index.html marks `inert` (see that file's own comment on
+   #backgroundSection), and covers any future one without a rule to add.
+   `[inert]` already removes these from the tab order and the accessibility
+   tree (main.js toggles the attribute itself); the colour only supplies the
+   missing VISUAL cue, since inert alone leaves an element at full opacity.
+   The Export section is deliberately not in that list — the format/scale
+   pickers stay live and only the Export button itself disables.
+
+   The dimming itself now lives in the global off-state rule at the top of
+   this file, alongside every disabled control, since Task 3b found the two
+   were the same problem. Only the part that rule cannot reach is here. */
+
+/* The one thing in an inert section that a token re-declaration cannot
+   reach. The ground swatches take their fill from the live gradient through
+   an INLINE style (web/inspector-background.js's renderGroundSwatches and
+   the sampled stops), and those grounds are pale — left alone they are the
+   brightest elements on a panel that is supposed to read as off, which is
+   exactly how the panel looked the first time this rule replaced `opacity`.
+
+   `filter` rather than a colour because there is no colour to name; and
+   `brightness` rather than `opacity` because brightness darkens the swatch
+   itself instead of blending it into the panel behind it, which is the whole
+   objection to opacity. It is safe HERE and was not safe on the section as a
+   whole: a colour sample carries no text and no contrast obligation, so
+   there is nothing for it to destroy. 0.4 lands a pale swatch within about
+   0.1:1 of --text-inert, so the swatches sit in the same tone as the rest of
+   the dimmed panel instead of above it. */
+.inspector-section[inert] .preset-swatch,
+.inspector-section[inert] .sampled-stop {
+  filter: brightness(0.4);
 }
 
 .inline-control-row {
@@ -976,6 +1096,33 @@ input {
   font-size: 11.5px;
   color: var(--text-muted);
 }
+
+/* Task 7's stroke colour picker. A native <input type="color"> so the
+   platform supplies the picker itself - the swatch is the control, so its
+   own border is what makes it visible against the panel when the chosen
+   colour is dark, and --border-strong is the interactive-element token
+   (>=3:1, Task 3b's contrast policy). No `opacity` anywhere here: a
+   disabled or inert state is an explicit colour, per that same policy. */
+.colour-well {
+  width: 44px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+
+.colour-well:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+
+/* Chromium/WebKit draw the chosen colour in an inner swatch element that
+   keeps its own 2px padding and square corners unless told otherwise. */
+.colour-well::-webkit-color-swatch-wrapper { padding: 0; }
+.colour-well::-webkit-color-swatch { border: none; border-radius: 5px; }
+.colour-well::-moz-color-swatch { border: none; border-radius: 5px; }
 
 /* -------------------------------------------------------------------------
    Control primitive: segmented control
@@ -1013,7 +1160,6 @@ input {
 }
 
 .segmented-cell:disabled {
-  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -1115,7 +1261,6 @@ input {
 }
 
 .slider:disabled {
-  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -1153,7 +1298,7 @@ input {
 }
 
 .sampled-row:hover {
-  background: var(--border-hairline);
+  background: var(--surface-hover);
 }
 
 .sampled-row.is-active {
@@ -1163,8 +1308,18 @@ input {
   font-weight: 500;
 }
 
+/* "This is true, but not what's currently in effect" — an override is
+   forcing a different hue. This was `opacity: 0.6`, and it was the worst of
+   the composited states precisely because it is NOT one: the row is live,
+   clickable, in a live panel, carrying informational text that owes 7:1.
+   Composited it measured 5.80:1 for the label and 3.60:1 for the hue.
+
+   The dim is now a step DOWN THE LADDER instead — a real 1.82x drop from
+   --text-secondary, and 8.19:1 rather than 5.80:1. The colour stops keep
+   their true colour: they are the row's content, and a sample you have
+   dimmed is a sample that lies about what was sampled. */
 .sampled-row:not(.is-active) {
-  opacity: 0.6;
+  color: var(--text-fainter);
 }
 
 .sampled-row:focus-visible {
@@ -1246,7 +1401,6 @@ input {
 }
 
 .chip:disabled {
-  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -1297,7 +1451,6 @@ input {
 }
 
 .select-control:disabled {
-  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -1309,7 +1462,7 @@ input {
 .export-footnote {
   margin: 0;
   font-size: 10px;
-  color: var(--text-disabled);
+  color: var(--text-fainter);
   text-align: center;
 }
 

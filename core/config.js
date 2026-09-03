@@ -1,6 +1,8 @@
 import {
   RATIOS, HUES, DEFAULTS, RADIUS_RATIO, TEMPLATES, DEFAULT_ANGLE, SCALES, FRAME_KINDS,
-  LAYOUTS, FITS, TONES, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
+  LAYOUTS, TONES, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
+  STROKE_STYLES, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
+  MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
 } from './presets.js';
 
 function num(v, fallback) {
@@ -42,7 +44,6 @@ export function normalise(input = {}) {
 
   return {
     w, h, layout,
-    fit: FITS.includes(input.fit) ? input.fit : DEFAULTS.fit,
     pad: num(input.pad, DEFAULTS.pad),
     radius: num(input.radius, Math.round(w * RADIUS_RATIO)),
     grain: num(input.grain, DEFAULTS.grain),
@@ -50,11 +51,13 @@ export function normalise(input = {}) {
     phoneBleed: num(input.phoneBleed, DEFAULTS.phoneBleed),
     insetX: input.insetX === undefined ? null : num(input.insetX, null),
     insetY: input.insetY === undefined ? null : num(input.insetY, null),
-    caption: input.caption ? String(input.caption) : DEFAULTS.caption,
-    // Same coercion as `caption` immediately above: an empty string is
-    // "no value", not a value - see Task 6's header note in render.js's
-    // paintChrome for why an empty pill (the DEFAULTS.url === null case)
-    // must stay empty rather than fall back to invented placeholder copy.
+    // An empty string is "no value", not a value with zero characters, so a
+    // text input that was typed into and then cleared falls all the way back
+    // to DEFAULTS.url (null) rather than becoming a technically-truthy-but-
+    // blank string. See Task 6's header note in render.js's paintChrome for
+    // why an empty pill must stay empty rather than fall back to invented
+    // placeholder copy. (This coercion used to be shared with `caption`,
+    // retired in Cycle A Task 4; it stands on its own now.)
     url: input.url ? String(input.url) : DEFAULTS.url,
     forceHue,
     tone: TONES.includes(input.tone) ? input.tone : DEFAULTS.tone,
@@ -82,5 +85,42 @@ export function normalise(input = {}) {
       SHADOW_SCALE_RANGE[1],
       Math.max(SHADOW_SCALE_RANGE[0], num(input.shadowScale, DEFAULTS.shadowScale)),
     ),
+    // Task 7. A nested block rather than three flat `strokeStyle`/
+    // `strokeWidth`/`strokeColor` keys because the spec's per-element model
+    // (Cycle B) gives `web` and `mobile` one each, and a nested value moves
+    // there as a unit. `style` defaults to 'none': an edge is opt-in, and
+    // `width`/`color` still resolve so switching the style on has somewhere
+    // sensible to land. Width is clamped to STROKE_WIDTH_RANGE here, the
+    // same defensive clamp shadowScale gets, so a stale jobs.json or a
+    // runaway slider can never reach layout.js unbounded.
+    // Task 9. `stops` and `spread` only - `seed` stays the top-level field
+    // it always was, for the one-value-one-home reason spelled out beside
+    // MESH_DEFAULTS in presets.js. Both are clamped here, the same
+    // defensive clamp shadowScale and stroke.width get.
+    mesh: (() => {
+      const m = input.mesh || {};
+      return {
+        stops: Math.min(
+          MESH_STOPS_RANGE[1],
+          Math.max(MESH_STOPS_RANGE[0], Math.round(num(m.stops, MESH_DEFAULTS.stops))),
+        ),
+        spread: Math.min(
+          MESH_SPREAD_RANGE[1],
+          Math.max(MESH_SPREAD_RANGE[0], num(m.spread, MESH_DEFAULTS.spread)),
+        ),
+      };
+    })(),
+    stroke: (() => {
+      const s = input.stroke || {};
+      const style = STROKE_STYLES.includes(s.style) ? s.style : STROKE_DEFAULTS.style;
+      return {
+        style,
+        width: Math.min(
+          STROKE_WIDTH_RANGE[1],
+          Math.max(STROKE_WIDTH_RANGE[0], num(s.width, STROKE_DEFAULTS.width)),
+        ),
+        color: /^#[0-9a-fA-F]{6}$/.test(s.color) ? s.color : STROKE_DEFAULTS.color,
+      };
+    })(),
   };
 }

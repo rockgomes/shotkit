@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { DEFAULTS, normalise, SHADOW_SCALE_RANGE } from '../core/index.js';
+import {
+  DEFAULTS, normalise, SHADOW_SCALE_RANGE, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
+} from '../core/index.js';
 import { state, bindCanvas, render } from '../web/state.js';
 import {
   activeFrameKind,
@@ -10,8 +12,6 @@ import {
   showsBrowserOnlyControls,
   activeUrl,
   setUrl,
-  activeFit,
-  setFit,
   activePadPercent,
   setPadPercent,
   PAD_PERCENT_MAX,
@@ -22,8 +22,15 @@ import {
   activeRadiusPercent,
   setRadiusPercent,
   RADIUS_PERCENT_MAX,
-  activeCaption,
-  setCaption,
+  activeStrokeStyle,
+  setStrokeStyle,
+  activeStrokeWidthPercent,
+  setStrokeWidthPercent,
+  STROKE_PERCENT_MAX,
+  activeStrokeColor,
+  setStrokeColor,
+  showsStrokeWidth,
+  showsStrokeColor,
 } from '../web/inspector-frame.js';
 
 const mkCanvas = (w, h) => createCanvas(w, h);
@@ -84,7 +91,7 @@ describe('showsBrowserOnlyControls - the chrome-theme/url visibility gate', () =
 // Task 6's actual gap-closer: the panel's own read/write pair for
 // core/config.js's new `url` field. normalise() (real, unmodified) is what
 // proves this file's raw pass-through actually reaches the pill the same
-// way `caption` does - not a duplicated coercion this file could drift from.
+// way core/config.js does - not a duplicated coercion this file could drift from.
 describe('the browser URL field', () => {
   it('activeUrl reads back what setUrl wrote', () => {
     const config = {};
@@ -99,21 +106,6 @@ describe('the browser URL field', () => {
     setUrl(config, ''); // the user selected all and deleted it
     expect(activeUrl(config)).toBe('');
     expect(normalise(config).url).toBe(null); // core/config.js's own coercion, not duplicated here
-  });
-});
-
-describe('fit', () => {
-  it('defaults to contain', () => {
-    expect(activeFit({})).toBe(DEFAULTS.fit);
-    expect(activeFit({})).toBe('contain');
-  });
-
-  it('setFit accepts cover, rejects anything else', () => {
-    const config = {};
-    setFit(config, 'cover');
-    expect(activeFit(config)).toBe('cover');
-    setFit(config, 'stretch'); // not a real FITS value
-    expect(activeFit(config)).toBe('cover');
   });
 });
 
@@ -217,21 +209,33 @@ describe('corner radius percent <-> config.radius pixels', () => {
   });
 });
 
-describe('caption', () => {
-  it('activeCaption reads back what setCaption wrote, and empty coerces to null via normalise()', () => {
-    const config = {};
-    expect(activeCaption(config)).toBe('');
-    setCaption(config, 'Fieldset — 2026');
-    expect(activeCaption(config)).toBe('Fieldset — 2026');
-    expect(normalise(config).caption).toBe('Fieldset — 2026');
-    setCaption(config, '');
-    expect(normalise(config).caption).toBe(null);
+// Cycle A Task 4: the Fit segmented control and the Caption text input are
+// gone from the Finish section. This asserts the MODULE SURFACE rather than
+// the DOM (this suite runs under vitest's node environment, with no
+// document): those four helpers were the only state path either control
+// had, so a control still on screen would either import a name that no
+// longer exists or duplicate the coercion this file deliberately never
+// duplicates. Verified in the browser as well - see the task report.
+describe('retired Finish controls', () => {
+  it('exports no fit or caption helpers', async () => {
+    const mod = await import('../web/inspector-frame.js');
+    for (const name of ['activeFit', 'setFit', 'activeCaption', 'setCaption']) {
+      expect(mod[name], `${name} is still exported`).toBeUndefined();
+    }
+  });
+
+  it('still exports the Finish controls that stay', async () => {
+    const mod = await import('../web/inspector-frame.js');
+    for (const name of ['activePadPercent', 'setPadPercent', 'activeRadiusPercent',
+      'activeGrainPercent', 'activeShadowPercent', 'initFinishInspector']) {
+      expect(typeof mod[name], `${name} went missing`).toBe('function');
+    }
   });
 });
 
 // ---------------------------------------------------------------------
 // PERFORMANCE: none of the fields this file writes (frameKind, chromeTheme,
-// url, fit, pad, radius, grain, shadowScale, caption) is part of
+// url, pad, radius, grain, shadowScale) is part of
 // web/state.js's `groundKeyFor` - see that file's own comment for the exact
 // field list. This drives the REAL web/state.js render(), the same harness
 // test/web-export.test.js already established, and proves it with a
@@ -240,6 +244,17 @@ describe('caption', () => {
 // thumbnail - groundFor running again - or a differently-sized grain
 // tile), this fails immediately and says which control did it, instead of
 // merely running slower.
+//
+// THE GUARD NAMES THE TWO SIZES IT CARES ABOUT rather than refusing every
+// allocation (Task 4d). Shots are now composed in per-shot offscreen tiles,
+// and a tile's size follows the shot's own box - so `pad` legitimately asks
+// for a canvas size it has never asked for before, and refusing all
+// allocation would fail on a change that costs a buffer rather than a
+// colour analysis. The expensive thing has always been groundFor, and its
+// fingerprint is a request for the SAMPLE THUMBNAIL's exact size; the grain
+// tile's is 240 at scale 1. Those two are what must never be re-requested,
+// and those two are what throw. `state._groundKey` below is the same claim
+// made structurally, and neither assertion is load-bearing alone.
 // ---------------------------------------------------------------------
 
 beforeEach(() => {
@@ -249,14 +264,19 @@ beforeEach(() => {
 });
 
 describe('Task 6: Frame/Finish fields hit the warm colour cache, never groundFor', () => {
-  it('a full sweep of frameKind/chromeTheme/url/fit/pad/radius/grain/shadow/caption allocates zero new scratch canvases', async () => {
+  it('a full sweep of frameKind/chromeTheme/url/pad/radius/grain/shadow allocates zero new scratch canvases', async () => {
     const web = await loadImage('samples/fieldset.png');
+    // core/index.js's sampleOf: the source, scaled to fit inside 800px.
+    const s = Math.min(1, 800 / web.width, 800 / web.height);
+    const thumb = `${Math.max(1, Math.floor(web.width * s))}x${Math.max(1, Math.floor(web.height * s))}`;
+    const coldSizes = new Set([thumb, '240x240']);   // sample thumbnail, grain tile
     let armed = false;
     const guardedFactory = (w, h) => {
-      if (armed) {
+      if (armed && coldSizes.has(`${w}x${h}`)) {
         throw new Error(
-          `a Frame/Finish control asked for a NEW ${w}x${h} scratch canvas - ` +
-          'should have hit the warm colour cache instead (see web/state.js\'s groundKeyFor)',
+          `a Frame/Finish control asked for a NEW ${w}x${h} scratch canvas - that is ` +
+          'the sample thumbnail or the grain tile, so the colour cache went cold ' +
+          '(see web/state.js\'s groundKeyFor)',
         );
       }
       return mkCanvas(w, h);
@@ -274,12 +294,10 @@ describe('Task 6: Frame/Finish fields hit the warm colour cache, never groundFor
     setFrameKind(state.config, 'browser'); render();
     setChromeTheme(state.config, 'light'); render();
     setUrl(state.config, 'app.acme.dev'); render();
-    setFit(state.config, 'cover'); render();
     setPadPercent(state.config, 10); render();
     setRadiusPercent(state.config, 3); render();
     setGrainPercent(state.config, 80); render();
     setShadowPercent(state.config, 160); render();
-    setCaption(state.config, 'Fieldset — 2026'); render();
 
     // Structural, not just "didn't throw": the ground key genuinely never
     // changed, so every render() above actually took the precomputed-meta
@@ -359,5 +377,81 @@ describe('Task 6: Frame/Finish fields hit the warm colour cache, never groundFor
     const after = target.toBuffer('image/png');
 
     expect(Buffer.compare(before, after)).not.toBe(0);
+  });
+});
+
+// --- Stroke (Cycle A Task 7) ---------------------------------------------
+//
+// The round trip goes through the REAL normalise() on both sides, like the
+// corner-radius block above, so these prove the panel agrees with
+// core/config.js rather than only with itself.
+describe('stroke style, width and colour (Task 7)', () => {
+  it('an unset config reads back the shipped default: no stroke', () => {
+    expect(activeStrokeStyle({})).toBe('none');
+    expect(activeStrokeStyle({})).toBe(STROKE_DEFAULTS.style);
+    expect(normalise({}).stroke.style).toBe('none');
+  });
+
+  it('setStrokeStyle writes a block normalise() reads back unchanged', () => {
+    const config = {};
+    setStrokeStyle(config, 'glass');
+    expect(activeStrokeStyle(config)).toBe('glass');
+    expect(normalise(config).stroke.style).toBe('glass');
+  });
+
+  it('ignores a style that is not a stroke style, leaving the config alone', () => {
+    const config = {};
+    setStrokeStyle(config, 'light');
+    setStrokeStyle(config, 'embossed');
+    expect(activeStrokeStyle(config)).toBe('light');
+  });
+
+  it('changing the style keeps a width the user already set', () => {
+    const config = {};
+    setStrokeWidthPercent(config, 3.4);
+    setStrokeStyle(config, 'glass');
+    // Task 5b reset the user's value here by spreading defaults LAST while
+    // the slider went on showing the old number. It must not happen again.
+    expect(activeStrokeWidthPercent(config)).toBe(3.4);
+    expect(normalise(config).stroke.width).toBeCloseTo(0.034, 6);
+  });
+
+  it('setStrokeWidthPercent writes a fraction of the shorter canvas side', () => {
+    const config = {};
+    setStrokeWidthPercent(config, 2);
+    expect(config.stroke.width).toBeCloseTo(0.02, 9);
+    expect(activeStrokeWidthPercent(config)).toBe(2);
+    expect(normalise(config).stroke.width).toBeCloseTo(0.02, 9);
+  });
+
+  it('clamps the width at both ends, to STROKE_WIDTH_RANGE', () => {
+    const config = {};
+    setStrokeWidthPercent(config, -5);
+    expect(config.stroke.width).toBe(STROKE_WIDTH_RANGE[0]);
+    setStrokeWidthPercent(config, 999);
+    expect(config.stroke.width).toBeCloseTo(STROKE_WIDTH_RANGE[1], 9);
+    expect(STROKE_PERCENT_MAX).toBe(STROKE_WIDTH_RANGE[1] * 100);
+  });
+
+  it('takes a six-digit hex colour and refuses anything else', () => {
+    const config = {};
+    setStrokeColor(config, '#3311ff');
+    expect(activeStrokeColor(config)).toBe('#3311ff');
+    expect(normalise(config).stroke.color).toBe('#3311ff');
+    setStrokeColor(config, 'rebeccapurple');
+    setStrokeColor(config, '#fff');
+    expect(activeStrokeColor(config)).toBe('#3311ff');
+  });
+
+  it('shows width only once a style paints, and colour only for custom', () => {
+    const config = {};
+    expect(showsStrokeWidth(config)).toBe(false);
+    expect(showsStrokeColor(config)).toBe(false);
+    setStrokeStyle(config, 'light');
+    expect(showsStrokeWidth(config)).toBe(true);
+    expect(showsStrokeColor(config)).toBe(false);
+    setStrokeStyle(config, 'custom');
+    expect(showsStrokeWidth(config)).toBe(true);
+    expect(showsStrokeColor(config)).toBe(true);
   });
 });

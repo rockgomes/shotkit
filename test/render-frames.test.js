@@ -6,10 +6,10 @@ import { layout } from '../core/layout.js';
 import { paintGround, paintWeb, roundRect } from '../core/render.js';
 import { composeWithMeta } from '../core/index.js';
 import {
-  CHROME_DOT_RATIO,
-  CHROME_DOT_GAP_RATIO,
-  CHROME_BAR_PADDING_RATIO,
-  CHROME_BAR_GAP_RATIO,
+  TRAFFIC_DOT_RATIO,
+  TRAFFIC_GAP_RATIO,
+  TRAFFIC_INSET_RATIO,
+  URL_PILL_WIDTH_RATIO,
   URL_PILL_HEIGHT_RATIO,
   URL_PILL_RADIUS_RATIO,
 } from '../core/presets.js';
@@ -33,7 +33,7 @@ async function scene(overrides = {}) {
   const cv = createCanvas(c.w, c.h);
   const ctx = cv.getContext('2d');
   paintGround(ctx, c, GROUND);
-  paintWeb(ctx, c, lay.web, img);
+  paintWeb(ctx, c, lay.web, img, createCanvas);
   return { c, lay, ctx, img };
 }
 
@@ -43,15 +43,16 @@ async function scene(overrides = {}) {
 // never derived from the code under test.
 function dotCentres(box) {
   const { chrome } = box;
-  const padX = box.w * CHROME_BAR_PADDING_RATIO;
-  const dotD = box.w * CHROME_DOT_RATIO;
-  const dotGap = box.w * CHROME_DOT_GAP_RATIO;
+  const dotD = box.w * TRAFFIC_DOT_RATIO;
   const cy = box.y + chrome.barH / 2;
   const centres = [];
-  let cx = box.x + padX + dotD / 2;
+  // Task 8: TRAFFIC_GAP_RATIO is CENTRE TO CENTRE (the reference's circles
+  // sit at cx 6, 26, 46), so it is the stride - not a gap added to the
+  // diameter, which is what the retired CHROME_DOT_GAP_RATIO was.
+  let cx = box.x + box.w * TRAFFIC_INSET_RATIO + dotD / 2;
   for (let i = 0; i < 3; i++) {
     centres.push([cx, cy]);
-    cx += dotD + dotGap;
+    cx += box.w * TRAFFIC_GAP_RATIO;
   }
   return centres;
 }
@@ -90,8 +91,8 @@ describe('paintWeb - browser chrome bar', () => {
     const darkPx = px(dark.ctx, ...darkPt);
     const lightPx = px(light.ctx, ...lightPt);
 
-    expect(close(darkPx, [27, 29, 34])).toBe(true);    // #1b1d22
-    expect(close(lightPx, [246, 247, 249])).toBe(true); // #f6f7f9
+    expect(close(darkPx, [27, 29, 34])).toBe(true);      // #1b1d22
+    expect(close(lightPx, [255, 255, 255])).toBe(true);  // #ffffff, Task 8
     expect(darkPx).not.toEqual(lightPx);
   });
 
@@ -100,17 +101,18 @@ describe('paintWeb - browser chrome bar', () => {
     const { web } = lay;
     const barY = web.y + web.chrome.barH / 2;
 
-    const padX = web.w * CHROME_BAR_PADDING_RATIO;
-    const barGap = web.w * CHROME_BAR_GAP_RATIO;
-    const dotsGroupW = web.w * CHROME_DOT_RATIO * 3 + web.w * CHROME_DOT_GAP_RATIO * 2;
-    const pillStartX = web.x + padX + dotsGroupW + barGap;
+    const { pillX } = pillGeomOf(web);
 
-    const barOnly = px(ctx, web.x + 3, barY);          // plain bar fill
-    const pillFill = px(ctx, pillStartX + 5, barY);     // inside the pill
+    const barOnly = px(ctx, web.x + 3, barY);       // plain bar fill
+    const pillFill = px(ctx, pillX + 5, barY);      // inside the pill
 
     expect(barOnly).not.toEqual(pillFill);
-    // dark URL pill: rgba(255,255,255,.07) blended over #1b1d22 bar
-    expect(close(pillFill, [43, 45, 49], 6)).toBe(true);
+    // dark URL pill: rgba(255,255,255,.16) blended over the #1b1d22 bar.
+    // Task 8 raised this from .07, which was near-invisible - see the
+    // CHROME_THEME comment in core/render.js.
+    expect(close(pillFill, [64, 66, 70], 6)).toBe(true);
+    // And it is genuinely lighter than the bar, not merely different.
+    expect(pillFill[0]).toBeGreaterThan(barOnly[0] + 20);
   });
 });
 
@@ -121,11 +123,10 @@ describe('paintWeb - browser chrome bar', () => {
 // present (drawn in fUrlTxt, clipped to the pill so an overlong string
 // can't spill into the dot group or past the bar's own right padding).
 function pillGeomOf(web) {
-  const padX = web.w * CHROME_BAR_PADDING_RATIO;
-  const barGap = web.w * CHROME_BAR_GAP_RATIO;
-  const dotsGroupW = web.w * CHROME_DOT_RATIO * 3 + web.w * CHROME_DOT_GAP_RATIO * 2;
-  const pillX = web.x + padX + dotsGroupW + barGap;
-  const pillW = (web.x + web.w - padX) - pillX;
+  // Task 8: a fixed width, centred in the window - not the leftover space
+  // after the dot group.
+  const pillW = web.w * URL_PILL_WIDTH_RATIO;
+  const pillX = web.x + (web.w - pillW) / 2;
   const pillH = web.w * URL_PILL_HEIGHT_RATIO;
   const pillR = web.w * URL_PILL_RADIUS_RATIO;
   const barY = web.y + web.chrome.barH / 2;
@@ -141,8 +142,12 @@ function pillGeomOf(web) {
  *  this whole field exists to prevent) has no way to also corrupt this
  *  independent reference. */
 function plainPillOracle(c, web, theme) {
-  const barColour = theme === 'light' ? '#f6f7f9' : '#1b1d22';
-  const pillColour = theme === 'light' ? '#ffffff' : 'rgba(255,255,255,0.07)';
+  // Task 8 remeasured these against the Safari reference - see the
+  // CHROME_THEME table in core/render.js for the full comparison and which
+  // three changed. Literals here on purpose: an oracle that imported the
+  // table would agree with a wrong table.
+  const barColour = theme === 'light' ? '#ffffff' : '#1b1d22';
+  const pillColour = theme === 'light' ? '#f0f0f0' : 'rgba(255,255,255,0.16)';
   const cv = createCanvas(c.w, c.h);
   const octx = cv.getContext('2d');
   octx.fillStyle = barColour;
@@ -275,7 +280,7 @@ describe('paintWeb - screenshot placement inside chrome.screen', () => {
     const cv = createCanvas(c.w, c.h);
     const ctx = cv.getContext('2d');
     paintGround(ctx, c, GROUND);
-    paintWeb(ctx, c, lay.web, img);
+    paintWeb(ctx, c, lay.web, img, createCanvas);
 
     // Independent oracle: draw the raw image directly into chrome.screen on
     // a blank canvas - no ground, no bar, no clipping from paintWeb at all.
@@ -338,7 +343,7 @@ describe('paintWeb - phone frame', () => {
     const cv = createCanvas(c.w, c.h);
     const ctx = cv.getContext('2d');
     paintGround(ctx, c, GROUND);
-    paintWeb(ctx, c, lay.web, img);
+    paintWeb(ctx, c, lay.web, img, createCanvas);
 
     // Independent oracle, exactly as the browser-frame test above: a plain
     // drawImage into chrome.screen on a blank canvas, no bezel, no clipping.
@@ -361,10 +366,118 @@ describe('paintWeb - phone frame', () => {
     // inside the frame's rounded edge, away from any corner arc.
     const { lay, ctx } = await scene({ frameKind: 'phone' });
     const { web } = lay;
-    const withHairline = px(ctx, web.x + 1, web.y + web.h / 2);
-    const bodyOnly = px(ctx, web.x + 4, web.y + web.h / 2);
+    // INTEGER sample columns, derived from where the stroke actually lands.
+    // paintDeviceHairline strokes a 1px line centred on box.x + 0.5, so it
+    // covers x in [web.x, web.x + 1]. Cycle A Task 6 moved the phone
+    // composite outward by its own bezel, which made web.x fractional (30.57
+    // here, 62.4 before), and the old `web.x + 1` sample rounded PAST the
+    // stroke onto plain body - it read equal to the body sample and asserted
+    // nothing. Column floor(web.x) is no good either: that is the body's own
+    // antialiased edge against a pale ground, which is brighter than the body
+    // with or without a hairline (verified by stubbing paintDeviceHairline to
+    // a no-op - the assertion stayed green).
+    //
+    // The one column that is BOTH fully inside the body and under the stroke
+    // is floor(web.x) + 1, covered by exactly frac(web.x) of it.
+    const yMid = Math.round(web.y + web.h / 2);
+    const inner = Math.floor(web.x) + 1;
+    const cov = web.x + 1 - inner;              // the stroke's share of it
+    expect(cov, 'the hairline barely covers the sample column').toBeGreaterThan(0.3);
+    expect(web.chrome.frame, 'both samples must stay inside the bezel').toBeGreaterThan(8);
+    const withHairline = px(ctx, inner, yMid);
+    const bodyOnly = px(ctx, inner + 5, yMid);
+    // rgba(255,255,255,0.10) at `cov` coverage over the body, within a level
+    // of rounding - not just "brighter", which the body's own edge would
+    // also satisfy.
+    const predicted = bodyOnly[0] + cov * 0.10 * (255 - bodyOnly[0]);
+    expect(Math.abs(withHairline[0] - predicted)).toBeLessThanOrEqual(1.5);
     // The hairline is a thin white-ish stroke blended over the dark body -
     // brighter than plain body fill at that exact 1px edge.
     expect(withHairline[0]).toBeGreaterThan(bodyOnly[0]);
+  });
+});
+
+// --- Cycle A Task 8: the rebuilt browser chrome --------------------------
+//
+// Round one's chrome came from the Backdrop handoff's own small mockup and
+// read, in Rock's words, "comically big and ugly". These three assert the
+// PROPORTIONS a browser has to have to read as one at a glance, in terms
+// loose enough that a later re-measurement does not have to rewrite them.
+describe('browser chrome proportions', () => {
+  it('the bar is a small fraction of the window width', () => {
+    const c = normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser' });
+    const lay = layout(c, { web: 1440 / 900, mobile: [] });
+    const r = lay.web.chrome.barH / lay.web.w;
+    expect(r).toBeGreaterThan(0.02);
+    expect(r).toBeLessThan(0.055);   // the old 10/133 = 0.0752 fails this
+  });
+
+  it('draws three traffic lights in the bar, left-aligned', async () => {
+    // Sample the bar's vertical centre across its left eighth and count runs
+    // of non-bar colour. Three dots => three runs. Deliberately geometry-free:
+    // it does not read the dot ratios, so it cannot pass by agreeing with the
+    // constants the code under test also reads.
+    const { ctx, lay } = await scene({ frameKind: 'browser', chromeTheme: 'dark' });
+    const ch = lay.web.chrome;
+    const y = Math.round(ch.screen.y - ch.barH / 2);
+    const bar = px(ctx, Math.round(lay.web.x + lay.web.w * 0.22), y);
+    // Start 3px inside the window. The frame's own outer hairline sits on
+    // its first column and is a legitimate non-bar run - it is a different
+    // element, with its own test, and counting it would make this four.
+    const from = Math.ceil(lay.web.x) + 3;
+    const runs = [];
+    let inRun = false, runStart = 0;
+    for (let x = from; x < lay.web.x + lay.web.w * 0.18; x++) {
+      const p = px(ctx, x, y);
+      const differs = Math.abs(p[0] - bar[0]) + Math.abs(p[1] - bar[1]) + Math.abs(p[2] - bar[2]) > 24;
+      if (differs && !inRun) { inRun = true; runStart = x; }
+      if (!differs && inRun) { inRun = false; runs.push([runStart, x]); }
+    }
+    expect(runs.length).toBe(3);
+
+    // Three dots on their own would have passed against round one's chrome
+    // too - it had three. What round one FAILS is the size of the group:
+    // its dots were 1.9% of the frame each and 1.2% apart, so the trio
+    // spanned 8% of the window. The reference's span 12 + 20 + 20 = 52 of
+    // 1280, just over 4%.
+    const span = (runs[2][1] - runs[0][0]) / lay.web.w;
+    expect(span).toBeLessThan(0.06);
+    // And the group starts near the window's edge, not a full bar-padding in.
+    expect((runs[0][0] - lay.web.x) / lay.web.w).toBeLessThan(0.022);
+  });
+
+  it('centres the URL pill in the window', async () => {
+    const { ctx, lay } = await scene({ frameKind: 'browser', chromeTheme: 'dark' });
+    const ch = lay.web.chrome;
+    const y = Math.round(ch.screen.y - ch.barH / 2);
+    const bar = px(ctx, Math.round(lay.web.x + lay.web.w * 0.22), y);
+    // Walk the bar and find where the pill starts and ends. Its midpoint must
+    // land on the window's own midpoint, not somewhere left of it - round
+    // one's pill filled whatever was left after the dots.
+    const isBar = x => {
+      const p = px(ctx, x, y);
+      return Math.abs(p[0] - bar[0]) + Math.abs(p[1] - bar[1]) + Math.abs(p[2] - bar[2]) <= 12;
+    };
+    let first = null, last = null;
+    for (let x = Math.round(lay.web.x + lay.web.w * 0.18); x < lay.web.x + lay.web.w - 2; x++) {
+      if (!isBar(x)) { if (first === null) first = x; last = x; }
+    }
+    expect(first).not.toBeNull();
+    const pillMid = (first + last) / 2;
+    const windowMid = lay.web.x + lay.web.w / 2;
+    expect(Math.abs(pillMid - windowMid)).toBeLessThan(lay.web.w * 0.01);
+  });
+
+  it('keeps the pill empty when no url is set', async () => {
+    const { ctx, lay } = await scene({ frameKind: 'browser', chromeTheme: 'dark' });
+    const ch = lay.web.chrome;
+    const y = Math.round(ch.screen.y - ch.barH / 2);
+    const fill = px(ctx, Math.round(lay.web.x + lay.web.w / 2), y);
+    let maxDelta = 0;
+    for (let d = -60; d <= 60; d++) {
+      const p = px(ctx, Math.round(lay.web.x + lay.web.w / 2) + d, y);
+      maxDelta = Math.max(maxDelta, Math.abs(p[0] - fill[0]));
+    }
+    expect(maxDelta).toBeLessThan(12);
   });
 });

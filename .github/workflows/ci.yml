@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel an in-flight run when the branch is pushed again — only the newest
+# commit's result is interesting.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    # THIS PINS THE ARCHITECTURE TO x64, and that is the whole point — do not
+    # "modernise" this to macos-latest, which is arm64.
+    #
+    # The label matters: `macos-13` was GitHub's x64 image and is RETIRED — a
+    # job requesting it is accepted and then queues forever with no runner
+    # assigned, which looks like a slow CI rather than a broken one. The
+    # current x64 label is `macos-15-intel`.
+    #
+    # test/golden/render/ holds pixel-exact PNGs compared with pixelmatch at
+    # threshold 0 (and a 1e-5 ratio budget). @napi-rs/canvas ships a different
+    # native Skia binary per architecture and they do not antialias
+    # identically. The first CI run proved it: on macos-latest (arm64) all 12
+    # golden comparisons failed by a uniform 1.6-3.2% of pixels — every
+    # golden, including phone-only and mesh cases, which is the signature of a
+    # rasteriser difference rather than a real regression.
+    #
+    # The goldens are generated on an x64 Mac, so CI runs on one. If this ever
+    # has to move, the goldens must be regenerated on the new architecture in
+    # the same commit, and the whole set re-reviewed — they are the project's
+    # only pixel-level guarantee.
+    runs-on: macos-15-intel
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches NODE_VERSION in netlify.toml, so CI and the deploy build
+          # cannot diverge on the runtime.
+          node-version: '20'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Tests
+        run: npx vitest run
+
+      - name: Build
+        run: npm run build
+
+      - name: Goldens must be unchanged by the build
+        # A test that silently regenerates a golden instead of comparing to it
+        # would leave the suite green and the guarantee gone. Anything dirty
+        # here means exactly that.
+        run: git diff --exit-code -- test/golden

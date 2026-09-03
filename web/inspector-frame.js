@@ -4,18 +4,23 @@
 //
 // TWO SECTIONS, ONE FILE: the task brief creates exactly one new file for
 // both (Frame: frameKind chips, chrome theme, the url field it gates;
-// Finish: fit, padding, corner radius, grain, caption) — they're wired the
+// Finish: padding, corner radius, grain, shadow) — they're wired the
 // same way and share no state with web/inspector-background.js, so there's
 // no reason to split them further. Order within each section follows the
 // brief's own ordering, not the design handoff's (which never designed a
-// "Finish" section at all — fit/padding/radius/grain/caption are this
+// "Finish" section at all — padding/radius/grain/shadow are this
 // app's own grouping of fields the handoff scattered or omitted).
+//
+// Cycle A Task 4 retired two of these controls: a Fit segmented control
+// (Contain/Cover) and a Caption text input. Cover's only effect was to crop
+// the screenshot, and the caption was never wanted; both are gone from
+// core/ as well, so there is no config field left for either to write.
 //
 // ONE RENDER PATH: exactly like web/inspector-background.js and
 // web/sidebar.js before it, every handler below mutates `state.config` and
 // calls `scheduleRender()` — nothing here calls `composeWithMeta` directly.
 //
-// core/ IMPORTS: only from core/index.js (FRAME_KINDS, CHROME_THEMES, FITS,
+// core/ IMPORTS: only from core/index.js (FRAME_KINDS, CHROME_THEMES,
 // DEFAULTS, normalise) — never a deep import of core/presets.js. Reading
 // `normalise(state.config)` to display an EFFECTIVE value (the corner
 // radius's own default, in particular) is the same read-only pattern
@@ -23,8 +28,8 @@
 // used here to decide what to WRITE, only what to show before the user has
 // touched a control.
 //
-// PERFORMANCE: none of frameKind/chromeTheme/url/fit/pad/radius/grain/
-// caption/shadowScale is part of web/state.js's `groundKeyFor` (images +
+// PERFORMANCE: none of frameKind/chromeTheme/url/pad/radius/grain/
+// shadowScale is part of web/state.js's `groundKeyFor` (images +
 // config.ground + config.tone only) — every control in this file hits the
 // warm ~3ms colour cache, never groundFor's ~90-200ms analysis. shadowScale
 // (Task 6b) has nothing to do with the sampled ground even in principle — a
@@ -33,7 +38,8 @@
 // "throwing canvas" guard for the proof, and task-6-report.md /
 // task-6b-report.md for measured timings.
 import {
-  FRAME_KINDS, CHROME_THEMES, FITS, DEFAULTS, normalise, SHADOW_SCALE_RANGE,
+  FRAME_KINDS, CHROME_THEMES, DEFAULTS, normalise, SHADOW_SCALE_RANGE,
+  STROKE_STYLES, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
 } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
 
@@ -95,9 +101,8 @@ export function showsBrowserOnlyControls(config) {
 
 /** The browser URL pill's own text (core/config.js's `url`, Task 6's
  *  authorised core/ change). Raw pass-through, on purpose: normalise()
- *  already coerces an empty string to null (the same treatment `caption`
- *  gets), so this file doesn't need to duplicate that here — see
- *  core/config.js. */
+ *  already coerces an empty string to null, so this file doesn't need to
+ *  duplicate that here — see core/config.js. */
 export function setUrl(config, value) {
   config.url = value;
 }
@@ -107,15 +112,6 @@ export function activeUrl(config) {
 }
 
 // --- Finish ----------------------------------------------------------------
-
-export function activeFit(config) {
-  return FITS.includes(config.fit) ? config.fit : DEFAULTS.fit;
-}
-
-export function setFit(config, fit) {
-  if (!FITS.includes(fit)) return;
-  config.fit = fit;
-}
 
 // Padding sliders (and the corner-radius one below) work in PERCENT in the
 // UI — `config.pad` itself is already a 0..1 fraction of the shorter canvas
@@ -167,6 +163,72 @@ export function setShadowPercent(config, pct) {
   config.shadowScale = Math.min(max * 100, Math.max(min * 100, n)) / 100;
 }
 
+// Stroke (Task 7) — the opt-in mat around the shot. `config.stroke` is a
+// NESTED block ({ style, width, color }), not three flat fields, matching
+// core/config.js: the spec's per-element model (Cycle B) gives the web
+// element and the phone element one each, and a nested value moves there
+// as a unit.
+//
+// EVERY WRITER BELOW SEEDS FROM STROKE_DEFAULTS AND THEN THE CURRENT VALUE,
+// in that order, so an untouched sibling field keeps whatever the user set
+// and an absent one lands on exactly the value normalise() would have
+// resolved for it anyway. Task 5b is the reason that ordering is spelled
+// out: its shadow rewrite seeded a block with the defaults spread LAST,
+// which silently reset the user's strength to 100% while the slider went
+// on displaying the old number. Defaults first, current second, the one
+// field being changed last.
+export function activeStrokeStyle(config) {
+  const s = config.stroke || {};
+  return STROKE_STYLES.includes(s.style) ? s.style : STROKE_DEFAULTS.style;
+}
+
+export function setStrokeStyle(config, style) {
+  if (!STROKE_STYLES.includes(style)) return;
+  config.stroke = { ...STROKE_DEFAULTS, ...(config.stroke || {}), style };
+}
+
+// Width is a fraction of the SHORTER canvas side (core/presets.js), so the
+// slider is the same *100 / *0.01 percent round trip padding and grain
+// already use. The maximum comes from STROKE_WIDTH_RANGE rather than a
+// literal, so this slider and normalise()'s own clamp cannot drift apart.
+export const STROKE_PERCENT_MAX = STROKE_WIDTH_RANGE[1] * 100;
+
+export function activeStrokeWidthPercent(config) {
+  const s = config.stroke || {};
+  const width = Number.isFinite(s.width) ? s.width : STROKE_DEFAULTS.width;
+  return Math.round(width * 1000) / 10;
+}
+
+export function setStrokeWidthPercent(config, pct) {
+  const n = Number(pct);
+  if (!Number.isFinite(n)) return;
+  const width = Math.min(STROKE_PERCENT_MAX, Math.max(0, n)) / 100;
+  config.stroke = { ...STROKE_DEFAULTS, ...(config.stroke || {}), width };
+}
+
+export function activeStrokeColor(config) {
+  const s = config.stroke || {};
+  return /^#[0-9a-fA-F]{6}$/.test(s.color) ? s.color : STROKE_DEFAULTS.color;
+}
+
+export function setStrokeColor(config, value) {
+  if (!/^#[0-9a-fA-F]{6}$/.test(value)) return;
+  config.stroke = { ...STROKE_DEFAULTS, ...(config.stroke || {}), color: value };
+}
+
+/** Width only means something once a style paints; colour only means
+ *  something for 'custom' (light and glass are fixed fills — see
+ *  paintStroke in core/render.js). Same shape as showsBrowserOnlyControls
+ *  above, and hidden the same way: the global `[hidden]` rule, never a
+ *  second mechanism. */
+export function showsStrokeWidth(config) {
+  return activeStrokeStyle(config) !== 'none';
+}
+
+export function showsStrokeColor(config) {
+  return activeStrokeStyle(config) === 'custom';
+}
+
 // Corner radius is the one field here that ISN'T stored as a fraction —
 // core/config.js's normalise() resolves an unset `config.radius` to
 // `Math.round(w * RADIUS_RATIO)` (a fraction of canvas WIDTH, ~1.33%), but
@@ -192,17 +254,6 @@ export function setRadiusPercent(config, pct) {
   if (!Number.isFinite(n)) return;
   const eff = normalise(config);
   config.radius = Math.round((Math.min(RADIUS_PERCENT_MAX, Math.max(0, n)) / 100) * eff.w);
-}
-
-/** Same empty-string-is-no-value coercion as `caption` gets in
- *  core/config.js's normalise() — this file passes the raw value through
- *  and lets normalise() do it, exactly like `setUrl` above. */
-export function setCaption(config, value) {
-  config.caption = value;
-}
-
-export function activeCaption(config) {
-  return typeof config.caption === 'string' ? config.caption : '';
 }
 
 // ---------------------------------------------------------------------
@@ -353,44 +404,22 @@ export function initFrameInspector() {
   return { syncFrameUI, syncUrlUI };
 }
 
-const FIT_LABELS = { contain: 'Contain', cover: 'Cover' };
-
 /**
- * The Finish section: fit, padding, corner radius, grain, shadow, caption —
- * the task brief's own order for the first four and last one, with Shadow
- * (Task 6b) slotted in right after Grain: both are "material" finishing
- * touches over the composed shot rather than layout, and neither touches
- * `config.ground` or `config.tone`, so none of these six busts
- * web/state.js's ground-meta cache; see this file's header comment and
- * test/inspector-frame.test.js.
+ * The Finish section: padding, corner radius, grain, shadow — the task
+ * brief's own order, with Shadow (Task 6b) slotted in right after Grain:
+ * both are "material" finishing touches over the composed shot rather than
+ * layout, and neither touches `config.ground` or `config.tone`, so none of
+ * these four busts web/state.js's ground-meta cache; see this file's header
+ * comment and test/inspector-frame.test.js. Fit and Caption used to open
+ * and close this section; Cycle A Task 4 retired both. Task 7 adds Stroke
+ * at the end - style, then width and colour, each shown only when it can
+ * act (showsStrokeWidth / showsStrokeColor above).
  */
 export function initFinishInspector() {
   const section = document.getElementById('finishSection');
   if (!section) return null;
 
   section.innerHTML = '<h2 class="section-label">Finish</h2>';
-
-  // --- fit ---------------------------------------------------------------
-  const fitLabelRow = document.createElement('div');
-  fitLabelRow.className = 'slider-label';
-  fitLabelRow.innerHTML = '<span>Fit</span>';
-  section.appendChild(fitLabelRow);
-
-  const fitSegmented = document.createElement('div');
-  fitSegmented.className = 'segmented';
-  fitSegmented.setAttribute('role', 'group');
-  fitSegmented.setAttribute('aria-label', 'Fit');
-  const fitButtons = FITS.map((fit) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'segmented-cell';
-    btn.dataset.fit = fit;
-    btn.textContent = FIT_LABELS[fit] || fit;
-    btn.setAttribute('aria-pressed', 'false');
-    fitSegmented.appendChild(btn);
-    return btn;
-  });
-  section.appendChild(fitSegmented);
 
   // --- padding -------------------------------------------------------
   const padRow = document.createElement('div');
@@ -406,6 +435,13 @@ export function initFinishInspector() {
   padRow.appendChild(padInput);
   const padValueEl = padRow.querySelector('.slider-value');
   section.appendChild(padRow);
+
+  // NO HINT UNDER PADDING. Task 6 added a two-sentence note here explaining
+  // that a frame grows into this padding, so the visible gap can be smaller
+  // than the number. Rock cut it on sight: the behaviour reads fine from
+  // the canvas, and a paragraph of prose under a slider is the kind of
+  // explaining a control should not need. If padding ever does become
+  // confusing, the fix is the control, not a caption.
 
   // --- corner radius ---------------------------------------------------
   const radiusRow = document.createElement('div');
@@ -456,28 +492,94 @@ export function initFinishInspector() {
   const shadowValueEl = shadowRow.querySelector('.slider-value');
   section.appendChild(shadowRow);
 
-  // --- caption ----------------------------------------------------------
-  const captionRow = document.createElement('div');
-  captionRow.className = 'slider-row';
-  const captionLabelRow = document.createElement('div');
-  captionLabelRow.className = 'slider-label';
-  captionLabelRow.innerHTML = '<span>Caption</span>';
-  const captionInput = document.createElement('input');
-  captionInput.type = 'text';
-  captionInput.className = 'custom-size-input';
-  captionInput.placeholder = 'Optional caption';
-  captionInput.setAttribute('aria-label', 'Caption text, shown bottom-left of the shot — left empty, none is drawn');
-  captionRow.append(captionLabelRow, captionInput);
-  section.appendChild(captionRow);
+  // --- stroke (Task 7) ---------------------------------------------------
+  // Deliberately minimal, and Cycle B replaces it: a render feature with no
+  // way to invoke it cannot be previewed, and a feature Rock cannot test is
+  // a feature he cannot approve. Same row idioms as everything above — no
+  // new control vocabulary is invented here.
+  const strokeRow = document.createElement('div');
+  strokeRow.className = 'slider-row';
+  strokeRow.innerHTML = '<div class="slider-label"><span>Stroke</span></div>';
+  const strokeChips = document.createElement('div');
+  strokeChips.className = 'chip-row';
+  strokeChips.setAttribute('role', 'group');
+  strokeChips.setAttribute('aria-label', 'Stroke style');
+  const STROKE_LABELS = { none: 'None', light: 'Light', glass: 'Glass', custom: 'Custom' };
+  const strokeButtons = STROKE_STYLES.map((style) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip';
+    btn.dataset.stroke = style;
+    btn.textContent = STROKE_LABELS[style] || style;
+    btn.setAttribute('aria-pressed', 'false');
+    strokeChips.appendChild(btn);
+    return btn;
+  });
+  strokeRow.appendChild(strokeChips);
+  section.appendChild(strokeRow);
 
-  function syncFitUI() {
-    const fit = activeFit(state.config);
-    fitButtons.forEach((btn) => {
-      const active = btn.dataset.fit === fit;
-      btn.classList.toggle('is-active', active);
+  const strokeWidthRow = document.createElement('div');
+  strokeWidthRow.className = 'slider-row';
+  strokeWidthRow.innerHTML = '<div class="slider-label"><span>Stroke width</span><span class="mono slider-value"></span></div>';
+  const strokeWidthInput = document.createElement('input');
+  strokeWidthInput.type = 'range';
+  strokeWidthInput.className = 'slider';
+  strokeWidthInput.min = '0';
+  strokeWidthInput.max = String(STROKE_PERCENT_MAX);
+  strokeWidthInput.step = '0.1';
+  strokeWidthInput.setAttribute('aria-label', 'Stroke width, as a percentage of the shorter canvas side');
+  strokeWidthRow.appendChild(strokeWidthInput);
+  const strokeWidthValueEl = strokeWidthRow.querySelector('.slider-value');
+  section.appendChild(strokeWidthRow);
+
+  const strokeColorRow = document.createElement('div');
+  strokeColorRow.className = 'inline-control-row';
+  const strokeColorLabel = document.createElement('span');
+  strokeColorLabel.textContent = 'Stroke colour';
+  const strokeColorInput = document.createElement('input');
+  strokeColorInput.type = 'color';
+  strokeColorInput.className = 'colour-well';
+  strokeColorInput.setAttribute('aria-label', 'Stroke colour');
+  strokeColorRow.append(strokeColorLabel, strokeColorInput);
+  section.appendChild(strokeColorRow);
+
+  function syncStrokeUI() {
+    const style = activeStrokeStyle(state.config);
+    strokeButtons.forEach((btn) => {
+      const active = btn.dataset.stroke === style;
+      btn.classList.toggle('is-selected', active);
       btn.setAttribute('aria-pressed', String(active));
     });
+    strokeWidthRow.hidden = !showsStrokeWidth(state.config);
+    strokeColorRow.hidden = !showsStrokeColor(state.config);
+
+    const pct = activeStrokeWidthPercent(state.config);
+    strokeWidthInput.value = String(pct);
+    syncSliderFill(strokeWidthInput, strokeWidthValueEl, `${pct}%`);
+
+    const colour = activeStrokeColor(state.config);
+    if (document.activeElement !== strokeColorInput) strokeColorInput.value = colour;
   }
+
+  strokeButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      setStrokeStyle(state.config, btn.dataset.stroke);
+      syncStrokeUI();
+      scheduleRender();
+    });
+  });
+
+  strokeWidthInput.addEventListener('input', () => {
+    setStrokeWidthPercent(state.config, strokeWidthInput.value);
+    syncStrokeUI();
+    scheduleRender();
+  });
+
+  strokeColorInput.addEventListener('input', () => {
+    setStrokeColor(state.config, strokeColorInput.value);
+    syncStrokeUI();
+    scheduleRender();
+  });
 
   function syncPadUI() {
     const pct = activePadPercent(state.config);
@@ -503,18 +605,6 @@ export function initFinishInspector() {
     syncSliderFill(shadowInput, shadowValueEl, `${pct}%`);
   }
 
-  function syncCaptionUI() {
-    if (document.activeElement !== captionInput) captionInput.value = activeCaption(state.config);
-  }
-
-  fitButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      setFit(state.config, btn.dataset.fit);
-      syncFitUI();
-      scheduleRender();
-    });
-  });
-
   padInput.addEventListener('input', () => {
     setPadPercent(state.config, padInput.value);
     syncPadUI();
@@ -539,17 +629,11 @@ export function initFinishInspector() {
     scheduleRender();
   });
 
-  captionInput.addEventListener('input', () => {
-    setCaption(state.config, captionInput.value);
-    scheduleRender();
-  });
-
-  syncFitUI();
   syncPadUI();
   syncRadiusUI();
   syncGrainUI();
   syncShadowUI();
-  syncCaptionUI();
+  syncStrokeUI();
 
-  return { syncFitUI, syncPadUI, syncRadiusUI, syncGrainUI, syncShadowUI, syncCaptionUI };
+  return { syncPadUI, syncRadiusUI, syncGrainUI, syncShadowUI, syncStrokeUI };
 }

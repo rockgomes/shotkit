@@ -48,12 +48,12 @@ document.querySelectorAll('.segmented').forEach((el) => {
 // `.chip-row` or `.swatch-row` anywhere in index.html at load time for the
 // loops above to find, by the same reasoning Task 5 already established.
 
-// Templates/Ratios/Ground presets (Task 4) are NOT wired with the generic
+// Templates/Ratios (Task 4) are NOT wired with the generic
 // wireSingleSelectGroup helper above: those rows carry real application
-// state (state.config.template/ratio/ground), not just a CSS toggle, and
+// state (state.config.template/ratio), not just a CSS toggle, and
 // need to funnel through scheduleRender() — see web/sidebar.js's header
 // comment for why that file owns its own click handling instead.
-const sidebar = initSidebar();
+initSidebar();
 
 /** Sliders: keep the mono value label and the track fill in sync with the
  *  input's own value. Angle gets a ° suffix; everything else gets %. */
@@ -384,8 +384,29 @@ function updateEmptyFrame() {
   w = Math.min(availW, Math.max(160, w));
   h = Math.min(availH, Math.max(120, h));
 
-  dropzone.style.width = `${Math.round(w)}px`;
-  dropzone.style.height = `${Math.round(h)}px`;
+  let cw = Math.round(w);
+  let ch = Math.round(h);
+  dropzone.style.width = `${cw}px`;
+  dropzone.style.height = `${ch}px`;
+
+  // SNAP THE BOX ONTO WHOLE PIXELS. Rounding the SIZE above is not enough:
+  // .canvas-surface flex-centres this box, so its position is
+  // (container - size) / 2, and the container's content box is whatever
+  // fractional width the window leaves. When that halves to a .5, the
+  // dropzone's 1px dashed border straddles two device pixels on that axis and
+  // is drawn as two half-strength rows, while the other axis stays a single
+  // crisp row. On a 2x display both look the same; at 1x they do not, and it
+  // reads as a border that is 2px on one side and 1px on the other. Measured:
+  // x = 306 (whole) against y = 175.5 (half) at 1440x900.
+  //
+  // A second layout read is cheap here - this runs only in the empty state,
+  // and only on ratio or resize changes. Shrinking rather than growing keeps
+  // the box inside the space updateEmptyFrame already clamped it to; the
+  // resulting 1px of ratio error is invisible on a placeholder.
+  const r = dropzone.getBoundingClientRect();
+  const offAxis = v => Math.abs(v - Math.round(v)) > 0.01;
+  if (offAxis(r.x)) dropzone.style.width = `${Math.max(160, cw - 1)}px`;
+  if (offAxis(r.y)) dropzone.style.height = `${Math.max(120, ch - 1)}px`;
 }
 
 /** Reflect `state.images`/`hasContent()` into the parts of the shell that
@@ -484,13 +505,14 @@ async function handleFiles(fileList) {
   syncContentUI();
   // addFiles() above calls render() synchronously when it decodes anything,
   // so state.meta already reflects the new image(s) by this point — this is
-  // what tells the Ground group's swatches to stop showing the synthetic
-  // no-image fallback and start previewing the real thing (see
-  // web/sidebar.js's "Ground swatch gradients" header comment).
-  sidebar?.refreshGrounds();
-  // Same handshake for the inspector's own "Sampled" swatches (Task 5) —
-  // see web/inspector-background.js's "Sampled" header comment for why it
-  // keeps an independent cache that only this call invalidates.
+  // what tells the Background panel's preset swatches to stop showing the
+  // synthetic no-image fallback and start previewing the real thing (see
+  // web/sidebar.js's "Ground swatch gradients" header comment), and what
+  // re-derives its "Sampled" row (Task 5) — see web/inspector-background.js's
+  // "Sampled" header comment for why it keeps an independent cache that only
+  // this call invalidates. The rail had a second copy of this handshake
+  // (`sidebar.refreshGrounds()`) until Cycle A Task 2 removed its Ground
+  // group; refreshSampled() re-renders the presets too, so one call covers it.
   background?.refreshSampled();
 }
 

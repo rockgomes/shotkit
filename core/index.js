@@ -1,7 +1,7 @@
 import { normalise } from './config.js';
 import { layout } from './layout.js';
 import { groundFor, groundFromMeta } from './ground.js';
-import { paintGround, paintGrain, paintWeb, paintPhone, paintCaption } from './render.js';
+import { paintGround, paintGrain, paintWeb, paintPhone } from './render.js';
 
 // Sample at 800px, matching ground.py's thumbnail step. Rendering still uses
 // the full-resolution source.
@@ -82,12 +82,29 @@ export function composeWithMeta(target, rawConfig, images, makeCanvas, precomput
   ctx.clearRect(0, 0, rc.w, rc.h);
 
   paintGround(ctx, rc, meta.ground);
-  if (lay.web && web) paintWeb(ctx, rc, lay.web, web);
+  // GRAIN BELONGS TO THE GROUND, AND ONLY TO THE GROUND (Cycle A Task 4b).
+  // It used to be painted LAST, over the finished shot: an unclipped
+  // soft-light fillRect across the whole canvas, so it landed on the
+  // screenshot and the phones as well. That is not a texture on the
+  // backdrop, it is noise added to the user's own picture - and because
+  // soft-light lightens dark pixels hardest, it was worst on exactly the
+  // screenshots people notice it on. Measured on a flat #1e1e1e source at
+  // grain 1: 105 distinct greys inside the screenshot, spread 104 levels,
+  // where a flat source must render flat.
+  //
+  // Painting it here instead of clipping it around the shots is deliberate.
+  // A clip would have to be an even-odd path around every shot box, and its
+  // antialiased boundary would modulate the grain along a 1px ring at the
+  // shot's edge - a faint outline, which is the exact class of artefact
+  // Task 1 spent two rounds removing. Order costs nothing and cannot draw a
+  // ring. The visible trade is that grain no longer sits over the shadow;
+  // the shadow is a low-alpha wash over an already-grained ground, so the
+  // grain still shows through it, just unmodulated by it.
+  paintGrain(ctx, rc, makeCanvas);
+  if (lay.web && web) paintWeb(ctx, rc, lay.web, web, makeCanvas);
   // lay.phones and mobile are always the same length and index-aligned (see
   // the filtering note above), so no `|| mobile[0]` fallback is needed here.
-  lay.phones.forEach((box, i) => paintPhone(ctx, rc, box, mobile[i]));
-  paintGrain(ctx, rc, makeCanvas);
-  if (lay.caption) paintCaption(ctx, rc, lay.caption, c.caption);
+  lay.phones.forEach((box, i) => paintPhone(ctx, rc, box, mobile[i], makeCanvas));
 
   return { target, meta, config: c, layout: lay };
 }
@@ -99,5 +116,7 @@ export function compose(target, rawConfig, images, makeCanvas) {
 export { normalise, layout, groundFor, groundFromMeta };
 export {
   RATIOS, HUES, DEFAULTS, TEMPLATES, FRAME_KINDS, SCALES, DEFAULT_ANGLE,
-  LAYOUTS, FITS, TONES, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
+  LAYOUTS, TONES, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
+  STROKE_STYLES, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
+  MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
 } from './presets.js';

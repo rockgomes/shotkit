@@ -1,9 +1,16 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { HUES, normalise, groundFor } from '../core/index.js';
+import {
+  HUES, normalise, groundFor, MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
+} from '../core/index.js';
 import { state, bindCanvas, render } from '../web/state.js';
 import { selectGround, activeGroundKey } from '../web/sidebar.js';
 import {
+  UI_BG_TYPES,
+  activeMeshStops,
+  setMeshStops,
+  activeMeshSpread,
+  setMeshSpread,
   isAutoGround,
   forcedHueDeg,
   setHue,
@@ -458,5 +465,102 @@ describe('angle hits the warm ground cache; hue and tone bust it', () => {
     render();
 
     expect(state.meta).not.toBe(firstMeta);
+  });
+});
+
+// --- Mesh stops and spread (Cycle A Task 9) ------------------------------
+//
+// The round trip goes through the REAL normalise() on both sides, so these
+// prove the panel agrees with core/config.js rather than only with itself.
+describe('mesh stops and spread (Task 9)', () => {
+  it('an unset config reads back the shipped defaults', () => {
+    expect(activeMeshStops({})).toBe(MESH_DEFAULTS.stops);
+    expect(activeMeshSpread({})).toBe(MESH_DEFAULTS.spread);
+    expect(normalise({}).mesh).toEqual(MESH_DEFAULTS);
+  });
+
+  it('setMeshStops writes a block normalise() reads back unchanged', () => {
+    const config = {};
+    setMeshStops(config, 5);
+    expect(activeMeshStops(config)).toBe(5);
+    expect(normalise(config).mesh.stops).toBe(5);
+  });
+
+  it('setMeshSpread writes degrees normalise() reads back unchanged', () => {
+    const config = {};
+    setMeshSpread(config, 130);
+    expect(activeMeshSpread(config)).toBe(130);
+    expect(normalise(config).mesh.spread).toBe(130);
+  });
+
+  it('clamps both at each end of their range', () => {
+    const config = {};
+    setMeshStops(config, 0);
+    expect(config.mesh.stops).toBe(MESH_STOPS_RANGE[0]);
+    setMeshStops(config, 99);
+    expect(config.mesh.stops).toBe(MESH_STOPS_RANGE[1]);
+    setMeshSpread(config, -40);
+    expect(config.mesh.spread).toBe(MESH_SPREAD_RANGE[0]);
+    setMeshSpread(config, 999);
+    expect(config.mesh.spread).toBe(MESH_SPREAD_RANGE[1]);
+  });
+
+  it('changing one field leaves the other alone', () => {
+    // Task 5b reset the user's value here by spreading defaults LAST while
+    // the control went on showing the old number. It must not happen again.
+    const config = {};
+    setMeshSpread(config, 130);
+    setMeshStops(config, 5);
+    expect(activeMeshSpread(config)).toBe(130);
+    setMeshSpread(config, 20);
+    expect(activeMeshStops(config)).toBe(5);
+  });
+
+  it('never moves the seed, which lives at the top level and not in the block', () => {
+    // One value, one home. A `seed` inside `config.mesh` would be a second
+    // writable source for it - the shape of the Task 5b failure.
+    const config = { seed: 12 };
+    setMeshStops(config, 5);
+    setMeshSpread(config, 90);
+    expect(config.seed).toBe(12);
+    expect(config.mesh.seed).toBeUndefined();
+    expect(normalise(config).mesh.seed).toBeUndefined();
+  });
+
+  it('ignores a non-numeric value rather than corrupting the block', () => {
+    const config = {};
+    setMeshStops(config, 4);
+    setMeshStops(config, 'lots');
+    setMeshSpread(config, 'wide');
+    expect(activeMeshStops(config)).toBe(4);
+    expect(activeMeshSpread(config)).toBe(MESH_DEFAULTS.spread);
+  });
+});
+
+// --- Mesh withheld from the panel (2026-09-03) ---------------------------
+//
+// Rock's call after using the rebuilt mesh: it cannot carry a shot on a pale
+// palette, and the palette is Cycle B's work. These assert the shape of that
+// decision - the way IN is closed, the feature is not deleted - so that
+// restoring it later is one line rather than an archaeology exercise.
+describe('mesh is withheld from the Background panel, not removed', () => {
+  it('the panel does not offer mesh', () => {
+    expect(UI_BG_TYPES).not.toContain('mesh');
+    expect(UI_BG_TYPES).toContain('linear');
+    expect(UI_BG_TYPES).toContain('solid');
+  });
+
+  it('core still accepts and renders it, so nothing was thrown away', () => {
+    expect(normalise({ bgType: 'mesh' }).bgType).toBe('mesh');
+    const config = {};
+    setBgType(config, 'mesh');
+    expect(config.bgType).toBe('mesh');
+  });
+
+  it('and the mesh controls still work for whatever does set it', () => {
+    const config = {};
+    setMeshStops(config, 5);
+    setMeshSpread(config, 120);
+    expect(normalise(config).mesh).toEqual({ stops: 5, spread: 120 });
   });
 });

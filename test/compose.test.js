@@ -86,22 +86,6 @@ describe('composeWithMeta', () => {
     const b = await run({ ratio: '3:2' }, { web: 'samples/fieldset.png' });
     expect(Buffer.compare(a.target.toBuffer('image/png'), b.target.toBuffer('image/png'))).toBe(0);
   });
-
-  it('draws a caption that actually paints pixels', async () => {
-    const config = { ratio: '3:2', caption: 'Fieldset — 2026' };
-    const files = { web: 'samples/fieldset.png' };
-    const withCaption = await run(config, files);
-    const withoutCaption = await run({ ...config, caption: null }, files);
-    expect(withCaption.target.width).toBe(1800);
-    // Same config and image apart from the caption text - if paintCaption
-    // painted nothing (or were a no-op), these two buffers would be
-    // byte-identical, per the determinism proven above. A real difference
-    // can only come from the caption actually being drawn.
-    expect(Buffer.compare(
-      withCaption.target.toBuffer('image/png'),
-      withoutCaption.target.toBuffer('image/png'),
-    )).not.toBe(0);
-  });
 });
 
 describe('composeWithMeta - scale', () => {
@@ -261,7 +245,6 @@ describe('pixel-diff against frozen renders', () => {
     ['web',        { ratio: '3:2' },                       { web: 'samples/fieldset.png' }],
     ['mobile',     { layout: 'mobile', ratio: '3:2' },     { mobile: ['samples/karaoke-mobile.png', 'samples/karaoke-mobile-2.png'] }],
     ['web-mobile', { layout: 'web+mobile', ratio: '3:2' }, { web: 'samples/karaoke-web.png', mobile: ['samples/karaoke-mobile.png'] }],
-    ['caption',    { ratio: '3:2', caption: 'Fieldset — 2026' }, { web: 'samples/fieldset.png' }],
     ['mesh',       { ratio: '3:2', bgType: 'mesh', seed: 7 },   { web: 'samples/fieldset.png' }],
     // Task 6: the browser chrome in both themes, and the phone frame - the
     // last three cases before core/ is done. macOS is deliberately absent
@@ -290,6 +273,21 @@ describe('pixel-diff against frozen renders', () => {
     // parameter being a no-op or silently clamped away. See the "actually
     // discriminates" check right after this loop for the injection proof.
     ['shadow-heavy',  { ratio: '3:2', shadowScale: 1.6 }, { web: 'samples/fieldset.png' }],
+    // Task 7: the three stroke styles that paint anything. Every case above
+    // omits `stroke` and STROKE_DEFAULTS.style is 'none' (core/presets.js),
+    // so all eleven stayed byte-identical when these were added - the same
+    // regeneration proof scripts/make-render-goldens.js records. 'light'
+    // and 'glass' differ in kind (opaque fill vs translucent fill plus an
+    // outer hairline); 'custom' is 'light' with another fillStyle, so it
+    // needs no third canvas. The browser case is the one that proves the
+    // mat wraps a frame instead of replacing its border.
+    ['stroke-light',   { ratio: '3:2', stroke: { style: 'light', width: 0.02 } },  { web: 'samples/fieldset.png' }],
+    ['stroke-glass',   { ratio: '3:2', stroke: { style: 'glass', width: 0.02 } },  { web: 'samples/fieldset.png' }],
+    ['stroke-browser', { ratio: '3:2', frameKind: 'browser', stroke: { style: 'light', width: 0.015 } }, { web: 'samples/fieldset.png' }],
+    // Task 9: the `mesh` case above uses the defaults, so it would freeze
+    // the default field and prove nothing about `spread` or `stops`
+    // reaching the canvas. This is the wide, five-stop end of the range.
+    ['mesh-wide', { ratio: '3:2', bgType: 'mesh', seed: 7, mesh: { stops: 5, spread: 140 } }, { web: 'samples/fieldset.png' }],
   ];
 
   for (const [name, cfg, files] of CASES) {
@@ -325,10 +323,22 @@ describe('pixel-diff against frozen renders', () => {
   // populated-pill golden matches ITSELF. This proves it isn't a rubber
   // stamp - a render with a DIFFERENT url string against the exact same
   // golden must fail the identical byte comparison, comfortably clear of
-  // the <1e-5 pass threshold every case above uses. Measured: 4,335 of
-  // 2,160,000 pixels differ (ratio ~0.00201, ~200x the pass threshold) -
-  // recorded here, not just asserted, so a future change to this test
-  // can't silently loosen it back to noise-level and still "pass".
+  // the <1e-5 pass threshold every case above uses.
+  //
+  // Measured 1,763 of 2,160,000 pixels (ratio ~0.000816, ~80x the pass
+  // threshold) - recorded here, not just asserted, so a future change to
+  // this test can't silently loosen it back to noise-level and still
+  // "pass".
+  //
+  // That number was ~0.00201 before Cycle A Task 4b, and the drop is NOT a
+  // weakening of the guard - it is pixelmatch's `includeAA: false` default
+  // finally working as designed. Grain used to be painted over the finished
+  // shot, the URL text included; per-pixel noise defeats pixelmatch's
+  // antialias heuristic (which classifies a pixel as AA from its
+  // neighbours' spread), so glyph edges were counted as real differences.
+  // With grain confined to the ground the text is clean again and its AA
+  // edges are correctly skipped. The pixels that still differ are the
+  // glyph BODIES, which is the stricter measurement of the two.
   it('the browser-url golden actually discriminates on the url text, not just presence', async () => {
     const { target } = await run(
       { ratio: '3:2', frameKind: 'browser', chromeTheme: 'dark', url: 'totally-different.example' },
@@ -341,7 +351,31 @@ describe('pixel-diff against frozen renders', () => {
     const a = target.getContext('2d').getImageData(0, 0, target.width, target.height);
     const b = rc.getContext('2d').getImageData(0, 0, ref.width, ref.height);
     const diff = pixelmatch(a.data, b.data, null, ref.width, ref.height, { threshold: 0 });
-    expect(diff / (ref.width * ref.height)).toBeGreaterThan(1e-3);
+    // Lowered twice by Task 8, and BOTH TIMES only because the text got
+    // smaller - never to make a failing render pass. The pill font went
+    // from 5/224 of the frame width to 14/1280 (the measured reference),
+    // then to 14/1706.67 when Rock asked for the whole chrome a quarter
+    // shorter. Measured at each step, out of 2,160,000 pixels:
+    //
+    //   before Task 8   ~1080 px   5.00e-4  (the original bound)
+    //   after remeasure    704 px   3.26e-4
+    //   after 3/4 chrome   514 px   2.38e-4  <- now, against 1.8e-4
+    //
+    // A bound that keeps being lowered is a bound worth distrusting, so the
+    // second assertion below does not depend on glyph COUNT at all.
+    expect(diff / (ref.width * ref.height)).toBeGreaterThan(1.8e-4);
+
+    // The size-independent half: the same config with NO url must differ
+    // from this golden too. That is the claim the golden actually exists to
+    // make - it carries drawn text - and it cannot be eroded by the text
+    // getting smaller, only by the text disappearing.
+    const empty = await run(
+      { ratio: '3:2', frameKind: 'browser', chromeTheme: 'dark' },
+      { web: 'samples/fieldset.png' },
+    );
+    const e = empty.target.getContext('2d').getImageData(0, 0, ref.width, ref.height);
+    const emptyDiff = pixelmatch(e.data, b.data, null, ref.width, ref.height, { threshold: 0 });
+    expect(emptyDiff).toBeGreaterThan(0);
   });
 
   // Task 6b, the same "break it and watch it go red" discipline: the loop
@@ -367,6 +401,42 @@ describe('pixel-diff against frozen renders', () => {
     const b = rc.getContext('2d').getImageData(0, 0, ref.width, ref.height);
     const diff = pixelmatch(a.data, b.data, null, ref.width, ref.height, { threshold: 0 });
     expect(diff / (ref.width * ref.height)).toBeGreaterThan(0.05);
+  });
+
+  // Task 7, the same discipline again. The loop only proves
+  // stroke-light.png matches itself; these prove the two goldens actually
+  // guard what they are named for. First: the same config with the style
+  // switched back to 'none' must differ by a wide margin - that is the
+  // whole feature. Second: 'glass' rendered against the 'light' golden must
+  // differ too, so the two styles are not quietly the same fill.
+  it('the stroke-light golden actually discriminates on the stroke, not just presence', async () => {
+    const { target } = await run(
+      { ratio: '3:2', stroke: { style: 'none', width: 0.02 } },
+      { web: 'samples/fieldset.png' },
+    );
+    const ref = await loadImage('test/golden/render/stroke-light.png');
+    const rc = createCanvas(ref.width, ref.height);
+    rc.getContext('2d').drawImage(ref, 0, 0);
+
+    const a = target.getContext('2d').getImageData(0, 0, target.width, target.height);
+    const b = rc.getContext('2d').getImageData(0, 0, ref.width, ref.height);
+    const diff = pixelmatch(a.data, b.data, null, ref.width, ref.height, { threshold: 0 });
+    expect(diff / (ref.width * ref.height)).toBeGreaterThan(0.02);
+  });
+
+  it('glass and light are different fills, not the same one twice', async () => {
+    const { target } = await run(
+      { ratio: '3:2', stroke: { style: 'glass', width: 0.02 } },
+      { web: 'samples/fieldset.png' },
+    );
+    const ref = await loadImage('test/golden/render/stroke-light.png');
+    const rc = createCanvas(ref.width, ref.height);
+    rc.getContext('2d').drawImage(ref, 0, 0);
+
+    const a = target.getContext('2d').getImageData(0, 0, target.width, target.height);
+    const b = rc.getContext('2d').getImageData(0, 0, ref.width, ref.height);
+    const diff = pixelmatch(a.data, b.data, null, ref.width, ref.height, { threshold: 0 });
+    expect(diff / (ref.width * ref.height)).toBeGreaterThan(0.02);
   });
 });
 
