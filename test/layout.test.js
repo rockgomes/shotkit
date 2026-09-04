@@ -611,3 +611,35 @@ describe('stroke insets', () => {
     expect(mat.web.x).toBeGreaterThanOrEqual(1800 * 0 + 1200 * 0.02 - 1e-9);
   });
 });
+
+// --- Cycle B Task 2: the readers move onto the element block -------------
+//
+// THE REAL ACCEPTANCE TEST FOR THIS TASK IS THE GOLDEN SET. It is a pure
+// refactor: `npx vitest run && git status --short test/golden` reporting
+// nothing is the claim. These two only pin the new plumbing.
+describe('layout reads the element block, not the flat fields (Task 2)', () => {
+  it('an element override changes the layout; the flat field alone still works', () => {
+    const flat = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser' }),
+                        { web: 1.6, mobile: [] });
+    const viaBlock = layout(normalise({
+      layout: 'web', ratio: '3:2', elements: { web: { frameKind: 'browser' } },
+    }), { web: 1.6, mobile: [] });
+    expect(viaBlock.web.chrome.barH).toBeCloseTo(flat.web.chrome.barH, 9);
+    expect(viaBlock.web.chrome.barH).toBeGreaterThan(0);
+  });
+
+  // THE PLAN GOT THIS ONE BACKWARDS, and the first version could not fail.
+  // It set the web element to 'none' and the mobile element to 'browser'
+  // with no flat key at all - which today leaves `c.frameKind` at its own
+  // default of 'none', so `chrome` is null before the fix and after it.
+  // Green either way is not a test. The flat key has to be 'browser', so
+  // that only an element override reading correctly can produce null.
+  it("an element override beats the flat key, and the other element's does not leak", () => {
+    const out = layout(normalise({
+      layout: 'web', ratio: '3:2',
+      frameKind: 'browser',
+      elements: { web: { frameKind: 'none' }, mobile: { frameKind: 'phone' } },
+    }), { web: 1.6, mobile: [] });
+    expect(out.web.chrome).toBeNull();
+  });
+});

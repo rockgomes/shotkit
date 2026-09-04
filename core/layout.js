@@ -50,12 +50,12 @@ function safeBox(c) {
 // MIN_MARGIN_RATIO are measured: a mat should keep the same visual weight
 // whatever ratio the screenshot happens to be, whereas a bezel belongs to
 // the device and scales with it.
-function frameInsets(c, screenW, shorterSide) {
-  const sw = c.stroke.style === 'none' ? 0 : shorterSide * c.stroke.width;
-  if (c.frameKind === 'none') {
+function frameInsets(c, el, screenW, shorterSide) {
+  const sw = el.stroke.style === 'none' ? 0 : shorterSide * el.stroke.width;
+  if (el.frameKind === 'none') {
     return { top: sw, right: sw, bottom: sw, left: sw, stroke: sw };
   }
-  if (c.frameKind === 'phone') {
+  if (el.frameKind === 'phone') {
     const bezel = Math.max(PHONE_BEZEL_MIN, screenW * PHONE_BEZEL_RATIO);
     return {
       top: bezel + sw, right: bezel + sw, bottom: bezel + sw, left: bezel + sw,
@@ -68,15 +68,20 @@ function frameInsets(c, screenW, shorterSide) {
   };
 }
 
+// Cycle B Task 2: `el` is the resolved element block (c.elements.web or
+// c.elements.mobile); `c` keeps only what belongs to the CANVAS - w, h,
+// pad, radius. That split is the whole point: a frame is a property of a
+// thing in the shot, not of the shot.
+//
 // A CONSUMER of insets that are already final, not a re-deriver of them:
 // `screen` is carried through from webBox's step 1 rather than subtracted
 // back out of the composite, which is why its ratio cannot drift from the
 // source image's. `frame` (the bezel) and `barH` are always present on the
 // returned object, even when 0, so render.js never branches on which fields
 // exist for which kind.
-function chromeFor(c, web, ins, screenW, screenH) {
-  if (c.frameKind === 'none') return null;
-  const radius = c.frameKind === 'phone'
+function chromeFor(c, el, web, ins, screenW, screenH) {
+  if (el.frameKind === 'none') return null;
+  const radius = el.frameKind === 'phone'
     ? web.w * PHONE_RADIUS_RATIO
     : web.w * BROWSER_RADIUS_RATIO;
   // `barH` is a TITLE BAR, not "the top inset": a phone's top inset is its
@@ -93,14 +98,14 @@ function chromeFor(c, web, ins, screenW, screenH) {
   // the bezel thicker. `screen` is the one field that does NOT subtract: it
   // is an absolute position, and the screenshot really does start a full
   // stroke-plus-bezel in from the composite's outer edge.
-  const frame = c.frameKind === 'phone' ? ins.left - ins.stroke : 0;
+  const frame = el.frameKind === 'phone' ? ins.left - ins.stroke : 0;
   // The frame body's own corner, concentric inside the mat: one stroke
   // width tighter than the composite's outer radius. With no stroke this is
   // `radius` unchanged.
   const bodyRadius = Math.max(0, radius - ins.stroke);
   return {
-    kind: c.frameKind,
-    barH: c.frameKind === 'phone' ? 0 : ins.top - ins.stroke,
+    kind: el.frameKind,
+    barH: el.frameKind === 'phone' ? 0 : ins.top - ins.stroke,
     frame,
     radius,
     bodyRadius,
@@ -114,7 +119,7 @@ function chromeFor(c, web, ins, screenW, screenH) {
   };
 }
 
-function webBox(c, box, ratio) {
+function webBox(c, el, box, ratio) {
   // Cycle A Task 6: frames are OUTSETS. Round one fitted the FRAME into the
   // safe box and carved the screenshot out of it, so turning a frame on made
   // the picture smaller - the thing Rock actually complained about. The
@@ -134,7 +139,7 @@ function webBox(c, box, ratio) {
   // 2. Grow outward. What gives way is the PADDING, not the picture - see
   //    the spec's "frames and strokes are outsets". For frameKind 'none'
   //    every inset is 0, so that path is provably the unchanged original.
-  const ins = frameInsets(c, sw, Math.min(c.w, c.h));
+  const ins = frameInsets(c, el, sw, Math.min(c.w, c.h));
   let ow = sw + ins.left + ins.right;
   let oh = sh + ins.top + ins.bottom;
 
@@ -174,7 +179,7 @@ function webBox(c, box, ratio) {
     w: ow - s.stroke * 2, h: oh - s.stroke * 2,
     radius: Math.max(0, c.radius - s.stroke),
   };
-  web.chrome = chromeFor(c, web, s, sw, sh);
+  web.chrome = chromeFor(c, el, web, s, sw, sh);
   return web;
 }
 
@@ -192,7 +197,7 @@ export function layout(c, sources) {
   const out = { safe, web: null, phones: [] };
 
   if (c.layout === 'web' && sources.web) {
-    out.web = webBox(c, safe, sources.web);
+    out.web = webBox(c, c.elements.web, safe, sources.web);
   }
 
   else if (c.layout === 'mobile' && mobile.length) {
@@ -212,7 +217,7 @@ export function layout(c, sources) {
   }
 
   else if (c.layout === 'web+mobile' && sources.web) {
-    out.web = webBox(c, safe, sources.web);
+    out.web = webBox(c, c.elements.web, safe, sources.web);
     if (mobile.length) {
       // The phone rises out of the bottom-right corner. Letting it bleed past
       // the bottom edge reads as deliberate layering and buries less of the

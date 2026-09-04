@@ -374,7 +374,7 @@ git push origin feat/cycle-b
 
 **This task must change nothing that reaches a canvas.** It is the plumbing, separated from the behaviour so that when Task 3 does move a pixel there is no doubt about which change did it.
 
-- [ ] **Step 1: The acceptance test is the golden set, and it already exists**
+- [x] **Step 1: The acceptance test is the golden set, and it already exists**
 
 There is no new test to write for the main claim. The claim is "all fourteen goldens are byte-identical", and `npx vitest run` plus `git status test/golden` is the whole check. Do not regenerate goldens in this task — if one moves, the refactor is wrong.
 
@@ -392,24 +392,28 @@ describe('layout reads the element block, not the flat fields (Task 2)', () => {
     expect(viaBlock.web.chrome.barH).toBeGreaterThan(0);
   });
 
-  it('the web element\\'s frame does not follow the mobile element\\'s', () => {
+  // CORRECTED DURING EXECUTION. As sketched, this test could not fail: with
+  // no flat `frameKind` at all, `c.frameKind` sits at its own default of
+  // 'none', so `chrome` is null before the fix and after it. The flat key
+  // has to be 'browser' so that only an element override reading correctly
+  // can produce null.
+  it("an element override beats the flat key, and the other element's does not leak", () => {
     const out = layout(normalise({
       layout: 'web', ratio: '3:2',
-      elements: { web: { frameKind: 'none' }, mobile: { frameKind: 'browser' } },
+      frameKind: 'browser',
+      elements: { web: { frameKind: 'none' }, mobile: { frameKind: 'phone' } },
     }), { web: 1.6, mobile: [] });
     expect(out.web.chrome).toBeNull();
   });
 });
 ```
 
-- [ ] **Step 2: Run and watch the second one fail**
+- [x] **Step 2: Run and watch the second one fail**
 
 Run: `npx vitest run test/layout.test.js -t 'element block'`
-Expected: the first PASSES (the flat key already works), the second FAILS — `webBox` reads `c.frameKind`, which is `'browser'` here because the mobile override does not exist as a concept yet.
+Expected — and **the plan had this backwards**, corrected here from what actually happened: the FIRST fails (an element override alone leaves `c.frameKind` at 'none', so `chrome` is null and `.barH` throws) and the second, as originally sketched, passed for the wrong reason. Both are red once the second is corrected as above.
 
-Record in the report that the first assertion cannot fail today and is a regression guard, not a new-behaviour guard.
-
-- [ ] **Step 3: Thread the element through layout**
+- [x] **Step 3: Thread the element through layout**
 
 In `core/layout.js`, `frameInsets`, `chromeFor` and `webBox` currently read `c.frameKind` and `c.stroke`. Give each an `el` parameter and read it from there. `c` stays for canvas-level values (`c.w`, `c.h`, `c.pad`, `c.radius`) — the point of the split is that those are the shot's, not an element's.
 
@@ -437,7 +441,7 @@ function frameInsets(c, el, screenW, shorterSide) {
 
 `phoneBox` is untouched in this task — Task 4 is what moves it.
 
-- [ ] **Step 4: Thread the element through the painters**
+- [x] **Step 4: Thread the element through the painters**
 
 ```js
 export function paintWeb(ctx, c, box, image, makeCanvas, el = c.elements.web) {
@@ -455,7 +459,7 @@ In `core/index.js`:
     paintPhone(ctx, rc, box, mobile[i], makeCanvas, rc.elements.mobile));
 ```
 
-- [ ] **Step 5: Run everything, and check the goldens did not move**
+- [x] **Step 5: Run everything, and check the goldens did not move**
 
 ```bash
 npx vitest run && git status --short test/golden
@@ -463,11 +467,11 @@ npx vitest run && git status --short test/golden
 
 Expected: all tests PASS and `git status` reports **nothing**. A modified golden here is a bug in the refactor, not a golden to regenerate.
 
-- [ ] **Step 6: Extend the frozen baseline's field strip**
+- [x] **Step 6: Extend the frozen baseline's field strip**
 
 `test/layout.test.js`'s `webWithoutFrameFields` strips `chrome`, `strokeWidth` and `inner` before comparing against `PRE_FRAME_BASELINE`. If this task adds any field to the returned `web` box, add it there too — and assert its no-frame value first, the way the existing three are asserted, so nothing is dropped blindly.
 
-- [ ] **Step 7: Commit and push**
+- [x] **Step 7: Commit and push**
 
 ```bash
 git add core test

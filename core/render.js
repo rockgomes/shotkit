@@ -887,18 +887,24 @@ export function paintStroke(ctx, box, stroke, width) {
 
 /**
  * The web screen: rounded body, screenshot, floating shadow.
+ *
+ * `el` (Cycle B Task 2) is the resolved element block - frame, stroke,
+ * chrome theme, url and shadow all belong to the THING being drawn, not to
+ * the shot. It defaults to `c.elements.web` so the many direct five-argument
+ * calls in the test suite keep working and keep meaning what they meant;
+ * core/index.js passes it explicitly.
  * Ported from frame.html's `.web` rule and `makeWeb()`. frame.html's
  * `.web::after` inset hairline is deliberately NOT ported - see the note at
  * the end of this function.
  */
-export function paintWeb(ctx, c, box, image, makeCanvas) {
+export function paintWeb(ctx, c, box, image, makeCanvas, el = c.elements.web) {
   // A device frame replaces everything below with a chrome-specific
   // painter: browser goes to paintWebChrome, phone to paintPhoneChrome.
   // box.chrome is null for frameKind: 'none' - the only branch this adds -
   // so every line below it is completely untouched, reached exactly as
   // before whenever there is no frame.
-  if (box.chrome?.kind === 'phone') return paintPhoneChrome(ctx, c, box, image, makeCanvas);
-  if (box.chrome) return paintWebChrome(ctx, c, box, image, makeCanvas);
+  if (box.chrome?.kind === 'phone') return paintPhoneChrome(ctx, c, box, image, makeCanvas, el);
+  if (box.chrome) return paintWebChrome(ctx, c, box, image, makeCanvas, el);
 
   // The shadow, cast around the box rather than under it.
   //
@@ -906,9 +912,9 @@ export function paintWeb(ctx, c, box, image, makeCanvas) {
   // retune these - see paintShadow's doc comment above (a prior pass did,
   // and had to be reverted: it fixed napi-rs's faint test render while
   // shipping a far-too-heavy shadow to the browser, the actual product).
-  // `c.shadowScale` (Task 6b, default 1) multiplies ON TOP of these -
+  // `el.shadowScale` (Cycle B: per element) multiplies ON TOP of these -
   // the alphas themselves stay exactly as written here.
-  paintShadow(ctx, box, c.h * 0.040, c.h * 0.105, 0.17, 0.07, c.shadowScale);
+  paintShadow(ctx, box, c.h * 0.040, c.h * 0.105, 0.17, 0.07, el.shadowScale);
 
   // NOTHING IS PAINTED BEHIND THE SCREENSHOT (Task 4d). This line was
   // `fillRoundRect(..., '#ffffff')` - frame.html's `--screen-bg`, a white
@@ -927,7 +933,7 @@ export function paintWeb(ctx, c, box, image, makeCanvas) {
   // hairline did. `box.strokeWidth` is 0 by default, and paintStroke
   // returns immediately at style 'none', so the unframed no-stroke path
   // below is exactly what it was.
-  paintStroke(ctx, box, c.stroke, box.strokeWidth);
+  paintStroke(ctx, box, el.stroke, box.strokeWidth);
 
   // The shot goes into the INTERIOR. With no stroke `box.inner` is `box`'s
   // own rect to the last ULP (layout.js), so this line is unchanged for
@@ -1028,16 +1034,17 @@ const TRAFFIC_DOT_COLOURS = ['#ff5f57', '#febc2e', '#28c840'];
  * target canvas would paint a bar a pixel wider than its frame, with square
  * top corners.
  *
- * `c.url` (Task 6) is drawn into the pill, centred both ways exactly like
+ * `el.url` (Task 6; per element since Cycle B) is drawn into the pill,
+ * centred both ways exactly like
  * the mockup's `justify-content:center;align-items:center` (HTML line
  * ~103), clipped to the pill's own rounded rect so a string wider than the
  * pill is cropped rather than spilling into the dot group or past the
- * bar's right padding. `c.url` is null by default (core/config.js's
+ * bar's right padding. `el.url` is null by default (core/config.js's
  * normalise()) - when it is, this whole block is skipped and the pill is
  * exactly the plain fill painted below, unchanged from before this field
  * existed.
  */
-export function paintChrome(ctx, c, box, theme) {
+export function paintChrome(ctx, c, box, theme, el = c.elements.web) {
   const chrome = box.chrome;
   if (chrome.kind !== 'browser') return;
 
@@ -1101,7 +1108,7 @@ export function paintChrome(ctx, c, box, theme) {
   ctx.fillStyle = t.pill;
   ctx.fill();
 
-  if (c.url) {
+  if (el.url) {
     ctx.save();
     // Re-trace the exact same rounded rect purely to clip - this is a
     // second path, not a reuse of the fill above (canvas has no way to
@@ -1118,7 +1125,7 @@ export function paintChrome(ctx, c, box, theme) {
     ctx.font = `500 ${box.w * URL_PILL_FONT_RATIO}px system-ui, -apple-system, 'Segoe UI', 'Geist', sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(c.url, pillX + pillW / 2, pillY + pillH / 2);
+    ctx.fillText(el.url, pillX + pillW / 2, pillY + pillH / 2);
     ctx.restore();
   }
 }
@@ -1142,7 +1149,7 @@ export function paintChrome(ctx, c, box, theme) {
  * 'phone' to paintPhoneChrome instead, so this function's body is exactly
  * what it was before the phone frame existed.
  */
-function paintWebChrome(ctx, c, box, image, makeCanvas) {
+function paintWebChrome(ctx, c, box, image, makeCanvas, el = c.elements.web) {
   const chrome = box.chrome;
   const outer = { x: box.x, y: box.y, w: box.w, h: box.h, radius: chrome.radius };
   // The frame itself, inside the mat. Identical to `outer` when there is no
@@ -1156,16 +1163,16 @@ function paintWebChrome(ctx, c, box, image, makeCanvas) {
   // bar and the screenshot - 16px of white, measured in Chromium at a 1.5%
   // stroke before this line existed.
   const body = { ...box.inner, radius: chrome.bodyRadius, chrome };
-  const t = chromeColours(c.chromeTheme);
+  const t = chromeColours(el.chromeTheme);
 
   // Same alphas/spread maths as the unframed screen's shadow above - only
   // the shadowed box changes (the outer frame, not the bare screenshot).
-  // Do NOT retune: see the doc comment above paintShadow. `c.shadowScale`
+  // Do NOT retune: see the doc comment above paintShadow. `el.shadowScale`
   // multiplies on top, same as every other paintShadow call site.
-  paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07, c.shadowScale);
+  paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07, el.shadowScale);
 
   // The mat wraps the whole window, bar included - see paintStroke above.
-  paintStroke(ctx, outer, c.stroke, box.strokeWidth);
+  paintStroke(ctx, outer, el.stroke, box.strokeWidth);
 
   // The whole frame is composed in one tile and cut once (Task 4d). There
   // is no body fill behind it and no ground re-painted under it: `fBodyBg`
@@ -1186,7 +1193,7 @@ function paintWebChrome(ctx, c, box, image, makeCanvas) {
     // bar last puts an exact fillRect edge on that boundary and covers the
     // bleed. Nothing else depends on the order: the two abut, they never
     // overlap by design.
-    paintChrome(tc, c, at(body), c.chromeTheme);
+    paintChrome(tc, c, at(body), el.chromeTheme, el);
   });
 
   // outer hairline: `border:1px solid {{fBorder}}` on the mockup's frame
@@ -1246,19 +1253,19 @@ function paintDeviceHairline(ctx, box) {
  * 0.22/0.10 pairing stays reserved for an actual mobile-layout phone box, per
  * the doc comment on paintPhone below - do not blend the two.
  */
-function paintPhoneChrome(ctx, c, box, image, makeCanvas) {
+function paintPhoneChrome(ctx, c, box, image, makeCanvas, el = c.elements.web) {
   const chrome = box.chrome;
   const outer = { x: box.x, y: box.y, w: box.w, h: box.h, radius: chrome.radius };
   // The device, inside the mat. Identical to `outer` with no stroke.
   const body = { ...box.inner, radius: chrome.bodyRadius };
 
   // Same alphas as paintWebChrome's own outer shadow (see this function's
-  // doc comment above); `c.shadowScale` multiplies on top, same as every
+  // doc comment above); `el.shadowScale` multiplies on top, same as every
   // other paintShadow call site.
-  paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07, c.shadowScale);
+  paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07, el.shadowScale);
 
   // The mat wraps the device - see paintStroke above.
-  paintStroke(ctx, outer, c.stroke, box.strokeWidth);
+  paintStroke(ctx, outer, el.stroke, box.strokeWidth);
 
   // The device body needs no tile: it is a path FILL, so its own edge is
   // already the single antialiased boundary between the device and the
@@ -1298,11 +1305,11 @@ function paintPhoneChrome(ctx, c, box, image, makeCanvas) {
  * compensate for @napi-rs/canvas rendering shadows faintly, and that tuning
  * had to be reverted because it made the browser (the only surface that
  * ships) render up to 65 RGB levels too dark. Do not repeat that mistake
- * here. `c.shadowScale` (Task 6b) multiplies on top of 0.22/0.10 - it does
+ * here. `el.shadowScale` multiplies on top of 0.22/0.10 - it does
  * not change them.
  */
-export function paintPhone(ctx, c, box, image, makeCanvas) {
-  paintShadow(ctx, box, box.h * 0.055, box.h * 0.14, 0.22, 0.10, c.shadowScale);
+export function paintPhone(ctx, c, box, image, makeCanvas, el = c.elements.mobile) {
+  paintShadow(ctx, box, box.h * 0.055, box.h * 0.14, 0.22, 0.10, el.shadowScale);
 
   // body - shared with the phone frame's paintPhoneChrome via
   // paintDeviceBody, defined above. A path fill, so its edge against the
