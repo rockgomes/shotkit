@@ -5,6 +5,8 @@ import {
   PHONE_BEZEL_MIN,
   BROWSER_BAR_RATIO,
   BROWSER_RADIUS_RATIO,
+  BROWSER_RADIUS_RANGE,
+  PHONE_RADIUS_RANGE,
   MIN_MARGIN_RATIO,
 } from './presets.js';
 
@@ -68,6 +70,44 @@ function frameInsets(c, el, screenW, shorterSide) {
   };
 }
 
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+/**
+ * The composite's OUTER corner - Cycle B Task 3.
+ *
+ * `el.radius` is null ("this frame's own corner") or a pixel count, the same
+ * unit the flat `radius` has always used. Resolved HERE and not in
+ * config.js, because the answer depends on which frame is on and on the
+ * element's own width, and normalise() knows neither.
+ *
+ * The ranges are per frame because the shapes are not interchangeable - see
+ * BROWSER_RADIUS_RANGE / PHONE_RADIUS_RANGE in presets.js. Clamping rather
+ * than rejecting means a stale jobs.json or a slider at either stop still
+ * produces a shape, never an inverted or self-intersecting one.
+ *
+ * ONE SOURCE, DELIBERATELY. chromeFor used to recompute this from its own
+ * constant while webBox put `c.radius` on the box - two numbers for one
+ * corner, and the box's was simply dead whenever a frame was on. That is
+ * the shape this whole cycle exists to remove, so chromeFor now reads
+ * `web.radius` instead of deriving its own.
+ */
+function radiusFor(c, el, w) {
+  if (el.frameKind === 'phone') {
+    return el.radius === null
+      ? w * PHONE_RADIUS_RATIO
+      : clamp(el.radius, w * PHONE_RADIUS_RANGE[0], w * PHONE_RADIUS_RANGE[1]);
+  }
+  if (el.frameKind === 'browser') {
+    return el.radius === null
+      ? w * BROWSER_RADIUS_RATIO
+      : clamp(el.radius, w * BROWSER_RADIUS_RANGE[0], w * BROWSER_RADIUS_RANGE[1]);
+  }
+  // No frame: the screenshot's own corner, and its default is the canvas-
+  // derived `c.radius` normalise() already resolved - unchanged, which is
+  // why every frameless golden holds.
+  return el.radius === null ? c.radius : Math.max(0, el.radius);
+}
+
 // Cycle B Task 2: `el` is the resolved element block (c.elements.web or
 // c.elements.mobile); `c` keeps only what belongs to the CANVAS - w, h,
 // pad, radius. That split is the whole point: a frame is a property of a
@@ -81,9 +121,10 @@ function frameInsets(c, el, screenW, shorterSide) {
 // exist for which kind.
 function chromeFor(c, el, web, ins, screenW, screenH) {
   if (el.frameKind === 'none') return null;
-  const radius = el.frameKind === 'phone'
-    ? web.w * PHONE_RADIUS_RATIO
-    : web.w * BROWSER_RADIUS_RATIO;
+  // ONE source for the corner: webBox already resolved it through
+  // radiusFor. Recomputing it here is what let the box and its chrome
+  // disagree.
+  const radius = web.radius;
   // `barH` is a TITLE BAR, not "the top inset": a phone's top inset is its
   // bezel and is reported as `frame`, exactly as it always was, so
   // `screen.y === web.y + barH + frame` still holds for both kinds and
@@ -167,7 +208,10 @@ function webBox(c, el, box, ratio) {
   const x = box.x + (box.w - ow) / 2;
   const y = box.y + (box.h - oh) / 2;
 
-  const web = { x, y, w: ow, h: oh, radius: c.radius };
+  const web = { x, y, w: ow, h: oh };
+  // The composite's outer corner, which under a frame is the FRAME's corner
+  // and not the screenshot's - see radiusFor above.
+  web.radius = radiusFor(c, el, ow);
   // Task 7. `inner` is the composite MINUS the mat: what every painter
   // actually draws into, and what the render tests measure the picture
   // against. With no stroke it is `web`'s own rect to the last ULP
@@ -177,7 +221,7 @@ function webBox(c, el, box, ratio) {
   web.inner = {
     x: web.x + s.stroke, y: web.y + s.stroke,
     w: ow - s.stroke * 2, h: oh - s.stroke * 2,
-    radius: Math.max(0, c.radius - s.stroke),
+    radius: Math.max(0, web.radius - s.stroke),
   };
   web.chrome = chromeFor(c, el, web, s, sw, sh);
   return web;

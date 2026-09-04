@@ -20,6 +20,12 @@ export const state = {
   images: { web: null, mobile: [] },
   meta: null,
   surround: 'mid',
+  // The layout core/ just composed with - boxes in canvas space. Read-only
+  // to everything outside state.js. The inspector needs it to know an
+  // element's real width (Cycle B Task 3: a corner radius is a fraction of
+  // the element, and the panel cannot guess it), and Task 6's hit-testing
+  // needs the boxes themselves. Null until the first render.
+  lay: null,
 };
 
 // --- Scratch canvases -------------------------------------------------
@@ -160,8 +166,9 @@ export function render() {
   const key = groundKeyFor(images, config);
   const cachedMeta = metaCache && metaCache.key === key ? metaCache.meta : null;
 
-  const { meta } = composeWithMeta(canvasEl, config, images, pooledCanvas, cachedMeta);
+  const { meta, layout } = composeWithMeta(canvasEl, config, images, pooledCanvas, cachedMeta);
   state.meta = meta;
+  state.lay = layout;
   state._groundKey = key;
   metaCache = { key, meta };
   return meta;

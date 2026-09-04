@@ -90,8 +90,12 @@ const background = initBackgroundInspector();
 // immediately above: each builds its own section from scratch, so both run
 // after the generic `.slider-row`/`.segmented` loops so nothing double-wires
 // controls that don't exist in the DOM yet when those loops ran.
-initFrameInspector();
-initFinishInspector();
+// Finish first, so the Frame section can be given its re-sync hook: the
+// Corner radius slider's BOUNDS depend on which frame is on (Cycle B Task
+// 3 — a browser window and a phone body do not take the same range), so
+// changing the frame has to re-sync a control in the other section.
+const finishInspector = initFinishInspector();
+initFrameInspector(() => finishInspector && finishInspector.syncRadiusUI());
 
 /** Rail items marked aria-disabled render dimmed but stay focusable (per
  *  ARIA authoring practice) so keyboard/screen-reader users can discover

@@ -40,6 +40,8 @@
 import {
   FRAME_KINDS, CHROME_THEMES, DEFAULTS, normalise, SHADOW_SCALE_RANGE,
   STROKE_STYLES, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
+  BROWSER_RADIUS_RATIO, PHONE_RADIUS_RATIO,
+  BROWSER_RADIUS_RANGE, PHONE_RADIUS_RANGE,
 } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
 
@@ -230,30 +232,88 @@ export function showsStrokeColor(config) {
 }
 
 // Corner radius is the one field here that ISN'T stored as a fraction —
-// core/config.js's normalise() resolves an unset `config.radius` to
-// `Math.round(w * RADIUS_RATIO)` (a fraction of canvas WIDTH, ~1.33%), but
-// an EXPLICIT radius is a literal pixel count from then on, applied as-is
-// regardless of any later template/ratio change — that is the field's own
-// existing semantics (core/config.js), not something this file changes.
-// The slider still works in percent-of-width, matching the proportional
-// feel every other Finish control has and RADIUS_RATIO's own convention
-// (core/presets.js) — `normalise(state.config)` (read-only; the exact
-// pattern web/sidebar.js's "+ Custom size" prefill already uses) supplies
-// both the CURRENT effective radius and width, so this file never needs
-// RADIUS_RATIO's raw value and never deep-imports core/presets.js for it.
+// it is a literal pixel count, applied as-is regardless of any later
+// template or ratio change. That is the field's own existing semantics
+// (core/config.js), not something this file changes, and Cycle B keeps it:
+// `elements[which].radius` uses the same unit as the flat `radius` it sits
+// beside, so there is no second unit to confuse.
+//
+// CYCLE B TASK 3 MADE THIS CONTROL ACT UNDER A FRAME. Until now `c.radius`
+// reached the canvas only on the unframed path — `paintWebChrome` rounded
+// the window to BROWSER_RADIUS_RATIO and `paintPhoneChrome` to
+// PHONE_RADIUS_RATIO, both fixed — so the slider moved and nothing
+// happened. Rock: "corner radius slider is not working when browser is
+// selected. it either should, or the control should be disabled."
 export const RADIUS_PERCENT_MAX = 6;
 
-export function activeRadiusPercent(config) {
-  const eff = normalise(config);
-  if (!eff.w) return 0;
-  return Math.round((eff.radius / eff.w) * 1000) / 10;
+/**
+ * The element the Corner radius control edits, resolved the same way every
+ * other reader here resolves one. `which` is a name ('web'/'mobile'), not a
+ * block - Task 7 supplies it from the selection; until then it is 'web'.
+ */
+function elementOf(config, which) {
+  return normalise(config).elements[which];
 }
 
-export function setRadiusPercent(config, pct) {
+/**
+ * THE SLIDER STAYS IN PERCENT OF CANVAS WIDTH, in all three frames.
+ *
+ * That is the unit it has always used and the one Rock reasons in - "based
+ * on our sliders, 0.6% would be it", said about the browser window's corner.
+ * Switching to percent-of-element would have made the same corner read as a
+ * different number depending on which frame was on, which is precisely the
+ * kind of quiet inconsistency this cycle is removing.
+ *
+ * `elementW` is the element's actual composite width, from `state.lay`. The
+ * panel cannot derive it - the composite is the screenshot plus whatever
+ * frame grew outward from it, which only layout() knows - so the DOM layer
+ * passes it in and the pure helpers fall back to the canvas width when it is
+ * absent. The fallback is for tests and for the first paint before any
+ * render has happened; it is never more than a few percent out, and it is
+ * only ever used to display, never to write.
+ */
+export function activeRadiusPercent(config, which = 'web', elementW = null) {
+  const eff = normalise(config);
+  if (!eff.w) return 0;
+  const el = eff.elements[which];
+  const w = elementW || eff.w;
+  let px;
+  if (el.radius !== null) px = el.radius;
+  else if (el.frameKind === 'browser') px = w * BROWSER_RADIUS_RATIO;
+  else if (el.frameKind === 'phone') px = w * PHONE_RADIUS_RATIO;
+  else px = eff.radius;
+  return Math.round((px / eff.w) * 1000) / 10;
+}
+
+export function setRadiusPercent(config, pct, which = 'web') {
   const n = Number(pct);
   if (!Number.isFinite(n)) return;
   const eff = normalise(config);
-  config.radius = Math.round((Math.min(RADIUS_PERCENT_MAX, Math.max(0, n)) / 100) * eff.w);
+  const px = Math.round((Math.max(0, n) / 100) * eff.w);
+  // Writes the ELEMENT, never the flat `radius`. The flat field is a
+  // resolved pixel count for the bare screenshot and keeps meaning exactly
+  // that; core/ clamps this into the frame's own range (radiusFor in
+  // core/layout.js), so the slider can ask for a value core/ trims but can
+  // never ask for one that would deform the shape.
+  const el = config.elements && config.elements[which];
+  config.elements = { ...(config.elements || {}), [which]: { ...(el || {}), radius: px } };
+}
+
+/**
+ * The slider's own bounds, in the same percent-of-canvas-width unit, for the
+ * frame currently on. They differ per frame because the shapes are not
+ * interchangeable - see BROWSER_RADIUS_RANGE / PHONE_RADIUS_RANGE. Without
+ * this the slider's travel would mean something different under each frame
+ * while looking identical, which is the defect in a new costume.
+ */
+export function radiusRangeFor(config, which = 'web', elementW = null) {
+  const eff = normalise(config);
+  const el = eff.elements[which];
+  if (el.frameKind === 'none') return [0, RADIUS_PERCENT_MAX];
+  const range = el.frameKind === 'phone' ? PHONE_RADIUS_RANGE : BROWSER_RADIUS_RANGE;
+  const w = elementW || eff.w;
+  const toPct = f => Math.round((f * w / eff.w) * 1000) / 10;
+  return [toPct(range[0]), toPct(range[1])];
 }
 
 // ---------------------------------------------------------------------
@@ -284,7 +344,7 @@ const FRAME_LABELS = { none: 'None', browser: 'Browser', phone: 'Phone' };
  * that function's own header comment for the fix-round-1 history of why
  * this is now ONE rule instead of two.
  */
-export function initFrameInspector() {
+export function initFrameInspector(onFrameChange = null) {
   const section = document.getElementById('frameSection');
   if (!section) return null;
 
@@ -381,6 +441,11 @@ export function initFrameInspector() {
     btn.addEventListener('click', () => {
       setFrameKind(state.config, btn.dataset.kind);
       syncFrameUI();
+      // The Corner radius slider's BOUNDS depend on which frame is on, so a
+      // frame change has to re-sync it or the slider keeps a range that no
+      // longer applies. It lives in the other section, so main.js is what
+      // owns that wiring — see initFinishInspector's return value.
+      if (typeof onFrameChange === 'function') onFrameChange();
       scheduleRender();
     });
   });
@@ -450,6 +515,8 @@ export function initFinishInspector() {
   const radiusInput = document.createElement('input');
   radiusInput.type = 'range';
   radiusInput.className = 'slider';
+  // min/max are re-set on every sync — the bounds follow the frame (see
+  // radiusRangeFor). These are only the pre-sync placeholders.
   radiusInput.min = '0';
   radiusInput.max = String(RADIUS_PERCENT_MAX);
   radiusInput.step = '0.1';
@@ -588,7 +655,14 @@ export function initFinishInspector() {
   }
 
   function syncRadiusUI() {
-    const pct = activeRadiusPercent(state.config);
+    // The element's real composite width, from the layout core/ just
+    // used. Null before the first render, and the helpers fall back to the
+    // canvas width then — see activeRadiusPercent's comment.
+    const elementW = state.lay && state.lay.web ? state.lay.web.w : null;
+    const [min, max] = radiusRangeFor(state.config, 'web', elementW);
+    radiusInput.min = String(min);
+    radiusInput.max = String(max);
+    const pct = activeRadiusPercent(state.config, 'web', elementW);
     radiusInput.value = String(pct);
     syncSliderFill(radiusInput, radiusValueEl, `${pct}%`);
   }

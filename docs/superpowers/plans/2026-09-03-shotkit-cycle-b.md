@@ -498,7 +498,7 @@ git push origin feat/cycle-b
 
 **This is the first task Rock can see.** It closes the finding he raised on 2026-09-03: *"corner radius slider is not working when browser is selected. it either should, or the control should be disabled."* It should — a browser window's corner is a real, adjustable thing.
 
-- [ ] **Step 1: Decide what `null` means, per frame, and write it down**
+- [x] **Step 1: Decide what `null` means, per frame, and write it down**
 
 `el.radius === null` means *this frame's own corner*:
 
@@ -528,7 +528,7 @@ export const BROWSER_RADIUS_RANGE = [0, 0.05];
 export const PHONE_RADIUS_RANGE = [0.04, 0.24];
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Add to `test/layout.test.js`:
 
@@ -573,12 +573,12 @@ describe('corner radius under a frame (Task 3)', () => {
 });
 ```
 
-- [ ] **Step 3: Run and watch them fail**
+- [x] **Step 3: Run and watch them fail**
 
 Run: `npx vitest run test/layout.test.js -t 'corner radius under a frame'`
 Expected: the first PASSES (that is today's behaviour, kept), the other four FAIL — `chromeFor` computes `radius` from the ratio constant and never consults `el.radius`.
 
-- [ ] **Step 4: Resolve the radius in `chromeFor` and `webBox`**
+- [x] **Step 4: Resolve the radius in `chromeFor` and `webBox`**
 
 ```js
 // `el.radius` is null ("this frame's own corner") or an explicit pixel
@@ -604,7 +604,7 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 `chromeFor` uses it for `radius`; `webBox` uses it for the bare screenshot's `web.radius` when there is no frame. `bodyRadius` and `innerRadius` derive from it exactly as they do now, so the concentric relationship Cycle A established is untouched.
 
-- [ ] **Step 5: Run and watch them pass, and the goldens hold**
+- [x] **Step 5: Run and watch them pass, and the goldens hold**
 
 ```bash
 npx vitest run && git status --short test/golden
@@ -612,7 +612,20 @@ npx vitest run && git status --short test/golden
 
 Expected: PASS, and no golden modified — every golden leaves `radius` null, so every one takes the same default it had before.
 
-- [ ] **Step 6: Rewire the Corner radius slider**
+- [x] **Step 6: Rewire the Corner radius slider**
+
+> **Corrected during execution.** The plan's `radiusRangeFor` sketch fudged
+> this with a comment saying "the composite is within a few percent of the
+> canvas width at every ratio, so the slider is expressed against the
+> canvas". That is an approximation in a readout, which is how the ground
+> swatches came to lie once before. The panel now gets the element's REAL
+> width: `composeWithMeta` already returns `layout`, so `web/state.js` keeps
+> it as `state.lay` and the DOM layer passes `state.lay.web.w` down. Task 6
+> needs the same thing for hit-testing, so it is built once, here.
+>
+> The unit stays percent of CANVAS width in all three frames — the unit the
+> slider has always used and the one Rock reasons in ("based on our sliders,
+> 0.6% would be it"). Only the bounds change per frame.
 
 `activeRadiusPercent` currently reads `normalise(config).radius` and expresses it as a percent of canvas width. It must now read the *selected element's* effective radius and express it against the range that applies to that element's frame — otherwise the slider's travel means something different under each frame while looking the same.
 
@@ -638,7 +651,7 @@ export function radiusRangeFor(config, which = 'web') {
 
 Write to `config.elements[which].radius` in pixels, never to the flat `config.radius`. Add a test asserting the flat field is left alone.
 
-- [ ] **Step 7: Add the inspector tests**
+- [x] **Step 7: Add the inspector tests**
 
 ```js
 describe('corner radius writes the element, not the flat field (Task 3)', () => {
@@ -666,7 +679,7 @@ describe('corner radius writes the element, not the flat field (Task 3)', () => 
 });
 ```
 
-- [ ] **Step 8: Commit, push, deploy, and STOP**
+- [x] **Step 8: Commit, push, deploy, and STOP**
 
 ```bash
 git add core web test

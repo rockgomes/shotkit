@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { normalise } from '../core/config.js';
 import { layout } from '../core/layout.js';
-import { MIN_MARGIN_RATIO, BROWSER_BAR_RATIO } from '../core/presets.js';
+import {
+  MIN_MARGIN_RATIO, BROWSER_BAR_RATIO, BROWSER_RADIUS_RATIO, PHONE_RADIUS_RATIO,
+  BROWSER_RADIUS_RANGE, PHONE_RADIUS_RANGE,
+} from '../core/presets.js';
 
 const cfg = (o = {}) => normalise({ layout: 'web', ...o });
 
@@ -641,5 +644,71 @@ describe('layout reads the element block, not the flat fields (Task 2)', () => {
       elements: { web: { frameKind: 'none' }, mobile: { frameKind: 'phone' } },
     }), { web: 1.6, mobile: [] });
     expect(out.web.chrome).toBeNull();
+  });
+});
+
+// --- Cycle B Task 3: the corner radius acts under a frame ----------------
+//
+// Rock, 2026-09-03: "corner radius slider is not working when browser is
+// selected. it either should, or the control should be disabled." It should
+// - a browser window's corner is a real, adjustable thing - and the same
+// goes for the phone: "shouldn't we allow 'some' adjustment for corner
+// radius on mobile? I think android phones can have a different ratio."
+//
+// `el.radius` is null ("this frame's own corner") or a pixel count, the same
+// unit the flat `radius` has always used. The RANGES are fractions of the
+// element's own width, and they differ per frame because the shapes are not
+// interchangeable.
+describe('corner radius under a frame (Task 3)', () => {
+  const web = (o) => layout(normalise({ layout: 'web', ratio: '3:2', ...o }),
+                            { web: 1.6, mobile: [] }).web;
+
+  it("null keeps each frame's own default corner", () => {
+    expect(web({ elements: { web: { frameKind: 'none' } } }).radius)
+      .toBeCloseTo(normalise({ ratio: '3:2' }).radius, 9);
+    const b = web({ elements: { web: { frameKind: 'browser' } } });
+    expect(b.chrome.radius).toBeCloseTo(b.w * BROWSER_RADIUS_RATIO, 9);
+    const p = web({ elements: { web: { frameKind: 'phone' } } });
+    expect(p.chrome.radius).toBeCloseTo(p.w * PHONE_RADIUS_RATIO, 9);
+  });
+
+  it('a set radius reaches the BROWSER window, which it never did before', () => {
+    const a = web({ elements: { web: { frameKind: 'browser' } } });
+    const b = web({ elements: { web: { frameKind: 'browser', radius: a.w * 0.04 } } });
+    expect(b.chrome.radius).toBeGreaterThan(a.chrome.radius * 1.5);
+    expect(b.chrome.radius).toBeCloseTo(b.w * 0.04, 6);
+  });
+
+  it('a set radius reaches the PHONE body', () => {
+    const a = web({ elements: { web: { frameKind: 'phone' } } });
+    const b = web({ elements: { web: { frameKind: 'phone', radius: a.w * 0.20 } } });
+    expect(b.chrome.radius).toBeGreaterThan(a.chrome.radius * 1.4);
+  });
+
+  it("clamps into the frame's own range rather than deforming the shape", () => {
+    const p = web({ elements: { web: { frameKind: 'phone', radius: 99999 } } });
+    expect(p.chrome.radius).toBeCloseTo(p.w * PHONE_RADIUS_RANGE[1], 9);
+    const pMin = web({ elements: { web: { frameKind: 'phone', radius: 0 } } });
+    expect(pMin.chrome.radius).toBeCloseTo(pMin.w * PHONE_RADIUS_RANGE[0], 9);
+    const b = web({ elements: { web: { frameKind: 'browser', radius: 99999 } } });
+    expect(b.chrome.radius).toBeCloseTo(b.w * BROWSER_RADIUS_RANGE[1], 9);
+  });
+
+  it('the screen corner stays concentric inside the phone body', () => {
+    const p = web({ elements: { web: { frameKind: 'phone', radius: 200 } } });
+    expect(p.chrome.innerRadius)
+      .toBeCloseTo(Math.max(0, p.chrome.bodyRadius - p.chrome.frame), 9);
+    expect(p.chrome.bodyRadius).toBeCloseTo(p.chrome.radius, 9); // no stroke here
+  });
+
+  it('the composite box and its chrome report ONE radius, not two', () => {
+    // chromeFor used to recompute the corner from its own constant while
+    // webBox put c.radius on the box - two sources for one number, and the
+    // box's was simply dead whenever a frame was on. This cycle exists to
+    // remove that shape.
+    for (const frameKind of ['browser', 'phone']) {
+      const b = web({ elements: { web: { frameKind } } });
+      expect(b.radius).toBeCloseTo(b.chrome.radius, 12);
+    }
   });
 });

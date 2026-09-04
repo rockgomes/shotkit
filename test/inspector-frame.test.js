@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import {
-  DEFAULTS, normalise, SHADOW_SCALE_RANGE, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
+  DEFAULTS, normalise, layout, SHADOW_SCALE_RANGE, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
+  BROWSER_RADIUS_RATIO, PHONE_RADIUS_RATIO, BROWSER_RADIUS_RANGE, PHONE_RADIUS_RANGE,
 } from '../core/index.js';
 import { state, bindCanvas, render } from '../web/state.js';
 import {
@@ -21,6 +22,7 @@ import {
   setShadowPercent,
   activeRadiusPercent,
   setRadiusPercent,
+  radiusRangeFor,
   RADIUS_PERCENT_MAX,
   activeStrokeStyle,
   setStrokeStyle,
@@ -193,19 +195,69 @@ describe('corner radius percent <-> config.radius pixels', () => {
     expect(activeRadiusPercent({})).toBeCloseTo((eff.radius / eff.w) * 100, 1);
   });
 
-  it('setRadiusPercent writes a pixel value that normalise() reads back unchanged', () => {
+  // CYCLE B TASK 3 MOVED THE WRITE. It used to set the flat `config.radius`,
+  // which core/ read only on the unframed path - so the slider moved and,
+  // under a frame, nothing happened. It now writes the ELEMENT, and core/
+  // resolves it against whichever frame is on.
+  it('setRadiusPercent writes a pixel value on the element, not the flat field', () => {
     const config = { ratio: '4:3' }; // w = 2000
     setRadiusPercent(config, 2);
-    expect(config.radius).toBe(40); // round(0.02 * 2000)
-    expect(normalise(config).radius).toBe(40); // an explicit radius is honoured verbatim
+    expect(config.elements.web.radius).toBe(40); // round(0.02 * 2000)
+    expect(config.radius).toBeUndefined();
+    expect(normalise(config).elements.web.radius).toBe(40);
   });
 
-  it('clamps to [0, RADIUS_PERCENT_MAX]', () => {
+  it('never writes a negative radius', () => {
     const config = { ratio: '3:2' }; // w = 1800
     setRadiusPercent(config, -1);
-    expect(config.radius).toBe(0);
-    setRadiusPercent(config, 999);
-    expect(config.radius).toBe(Math.round((RADIUS_PERCENT_MAX / 100) * 1800));
+    expect(config.elements.web.radius).toBe(0);
+  });
+});
+
+// --- Cycle B Task 3: the radius control under a frame --------------------
+describe('the corner radius control follows the frame (Task 3)', () => {
+  it("reads back each frame's own default when nothing is set", () => {
+    const eff = normalise({});
+    // Unframed: normalise()'s own canvas-derived radius, unchanged.
+    expect(activeRadiusPercent({})).toBeCloseTo((eff.radius / eff.w) * 100, 1);
+    // Framed: the frame's own ratio, against the element width supplied.
+    const W = 1675.2;
+    expect(activeRadiusPercent({ frameKind: 'browser' }, 'web', W))
+      .toBeCloseTo((W * BROWSER_RADIUS_RATIO / eff.w) * 100, 1);
+    expect(activeRadiusPercent({ frameKind: 'phone' }, 'web', W))
+      .toBeCloseTo((W * PHONE_RADIUS_RATIO / eff.w) * 100, 1);
+  });
+
+  it('the slider bounds follow the frame', () => {
+    const eff = normalise({});
+    const W = 1675.2;
+    expect(radiusRangeFor({ frameKind: 'none' })).toEqual([0, RADIUS_PERCENT_MAX]);
+    const [bLo, bHi] = radiusRangeFor({ frameKind: 'browser' }, 'web', W);
+    expect(bLo).toBeCloseTo(0, 6);
+    expect(bHi).toBeCloseTo(BROWSER_RADIUS_RANGE[1] * W / eff.w * 100, 1);
+    const [pLo, pHi] = radiusRangeFor({ frameKind: 'phone' }, 'web', W);
+    expect(pLo).toBeCloseTo(PHONE_RADIUS_RANGE[0] * W / eff.w * 100, 1);
+    expect(pHi).toBeCloseTo(PHONE_RADIUS_RANGE[1] * W / eff.w * 100, 1);
+    // A phone's floor is NOT zero - a square-cornered phone is not a phone.
+    expect(pLo).toBeGreaterThan(1);
+  });
+
+  it('what the slider writes actually reaches the rendered corner', () => {
+    // The end-to-end claim, and the one the old test could not make: write
+    // through the panel, then read the corner core/ actually lays out.
+    const config = { layout: 'web', ratio: '3:2', frameKind: 'browser' };
+    const before = layout(normalise(config), { web: 1.6, mobile: [] }).web.chrome.radius;
+    setRadiusPercent(config, 3);
+    const after = layout(normalise(config), { web: 1.6, mobile: [] }).web.chrome.radius;
+    expect(after).toBeGreaterThan(before * 2);
+  });
+
+  it('changing the frame does not silently move a radius the user set', () => {
+    const config = { ratio: '3:2' };
+    setRadiusPercent(config, 2);
+    const set = config.elements.web.radius;
+    setFrameKind(config, 'browser');
+    expect(config.elements.web.radius).toBe(set);
   });
 });
 
