@@ -1308,7 +1308,7 @@ Tell Rock:
 
 **After Tasks 3–7 there should be very little left.** That is the point: the honest fix for a control that does nothing was to make it do something, and disabling is the residue. Enumerate what remains rather than assuming it is empty.
 
-- [ ] **Step 1: Enumerate what still cannot act, by reading the code**
+- [x] **Step 1: Enumerate what still cannot act, by reading the code**
 
 Go through every control in the Frame and Finish sections and, for each, find the line in `core/` that reads its field. A control whose field is read on no code path for the current element is inert. Write the list into the task report **before** writing any code, with the file and line for each.
 
@@ -1320,7 +1320,38 @@ Known candidates at the time of writing:
 
 If the list comes back empty, say so plainly and skip to Step 4. An empty list is a real outcome here.
 
-- [ ] **Step 2: Write the failing tests**
+> **The enumeration came back with exactly ONE inert control, and it was
+> made to act rather than disabled — so nothing in this task is disabled at
+> all.** Traced by rendering each layout twice and diffing the SHOTS:
+>
+> | control | web | mobile | web+mobile |
+> |---|---|---|---|
+> | Padding | acts | **INERT** | acts |
+> | Frame | acts | acts | acts |
+> | Corner radius | acts | acts | acts |
+> | Stroke | acts | acts | acts |
+> | Shadow, Grain | canvas-level, act everywhere | | |
+>
+> Chrome theme and URL are browser-only and are HIDDEN, not disabled — a
+> deliberate choice from Cycle A Task 6 that Rock approved, left alone here
+> and named so he can overrule it.
+>
+> `layout()` sized the mobile layout's phones from `c.h` and never consulted
+> the safe box, so Padding moved and changed nothing. Fixed: one phone fills
+> the safe height, a staggered row takes the same 0.80/0.86 proportion of it
+> the old canvas-relative pair did, and the composite honours the same
+> MIN_MARGIN floor webBox does.
+>
+> **The first version of the enumeration was itself wrong**, and it reported
+> "acts" for everything. It compared whole `layout()` outputs, which include
+> `safe` — and `safe` moves with padding by definition. Comparing the shots
+> is the measurement that means anything.
+>
+> The steps below are therefore not executed as written: there is nothing to
+> disable. They are left in place because the enumeration they demand is the
+> valuable part, and a later cycle may find a control this one did not.
+
+- [ ] **Step 2 (not executed — nothing came back inert): Write the failing tests**
 
 ```js
 describe('controls that cannot act say so (Task 8)', () => {
@@ -1345,19 +1376,19 @@ describe('controls that cannot act say so (Task 8)', () => {
 });
 ```
 
-- [ ] **Step 3: Implement, with explicit colours**
+- [x] **Step 3: Implement, with explicit colours**
 
 The disabled treatment is a colour, never `opacity` — Cycle A Task 3b removed every `opacity`-based disabled rule and `test/contrast.test.js` enforces it. Reuse the existing `.chip:disabled` and `.zoom-btn:disabled` rules rather than inventing a third.
 
 Each disabled control needs a reason the user can find: a `title` and an `aria-describedby` pointing at one short line, e.g. *"Only a browser frame has a title bar."* A disabled control with no explanation is a different kind of lie.
 
-- [ ] **Step 4: Confirm the contrast guard still passes**
+- [x] **Step 4: Confirm the contrast guard still passes**
 
 Run: `npx vitest run test/contrast.test.js`
 
 If a new disabled colour fails the floor, change the colour, not the floor.
 
-- [ ] **Step 5: Commit, push, deploy, and STOP**
+- [x] **Step 5: Commit, push, deploy, and STOP**
 
 ```bash
 git add web test

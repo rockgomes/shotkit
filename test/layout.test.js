@@ -87,8 +87,13 @@ describe('mobile layout', () => {
     const c = normalise({ layout: 'mobile', ratio: '3:2' });
     const one = layout(c, { web: null, mobile: [0.462] }).phones[0];
     const two = layout(c, { web: null, mobile: [0.462, 0.462] }).phones[0];
-    expect(screenOf(one).h).toBeCloseTo(1200 * 0.86, 6);
-    expect(screenOf(two).h).toBeCloseTo(1200 * 0.80, 6);
+    // Cycle B Task 8: measured against the SAFE box, not the canvas -
+    // that is what made Padding act in this layout at all. One phone fills
+    // the safe height; a staggered pair takes the same 0.80/0.86
+    // proportion of it the old canvas-relative pair did.
+    const safeH = 1200 - 2 * (1200 * 0.052);
+    expect(screenOf(one).h).toBeCloseTo(safeH, 6);
+    expect(screenOf(two).h).toBeCloseTo(safeH * (0.80 / 0.86), 6);
   });
 
   it('lifts the middle phone highest when there are three', () => {
@@ -282,41 +287,34 @@ describe('frame: none (the existing behaviour)', () => {
     // was invisible there because the web element defaults to `frameKind:
     // 'none'`, where every inset is 0; the mobile element defaults to
     // 'phone', so here it shows.
-    function expectPhonesGrewOutward(phones, base, canvasW) {
-      expect(phones).toHaveLength(base.length);
-      phones.forEach((p, i) => {
-        const b = base[i];
-        // The picture is now exactly the old device.
-        expect(p.chrome.screen.w).toBeCloseTo(b.w, 9);
-        expect(p.chrome.screen.h).toBeCloseTo(b.h, 9);
-        // And the device is that plus one bezel on each side.
-        expect(p.w).toBeCloseTo(b.w + b.frame * 2, 9);
-        expect(p.h).toBeCloseTo(b.h + b.frame * 2, 9);
-        // The vertical placement is untouched: the lift maths never
-        // depended on the phone's width, so every centre is exactly where
-        // it was.
-        expect(p.y + p.h / 2).toBeCloseTo(b.y + b.h / 2, 9);
-        // Retired fields really are gone, not shadowing `chrome`.
-        expect(p.frame).toBeUndefined();
-        expect(p.innerRadius).toBeUndefined();
-      });
-      if (phones.length === 3) {
-        // The stagger scales with the device, so the outer two move - but
-        // the middle one is still centred on the canvas and the spacing is
-        // still even.
-        expect(phones[1].x + phones[1].w / 2).toBeCloseTo(canvasW / 2, 9);
-        const gap = (a, b2) => (b2.x + b2.w / 2) - (a.x + a.w / 2);
-        expect(gap(phones[0], phones[1])).toBeCloseTo(gap(phones[1], phones[2]), 9);
-      }
-    }
 
-    it(`grows the phones outward from the frozen baseline, at ${ratio}`, () => {
+    // THE PHONE HALF OF THIS BASELINE IS RETIRED, and deliberately not
+    // renumbered a second time. Cycle B changed the phone model twice on
+    // purpose - Task 4 made the bezel an outset, Task 8 sized the phone
+    // from the safe box so Padding would act - and a frozen list
+    // transformed twice states nothing a reader can check. Its numbers stay
+    // in PRE_FRAME_BASELINE above as a dated record of the pre-Cycle-B
+    // geometry; they are no longer asserted.
+    //
+    // What replaced them is stronger, because it is model-level rather than
+    // magic numbers, and every piece of it fails if the phone geometry
+    // drifts:
+    //
+    //   - "the frame grows OUTWARD" (Task 4)  - screen unchanged by the bezel
+    //   - "padding acts in every layout" (Task 8) - and shrinks the phone
+    //   - "a lone phone is centred, and clears the floor even at pad 0"
+    //   - "a staggered row still staggers"
+    //   - "never squashes the phone" - the source ratio, under every frame
+    //   - test/golden/render/mobile.png - the pixels themselves
+    //
+    // The WEB half below is untouched and still frozen exactly: no task in
+    // this cycle changed the unframed web box, and this is the check.
+    it(`leaves the safe box exactly as it was, at ${ratio}`, () => {
       const c = normalise({ layout: 'mobile', ratio });
       const out = layout(c, { web: null, mobile: [0.462, 0.462, 0.462] });
-      const base = PRE_FRAME_BASELINE[`mobile:${ratio}`];
       expect(out.web).toBeNull();
-      expect(out.safe).toEqual(base.safe);
-      expectPhonesGrewOutward(out.phones, base.phones, c.w);
+      expect(out.safe).toEqual(PRE_FRAME_BASELINE[`mobile:${ratio}`].safe);
+      expect(out.phones).toHaveLength(3);
     });
 
     it(`keeps the web box and grows the phone outward, at ${ratio}`, () => {
@@ -326,13 +324,10 @@ describe('frame: none (the existing behaviour)', () => {
       // The WEB box is still frozen exactly - Task 4 touched only phones.
       expect(out.safe).toEqual(base.safe);
       expect(webWithoutFrameFields(out.web)).toEqual(base.web);
-      expectPhonesGrewOutward(out.phones, base.phones, c.w);
-      // The phone's horizontal anchor is 0.46 of its own width in from the
-      // safe box's right edge, so growing the device moves it left by
-      // exactly 0.46 of the growth - not by an unexplained amount.
-      const grew = out.phones[0].w - base.phones[0].w;
-      expect(out.phones[0].x + out.phones[0].w / 2)
-        .toBeCloseTo(base.phones[0].x + base.phones[0].w / 2 - grew * 0.46, 9);
+      // The phone is asserted by the model-level tests listed above, not
+      // against the frozen numbers - see the note on the mobile case.
+      expect(out.phones).toHaveLength(1);
+      expect(out.phones[0].chrome.kind).toBe('phone');
     });
   }
 });
@@ -841,5 +836,62 @@ describe('the mobile element takes a frame like the web one (Task 4)', () => {
     expect(p.innerRadius).toBeUndefined();
     expect(p.inner).toBeDefined();
     expect(p.strokeWidth).toBe(0);
+  });
+});
+
+// --- Cycle B Task 8: every control acts, or says it cannot ---------------
+//
+// The task began with an enumeration, not with code: every control in the
+// Frame and Finish sections was traced to the line in core/ that reads it.
+// Exactly ONE came back inert - Padding, in the mobile-only layout, because
+// `layout()` sized its phones from `c.h` and never consulted the safe box.
+// The honest fix for a control that does nothing is to make it do
+// something, so that is what happened; nothing needed disabling.
+//
+// The first version of that enumeration was itself wrong, and it is worth
+// recording how: it compared whole `layout()` outputs, which include
+// `safe` - and `safe` moves with padding by definition, so every check
+// reported "acts". Comparing the SHOTS is the measurement that means
+// anything.
+describe('padding acts in every layout (Task 8)', () => {
+  const SOURCES = {
+    web: { web: 1.6, mobile: [] },
+    mobile: { web: null, mobile: [0.462] },
+    'web+mobile': { web: 1.6, mobile: [0.462] },
+  };
+  // Deliberately NOT the whole layout: `safe` is the padding, so including
+  // it would make this pass whatever the shots did.
+  const shots = (o) => {
+    const l = layout(normalise({ ratio: '3:2', ...o }), SOURCES[o.layout]);
+    return JSON.stringify({ web: l.web, phones: l.phones });
+  };
+
+  for (const lay of ['web', 'mobile', 'web+mobile']) {
+    it(`moves the shots in the ${lay} layout`, () => {
+      expect(shots({ layout: lay, pad: 0.052 })).not.toBe(shots({ layout: lay, pad: 0.18 }));
+    });
+  }
+
+  it('more padding means a smaller phone, not merely a different one', () => {
+    const at = (pad) => layout(normalise({ layout: 'mobile', ratio: '3:2', pad }),
+                               SOURCES.mobile).phones[0];
+    expect(at(0.18).h).toBeLessThan(at(0.052).h);
+    expect(at(0.052).h).toBeLessThan(at(0.0).h);
+  });
+
+  it('a lone phone is centred, and clears the floor even at pad 0', () => {
+    for (const pad of [0, 0.052, 0.18]) {
+      const p = layout(normalise({ layout: 'mobile', ratio: '3:2', pad }),
+                       SOURCES.mobile).phones[0];
+      expect(p.y + p.h / 2).toBeCloseTo(600, 9);       // canvas height / 2
+      expect(p.y).toBeGreaterThanOrEqual(MIN_MARGIN_RATIO * 1200 - 1e-9);
+    }
+  });
+
+  it('a staggered row still staggers — the lone-phone fix did not flatten it', () => {
+    const three = layout(normalise({ layout: 'mobile', ratio: '3:2' }),
+                         { web: null, mobile: [0.462, 0.462, 0.462] }).phones;
+    expect(three[1].y).toBeLessThan(three[0].y);
+    expect(three[1].y).toBeLessThan(three[2].y);
   });
 });

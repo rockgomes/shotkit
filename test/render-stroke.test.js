@@ -176,34 +176,54 @@ describe('per-element stroke and shadow (Task 5)', () => {
     expect(c.elements.mobile.shadowScale).toBeCloseTo(1.6, 9);
   });
 
-  // SAMPLE POINTS MEASURED, NOT ASSUMED - and the first draft of this test
-  // had them wrong. The device highlight occupies exactly ONE pixel column,
-  // at `Math.ceil(box.x)`; the column after it is already the device body.
-  // Measured on a flat-black source at 3:2:
+  // AN ABSOLUTE SAMPLE COLUMN IS TOO BRITTLE HERE, and Task 8 proved it:
+  // changing the phone's size moved `box.x`'s fractional part, the 1px
+  // hairline redistributed across the pixel grid, and a test pinned to
+  // `Math.ceil(box.x)` broke while the rendering was perfectly correct.
+  // Measured before (box.x 598.72) and after (586.11), on a flat-black
+  // source, columns +0..+2 from `Math.ceil(box.x)`:
   //
-  //   frameKind 'none'   +0: 0,0,0     +1: 0,0,0     +2: 0,0,0
-  //   frameKind 'phone'  +0: 34,36,40  +1: 17,19,24  +2: 17,19,24
+  //   framed, box.x .72   34,36,40 -> 17,19,24 -> 17,19,24
+  //   framed, box.x .11   20,22,27 -> 17,19,24 -> 17,19,24
+  //   unframed            0,0,0    -> 0,0,0    -> 0,0,0
   //
-  // 17,19,24 is #111318, the device body; 34,36,40 is that lifted by the
-  // 0.10 white hairline. Sampling at +1, as first written, would have read
-  // the body in both cases and asserted nothing.
+  // So the assertions take the MAXIMUM over the first three interior
+  // columns, which is stable wherever the line lands.
+  //
+  // The two halves are not equally strong, and that is worth saying. The
+  // unframed one is exact and is the claim that matters - it is Cycle A
+  // Task 1's regression, an unrequested border on someone's screenshot. The
+  // framed one is thin: a 0.10-alpha white line over a #111318 body lifts a
+  // fully-covered pixel by 24 levels, but most of the line lands on the
+  // boundary pixel, which also contains the ground and cannot be read
+  // cleanly. It is a companion guard, not a proof.
+  const maxOverColumns = (ctx, x0, y, n) => {
+    let best = -1;
+    for (let d = 0; d < n; d++) best = Math.max(best, px(ctx, x0 + d, y)[0]);
+    return best;
+  };
+
   it('an unframed mobile screenshot has no device highlight', () => {
-    // The highlight belongs to the DEVICE. With no device there is nothing
-    // for it to sit on, and it would read as exactly the unrequested border
-    // Cycle A Task 1 removed.
     const bare = phoneScene({ elements: { mobile: { frameKind: 'none' } } });
     const b = bare.lay.phones[0];
     const mid = Math.round(b.y + b.h / 2);
-    expect(px(bare.ctx, Math.ceil(b.x), mid)).toEqual([0, 0, 0]);
-    expect(px(bare.ctx, Math.ceil(b.x) + 1, mid)).toEqual([0, 0, 0]);
+    // Exactly the source colour, with nothing lifting any of it.
+    expect(maxOverColumns(bare.ctx, Math.ceil(b.x), mid, 3)).toBe(0);
   });
 
   it('a phone-framed one still has it — the device keeps its highlight', () => {
     const framed = phoneScene({});
     const b = framed.lay.phones[0];
     const mid = Math.round(b.y + b.h / 2);
-    const [r] = px(framed.ctx, Math.ceil(b.x), mid);
-    expect(r).toBeGreaterThan(25);                       // measured 34
-    expect(px(framed.ctx, Math.ceil(b.x) + 1, mid)).toEqual([17, 19, 24]);  // #111318
+    const body = 17;                                   // #111318
+    expect(maxOverColumns(framed.ctx, Math.ceil(b.x), mid, 3))
+      .toBeGreaterThan(body);
+    // And the middle of the BEZEL is the plain body colour, so the lift
+    // above is a line at the edge and not the whole body being paler.
+    // Derived from `chrome.frame` rather than guessed: the bezel is about
+    // 11px here, so a fixed "+20" - the first thing written - landed past
+    // it and read the black screenshot instead.
+    const bezelMid = Math.ceil(b.x) + Math.round(b.chrome.frame / 2);
+    expect(px(framed.ctx, bezelMid, mid)).toEqual([17, 19, 24]);
   });
 });

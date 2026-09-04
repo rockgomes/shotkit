@@ -296,16 +296,44 @@ export function layout(c, sources) {
   else if (c.layout === 'mobile' && mobile.length) {
     // 1-3 phones, staggered. Middle one sits highest.
     const n = mobile.length;
-    const ph = c.h * (n === 1 ? 0.86 : 0.80);
+
+    // CYCLE B TASK 8: FROM THE SAFE BOX, NOT THE CANVAS. This read
+    // `c.h * (n === 1 ? 0.86 : 0.80)`, so `pad` had no effect on a
+    // mobile-only shot at all - the one control left in the app that moved
+    // and changed nothing, and one of the three Rock reported. Padding now
+    // means the same thing in every layout.
+    //
+    // One phone fills the safe height. A staggered row of two or three
+    // needs vertical room to stagger, and takes the same 0.80/0.86
+    // proportion of it that the old canvas-relative pair did - so the
+    // relationship between the two cases is carried over exactly rather
+    // than re-picked by eye.
+    let ph = safe.h * (n === 1 ? 1 : 0.80 / 0.86);
+
+    // And the same floor webBox honours. The bezel is an outset (Task 4),
+    // so a phone whose SCREEN fills the safe height has an OUTER box a
+    // bezel taller - which at pad 0 would run off the canvas rather than
+    // merely eat the margin.
+    const probe = phoneMetrics(c, c.elements.mobile, mobile[0], ph);
+    const maxOh = c.h - MIN_MARGIN_RATIO * Math.min(c.w, c.h) * 2;
+    if (probe.oh > maxOh) ph *= maxOh / probe.oh;
     // The device's OUTER width, not the screenshot's - see phoneMetrics.
     const pw = phoneMetrics(c, c.elements.mobile, mobile[0], ph).ow;
     const step = pw * 0.86;               // slight overlap
     const total = step * (n - 1);
     for (let i = 0; i < n; i++) {
       const cx = c.w / 2 - total / 2 + i * step;
-      const lift = n === 2
-        ? (i === 0 ? c.h * 0.030 : -c.h * 0.030)
-        : (i === 1 ? -c.h * 0.035 : c.h * 0.028);
+      // A LONE PHONE IS CENTRED. The expression below is a stagger, and a
+      // stagger of one is not a thing: with n === 1 the three-phone branch
+      // used to fall through to its `else` and push the single phone down
+      // by 2.8% of the canvas. That was an accident of the expression, not
+      // a decision, and it stayed invisible only because the phone was
+      // small enough to absorb it - Task 8's padding fix made the phone
+      // fill the safe height, and it promptly hung off the bottom edge.
+      const lift = n === 1 ? 0
+        : n === 2
+          ? (i === 0 ? c.h * 0.030 : -c.h * 0.030)
+          : (i === 1 ? -c.h * 0.035 : c.h * 0.028);
       out.phones.push(phoneBox(c, c.elements.mobile, mobile[i], ph, cx, c.h / 2 + lift));
     }
   }
