@@ -544,9 +544,11 @@ canvasSurface.addEventListener('click', (event) => {
   if (event.target !== renderCanvas) setSelection(null);
 });
 
-// The keyboard path. A selection you can only make with a mouse is not
-// finished; the canvas is focusable (tabindex in index.html) so Escape is
-// reachable from it.
+// Escape clears the selection, from the DOCUMENT rather than the canvas:
+// it works wherever focus happens to be, and the canvas is deliberately not
+// focusable (see the long note in web/style.css - a focus ring on it reads
+// as selecting the whole shot). Keyboard SELECTION does not exist yet and
+// is a known gap, recorded there.
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && state.selection) setSelection(null);
 });

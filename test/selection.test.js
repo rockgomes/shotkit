@@ -90,3 +90,31 @@ describe('the selection never reaches the canvas', () => {
     expect(codeOf('core/render.js')).toContain('getContext');
   });
 });
+
+// --- The canvas carries no focus ring (Cycle B Task 6, fix round 1) ------
+//
+// A `tabindex` and a `:focus-visible` ring were added to the canvas and
+// removed the same day. Pressing Escape made a 2px ring appear around the
+// whole shot - indistinguishable from the selection outline - so it read as
+// "the entire composition is selected", and clicking an element afterwards
+// looked like two selections at once. Rock found it on the preview.
+//
+// This pins the decision rather than the pixels, because the pixels need a
+// real browser and a real key press to reproduce at all: `:focus-visible`
+// only matches after genuine keyboard interaction, which is why the first
+// synthetic probe of this bug came back clean.
+//
+// DELETE THIS TEST when keyboard selection is built. At that point the
+// canvas SHOULD be focusable - but its indicator must be the selection
+// outline itself, never a second ring beside it.
+describe('the canvas has no focus ring that could pass for a selection', () => {
+  it('is not focusable while there is no keyboard way to select', () => {
+    const html = readFileSync('web/index.html', 'utf8');
+    const canvasTag = html.match(/<canvas[^>]*id="renderCanvas"[^>]*>/)[0];
+    expect(canvasTag).not.toContain('tabindex');
+  });
+
+  it('has no focus-visible rule of its own', () => {
+    expect(codeOf('web/style.css')).not.toContain('.render-canvas:focus-visible');
+  });
+});

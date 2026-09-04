@@ -1576,9 +1576,23 @@ input {
   outline-offset: 3px;
 }
 
-/* The canvas is focusable so the selection has a keyboard path — Escape
-   clears it. A selection you can only make with a mouse is not finished. */
-.render-canvas:focus-visible {
-  outline: 2px solid var(--text-primary);
-  outline-offset: 4px;
-}
+/* NO FOCUS RING ON THE CANVAS, AND NO `tabindex` ON IT EITHER.
+
+   Both existed here for about an hour. Rock found what they did: press
+   Escape and a 2px ring appears around the WHOLE SHOT, which reads as
+   selecting the entire composition; click an element afterwards and you
+   appear to have two selections at once. Confirmed in Chromium — Escape
+   flips the browser to keyboard modality, `:focus-visible` starts matching
+   the canvas, and its ring is visually indistinguishable from
+   `.selection-outline`.
+
+   It was added on the argument that "a selection you can only make with a
+   mouse is not finished". That argument stands, but this was never a
+   keyboard SELECTION path — only a focus ring on a canvas you could not
+   select anything with. Escape clears the selection from a document-level
+   listener (web/main.js) and still does, so removing this loses no
+   behaviour, only a misleading mark.
+
+   Keyboard selection is a real gap and wants a real design: Tab to the
+   canvas, arrows to cycle elements, with `.selection-outline` itself as the
+   focus indicator so there is never a second ring competing with it. */
