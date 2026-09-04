@@ -84,7 +84,14 @@ A task report that does not contain a red-then-green record for its new assertio
 
 **Files:** none changed.
 
-- [ ] **Step 1: Branch from an up-to-date main**
+> **Corrected during execution, 2026-09-03.** GitHub refuses to open a pull
+> request on a branch with no commits ahead of its base — "No commits between
+> main and feat/cycle-b" — so Steps 1 and 2 cannot both run before any work
+> exists. Task 0 is therefore folded into Task 1: branch first, do Task 1's
+> work, commit, push, and open the PR with that commit. The approval gate is
+> unaffected, because Task 1 has nothing visible to approve either way.
+
+- [x] **Step 1: Branch from an up-to-date main**
 
 ```bash
 git checkout main && git pull --ff-only && git checkout -b feat/cycle-b
@@ -139,13 +146,13 @@ Run `gh pr view --json number`. If it is not 2, correct the URL in this plan and
 
 **Why this task changes no behaviour at all.** The block is added and nothing reads it. That is deliberate: the precedence rule below is the single piece of this cycle most likely to go wrong quietly, and it gets a task to itself where the only thing that can move is the config object.
 
-- [ ] **Step 1: Read the failure this rule has to avoid**
+- [x] **Step 1: Read the failure this rule has to avoid**
 
 Cycle A Task 5b introduced `shadow: { scale, ... }` alongside the existing flat `shadowScale`, with the rule "specific beats legacy". The panel's writer seeded the block with `{ ...SHADOW_DEFAULTS }`, so `shadow.scale` was *always present* — and therefore always outranked `shadowScale`. The main Shadow slider went dead the moment the Advanced section was opened, while still displaying its old value. It had to be reverted in full.
 
 The rule that prevents it: **a key counts as an override only when the INPUT carried it.** A resolved default is not an override. `undefined` is the test, and the block is never pre-seeded with defaults before that test runs.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Add to `test/config.test.js`:
 
@@ -223,14 +230,14 @@ describe('per-element settings (Cycle B Task 1)', () => {
 
 Add `SHADOW_SCALE_RANGE` and `STROKE_WIDTH_RANGE` to that file's imports from `../core/presets.js` if they are not already there.
 
-- [ ] **Step 3: Run and watch every one fail**
+- [x] **Step 3: Run and watch every one fail**
 
 Run: `npx vitest run test/config.test.js -t 'per-element settings'`
 Expected: all nine FAIL — `c.elements` is `undefined` today, so most fail on a property read.
 
 That is a weak kind of red. Before moving on, **also** check the two that matter can fail for the right reason later: temporarily return `elements: { web: {}, mobile: {} }` and confirm "a flat key is a default for EVERY element" and "an absent element key never outranks an explicit flat key" still fail. Record that in the report.
 
-- [ ] **Step 4: Add the vocabulary**
+- [x] **Step 4: Add the vocabulary**
 
 In `core/presets.js`:
 
@@ -291,7 +298,6 @@ Then, inside `normalise()`, build the block from `input` — **not** from the re
     const frameKind = pickField(e.frameKind, input.frameKind, ELEMENT_DEFAULTS[kind].frameKind);
     const chromeTheme = pickField(e.chromeTheme, input.chromeTheme, 'dark');
     const url = pickField(e.url, input.url, DEFAULTS.url);
-    const radius = pickField(e.radius, input.elements ? undefined : undefined, null);
     const shadowScale = pickField(e.shadowScale, input.shadowScale, DEFAULTS.shadowScale);
     const stroke = pickField(e.stroke, input.stroke, undefined);
 
@@ -301,7 +307,12 @@ Then, inside `normalise()`, build the block from `input` — **not** from the re
       url: url ? String(url) : DEFAULTS.url,
       // null means "this frame's own corner" — resolved in layout.js by
       // Task 3, because the answer depends on which frame is on.
-      radius: radius === null || radius === undefined ? null : num(radius, null),
+      // Corrected during execution: the first sketch of this line routed
+      // radius through pickField with two undefined arguments, which is a
+      // no-op dressed as a rule. It does not use pickField at all - the
+      // flat radius is deliberately not inherited, so there is no
+      // precedence to express.
+      radius: e.radius === undefined ? null : num(e.radius, null),
       shadowScale: Math.min(
         SHADOW_SCALE_RANGE[1],
         Math.max(SHADOW_SCALE_RANGE[0], num(shadowScale, DEFAULTS.shadowScale)),
@@ -332,12 +343,12 @@ function normaliseStroke(s) {
 
 Add `elements` to the returned object, and export `ELEMENT_KINDS` / `ELEMENT_DEFAULTS` from `core/index.js`.
 
-- [ ] **Step 5: Run and watch them pass**
+- [x] **Step 5: Run and watch them pass**
 
 Run: `npx vitest run`
 Expected: PASS, and **every one of the fourteen goldens byte-identical** — nothing reads the block yet, so a moved pixel means something else changed.
 
-- [ ] **Step 6: Commit and push**
+- [x] **Step 6: Commit and push**
 
 ```bash
 git add core test
@@ -363,7 +374,7 @@ git push origin feat/cycle-b
 
 **This task must change nothing that reaches a canvas.** It is the plumbing, separated from the behaviour so that when Task 3 does move a pixel there is no doubt about which change did it.
 
-- [ ] **Step 1: The acceptance test is the golden set, and it already exists**
+- [x] **Step 1: The acceptance test is the golden set, and it already exists**
 
 There is no new test to write for the main claim. The claim is "all fourteen goldens are byte-identical", and `npx vitest run` plus `git status test/golden` is the whole check. Do not regenerate goldens in this task — if one moves, the refactor is wrong.
 
@@ -381,24 +392,28 @@ describe('layout reads the element block, not the flat fields (Task 2)', () => {
     expect(viaBlock.web.chrome.barH).toBeGreaterThan(0);
   });
 
-  it('the web element\\'s frame does not follow the mobile element\\'s', () => {
+  // CORRECTED DURING EXECUTION. As sketched, this test could not fail: with
+  // no flat `frameKind` at all, `c.frameKind` sits at its own default of
+  // 'none', so `chrome` is null before the fix and after it. The flat key
+  // has to be 'browser' so that only an element override reading correctly
+  // can produce null.
+  it("an element override beats the flat key, and the other element's does not leak", () => {
     const out = layout(normalise({
       layout: 'web', ratio: '3:2',
-      elements: { web: { frameKind: 'none' }, mobile: { frameKind: 'browser' } },
+      frameKind: 'browser',
+      elements: { web: { frameKind: 'none' }, mobile: { frameKind: 'phone' } },
     }), { web: 1.6, mobile: [] });
     expect(out.web.chrome).toBeNull();
   });
 });
 ```
 
-- [ ] **Step 2: Run and watch the second one fail**
+- [x] **Step 2: Run and watch the second one fail**
 
 Run: `npx vitest run test/layout.test.js -t 'element block'`
-Expected: the first PASSES (the flat key already works), the second FAILS — `webBox` reads `c.frameKind`, which is `'browser'` here because the mobile override does not exist as a concept yet.
+Expected — and **the plan had this backwards**, corrected here from what actually happened: the FIRST fails (an element override alone leaves `c.frameKind` at 'none', so `chrome` is null and `.barH` throws) and the second, as originally sketched, passed for the wrong reason. Both are red once the second is corrected as above.
 
-Record in the report that the first assertion cannot fail today and is a regression guard, not a new-behaviour guard.
-
-- [ ] **Step 3: Thread the element through layout**
+- [x] **Step 3: Thread the element through layout**
 
 In `core/layout.js`, `frameInsets`, `chromeFor` and `webBox` currently read `c.frameKind` and `c.stroke`. Give each an `el` parameter and read it from there. `c` stays for canvas-level values (`c.w`, `c.h`, `c.pad`, `c.radius`) — the point of the split is that those are the shot's, not an element's.
 
@@ -426,7 +441,7 @@ function frameInsets(c, el, screenW, shorterSide) {
 
 `phoneBox` is untouched in this task — Task 4 is what moves it.
 
-- [ ] **Step 4: Thread the element through the painters**
+- [x] **Step 4: Thread the element through the painters**
 
 ```js
 export function paintWeb(ctx, c, box, image, makeCanvas, el = c.elements.web) {
@@ -444,7 +459,7 @@ In `core/index.js`:
     paintPhone(ctx, rc, box, mobile[i], makeCanvas, rc.elements.mobile));
 ```
 
-- [ ] **Step 5: Run everything, and check the goldens did not move**
+- [x] **Step 5: Run everything, and check the goldens did not move**
 
 ```bash
 npx vitest run && git status --short test/golden
@@ -452,11 +467,11 @@ npx vitest run && git status --short test/golden
 
 Expected: all tests PASS and `git status` reports **nothing**. A modified golden here is a bug in the refactor, not a golden to regenerate.
 
-- [ ] **Step 6: Extend the frozen baseline's field strip**
+- [x] **Step 6: Extend the frozen baseline's field strip**
 
 `test/layout.test.js`'s `webWithoutFrameFields` strips `chrome`, `strokeWidth` and `inner` before comparing against `PRE_FRAME_BASELINE`. If this task adds any field to the returned `web` box, add it there too — and assert its no-frame value first, the way the existing three are asserted, so nothing is dropped blindly.
 
-- [ ] **Step 7: Commit and push**
+- [x] **Step 7: Commit and push**
 
 ```bash
 git add core test
@@ -483,7 +498,7 @@ git push origin feat/cycle-b
 
 **This is the first task Rock can see.** It closes the finding he raised on 2026-09-03: *"corner radius slider is not working when browser is selected. it either should, or the control should be disabled."* It should — a browser window's corner is a real, adjustable thing.
 
-- [ ] **Step 1: Decide what `null` means, per frame, and write it down**
+- [x] **Step 1: Decide what `null` means, per frame, and write it down**
 
 `el.radius === null` means *this frame's own corner*:
 
@@ -513,7 +528,7 @@ export const BROWSER_RADIUS_RANGE = [0, 0.05];
 export const PHONE_RADIUS_RANGE = [0.04, 0.24];
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Add to `test/layout.test.js`:
 
@@ -558,12 +573,12 @@ describe('corner radius under a frame (Task 3)', () => {
 });
 ```
 
-- [ ] **Step 3: Run and watch them fail**
+- [x] **Step 3: Run and watch them fail**
 
 Run: `npx vitest run test/layout.test.js -t 'corner radius under a frame'`
 Expected: the first PASSES (that is today's behaviour, kept), the other four FAIL — `chromeFor` computes `radius` from the ratio constant and never consults `el.radius`.
 
-- [ ] **Step 4: Resolve the radius in `chromeFor` and `webBox`**
+- [x] **Step 4: Resolve the radius in `chromeFor` and `webBox`**
 
 ```js
 // `el.radius` is null ("this frame's own corner") or an explicit pixel
@@ -589,7 +604,7 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 `chromeFor` uses it for `radius`; `webBox` uses it for the bare screenshot's `web.radius` when there is no frame. `bodyRadius` and `innerRadius` derive from it exactly as they do now, so the concentric relationship Cycle A established is untouched.
 
-- [ ] **Step 5: Run and watch them pass, and the goldens hold**
+- [x] **Step 5: Run and watch them pass, and the goldens hold**
 
 ```bash
 npx vitest run && git status --short test/golden
@@ -597,7 +612,20 @@ npx vitest run && git status --short test/golden
 
 Expected: PASS, and no golden modified — every golden leaves `radius` null, so every one takes the same default it had before.
 
-- [ ] **Step 6: Rewire the Corner radius slider**
+- [x] **Step 6: Rewire the Corner radius slider**
+
+> **Corrected during execution.** The plan's `radiusRangeFor` sketch fudged
+> this with a comment saying "the composite is within a few percent of the
+> canvas width at every ratio, so the slider is expressed against the
+> canvas". That is an approximation in a readout, which is how the ground
+> swatches came to lie once before. The panel now gets the element's REAL
+> width: `composeWithMeta` already returns `layout`, so `web/state.js` keeps
+> it as `state.lay` and the DOM layer passes `state.lay.web.w` down. Task 6
+> needs the same thing for hit-testing, so it is built once, here.
+>
+> The unit stays percent of CANVAS width in all three frames — the unit the
+> slider has always used and the one Rock reasons in ("based on our sliders,
+> 0.6% would be it"). Only the bounds change per frame.
 
 `activeRadiusPercent` currently reads `normalise(config).radius` and expresses it as a percent of canvas width. It must now read the *selected element's* effective radius and express it against the range that applies to that element's frame — otherwise the slider's travel means something different under each frame while looking the same.
 
@@ -623,7 +651,7 @@ export function radiusRangeFor(config, which = 'web') {
 
 Write to `config.elements[which].radius` in pixels, never to the flat `config.radius`. Add a test asserting the flat field is left alone.
 
-- [ ] **Step 7: Add the inspector tests**
+- [x] **Step 7: Add the inspector tests**
 
 ```js
 describe('corner radius writes the element, not the flat field (Task 3)', () => {
@@ -651,7 +679,7 @@ describe('corner radius writes the element, not the flat field (Task 3)', () => 
 });
 ```
 
-- [ ] **Step 8: Commit, push, deploy, and STOP**
+- [x] **Step 8: Commit, push, deploy, and STOP**
 
 ```bash
 git add core web test
@@ -682,7 +710,7 @@ Wait for `gh pr checks`. Then hand Rock the URL and tell him:
 
 **The asymmetry Rock found.** *"in the other hand, you do allow me to add a phone border on a desktop screenshot. shouldn't it work the same way?"* A phone frame around a web screenshot works; a browser frame around a mobile screenshot does not exist. That was never a decision — `frameKind` was attached to one element and the mobile layout had its own hardcoded device.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 describe('the mobile element takes a frame like the web one (Task 4)', () => {
@@ -726,12 +754,12 @@ describe('the mobile element takes a frame like the web one (Task 4)', () => {
 });
 ```
 
-- [ ] **Step 2: Run and watch them fail**
+- [x] **Step 2: Run and watch them fail**
 
 Run: `npx vitest run test/layout.test.js -t 'the mobile element takes a frame'`
 Expected: the first PASSES only if `phoneBox` already reports a `chrome` block — it does not, so expect it to fail too. All five FAIL.
 
-- [ ] **Step 3: Give `phoneBox` the same shape a web box has**
+- [x] **Step 3: Give `phoneBox` the same shape a web box has**
 
 `phoneBox(ratio, h, cx, cy)` computes a bezel and two radii inline. Rewrite it to compute the screenshot's box first and grow the frame outward, exactly as `webBox` does, so both go through `frameInsets` and `chromeFor` and there is one outset model rather than two:
 
@@ -766,7 +794,7 @@ function phoneBox(c, el, ratio, h, cx, cy) {
 
 The legacy `frame` / `innerRadius` fields on the returned box are **removed**, not kept alongside `chrome` — two sources for one number is the defect this cycle exists to remove. `paintPhone` reads `box.chrome` instead.
 
-- [ ] **Step 4: Dispatch the mobile painter on `frameKind`**
+- [x] **Step 4: Dispatch the mobile painter on `frameKind`**
 
 `paintPhone` becomes a dispatcher with the same three branches `paintWeb` already has:
 
@@ -786,7 +814,20 @@ export function paintPhone(ctx, c, box, image, makeCanvas, el = c.elements.mobil
 
 **Note the fit changes from `cover` to `contain` on the unframed path, and only there.** `paintPhoneChrome` keeps its own behaviour. The reason: a bare screenshot has no bezel to crop against, so cropping it would silently discard picture the user can see nowhere else. Say this in the report — it is a visible change to what a phone screenshot shows.
 
-- [ ] **Step 5: Run everything, and check the goldens**
+> **Corrected during execution.** Two things the plan missed:
+>
+> 1. `layout()`'s stagger and web+mobile offset are fractions of the
+>    device's OUTER width. That used to be `h * ratio` because `h` was the
+>    device's own height; now `h` is the screenshot's, so the outer width
+>    has to be asked for or the arrangement quietly tightens by two bezels.
+>    Hence `phoneMetrics`, split out of `phoneBox`.
+> 2. `PRE_FRAME_BASELINE`'s phone entries could not simply be renumbered.
+>    They are left exactly as captured and compared by TRANSFORMATION
+>    instead — the picture now occupies what the device used to, and the
+>    device grew by one bezel a side — which states the change rather than
+>    burying it in new magic numbers.
+
+- [x] **Step 5: Run everything, and check the goldens**
 
 ```bash
 npx vitest run && git status --short test/golden
@@ -800,7 +841,7 @@ node scripts/make-render-goldens.js && git status --short test/golden
 
 Only `mobile.png` and `web-mobile.png` may appear. If `phone.png` moved, the web box's phone frame was disturbed and something is wrong.
 
-- [ ] **Step 6: Add two goldens for the new frames**
+- [x] **Step 6: Add two goldens for the new frames**
 
 ```js
   ['mobile-browser', { layout: 'mobile', ratio: '3:2', elements: { mobile: { frameKind: 'browser' } } }, { web: null, mobile: ['samples/karaoke-mobile.png'] }],
@@ -809,7 +850,7 @@ Only `mobile.png` and `web-mobile.png` may appear. If `phone.png` moved, the web
 
 Add them to both `scripts/make-render-goldens.js` and `test/compose.test.js`, with a comment in the file's own style saying that without them a stubbed mobile dispatcher would leave every existing golden untouched.
 
-- [ ] **Step 7: Commit, push, deploy, and STOP**
+- [x] **Step 7: Commit, push, deploy, and STOP**
 
 ```bash
 git add core test scripts
@@ -835,13 +876,13 @@ Tell Rock:
 **Interfaces:**
 - Consumes: Tasks 2 and 4. `el.stroke` and `el.shadowScale` already reach the painters; this task makes them reachable from the panel and settles the phone body's own highlight.
 
-- [ ] **Step 1: Settle the phone body's inner highlight, and say what you settled**
+- [x] **Step 1: Settle the phone body's inner highlight, and say what you settled**
 
 Cycle A Task 7 took the position "leave it": `paintDeviceHairline` strokes `rgba(255,255,255,0.10)` inside every phone body unconditionally, because it is the *device's* own highlight — the phone equivalent of the browser frame's border — and not an unrequested edge on someone's screenshot.
 
 That position still holds and **does not change here**. What changes is that there is now an unframed mobile element (Task 4), and an unframed screenshot must have no highlight at all — there is no device for it to belong to. Confirm by test that `frameKind: 'none'` on the mobile element draws no hairline, and that `phone` still does.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```js
 describe('per-element stroke and shadow (Task 5)', () => {
@@ -884,23 +925,36 @@ describe('per-element stroke and shadow (Task 5)', () => {
 
 `phoneScene` renders a `mobile` layout over a flat `#000000` source, the same way `scene` in that file already does for the web layout. Do not duplicate the harness — extend it.
 
-- [ ] **Step 3: Run and watch them fail; verify the sample points**
+> **Corrected during execution.** Two things.
+>
+> 1. The plan's sample point was wrong. The device highlight occupies
+>    exactly ONE pixel column, at `Math.ceil(box.x)`; `+1`, as sketched, is
+>    already the device body. Measured on a flat-black source at 3:2:
+>    `none` reads 0,0,0 / 0,0,0 / 0,0,0 across +0..+2, and `phone` reads
+>    34,36,40 / 17,19,24 / 17,19,24. The sketched assertion (`r > 20` at +1)
+>    would have failed against correct code.
+> 2. This task's render side was already delivered by Tasks 2 and 4, so the
+>    render tests below pass on arrival and are regression guards, not
+>    new-behaviour guards. The red-then-green work for Task 5 is entirely in
+>    the panel writers (Step 5).
+
+- [x] **Step 3: Run and watch them fail; verify the sample points**
 
 Run: `npx vitest run test/render-stroke.test.js -t 'per-element'`
 
 **Verify the last two sample points before trusting them.** Cycle A's Task 1 test sampled two pixels inside a box whose edge was fractional and could not fail. Print the actual pixel values at `Math.ceil(b.x)`, `+1` and `+2` for both cases and confirm the highlight is visible at the point being asserted. Record those numbers in the report.
 
-- [ ] **Step 4: Make the highlight conditional on there being a device**
+- [x] **Step 4: Make the highlight conditional on there being a device**
 
 `paintPhoneChrome` and `paintPhone`'s phone branch call `paintDeviceHairline`; the unframed branch added in Task 4 does not. If Task 4 was implemented correctly this step is already done — confirm it, and add the comment saying why, rather than assuming.
 
-- [ ] **Step 5: Point the stroke and shadow controls at the element**
+- [x] **Step 5: Point the stroke and shadow controls at the element**
 
 `setStrokeStyle`, `setStrokeWidthPercent`, `setStrokeColor` and `setShadowPercent` in `web/inspector-frame.js` currently write `config.stroke` and `config.shadowScale`. They now write `config.elements[which]`, with `which` defaulting to `'web'` until Task 7 supplies the selection.
 
 Keep the defaults-first, current-second, changed-field-last ordering already established there, and add a test that changing the stroke style does not reset a width the user set — the Task 5b guard, now one level deeper and therefore easier to get wrong.
 
-- [ ] **Step 6: Commit, push, deploy, and STOP**
+- [x] **Step 6: Commit, push, deploy, and STOP**
 
 ```bash
 git add core web test
@@ -931,7 +985,7 @@ Tell Rock:
 
 **The rule that makes this task dangerous.** The preview canvas *is* the export canvas. An outline drawn into it ships in the PNG. So the outline is a DOM element positioned over the canvas, and `web/selection.js` may not contain the string `getContext` at all.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `test/selection.test.js`:
 
@@ -1008,14 +1062,14 @@ it('an active selection leaves the export byte-identical', async () => {
 
 Use that file's existing export harness rather than a new one.
 
-- [ ] **Step 2: Run and watch them fail**
+- [x] **Step 2: Run and watch them fail**
 
 Run: `npx vitest run test/selection.test.js`
 Expected: every test FAILS — `web/selection.js` does not exist.
 
 The export test will PASS immediately, because nothing draws a selection yet. **Say so in the report.** It is a regression guard for the rest of this cycle, not a new-behaviour guard, and calling it a passing test would be the twelfth dead guard.
 
-- [ ] **Step 3: Write `web/selection.js`**
+- [x] **Step 3: Write `web/selection.js`**
 
 ```js
 // web/selection.js — which element the pointer is over, and the DOM outline
@@ -1071,17 +1125,34 @@ export function placeOutline(el, box, scale) {
 }
 ```
 
-- [ ] **Step 4: Add `state.selection` and nothing else**
+- [x] **Step 4: Add `state.selection` and nothing else**
 
 In `web/state.js`, add `selection: null` to `state`. **Do not** add outline logic there — `state.js` holds state and calls `core/`, and giving it a view concern is how the one-render-path rule erodes.
 
-- [ ] **Step 5: Wire the click and the outline in `main.js`**
+- [x] **Step 5: Wire the click and the outline in `main.js`**
 
 The outline is a `<div id="selectionOutline">` inside `.canvas-surface`, a sibling of the canvas. Position it after every render and on resize, from `state.meta`'s layout. A click on the canvas converts client coordinates to canvas space by the same scale factor and calls `hitTest`; a click that hits nothing clears the selection.
 
 Give it a real keyboard path as well as a pointer one: `Escape` clears the selection, and the canvas takes focus so that is reachable. A selection you can only make with a mouse is not finished.
 
-- [ ] **Step 6: Style the outline**
+> **Corrected during execution.** Three things.
+>
+> 1. `placeOutline` needs an ORIGIN as well as a scale. The canvas is
+>    centred inside `.canvas-surface`'s 28px padding, so box coordinates
+>    (canvas-relative) and the outline (surface-relative) differ by that
+>    offset. Without it the outline sits a padding's width off — a bug that
+>    looks like a rounding error and is not. `.canvas-surface` also needed
+>    `position: relative`, or the outline escapes to the viewport.
+> 2. `main.js` had no post-render hook, so `state.js` gained a small
+>    `onRender(fn)` subscriber list. That keeps the inversion where
+>    `render()` lives instead of making every caller remember to reposition.
+> 3. The structural guard's first run FAILED on the word `getContext` inside
+>    `web/selection.js`'s own comment explaining why it must never call it.
+>    The test now strips comments and scans code — and carries a second
+>    assertion proving the stripping did not swallow the code too, by
+>    checking `core/render.js` still reads as containing `getContext`.
+
+- [x] **Step 6: Style the outline**
 
 In `web/style.css`, using tokens only:
 
@@ -1100,7 +1171,7 @@ In `web/style.css`, using tokens only:
 
 If `--border-strong` does not clear 3:1 against the palest ground the app can produce, add a token for this rather than reaching for a raw hex — `web/tokens.css` is the only file allowed one.
 
-- [ ] **Step 7: Run everything**
+- [x] **Step 7: Run everything**
 
 ```bash
 npx vitest run && git status --short test/golden
@@ -1108,7 +1179,7 @@ npx vitest run && git status --short test/golden
 
 Expected: PASS, no golden moved. The export test is the one to read twice.
 
-- [ ] **Step 8: Commit, push, deploy, and STOP**
+- [x] **Step 8: Commit, push, deploy, and STOP**
 
 ```bash
 git add web test
@@ -1135,7 +1206,7 @@ Tell Rock:
 - Consumes: Task 6's `state.selection`, Task 5's element-aware writers.
 - Produces: the Frame and Finish sections read and write `state.config.elements[selected]`, where `selected` is `state.selection ?? 'web'`.
 
-- [ ] **Step 1: Decide what "nothing selected" means, and write it down**
+- [x] **Step 1: Decide what "nothing selected" means, and write it down**
 
 `state.selection` is null until something is clicked, and a shot with only a desktop screenshot has nothing to select but the desktop screenshot. Two defensible answers; take the first:
 
@@ -1154,7 +1225,7 @@ export function editingElement(state) {
 }
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```js
 describe('the inspector edits the selected element (Task 7)', () => {
@@ -1187,20 +1258,28 @@ describe('the inspector edits the selected element (Task 7)', () => {
 });
 ```
 
-- [ ] **Step 3: Run and watch them fail**
+- [x] **Step 3: Run and watch them fail**
 
 Run: `npx vitest run test/inspector-frame.test.js -t 'edits the selected element'`
 Expected: all five FAIL — `editingElement` does not exist and the writers take no element argument.
 
-- [ ] **Step 4: Thread `which` through the panel**
+- [x] **Step 4: Thread `which` through the panel**
 
 Every `active*` and `set*` in `web/inspector-frame.js` gains a trailing `which = 'web'`. The DOM layer reads `editingElement(state)` once per sync and passes it down. The section header gains a label saying which element is being edited — without it, two identical panels editing different objects is a trap, not a feature.
 
-- [ ] **Step 5: Re-sync on selection change**
+> **Corrected during execution.** The plan said "re-sync when the selection
+> changes". That is half of it. With nothing selected, `editingElement`
+> returns *the only element the shot has* — so dropping the first phone
+> screenshot changes which element the panel is pointed at exactly as much
+> as clicking one does. Without a sync on the image change too, the header
+> read "Desktop" over a shot with no desktop element in it. Verified in
+> Chromium before and after.
+
+- [x] **Step 5: Re-sync on selection change**
 
 `main.js` calls the inspector's `sync*` functions when `state.selection` changes. The controls must show the newly-selected element's values immediately, not on the next interaction. Add a test that a selection change followed by a sync leaves each control displaying that element's value.
 
-- [ ] **Step 6: Commit, push, deploy, and STOP**
+- [x] **Step 6: Commit, push, deploy, and STOP**
 
 ```bash
 git add web test
@@ -1229,7 +1308,7 @@ Tell Rock:
 
 **After Tasks 3–7 there should be very little left.** That is the point: the honest fix for a control that does nothing was to make it do something, and disabling is the residue. Enumerate what remains rather than assuming it is empty.
 
-- [ ] **Step 1: Enumerate what still cannot act, by reading the code**
+- [x] **Step 1: Enumerate what still cannot act, by reading the code**
 
 Go through every control in the Frame and Finish sections and, for each, find the line in `core/` that reads its field. A control whose field is read on no code path for the current element is inert. Write the list into the task report **before** writing any code, with the file and line for each.
 
@@ -1241,7 +1320,38 @@ Known candidates at the time of writing:
 
 If the list comes back empty, say so plainly and skip to Step 4. An empty list is a real outcome here.
 
-- [ ] **Step 2: Write the failing tests**
+> **The enumeration came back with exactly ONE inert control, and it was
+> made to act rather than disabled — so nothing in this task is disabled at
+> all.** Traced by rendering each layout twice and diffing the SHOTS:
+>
+> | control | web | mobile | web+mobile |
+> |---|---|---|---|
+> | Padding | acts | **INERT** | acts |
+> | Frame | acts | acts | acts |
+> | Corner radius | acts | acts | acts |
+> | Stroke | acts | acts | acts |
+> | Shadow, Grain | canvas-level, act everywhere | | |
+>
+> Chrome theme and URL are browser-only and are HIDDEN, not disabled — a
+> deliberate choice from Cycle A Task 6 that Rock approved, left alone here
+> and named so he can overrule it.
+>
+> `layout()` sized the mobile layout's phones from `c.h` and never consulted
+> the safe box, so Padding moved and changed nothing. Fixed: one phone fills
+> the safe height, a staggered row takes the same 0.80/0.86 proportion of it
+> the old canvas-relative pair did, and the composite honours the same
+> MIN_MARGIN floor webBox does.
+>
+> **The first version of the enumeration was itself wrong**, and it reported
+> "acts" for everything. It compared whole `layout()` outputs, which include
+> `safe` — and `safe` moves with padding by definition. Comparing the shots
+> is the measurement that means anything.
+>
+> The steps below are therefore not executed as written: there is nothing to
+> disable. They are left in place because the enumeration they demand is the
+> valuable part, and a later cycle may find a control this one did not.
+
+- [ ] **Step 2 (not executed — nothing came back inert): Write the failing tests**
 
 ```js
 describe('controls that cannot act say so (Task 8)', () => {
@@ -1266,19 +1376,19 @@ describe('controls that cannot act say so (Task 8)', () => {
 });
 ```
 
-- [ ] **Step 3: Implement, with explicit colours**
+- [x] **Step 3: Implement, with explicit colours**
 
 The disabled treatment is a colour, never `opacity` — Cycle A Task 3b removed every `opacity`-based disabled rule and `test/contrast.test.js` enforces it. Reuse the existing `.chip:disabled` and `.zoom-btn:disabled` rules rather than inventing a third.
 
 Each disabled control needs a reason the user can find: a `title` and an `aria-describedby` pointing at one short line, e.g. *"Only a browser frame has a title bar."* A disabled control with no explanation is a different kind of lie.
 
-- [ ] **Step 4: Confirm the contrast guard still passes**
+- [x] **Step 4: Confirm the contrast guard still passes**
 
 Run: `npx vitest run test/contrast.test.js`
 
 If a new disabled colour fails the floor, change the colour, not the floor.
 
-- [ ] **Step 5: Commit, push, deploy, and STOP**
+- [x] **Step 5: Commit, push, deploy, and STOP**
 
 ```bash
 git add web test

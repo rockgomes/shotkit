@@ -71,9 +71,14 @@ describe('grain is applied to the ground only', () => {
     // The phone's own inset highlight (paintDeviceHairline) lives just
     // inside the bezel, so sample the middle half of the screen, well clear
     // of it. Grain, being a full-canvas fill, would still land here.
-    const sx = p.x + p.frame + (p.w - p.frame * 2) * 0.25;
-    const sy = p.y + p.frame + (p.h - p.frame * 2) * 0.25;
-    const { colours, spread } = paletteOf(ctx, sx, sy, (p.w - p.frame * 2) * 0.5, (p.h - p.frame * 2) * 0.5);
+    //
+    // Cycle B Task 4: read the screen from `chrome`. The bespoke `frame`
+    // field this used to inset by is gone - a phone box has the same shape
+    // a web box has now, and two sources for the bezel is exactly what that
+    // change removed.
+    const scr = p.chrome.screen;
+    const { colours, spread } = paletteOf(
+      ctx, scr.x + scr.w * 0.25, scr.y + scr.h * 0.25, scr.w * 0.5, scr.h * 0.5);
 
     expect(
       `${colours.size} colours, spread ${spread.join('/')}`,

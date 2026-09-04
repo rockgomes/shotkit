@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { normalise } from '../core/config.js';
 import { layout } from '../core/layout.js';
-import { SHADOW_SCALE_RANGE } from '../core/presets.js';
+import { SHADOW_SCALE_RANGE, STROKE_WIDTH_RANGE } from '../core/presets.js';
 
 describe('normalise', () => {
   it('defaults to 3:2 at 1800x1200', () => {
@@ -258,5 +258,96 @@ describe('retired vocabulary', () => {
     const c = normalise({ layout: 'web', ratio: '3:2', fit: 'cover' });
     const lay = layout(c, { web: 1440 / 900, mobile: [] });
     expect(lay.web.w / lay.web.h).toBeCloseTo(1440 / 900, 12);
+  });
+});
+
+// --- Per-element settings (Cycle B Task 1) -------------------------------
+//
+// Frame, stroke, corner radius and shadow are properties of a THING IN THE
+// SHOT, not of the shot. Round two attached them to the config's top level,
+// which in practice meant the desktop screenshot - which is why, on a
+// mobile-only shot, Frame and Padding did nothing, and why corner radius
+// does nothing under either frame.
+//
+// NOTHING READS THIS BLOCK YET. Task 2 moves the readers. This task is the
+// precedence rule alone, in isolation, because it is the piece most likely
+// to go wrong quietly.
+describe('per-element settings (Cycle B Task 1)', () => {
+  it('gives both elements a full block from the defaults', () => {
+    const c = normalise({});
+    expect(Object.keys(c.elements).sort()).toEqual(['mobile', 'web']);
+    for (const el of ['web', 'mobile']) {
+      expect(Object.keys(c.elements[el]).sort())
+        .toEqual(['chromeTheme', 'frameKind', 'radius', 'shadowScale', 'stroke', 'url']);
+    }
+  });
+
+  it('defaults each element to the frame it draws today', () => {
+    const c = normalise({});
+    expect(c.elements.web.frameKind).toBe('none');
+    expect(c.elements.mobile.frameKind).toBe('phone');
+  });
+
+  it('a flat key is a default for EVERY element', () => {
+    const c = normalise({ frameKind: 'browser' });
+    expect(c.elements.web.frameKind).toBe('browser');
+    expect(c.elements.mobile.frameKind).toBe('browser');
+  });
+
+  it('an element entry overrides the flat key for that element only', () => {
+    const c = normalise({ frameKind: 'browser', elements: { mobile: { frameKind: 'phone' } } });
+    expect(c.elements.web.frameKind).toBe('browser');
+    expect(c.elements.mobile.frameKind).toBe('phone');
+  });
+
+  // THE TASK 5B TRAP. Cycle A introduced `shadow: { scale }` beside the flat
+  // `shadowScale` and seeded the block with its defaults, so the nested key
+  // was ALWAYS present and therefore always won. The main Shadow slider went
+  // dead while still displaying its old value, and the task was reverted in
+  // full. A key the caller did not supply must never outrank one they did.
+  it('an absent element key never outranks an explicit flat key', () => {
+    const c = normalise({ shadowScale: 0.4, elements: { web: { url: 'a.dev' } } });
+    expect(c.elements.web.shadowScale).toBeCloseTo(0.4, 9);
+    expect(c.elements.mobile.shadowScale).toBeCloseTo(0.4, 9);
+  });
+
+  it('an explicitly undefined element key behaves as absent, not as a value', () => {
+    const c = normalise({ frameKind: 'browser', elements: { web: { frameKind: undefined } } });
+    expect(c.elements.web.frameKind).toBe('browser');
+  });
+
+  it('clamps and validates inside the block exactly as it does at the top level', () => {
+    const c = normalise({
+      elements: {
+        web: { frameKind: 'hovercraft', chromeTheme: 'puce', shadowScale: 99,
+               stroke: { style: 'embossed', width: 99 } },
+      },
+    });
+    expect(c.elements.web.frameKind).toBe('none');
+    expect(c.elements.web.chromeTheme).toBe('dark');
+    expect(c.elements.web.shadowScale).toBe(SHADOW_SCALE_RANGE[1]);
+    expect(c.elements.web.stroke.style).toBe('none');
+    expect(c.elements.web.stroke.width).toBeCloseTo(STROKE_WIDTH_RANGE[1], 9);
+  });
+
+  it('leaves every top-level field exactly where it was', () => {
+    // Task 2 moves the readers. Until then nothing may notice this block.
+    const before = normalise({ frameKind: 'browser', shadowScale: 0.5, url: 'x.dev' });
+    expect(before.frameKind).toBe('browser');
+    expect(before.shadowScale).toBeCloseTo(0.5, 9);
+    expect(before.url).toBe('x.dev');
+    expect(before.radius).toBeGreaterThan(0);
+  });
+
+  it('radius starts null in the block — "whatever this frame\'s own corner is"', () => {
+    expect(normalise({}).elements.web.radius).toBeNull();
+    expect(normalise({ elements: { web: { radius: 40 } } }).elements.web.radius).toBe(40);
+  });
+
+  // The flat `radius` is a resolved pixel count for the BARE screenshot and
+  // has never meant "the browser window's corner". Inheriting it would give
+  // a browser frame a 24px corner the moment anyone touched the old slider.
+  it('the block\'s radius does NOT inherit the flat radius', () => {
+    expect(normalise({ radius: 40 }).elements.web.radius).toBeNull();
   });
 });

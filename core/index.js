@@ -101,10 +101,10 @@ export function composeWithMeta(target, rawConfig, images, makeCanvas, precomput
   // the shadow is a low-alpha wash over an already-grained ground, so the
   // grain still shows through it, just unmodulated by it.
   paintGrain(ctx, rc, makeCanvas);
-  if (lay.web && web) paintWeb(ctx, rc, lay.web, web, makeCanvas);
+  if (lay.web && web) paintWeb(ctx, rc, lay.web, web, makeCanvas, rc.elements.web);
   // lay.phones and mobile are always the same length and index-aligned (see
   // the filtering note above), so no `|| mobile[0]` fallback is needed here.
-  lay.phones.forEach((box, i) => paintPhone(ctx, rc, box, mobile[i], makeCanvas));
+  lay.phones.forEach((box, i) => paintPhone(ctx, rc, box, mobile[i], makeCanvas, rc.elements.mobile));
 
   return { target, meta, config: c, layout: lay };
 }
@@ -119,4 +119,7 @@ export {
   LAYOUTS, TONES, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
   STROKE_STYLES, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
   MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
+  ELEMENT_KINDS, ELEMENT_DEFAULTS,
+  BROWSER_RADIUS_RATIO, PHONE_RADIUS_RATIO,
+  BROWSER_RADIUS_RANGE, PHONE_RADIUS_RANGE,
 } from './presets.js';

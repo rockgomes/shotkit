@@ -3,12 +3,95 @@ import {
   LAYOUTS, TONES, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
   STROKE_STYLES, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
   MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
+  ELEMENT_KINDS, ELEMENT_DEFAULTS,
 } from './presets.js';
 
 function num(v, fallback) {
   if (v === undefined || v === null || v === '') return fallback;
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
+}
+
+/**
+ * Resolve one field for one element.
+ *
+ * PRECEDENCE, AND WHY IT IS A FUNCTION RATHER THAN THREE SPREADS: an
+ * element entry wins over a flat key, and a flat key wins over the default
+ * - but ONLY when the input actually carried it. `undefined` means absent,
+ * and a resolved default is never an override.
+ *
+ * Cycle A Task 5b is the reason. It introduced a nested block alongside a
+ * flat field, seeded the block with its own defaults, and so made the
+ * nested value always present and therefore always winning. The flat field
+ * went dead while its slider went on displaying the old number, and the
+ * whole task had to be reverted. A spread cannot express "only if the
+ * caller said so"; this can.
+ */
+function pickField(elInput, flatInput, fallback) {
+  if (elInput !== undefined) return elInput;
+  if (flatInput !== undefined) return flatInput;
+  return fallback;
+}
+
+/**
+ * The stroke block, shared by the top-level `stroke` field and by every
+ * element's own. One function so the two cannot drift into disagreeing
+ * about what a valid width or colour is.
+ */
+function normaliseStroke(s) {
+  const v = s || {};
+  const style = STROKE_STYLES.includes(v.style) ? v.style : STROKE_DEFAULTS.style;
+  return {
+    style,
+    width: Math.min(
+      STROKE_WIDTH_RANGE[1],
+      Math.max(STROKE_WIDTH_RANGE[0], num(v.width, STROKE_DEFAULTS.width)),
+    ),
+    color: /^#[0-9a-fA-F]{6}$/.test(v.color) ? v.color : STROKE_DEFAULTS.color,
+  };
+}
+
+/**
+ * `elements: { web, mobile }` - Cycle B Task 1.
+ *
+ * Built from `input`, NOT from the resolved config: by the time the config
+ * exists every absent field has already become a default, and pickField's
+ * whole job is to tell those apart from values the caller supplied.
+ *
+ * NOTHING READS THIS YET. Task 2 moves layout.js and render.js onto it, and
+ * its acceptance test is that all fourteen goldens stay byte-identical.
+ */
+function elementsFrom(input) {
+  const out = {};
+  for (const kind of ELEMENT_KINDS) {
+    const e = (input.elements && input.elements[kind]) || {};
+    const frameKind = pickField(e.frameKind, input.frameKind, ELEMENT_DEFAULTS[kind].frameKind);
+    const chromeTheme = pickField(e.chromeTheme, input.chromeTheme, 'dark');
+    const url = pickField(e.url, input.url, DEFAULTS.url);
+    const shadowScale = pickField(e.shadowScale, input.shadowScale, DEFAULTS.shadowScale);
+    const stroke = pickField(e.stroke, input.stroke, undefined);
+
+    out[kind] = {
+      frameKind: FRAME_KINDS.includes(frameKind) ? frameKind : ELEMENT_DEFAULTS[kind].frameKind,
+      chromeTheme: CHROME_THEMES.includes(chromeTheme) ? chromeTheme : 'dark',
+      url: url ? String(url) : DEFAULTS.url,
+      // null means "this frame's own corner", resolved in layout.js by Task
+      // 3 - the answer depends on which frame is on and on the element's
+      // own width, neither of which normalise() knows.
+      //
+      // DELIBERATELY NOT INHERITED FROM THE FLAT `radius`. That field is a
+      // resolved pixel count for the BARE screenshot and has never meant
+      // "the browser window's corner"; inheriting it would hand a browser
+      // frame a 24px corner the moment anyone touched the old slider.
+      radius: e.radius === undefined ? null : num(e.radius, null),
+      shadowScale: Math.min(
+        SHADOW_SCALE_RANGE[1],
+        Math.max(SHADOW_SCALE_RANGE[0], num(shadowScale, DEFAULTS.shadowScale)),
+      ),
+      stroke: normaliseStroke(stroke),
+    };
+  }
+  return out;
 }
 
 /**
@@ -110,17 +193,8 @@ export function normalise(input = {}) {
         ),
       };
     })(),
-    stroke: (() => {
-      const s = input.stroke || {};
-      const style = STROKE_STYLES.includes(s.style) ? s.style : STROKE_DEFAULTS.style;
-      return {
-        style,
-        width: Math.min(
-          STROKE_WIDTH_RANGE[1],
-          Math.max(STROKE_WIDTH_RANGE[0], num(s.width, STROKE_DEFAULTS.width)),
-        ),
-        color: /^#[0-9a-fA-F]{6}$/.test(s.color) ? s.color : STROKE_DEFAULTS.color,
-      };
-    })(),
+    stroke: normaliseStroke(input.stroke),
+    // Cycle B Task 1. Read by nothing yet - see elementsFrom above.
+    elements: elementsFrom(input),
   };
 }

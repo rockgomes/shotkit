@@ -20,6 +20,17 @@ export const state = {
   images: { web: null, mobile: [] },
   meta: null,
   surround: 'mid',
+  // The layout core/ just composed with - boxes in canvas space. Read-only
+  // to everything outside state.js. The inspector needs it to know an
+  // element's real width (Cycle B Task 3: a corner radius is a fraction of
+  // the element, and the panel cannot guess it), and Task 6's hit-testing
+  // needs the boxes themselves. Null until the first render.
+  lay: null,
+  // Which element the canvas has selected: 'web' | 'mobile' | null.
+  // STATE ONLY - state.js holds state and calls core/, and knows nothing
+  // about what an outline looks like. That lives in web/selection.js, which
+  // may never touch a canvas: the preview canvas is the export canvas.
+  selection: null,
 };
 
 // --- Scratch canvases -------------------------------------------------
@@ -160,10 +171,12 @@ export function render() {
   const key = groundKeyFor(images, config);
   const cachedMeta = metaCache && metaCache.key === key ? metaCache.meta : null;
 
-  const { meta } = composeWithMeta(canvasEl, config, images, pooledCanvas, cachedMeta);
+  const { meta, layout } = composeWithMeta(canvasEl, config, images, pooledCanvas, cachedMeta);
   state.meta = meta;
+  state.lay = layout;
   state._groundKey = key;
   metaCache = { key, meta };
+  for (const fn of afterRender) fn();
   return meta;
 }
 
@@ -176,6 +189,20 @@ export function render() {
 // render() call is the standard fix, and is enough on its own to keep a drag
 // smooth regardless of how many 'input' events the browser fires.
 let rafHandle = null;
+
+// --- After-render subscribers -------------------------------------------
+//
+// render() is the one path from config to pixels, and a few things in the
+// shell have to run right after it - Cycle B Task 6's selection outline
+// needs the layout render() just used. A subscriber list keeps that
+// inversion here, where render() lives, rather than making every caller
+// remember to do it, and keeps state.js free of any knowledge about what
+// those subscribers do.
+const afterRender = [];
+
+export function onRender(fn) {
+  afterRender.push(fn);
+}
 
 export function scheduleRender() {
   if (rafHandle !== null) return;

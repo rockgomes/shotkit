@@ -268,3 +268,42 @@ export const STROKE_DEFAULTS = { style: 'none', width: 0.008, color: '#ffffff' }
 export const MESH_STOPS_RANGE = [3, 5];
 export const MESH_SPREAD_RANGE = [0, 180];
 export const MESH_DEFAULTS = { stops: 4, spread: 70 };
+
+// --- Per-element settings (Cycle B) -------------------------------------
+//
+// Frame, stroke, corner radius and shadow are properties of a THING IN THE
+// SHOT, not of the shot. Round two attached them to the config's top level,
+// which in practice meant the desktop screenshot: on a mobile-only shot the
+// Frame and Padding controls did nothing, corner radius did nothing under
+// either frame, and a browser frame around a phone screenshot did not
+// exist at all. Rock found all three separately; they are one cause.
+//
+// `mobile` covers every phone in the web+mobile layout as one class.
+// Per-phone settings are not a goal and would not survive a layout change.
+export const ELEMENT_KINDS = ['web', 'mobile'];
+
+// The default frame per element is TODAY'S BEHAVIOUR, not a new opinion: a
+// desktop screenshot is bare unless asked otherwise, and the mobile layout
+// has always drawn phones.
+export const ELEMENT_DEFAULTS = {
+  web:    { frameKind: 'none' },
+  mobile: { frameKind: 'phone' },
+};
+
+// Bounds for a SET corner radius, as fractions of the element's own width.
+// Not the same range for both, because the shapes are not interchangeable:
+// a browser window at 20% is a lozenge, and a phone below ~4% or above half
+// its width stops reading as a phone at all. Each frame's own default sits
+// inside its range.
+//
+// Browser: the reference's own 24/1706.67 = 0.0141 (Cycle A Task 8) sits
+// near the bottom, because Rock asked for a tight window corner - 0.6% of
+// canvas width, which is 11/1706.67 = 0.0064 of the frame. The top allows a
+// markedly rounder window without turning it into a pill.
+export const BROWSER_RADIUS_RANGE = [0, 0.05];
+
+// Phone: PHONE_RADIUS_RATIO is 0.125. Android devices sit lower and some
+// concept devices higher, which is the adjustment Rock asked for. Below
+// 0.04 the body reads as a tablet bezel; at 0.25 the corner arcs meet and
+// the shape stops being a rectangle at all, so 0.24 is the ceiling.
+export const PHONE_RADIUS_RANGE = [0.04, 0.24];

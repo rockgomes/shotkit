@@ -824,6 +824,10 @@ input {
 
 .canvas-surface {
   flex: 1;
+  /* The selection outline is absolutely positioned against this, so it has
+     to be the positioned ancestor. Without it the outline would escape to
+     the viewport. */
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1546,4 +1550,66 @@ input {
   .render-canvas.is-settling {
     animation: none;
   }
+}
+
+/* The selection outline (Cycle B Task 6). Absolutely positioned over the
+   canvas and sized by web/selection.js from the layout core/ just used.
+   It is NEVER painted into the canvas — that would ship it in every
+   exported PNG.
+
+   `outline` rather than `border` so it cannot change the box it marks, and
+   `pointer-events: none` so it never eats the next click. 2px against
+   --border-strong (#696e7f), the interactive-boundary token.
+
+   MEASURED, not assumed: 4.17:1 against #ece6fb, the pale lavender ground
+   the app ships as its default and the palest thing this outline ever has
+   to sit on. That clears Cycle A Task 3b's 3:1 floor for a graphic
+   boundary. Every other ground is darker, so every other ground has more
+   contrast, not less. Re-measure when Cycle C adds a near-black ground —
+   the outline will then need checking at the OTHER end of the range.
+
+   No `opacity` anywhere: a state is an explicit colour. */
+.selection-outline {
+  position: absolute;
+  pointer-events: none;
+  outline: 2px solid var(--border-strong);
+  outline-offset: 3px;
+}
+
+/* NO FOCUS RING ON THE CANVAS, AND NO `tabindex` ON IT EITHER.
+
+   Both existed here for about an hour. Rock found what they did: press
+   Escape and a 2px ring appears around the WHOLE SHOT, which reads as
+   selecting the entire composition; click an element afterwards and you
+   appear to have two selections at once. Confirmed in Chromium — Escape
+   flips the browser to keyboard modality, `:focus-visible` starts matching
+   the canvas, and its ring is visually indistinguishable from
+   `.selection-outline`.
+
+   It was added on the argument that "a selection you can only make with a
+   mouse is not finished". That argument stands, but this was never a
+   keyboard SELECTION path — only a focus ring on a canvas you could not
+   select anything with. Escape clears the selection from a document-level
+   listener (web/main.js) and still does, so removing this loses no
+   behaviour, only a misleading mark.
+
+   Keyboard selection is a real gap and wants a real design: Tab to the
+   canvas, arrows to cycle elements, with `.selection-outline` itself as the
+   focus indicator so there is never a second ring competing with it. */
+
+/* Which element a panel is editing, in its own header (Cycle B Task 7).
+   Without it the Frame and Finish sections look identical whether they are
+   pointed at the desktop shot or the phone - two panels editing different
+   objects with nothing to tell them apart is a trap, not a feature.
+
+   --text-muted, not a dimmed --text-primary: Task 3b's rule is that every
+   state is an explicit colour and `opacity` is not permitted outside
+   @keyframes. */
+.section-subject {
+  margin-left: 8px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
