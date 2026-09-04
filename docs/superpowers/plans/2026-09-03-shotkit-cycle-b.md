@@ -876,13 +876,13 @@ Tell Rock:
 **Interfaces:**
 - Consumes: Tasks 2 and 4. `el.stroke` and `el.shadowScale` already reach the painters; this task makes them reachable from the panel and settles the phone body's own highlight.
 
-- [ ] **Step 1: Settle the phone body's inner highlight, and say what you settled**
+- [x] **Step 1: Settle the phone body's inner highlight, and say what you settled**
 
 Cycle A Task 7 took the position "leave it": `paintDeviceHairline` strokes `rgba(255,255,255,0.10)` inside every phone body unconditionally, because it is the *device's* own highlight — the phone equivalent of the browser frame's border — and not an unrequested edge on someone's screenshot.
 
 That position still holds and **does not change here**. What changes is that there is now an unframed mobile element (Task 4), and an unframed screenshot must have no highlight at all — there is no device for it to belong to. Confirm by test that `frameKind: 'none'` on the mobile element draws no hairline, and that `phone` still does.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```js
 describe('per-element stroke and shadow (Task 5)', () => {
@@ -925,23 +925,36 @@ describe('per-element stroke and shadow (Task 5)', () => {
 
 `phoneScene` renders a `mobile` layout over a flat `#000000` source, the same way `scene` in that file already does for the web layout. Do not duplicate the harness — extend it.
 
-- [ ] **Step 3: Run and watch them fail; verify the sample points**
+> **Corrected during execution.** Two things.
+>
+> 1. The plan's sample point was wrong. The device highlight occupies
+>    exactly ONE pixel column, at `Math.ceil(box.x)`; `+1`, as sketched, is
+>    already the device body. Measured on a flat-black source at 3:2:
+>    `none` reads 0,0,0 / 0,0,0 / 0,0,0 across +0..+2, and `phone` reads
+>    34,36,40 / 17,19,24 / 17,19,24. The sketched assertion (`r > 20` at +1)
+>    would have failed against correct code.
+> 2. This task's render side was already delivered by Tasks 2 and 4, so the
+>    render tests below pass on arrival and are regression guards, not
+>    new-behaviour guards. The red-then-green work for Task 5 is entirely in
+>    the panel writers (Step 5).
+
+- [x] **Step 3: Run and watch them fail; verify the sample points**
 
 Run: `npx vitest run test/render-stroke.test.js -t 'per-element'`
 
 **Verify the last two sample points before trusting them.** Cycle A's Task 1 test sampled two pixels inside a box whose edge was fractional and could not fail. Print the actual pixel values at `Math.ceil(b.x)`, `+1` and `+2` for both cases and confirm the highlight is visible at the point being asserted. Record those numbers in the report.
 
-- [ ] **Step 4: Make the highlight conditional on there being a device**
+- [x] **Step 4: Make the highlight conditional on there being a device**
 
 `paintPhoneChrome` and `paintPhone`'s phone branch call `paintDeviceHairline`; the unframed branch added in Task 4 does not. If Task 4 was implemented correctly this step is already done — confirm it, and add the comment saying why, rather than assuming.
 
-- [ ] **Step 5: Point the stroke and shadow controls at the element**
+- [x] **Step 5: Point the stroke and shadow controls at the element**
 
 `setStrokeStyle`, `setStrokeWidthPercent`, `setStrokeColor` and `setShadowPercent` in `web/inspector-frame.js` currently write `config.stroke` and `config.shadowScale`. They now write `config.elements[which]`, with `which` defaulting to `'web'` until Task 7 supplies the selection.
 
 Keep the defaults-first, current-second, changed-field-last ordering already established there, and add a test that changing the stroke style does not reset a width the user set — the Task 5b guard, now one level deeper and therefore easier to get wrong.
 
-- [ ] **Step 6: Commit, push, deploy, and STOP**
+- [x] **Step 6: Commit, push, deploy, and STOP**
 
 ```bash
 git add core web test

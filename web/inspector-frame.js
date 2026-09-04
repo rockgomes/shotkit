@@ -153,16 +153,17 @@ export function setGrainPercent(config, pct) {
 // drift apart. The percent round-trip below is the exact same *100/*0.01
 // pattern grain and padding already use, just over a wider [0,200] range —
 // 100% reads back as the untouched default.
-export function activeShadowPercent(config) {
-  const scale = Number.isFinite(config.shadowScale) ? config.shadowScale : DEFAULTS.shadowScale;
-  return Math.round(scale * 100);
+export function activeShadowPercent(config, which = 'web') {
+  return Math.round(normalise(config).elements[which].shadowScale * 100);
 }
 
-export function setShadowPercent(config, pct) {
+export function setShadowPercent(config, pct, which = 'web') {
   const n = Number(pct);
   if (!Number.isFinite(n)) return;
   const [min, max] = SHADOW_SCALE_RANGE;
-  config.shadowScale = Math.min(max * 100, Math.max(min * 100, n)) / 100;
+  writeElement(config, which, {
+    shadowScale: Math.min(max * 100, Math.max(min * 100, n)) / 100,
+  });
 }
 
 // Stroke (Task 7) — the opt-in mat around the shot. `config.stroke` is a
@@ -179,14 +180,33 @@ export function setShadowPercent(config, pct) {
 // which silently reset the user's strength to 100% while the slider went
 // on displaying the old number. Defaults first, current second, the one
 // field being changed last.
-export function activeStrokeStyle(config) {
-  const s = config.stroke || {};
-  return STROKE_STYLES.includes(s.style) ? s.style : STROKE_DEFAULTS.style;
+// CYCLE B TASK 5: STROKE AND SHADOW BELONG TO AN ELEMENT. Every reader and
+// writer below takes `which` - an element NAME ('web'/'mobile'), not a
+// block. Task 7 supplies it from the canvas selection; until then it is
+// 'web', which is what these controls have always edited.
+//
+// The read side goes through normalise() so it sees the resolved block,
+// which means a flat `stroke` or `shadowScale` on the config still shows up
+// correctly. The write side touches ONLY `config.elements[which]` - never
+// the flat field beside it. That asymmetry is deliberate: reading has to
+// honour every input shape, writing must have exactly one destination.
+function writeElement(config, which, patch) {
+  const prev = (config.elements && config.elements[which]) || {};
+  config.elements = { ...(config.elements || {}), [which]: { ...prev, ...patch } };
 }
 
-export function setStrokeStyle(config, style) {
+export function activeStrokeStyle(config, which = 'web') {
+  return normalise(config).elements[which].stroke.style;
+}
+
+export function setStrokeStyle(config, style, which = 'web') {
   if (!STROKE_STYLES.includes(style)) return;
-  config.stroke = { ...STROKE_DEFAULTS, ...(config.stroke || {}), style };
+  // Defaults first, the element's CURRENT stroke second, the changed field
+  // last - so switching the style cannot reset a width the user set. That
+  // ordering is Task 5b's lesson and it is easier to get wrong one level
+  // deeper, which is why it is spelled out again here.
+  const cur = normalise(config).elements[which].stroke;
+  writeElement(config, which, { stroke: { ...STROKE_DEFAULTS, ...cur, style } });
 }
 
 // Width is a fraction of the SHORTER canvas side (core/presets.js), so the
@@ -195,27 +215,26 @@ export function setStrokeStyle(config, style) {
 // literal, so this slider and normalise()'s own clamp cannot drift apart.
 export const STROKE_PERCENT_MAX = STROKE_WIDTH_RANGE[1] * 100;
 
-export function activeStrokeWidthPercent(config) {
-  const s = config.stroke || {};
-  const width = Number.isFinite(s.width) ? s.width : STROKE_DEFAULTS.width;
-  return Math.round(width * 1000) / 10;
+export function activeStrokeWidthPercent(config, which = 'web') {
+  return Math.round(normalise(config).elements[which].stroke.width * 1000) / 10;
 }
 
-export function setStrokeWidthPercent(config, pct) {
+export function setStrokeWidthPercent(config, pct, which = 'web') {
   const n = Number(pct);
   if (!Number.isFinite(n)) return;
   const width = Math.min(STROKE_PERCENT_MAX, Math.max(0, n)) / 100;
-  config.stroke = { ...STROKE_DEFAULTS, ...(config.stroke || {}), width };
+  const cur = normalise(config).elements[which].stroke;
+  writeElement(config, which, { stroke: { ...STROKE_DEFAULTS, ...cur, width } });
 }
 
-export function activeStrokeColor(config) {
-  const s = config.stroke || {};
-  return /^#[0-9a-fA-F]{6}$/.test(s.color) ? s.color : STROKE_DEFAULTS.color;
+export function activeStrokeColor(config, which = 'web') {
+  return normalise(config).elements[which].stroke.color;
 }
 
-export function setStrokeColor(config, value) {
+export function setStrokeColor(config, value, which = 'web') {
   if (!/^#[0-9a-fA-F]{6}$/.test(value)) return;
-  config.stroke = { ...STROKE_DEFAULTS, ...(config.stroke || {}), color: value };
+  const cur = normalise(config).elements[which].stroke;
+  writeElement(config, which, { stroke: { ...STROKE_DEFAULTS, ...cur, color: value } });
 }
 
 /** Width only means something once a style paints; colour only means
@@ -223,12 +242,12 @@ export function setStrokeColor(config, value) {
  *  paintStroke in core/render.js). Same shape as showsBrowserOnlyControls
  *  above, and hidden the same way: the global `[hidden]` rule, never a
  *  second mechanism. */
-export function showsStrokeWidth(config) {
-  return activeStrokeStyle(config) !== 'none';
+export function showsStrokeWidth(config, which = 'web') {
+  return activeStrokeStyle(config, which) !== 'none';
 }
 
-export function showsStrokeColor(config) {
-  return activeStrokeStyle(config) === 'custom';
+export function showsStrokeColor(config, which = 'web') {
+  return activeStrokeStyle(config, which) === 'custom';
 }
 
 // Corner radius is the one field here that ISN'T stored as a fraction —

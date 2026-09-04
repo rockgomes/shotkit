@@ -159,28 +159,37 @@ describe('shadow percent <-> config.shadowScale fraction (Task 6b)', () => {
     expect(activeShadowPercent({})).toBe(DEFAULTS.shadowScale * 100);
   });
 
+  // CYCLE B TASK 5 MOVED THE WRITE onto the element. The claims are the same;
+  // the destination is `elements[which].shadowScale`, and the flat field is
+  // deliberately left alone so there is exactly one place a control writes.
   it('setShadowPercent writes a plain fraction normalise() reads directly', () => {
     const config = {};
     setShadowPercent(config, 160);
-    expect(config.shadowScale).toBeCloseTo(1.6, 6);
+    expect(config.elements.web.shadowScale).toBeCloseTo(1.6, 6);
+    expect(config.shadowScale).toBeUndefined();
     expect(activeShadowPercent(config)).toBe(160);
-    expect(normalise(config).shadowScale).toBeCloseTo(1.6, 6);
+    expect(normalise(config).elements.web.shadowScale).toBeCloseTo(1.6, 6);
   });
 
   it('clamps to [0, 200]% - matching SHADOW_SCALE_RANGE, never negative or runaway', () => {
     const config = {};
     setShadowPercent(config, -10);
-    expect(config.shadowScale).toBe(SHADOW_SCALE_RANGE[0]);
+    expect(config.elements.web.shadowScale).toBe(SHADOW_SCALE_RANGE[0]);
     setShadowPercent(config, 999);
-    expect(config.shadowScale).toBe(SHADOW_SCALE_RANGE[1]);
+    expect(config.elements.web.shadowScale).toBe(SHADOW_SCALE_RANGE[1]);
   });
 
   it('0% removes the shadow entirely (shadowScale 0), 200% is the range ceiling', () => {
     const config = {};
     setShadowPercent(config, 0);
-    expect(config.shadowScale).toBe(0);
+    expect(config.elements.web.shadowScale).toBe(0);
     setShadowPercent(config, 200);
-    expect(config.shadowScale).toBe(2);
+    expect(config.elements.web.shadowScale).toBe(2);
+  });
+
+  it('still READS a flat shadowScale, so an old config or jobs.json is honoured', () => {
+    // Reading has to accept every input shape; only writing has one home.
+    expect(activeShadowPercent({ shadowScale: 0.4 })).toBe(40);
   });
 });
 
@@ -448,7 +457,8 @@ describe('stroke style, width and colour (Task 7)', () => {
     const config = {};
     setStrokeStyle(config, 'glass');
     expect(activeStrokeStyle(config)).toBe('glass');
-    expect(normalise(config).stroke.style).toBe('glass');
+    expect(normalise(config).elements.web.stroke.style).toBe('glass');
+    expect(config.stroke).toBeUndefined();
   });
 
   it('ignores a style that is not a stroke style, leaving the config alone', () => {
@@ -465,23 +475,23 @@ describe('stroke style, width and colour (Task 7)', () => {
     // Task 5b reset the user's value here by spreading defaults LAST while
     // the slider went on showing the old number. It must not happen again.
     expect(activeStrokeWidthPercent(config)).toBe(3.4);
-    expect(normalise(config).stroke.width).toBeCloseTo(0.034, 6);
+    expect(normalise(config).elements.web.stroke.width).toBeCloseTo(0.034, 6);
   });
 
   it('setStrokeWidthPercent writes a fraction of the shorter canvas side', () => {
     const config = {};
     setStrokeWidthPercent(config, 2);
-    expect(config.stroke.width).toBeCloseTo(0.02, 9);
+    expect(config.elements.web.stroke.width).toBeCloseTo(0.02, 9);
     expect(activeStrokeWidthPercent(config)).toBe(2);
-    expect(normalise(config).stroke.width).toBeCloseTo(0.02, 9);
+    expect(normalise(config).elements.web.stroke.width).toBeCloseTo(0.02, 9);
   });
 
   it('clamps the width at both ends, to STROKE_WIDTH_RANGE', () => {
     const config = {};
     setStrokeWidthPercent(config, -5);
-    expect(config.stroke.width).toBe(STROKE_WIDTH_RANGE[0]);
+    expect(config.elements.web.stroke.width).toBe(STROKE_WIDTH_RANGE[0]);
     setStrokeWidthPercent(config, 999);
-    expect(config.stroke.width).toBeCloseTo(STROKE_WIDTH_RANGE[1], 9);
+    expect(config.elements.web.stroke.width).toBeCloseTo(STROKE_WIDTH_RANGE[1], 9);
     expect(STROKE_PERCENT_MAX).toBe(STROKE_WIDTH_RANGE[1] * 100);
   });
 
@@ -489,7 +499,7 @@ describe('stroke style, width and colour (Task 7)', () => {
     const config = {};
     setStrokeColor(config, '#3311ff');
     expect(activeStrokeColor(config)).toBe('#3311ff');
-    expect(normalise(config).stroke.color).toBe('#3311ff');
+    expect(normalise(config).elements.web.stroke.color).toBe('#3311ff');
     setStrokeColor(config, 'rebeccapurple');
     setStrokeColor(config, '#fff');
     expect(activeStrokeColor(config)).toBe('#3311ff');
@@ -505,5 +515,46 @@ describe('stroke style, width and colour (Task 7)', () => {
     setStrokeStyle(config, 'custom');
     expect(showsStrokeWidth(config)).toBe(true);
     expect(showsStrokeColor(config)).toBe(true);
+  });
+});
+
+// --- Cycle B Task 5: stroke and shadow belong to an element --------------
+describe('stroke and shadow are written per element (Task 5)', () => {
+  it('writes the element named, and no other', () => {
+    const config = {};
+    setStrokeStyle(config, 'glass', 'mobile');
+    setShadowPercent(config, 160, 'mobile');
+    const eff = normalise(config);
+    expect(eff.elements.mobile.stroke.style).toBe('glass');
+    expect(eff.elements.mobile.shadowScale).toBeCloseTo(1.6, 9);
+    // The web element keeps the defaults - the whole point.
+    expect(eff.elements.web.stroke.style).toBe('none');
+    expect(eff.elements.web.shadowScale).toBe(1);
+  });
+
+  it('the two elements hold different values at the same time', () => {
+    const config = {};
+    setStrokeStyle(config, 'light', 'web');
+    setStrokeWidthPercent(config, 2, 'web');
+    setStrokeStyle(config, 'custom', 'mobile');
+    setStrokeColor(config, '#ff00aa', 'mobile');
+    const eff = normalise(config);
+    expect(eff.elements.web.stroke).toMatchObject({ style: 'light', width: 0.02 });
+    expect(eff.elements.mobile.stroke).toMatchObject({ style: 'custom', color: '#ff00aa' });
+  });
+
+  it('changing one element\'s style does not reset the other\'s width', () => {
+    const config = {};
+    setStrokeWidthPercent(config, 3.4, 'mobile');
+    setStrokeStyle(config, 'glass', 'web');
+    expect(activeStrokeWidthPercent(config, 'mobile')).toBe(3.4);
+  });
+
+  it('the show/hide gates follow the element too', () => {
+    const config = {};
+    setStrokeStyle(config, 'custom', 'mobile');
+    expect(showsStrokeColor(config, 'mobile')).toBe(true);
+    expect(showsStrokeColor(config, 'web')).toBe(false);
+    expect(showsStrokeWidth(config, 'web')).toBe(false);
   });
 });

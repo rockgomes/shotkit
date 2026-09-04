@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createCanvas } from '@napi-rs/canvas';
 import { normalise } from '../core/config.js';
 import { layout } from '../core/layout.js';
-import { paintGround, paintWeb } from '../core/render.js';
+import { paintGround, paintWeb, paintPhone } from '../core/render.js';
 
 const GROUND = ['#f7f4ff', '#ece6fb', '#ded3f5'];
 const SRC = 1440 / 900;
@@ -125,5 +125,85 @@ describe('strokes', () => {
     }
     const mx = Math.round(mat.lay.web.x + mat.lay.web.w / 2);
     expect(px(mat.ctx, mx, Math.ceil(mat.lay.web.y) + 3)).toEqual([255, 255, 255]);
+  });
+});
+
+// --- Cycle B Task 5: stroke and shadow belong to an element --------------
+//
+// A mobile-layout scene over a flat BLACK source, so any white line shows
+// immediately. Same shape as `scene` above; the phones are painted through
+// paintPhone with the mobile element, exactly as core/index.js does.
+function phoneScene(overrides = {}) {
+  const img = createCanvas(900, 1600);
+  const ictx = img.getContext('2d');
+  ictx.fillStyle = '#000000';
+  ictx.fillRect(0, 0, 900, 1600);
+
+  const c = normalise({ layout: 'mobile', ratio: '3:2', ...overrides });
+  const lay = layout(c, { web: null, mobile: [900 / 1600] });
+  const cv = createCanvas(c.w, c.h);
+  const ctx = cv.getContext('2d');
+  paintGround(ctx, c, GROUND);
+  lay.phones.forEach(b => paintPhone(ctx, c, b, img, createCanvas, c.elements.mobile));
+  return { c, lay, ctx };
+}
+
+describe('per-element stroke and shadow (Task 5)', () => {
+  // THESE PASS ON ARRIVAL, and that is stated rather than counted as a win:
+  // Tasks 2 and 4 built the render side, so this task's own red-then-green
+  // work was in the panel (test/inspector-frame.test.js). What follows are
+  // regression guards for behaviour that is already correct.
+  it('the phone can carry a mat the desktop shot does not', () => {
+    const img = createCanvas(1440, 900);
+    const ictx = img.getContext('2d');
+    ictx.fillStyle = '#101826';
+    ictx.fillRect(0, 0, 1440, 900);
+    const c = normalise({
+      layout: 'web+mobile', ratio: '3:2',
+      elements: { mobile: { stroke: { style: 'light', width: 0.02 } } },
+    });
+    const lay = layout(c, { web: 1440 / 900, mobile: [0.462] });
+    expect(lay.phones[0].strokeWidth).toBeGreaterThan(0);
+    expect(lay.web.strokeWidth).toBe(0);
+  });
+
+  it('the phone can carry a shadow the desktop shot does not', () => {
+    const c = normalise({
+      layout: 'web+mobile',
+      elements: { web: { shadowScale: 0 }, mobile: { shadowScale: 1.6 } },
+    });
+    expect(c.elements.web.shadowScale).toBe(0);
+    expect(c.elements.mobile.shadowScale).toBeCloseTo(1.6, 9);
+  });
+
+  // SAMPLE POINTS MEASURED, NOT ASSUMED - and the first draft of this test
+  // had them wrong. The device highlight occupies exactly ONE pixel column,
+  // at `Math.ceil(box.x)`; the column after it is already the device body.
+  // Measured on a flat-black source at 3:2:
+  //
+  //   frameKind 'none'   +0: 0,0,0     +1: 0,0,0     +2: 0,0,0
+  //   frameKind 'phone'  +0: 34,36,40  +1: 17,19,24  +2: 17,19,24
+  //
+  // 17,19,24 is #111318, the device body; 34,36,40 is that lifted by the
+  // 0.10 white hairline. Sampling at +1, as first written, would have read
+  // the body in both cases and asserted nothing.
+  it('an unframed mobile screenshot has no device highlight', () => {
+    // The highlight belongs to the DEVICE. With no device there is nothing
+    // for it to sit on, and it would read as exactly the unrequested border
+    // Cycle A Task 1 removed.
+    const bare = phoneScene({ elements: { mobile: { frameKind: 'none' } } });
+    const b = bare.lay.phones[0];
+    const mid = Math.round(b.y + b.h / 2);
+    expect(px(bare.ctx, Math.ceil(b.x), mid)).toEqual([0, 0, 0]);
+    expect(px(bare.ctx, Math.ceil(b.x) + 1, mid)).toEqual([0, 0, 0]);
+  });
+
+  it('a phone-framed one still has it — the device keeps its highlight', () => {
+    const framed = phoneScene({});
+    const b = framed.lay.phones[0];
+    const mid = Math.round(b.y + b.h / 2);
+    const [r] = px(framed.ctx, Math.ceil(b.x), mid);
+    expect(r).toBeGreaterThan(25);                       // measured 34
+    expect(px(framed.ctx, Math.ceil(b.x) + 1, mid)).toEqual([17, 19, 24]);  // #111318
   });
 });
