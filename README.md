@@ -57,10 +57,16 @@ to three. Then:
 - **Canvas** — the shot, plus a **Surround** control (dark / mid / light). The
   surround is app chrome only: it changes what sits *behind* the canvas so you
   can judge a pale ground honestly, and it can never reach the exported pixels.
+- **Canvas** — click a shot to select it. The Frame and Finish panels then
+  edit *that* element, and each says which one it is on. Click the ground or
+  press Escape to clear. The outline is a DOM overlay and never a painted
+  pixel, so it cannot reach the exported PNG.
 - **Inspector** — Background (the sampled hue first, then hue/angle/type/tone
   overrides), Frame (none, browser chrome, or phone; chrome theme and URL pill),
   Finish (padding, radius, grain, shadow strength, and an opt-in stroke —
-  light, glass or a custom colour), and Export.
+  light, glass or a custom colour), and Export. Everything in Frame and
+  Finish except Padding and Grain belongs to the selected element; those two
+  belong to the canvas.
 - **Export** — PNG, JPEG or WebP at 1×, 2× or 3×. Filenames come from the source
   file, e.g. `fieldset--web@2x.png`.
 
@@ -157,7 +163,9 @@ Also exported, so a host never has to hardcode a valid value:
 `RATIOS`, `HUES`, `DEFAULTS`, `TEMPLATES`, `FRAME_KINDS`, `SCALES`,
 `DEFAULT_ANGLE`, `LAYOUTS`, `TONES`, `BG_TYPES`, `CHROME_THEMES`,
 `SHADOW_SCALE_RANGE`, `STROKE_STYLES`, `STROKE_WIDTH_RANGE`,
-`STROKE_DEFAULTS`, `MESH_STOPS_RANGE`, `MESH_SPREAD_RANGE`, `MESH_DEFAULTS`.
+`STROKE_DEFAULTS`, `MESH_STOPS_RANGE`, `MESH_SPREAD_RANGE`, `MESH_DEFAULTS`,
+`ELEMENT_KINDS`, `ELEMENT_DEFAULTS`, `BROWSER_RADIUS_RANGE`,
+`PHONE_RADIUS_RANGE`.
 
 ```
 RATIOS       3:2 1800×1200 · 4:3 2000×1500 · 16:9 1920×1080 · 1:1 1500×1500
@@ -171,7 +179,18 @@ BG_TYPES     linear · solid · mesh              SCALES  1 · 2 · 3
 CHROME_THEMES dark · light                      DEFAULT_ANGLE 166
 STROKE_STYLES none · light · glass · custom     width 0–0.06 of the shorter side
 MESH         stops 3–5 · spread 0–180°          defaults stops 4 · spread 70°
+ELEMENT_KINDS web · mobile                      web defaults to no frame, mobile to phone
+CORNER RANGE browser 0–5% · phone 4–24% of the element's own width
 ```
+
+**Settings belong to an element, not to the shot.** `normalise()` returns
+`elements: { web, mobile }`, each carrying `frameKind`, `chromeTheme`, `url`,
+`radius`, `stroke` and `shadowScale`. A flat key at the top level of the
+input is a default for *every* element; an entry in `elements` overrides it
+for that one — but only when the input actually carried it, never when it
+was resolved from a default. `radius` is `null` for "this frame's own
+corner". Canvas, ground, padding and grain stay global: there is one of
+each, and they describe the shot rather than a thing in it.
 
 **Frames and strokes are outsets.** The screenshot's box is computed first, from
 the source image's own ratio; the browser bar, the phone bezel and the stroke
@@ -278,20 +297,20 @@ Honest list. None of these is half-done; they are simply not there.
   shows almost nothing, mesh and linear alike. What fails is the palette, so
   mesh is judged again after the palette work rather than tuned now. Restoring
   it is one line (`UI_BG_TYPES`).
-- **Per-element settings.** Frame, stroke, radius and shadow belong to the
-  desktop element only, so on a mobile-only shot the Frame, Padding and Corner
-  radius controls do nothing, and the corner radius does nothing under either
-  frame. A phone frame around a desktop screenshot works; a browser frame
-  around a mobile one does not exist. All of it is one cause — the next cycle's
-  `elements: { web, mobile }` block.
+- **Keyboard selection.** Clicking selects; Escape clears. There is no way to
+  select with the keyboard, and the canvas is deliberately *not* focusable —
+  a focus ring on it is visually indistinguishable from the selection
+  outline and reads as "the whole shot is selected". It wants Tab plus
+  arrows, with the selection outline itself as the focus indicator so there
+  is never a second ring competing with it.
 - **Golden coverage at a second canvas size, for most compositions.** Partly
   closed, not open: `square-browser.png` pixel-verifies the web layout with a
   browser frame at 1:1 1500×1500, and `test/export-scale-fidelity.test.js`
   renders at 4:3 2000×1500 — a size no golden covers — and measures the painted
   corner radius directly. What is still 3:2-only is everything else: the mobile
   and web+mobile layouts, the mesh ground, the phone frame, the
-  light chrome theme, the URL pill, the shadow multiplier and each stroke style
-  have exactly one golden, all at 1800×1200. Since every geometric quantity is a fraction of
+  light chrome theme, the URL pill, the shadow multiplier, each stroke style
+  and each mobile frame have exactly one golden, all at 1800×1200. Since every geometric quantity is a fraction of
   the canvas it was handed, a stray fixed-pixel literal in one of those painters
   would still show its face first at another size.
 - **A CLI.** The old one is gone and nothing replaced it. `core/` is a library, so
