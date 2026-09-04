@@ -84,7 +84,14 @@ A task report that does not contain a red-then-green record for its new assertio
 
 **Files:** none changed.
 
-- [ ] **Step 1: Branch from an up-to-date main**
+> **Corrected during execution, 2026-09-03.** GitHub refuses to open a pull
+> request on a branch with no commits ahead of its base — "No commits between
+> main and feat/cycle-b" — so Steps 1 and 2 cannot both run before any work
+> exists. Task 0 is therefore folded into Task 1: branch first, do Task 1's
+> work, commit, push, and open the PR with that commit. The approval gate is
+> unaffected, because Task 1 has nothing visible to approve either way.
+
+- [x] **Step 1: Branch from an up-to-date main**
 
 ```bash
 git checkout main && git pull --ff-only && git checkout -b feat/cycle-b
@@ -139,13 +146,13 @@ Run `gh pr view --json number`. If it is not 2, correct the URL in this plan and
 
 **Why this task changes no behaviour at all.** The block is added and nothing reads it. That is deliberate: the precedence rule below is the single piece of this cycle most likely to go wrong quietly, and it gets a task to itself where the only thing that can move is the config object.
 
-- [ ] **Step 1: Read the failure this rule has to avoid**
+- [x] **Step 1: Read the failure this rule has to avoid**
 
 Cycle A Task 5b introduced `shadow: { scale, ... }` alongside the existing flat `shadowScale`, with the rule "specific beats legacy". The panel's writer seeded the block with `{ ...SHADOW_DEFAULTS }`, so `shadow.scale` was *always present* — and therefore always outranked `shadowScale`. The main Shadow slider went dead the moment the Advanced section was opened, while still displaying its old value. It had to be reverted in full.
 
 The rule that prevents it: **a key counts as an override only when the INPUT carried it.** A resolved default is not an override. `undefined` is the test, and the block is never pre-seeded with defaults before that test runs.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Add to `test/config.test.js`:
 
@@ -223,14 +230,14 @@ describe('per-element settings (Cycle B Task 1)', () => {
 
 Add `SHADOW_SCALE_RANGE` and `STROKE_WIDTH_RANGE` to that file's imports from `../core/presets.js` if they are not already there.
 
-- [ ] **Step 3: Run and watch every one fail**
+- [x] **Step 3: Run and watch every one fail**
 
 Run: `npx vitest run test/config.test.js -t 'per-element settings'`
 Expected: all nine FAIL — `c.elements` is `undefined` today, so most fail on a property read.
 
 That is a weak kind of red. Before moving on, **also** check the two that matter can fail for the right reason later: temporarily return `elements: { web: {}, mobile: {} }` and confirm "a flat key is a default for EVERY element" and "an absent element key never outranks an explicit flat key" still fail. Record that in the report.
 
-- [ ] **Step 4: Add the vocabulary**
+- [x] **Step 4: Add the vocabulary**
 
 In `core/presets.js`:
 
@@ -291,7 +298,6 @@ Then, inside `normalise()`, build the block from `input` — **not** from the re
     const frameKind = pickField(e.frameKind, input.frameKind, ELEMENT_DEFAULTS[kind].frameKind);
     const chromeTheme = pickField(e.chromeTheme, input.chromeTheme, 'dark');
     const url = pickField(e.url, input.url, DEFAULTS.url);
-    const radius = pickField(e.radius, input.elements ? undefined : undefined, null);
     const shadowScale = pickField(e.shadowScale, input.shadowScale, DEFAULTS.shadowScale);
     const stroke = pickField(e.stroke, input.stroke, undefined);
 
@@ -301,7 +307,12 @@ Then, inside `normalise()`, build the block from `input` — **not** from the re
       url: url ? String(url) : DEFAULTS.url,
       // null means "this frame's own corner" — resolved in layout.js by
       // Task 3, because the answer depends on which frame is on.
-      radius: radius === null || radius === undefined ? null : num(radius, null),
+      // Corrected during execution: the first sketch of this line routed
+      // radius through pickField with two undefined arguments, which is a
+      // no-op dressed as a rule. It does not use pickField at all - the
+      // flat radius is deliberately not inherited, so there is no
+      // precedence to express.
+      radius: e.radius === undefined ? null : num(e.radius, null),
       shadowScale: Math.min(
         SHADOW_SCALE_RANGE[1],
         Math.max(SHADOW_SCALE_RANGE[0], num(shadowScale, DEFAULTS.shadowScale)),
@@ -332,12 +343,12 @@ function normaliseStroke(s) {
 
 Add `elements` to the returned object, and export `ELEMENT_KINDS` / `ELEMENT_DEFAULTS` from `core/index.js`.
 
-- [ ] **Step 5: Run and watch them pass**
+- [x] **Step 5: Run and watch them pass**
 
 Run: `npx vitest run`
 Expected: PASS, and **every one of the fourteen goldens byte-identical** — nothing reads the block yet, so a moved pixel means something else changed.
 
-- [ ] **Step 6: Commit and push**
+- [x] **Step 6: Commit and push**
 
 ```bash
 git add core test
