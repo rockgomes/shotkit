@@ -1206,7 +1206,7 @@ Tell Rock:
 - Consumes: Task 6's `state.selection`, Task 5's element-aware writers.
 - Produces: the Frame and Finish sections read and write `state.config.elements[selected]`, where `selected` is `state.selection ?? 'web'`.
 
-- [ ] **Step 1: Decide what "nothing selected" means, and write it down**
+- [x] **Step 1: Decide what "nothing selected" means, and write it down**
 
 `state.selection` is null until something is clicked, and a shot with only a desktop screenshot has nothing to select but the desktop screenshot. Two defensible answers; take the first:
 
@@ -1225,7 +1225,7 @@ export function editingElement(state) {
 }
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```js
 describe('the inspector edits the selected element (Task 7)', () => {
@@ -1258,20 +1258,28 @@ describe('the inspector edits the selected element (Task 7)', () => {
 });
 ```
 
-- [ ] **Step 3: Run and watch them fail**
+- [x] **Step 3: Run and watch them fail**
 
 Run: `npx vitest run test/inspector-frame.test.js -t 'edits the selected element'`
 Expected: all five FAIL — `editingElement` does not exist and the writers take no element argument.
 
-- [ ] **Step 4: Thread `which` through the panel**
+- [x] **Step 4: Thread `which` through the panel**
 
 Every `active*` and `set*` in `web/inspector-frame.js` gains a trailing `which = 'web'`. The DOM layer reads `editingElement(state)` once per sync and passes it down. The section header gains a label saying which element is being edited — without it, two identical panels editing different objects is a trap, not a feature.
 
-- [ ] **Step 5: Re-sync on selection change**
+> **Corrected during execution.** The plan said "re-sync when the selection
+> changes". That is half of it. With nothing selected, `editingElement`
+> returns *the only element the shot has* — so dropping the first phone
+> screenshot changes which element the panel is pointed at exactly as much
+> as clicking one does. Without a sync on the image change too, the header
+> read "Desktop" over a shot with no desktop element in it. Verified in
+> Chromium before and after.
+
+- [x] **Step 5: Re-sync on selection change**
 
 `main.js` calls the inspector's `sync*` functions when `state.selection` changes. The controls must show the newly-selected element's values immediately, not on the next interaction. Add a test that a selection change followed by a sync leaves each control displaying that element's value.
 
-- [ ] **Step 6: Commit, push, deploy, and STOP**
+- [x] **Step 6: Commit, push, deploy, and STOP**
 
 ```bash
 git add web test

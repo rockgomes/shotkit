@@ -96,7 +96,23 @@ const background = initBackgroundInspector();
 // 3 — a browser window and a phone body do not take the same range), so
 // changing the frame has to re-sync a control in the other section.
 const finishInspector = initFinishInspector();
-initFrameInspector(() => finishInspector && finishInspector.syncRadiusUI());
+const frameInspector = initFrameInspector(() => finishInspector && finishInspector.syncRadiusUI());
+
+/** Re-run every inspector sync.
+ *
+ *  Called on two things, and the second was missed at first: when the
+ *  SELECTION changes, and when the IMAGES change. The panels edit the
+ *  selected element, and with nothing selected that is "the only element
+ *  the shot has" (editingElement) - so dropping the first phone screenshot
+ *  changes which element the panel is pointed at just as much as clicking
+ *  one does. Without the second call the header still read "Desktop" over a
+ *  shot that had no desktop element in it. */
+function syncInspectors() {
+  for (const panel of [frameInspector, finishInspector]) {
+    if (!panel) continue;
+    for (const fn of Object.values(panel)) fn();
+  }
+}
 
 /** Rail items marked aria-disabled render dimmed but stay focusable (per
  *  ARIA authoring practice) so keyboard/screen-reader users can discover
@@ -528,6 +544,7 @@ function setSelection(next) {
   if (state.selection === next) return;
   state.selection = next;
   placeSelectionOutline();
+  syncInspectors();
 }
 
 renderCanvas.addEventListener('click', (event) => {
@@ -578,6 +595,9 @@ async function handleFiles(fileList) {
   const errors = await addFiles(fileList);
   showDropErrors(errors);
   syncContentUI();
+  // The drop may have changed which element the panels are editing - see
+  // syncInspectors' own comment.
+  syncInspectors();
   // addFiles() above calls render() synchronously when it decodes anything,
   // so state.meta already reflects the new image(s) by this point — this is
   // what tells the Background panel's preset swatches to stop showing the

@@ -1596,3 +1596,20 @@ input {
    Keyboard selection is a real gap and wants a real design: Tab to the
    canvas, arrows to cycle elements, with `.selection-outline` itself as the
    focus indicator so there is never a second ring competing with it. */
+
+/* Which element a panel is editing, in its own header (Cycle B Task 7).
+   Without it the Frame and Finish sections look identical whether they are
+   pointed at the desktop shot or the phone - two panels editing different
+   objects with nothing to tell them apart is a trap, not a feature.
+
+   --text-muted, not a dimmed --text-primary: Task 3b's rule is that every
+   state is an explicit colour and `opacity` is not permitted outside
+   @keyframes. */
+.section-subject {
+  margin-left: 8px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}

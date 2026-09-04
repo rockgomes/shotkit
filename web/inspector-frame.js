@@ -54,29 +54,58 @@ import { state, scheduleRender } from './state.js';
 
 // --- Frame ---------------------------------------------------------------
 
-/** The effective frameKind, mirroring normalise()'s own fallback (anything
- *  not in FRAME_KINDS — including a stale "macos" — reads back as 'none')
- *  without running the whole normalise() pipeline just to read one field. */
-export function activeFrameKind(config) {
-  return FRAME_KINDS.includes(config.frameKind) ? config.frameKind : 'none';
+/** Merge a patch into one element's block. THE ONLY WRITE PATH in this
+ *  file: every setter goes through it, so there is exactly one place a
+ *  control can put a value. Reading is the opposite - it goes through
+ *  normalise(), which honours a flat field from an old config or a
+ *  jobs.json. Read everything, write one place. */
+function writeElement(config, which, patch) {
+  const prev = (config.elements && config.elements[which]) || {};
+  config.elements = { ...(config.elements || {}), [which]: { ...prev, ...patch } };
 }
 
-export function setFrameKind(config, kind) {
+/**
+ * WHICH ELEMENT THE PANEL IS EDITING — Cycle B Task 7.
+ *
+ * `state.selection` when the user has clicked something. Otherwise the only
+ * element the shot actually HAS, which is the case that matters: a
+ * mobile-only shot has no web element at all, so a panel hard-wired to
+ * 'web' writes somewhere nothing reads. That is precisely the dead control
+ * Rock hit while testing Task 3 — the Corner radius slider moving and his
+ * phone screenshot not caring.
+ *
+ * The alternative considered and rejected: grey the whole panel until
+ * something is selected. It makes the common case (one screenshot, no
+ * clicking) worse in order to serve the rare one.
+ */
+export function editingElement(state = {}) {
+  if (state.selection) return state.selection;
+  const images = state.images || {};
+  const hasWeb = !!images.web;
+  const hasMobile = !!(images.mobile && images.mobile.length);
+  return !hasWeb && hasMobile ? 'mobile' : 'web';
+}
+
+/** The effective frameKind for one element. Goes through normalise() so a
+ *  flat `frameKind` on an old config or a jobs.json still reads correctly —
+ *  the same read-everything / write-one-place split the stroke and shadow
+ *  helpers use. */
+export function activeFrameKind(config, which = 'web') {
+  return normalise(config).elements[which].frameKind;
+}
+
+export function setFrameKind(config, kind, which = 'web') {
   if (!FRAME_KINDS.includes(kind)) return;
-  config.frameKind = kind;
+  writeElement(config, which, { frameKind: kind });
 }
 
-export function activeChromeTheme(config) {
-  // 'dark' literal, matching core/config.js's normalise() exactly — there
-  // is no DEFAULTS.chromeTheme to read (core/presets.js's DEFAULTS covers
-  // only the fields normalise() derives from it; frameKind/chromeTheme's
-  // fallbacks are both inline literals there, same as here).
-  return CHROME_THEMES.includes(config.chromeTheme) ? config.chromeTheme : 'dark';
+export function activeChromeTheme(config, which = 'web') {
+  return normalise(config).elements[which].chromeTheme;
 }
 
-export function setChromeTheme(config, theme) {
+export function setChromeTheme(config, theme, which = 'web') {
   if (!CHROME_THEMES.includes(theme)) return;
-  config.chromeTheme = theme;
+  writeElement(config, which, { chromeTheme: theme });
 }
 
 /**
@@ -97,20 +126,21 @@ export function setChromeTheme(config, theme) {
  * function instead of two inline conditions that could drift apart again.
  * See test/inspector-frame.test.js.
  */
-export function showsBrowserOnlyControls(config) {
-  return activeFrameKind(config) === 'browser';
+export function showsBrowserOnlyControls(config, which = 'web') {
+  return activeFrameKind(config, which) === 'browser';
 }
 
 /** The browser URL pill's own text (core/config.js's `url`, Task 6's
  *  authorised core/ change). Raw pass-through, on purpose: normalise()
  *  already coerces an empty string to null, so this file doesn't need to
  *  duplicate that here — see core/config.js. */
-export function setUrl(config, value) {
-  config.url = value;
+export function setUrl(config, value, which = 'web') {
+  writeElement(config, which, { url: value });
 }
 
-export function activeUrl(config) {
-  return typeof config.url === 'string' ? config.url : '';
+export function activeUrl(config, which = 'web') {
+  const url = normalise(config).elements[which].url;
+  return typeof url === 'string' ? url : '';
 }
 
 // --- Finish ----------------------------------------------------------------
@@ -190,11 +220,6 @@ export function setShadowPercent(config, pct, which = 'web') {
 // correctly. The write side touches ONLY `config.elements[which]` - never
 // the flat field beside it. That asymmetry is deliberate: reading has to
 // honour every input shape, writing must have exactly one destination.
-function writeElement(config, which, patch) {
-  const prev = (config.elements && config.elements[which]) || {};
-  config.elements = { ...(config.elements || {}), [which]: { ...prev, ...patch } };
-}
-
 export function activeStrokeStyle(config, which = 'web') {
   return normalise(config).elements[which].stroke.style;
 }
@@ -354,6 +379,11 @@ function syncSliderFill(input, valueEl, text) {
 
 const FRAME_LABELS = { none: 'None', browser: 'Browser', phone: 'Phone' };
 
+// What the panel calls each element, in the header. 'Desktop' rather than
+// 'Web' because that is what the thing IS to someone looking at it; the
+// config's own name for it stays 'web'.
+const ELEMENT_LABELS = { web: 'Desktop', mobile: 'Phone' };
+
 /**
  * The Frame section: frameKind chips, the chrome-theme mini-segmented, and
  * the browser URL text field.
@@ -367,7 +397,9 @@ export function initFrameInspector(onFrameChange = null) {
   const section = document.getElementById('frameSection');
   if (!section) return null;
 
-  section.innerHTML = '<h2 class="section-label">Frame</h2>';
+  section.innerHTML =
+    '<h2 class="section-label">Frame<span class="section-subject" id="frameSubject"></span></h2>';
+  const subject = section.querySelector('#frameSubject');
 
   // --- frameKind chips -----------------------------------------------
   const chipRow = document.createElement('div');
@@ -432,16 +464,22 @@ export function initFrameInspector(onFrameChange = null) {
   section.appendChild(urlRow);
 
   function syncFrameUI() {
-    const kind = activeFrameKind(state.config);
+    const which = editingElement(state);
+    // The subject, said out loud. Two identical panels editing different
+    // objects is a trap, not a feature - and after Task 6 the panel really
+    // can be pointed at either one.
+    subject.textContent = ELEMENT_LABELS[which];
+
+    const kind = activeFrameKind(state.config, which);
     chips.forEach((btn) => {
       const active = btn.dataset.kind === kind;
       btn.classList.toggle('is-selected', active);
       btn.setAttribute('aria-pressed', String(active));
     });
-    const showsSecondary = showsBrowserOnlyControls(state.config);
+    const showsSecondary = showsBrowserOnlyControls(state.config, which);
     themeRow.hidden = !showsSecondary;
 
-    const theme = activeChromeTheme(state.config);
+    const theme = activeChromeTheme(state.config, which);
     themeButtons.forEach((btn) => {
       const active = btn.dataset.theme === theme;
       btn.classList.toggle('is-active', active);
@@ -452,13 +490,13 @@ export function initFrameInspector(onFrameChange = null) {
   }
 
   function syncUrlUI() {
-    const value = activeUrl(state.config);
+    const value = activeUrl(state.config, editingElement(state));
     if (document.activeElement !== urlInput) urlInput.value = value;
   }
 
   chips.forEach((btn) => {
     btn.addEventListener('click', () => {
-      setFrameKind(state.config, btn.dataset.kind);
+      setFrameKind(state.config, btn.dataset.kind, editingElement(state));
       syncFrameUI();
       // The Corner radius slider's BOUNDS depend on which frame is on, so a
       // frame change has to re-sync it or the slider keeps a range that no
@@ -471,14 +509,14 @@ export function initFrameInspector(onFrameChange = null) {
 
   themeButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
-      setChromeTheme(state.config, btn.dataset.theme);
+      setChromeTheme(state.config, btn.dataset.theme, editingElement(state));
       syncFrameUI();
       scheduleRender();
     });
   });
 
   urlInput.addEventListener('input', () => {
-    setUrl(state.config, urlInput.value);
+    setUrl(state.config, urlInput.value, editingElement(state));
     scheduleRender();
   });
 
@@ -503,7 +541,9 @@ export function initFinishInspector() {
   const section = document.getElementById('finishSection');
   if (!section) return null;
 
-  section.innerHTML = '<h2 class="section-label">Finish</h2>';
+  section.innerHTML =
+    '<h2 class="section-label">Finish<span class="section-subject" id="finishSubject"></span></h2>';
+  const finishSubject = section.querySelector('#finishSubject');
 
   // --- padding -------------------------------------------------------
   const padRow = document.createElement('div');
@@ -630,44 +670,49 @@ export function initFinishInspector() {
   section.appendChild(strokeColorRow);
 
   function syncStrokeUI() {
-    const style = activeStrokeStyle(state.config);
+    const which = editingElement(state);
+    const style = activeStrokeStyle(state.config, which);
     strokeButtons.forEach((btn) => {
       const active = btn.dataset.stroke === style;
       btn.classList.toggle('is-selected', active);
       btn.setAttribute('aria-pressed', String(active));
     });
-    strokeWidthRow.hidden = !showsStrokeWidth(state.config);
-    strokeColorRow.hidden = !showsStrokeColor(state.config);
+    strokeWidthRow.hidden = !showsStrokeWidth(state.config, which);
+    strokeColorRow.hidden = !showsStrokeColor(state.config, which);
 
-    const pct = activeStrokeWidthPercent(state.config);
+    const pct = activeStrokeWidthPercent(state.config, which);
     strokeWidthInput.value = String(pct);
     syncSliderFill(strokeWidthInput, strokeWidthValueEl, `${pct}%`);
 
-    const colour = activeStrokeColor(state.config);
+    const colour = activeStrokeColor(state.config, which);
     if (document.activeElement !== strokeColorInput) strokeColorInput.value = colour;
   }
 
   strokeButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
-      setStrokeStyle(state.config, btn.dataset.stroke);
+      setStrokeStyle(state.config, btn.dataset.stroke, editingElement(state));
       syncStrokeUI();
       scheduleRender();
     });
   });
 
   strokeWidthInput.addEventListener('input', () => {
-    setStrokeWidthPercent(state.config, strokeWidthInput.value);
+    setStrokeWidthPercent(state.config, strokeWidthInput.value, editingElement(state));
     syncStrokeUI();
     scheduleRender();
   });
 
   strokeColorInput.addEventListener('input', () => {
-    setStrokeColor(state.config, strokeColorInput.value);
+    setStrokeColor(state.config, strokeColorInput.value, editingElement(state));
     syncStrokeUI();
     scheduleRender();
   });
 
   function syncPadUI() {
+    // Padding is CANVAS-level, not per element - it is the safe area, and
+    // there is one of those. It stays here for now; Cycle C's panel split
+    // moves it to the left side where the rest of the canvas lives.
+    finishSubject.textContent = ELEMENT_LABELS[editingElement(state)];
     const pct = activePadPercent(state.config);
     padInput.value = String(pct);
     syncSliderFill(padInput, padValueEl, `${pct}%`);
@@ -677,11 +722,18 @@ export function initFinishInspector() {
     // The element's real composite width, from the layout core/ just
     // used. Null before the first render, and the helpers fall back to the
     // canvas width then — see activeRadiusPercent's comment.
-    const elementW = state.lay && state.lay.web ? state.lay.web.w : null;
-    const [min, max] = radiusRangeFor(state.config, 'web', elementW);
+    const which = editingElement(state);
+    // The width of the element being edited, from the layout core/ just
+    // used - a phone's composite is nothing like the web shot's, so reading
+    // `lay.web` for both would put the slider's bounds on the wrong object.
+    const box = which === 'mobile'
+      ? (state.lay && state.lay.phones && state.lay.phones[0])
+      : (state.lay && state.lay.web);
+    const elementW = box ? box.w : null;
+    const [min, max] = radiusRangeFor(state.config, which, elementW);
     radiusInput.min = String(min);
     radiusInput.max = String(max);
-    const pct = activeRadiusPercent(state.config, 'web', elementW);
+    const pct = activeRadiusPercent(state.config, which, elementW);
     radiusInput.value = String(pct);
     syncSliderFill(radiusInput, radiusValueEl, `${pct}%`);
   }
@@ -693,7 +745,7 @@ export function initFinishInspector() {
   }
 
   function syncShadowUI() {
-    const pct = activeShadowPercent(state.config);
+    const pct = activeShadowPercent(state.config, editingElement(state));
     shadowInput.value = String(pct);
     syncSliderFill(shadowInput, shadowValueEl, `${pct}%`);
   }
@@ -705,7 +757,7 @@ export function initFinishInspector() {
   });
 
   radiusInput.addEventListener('input', () => {
-    setRadiusPercent(state.config, radiusInput.value);
+    setRadiusPercent(state.config, radiusInput.value, editingElement(state));
     syncRadiusUI();
     scheduleRender();
   });
@@ -717,7 +769,7 @@ export function initFinishInspector() {
   });
 
   shadowInput.addEventListener('input', () => {
-    setShadowPercent(state.config, shadowInput.value);
+    setShadowPercent(state.config, shadowInput.value, editingElement(state));
     syncShadowUI();
     scheduleRender();
   });

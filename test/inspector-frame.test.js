@@ -6,6 +6,7 @@ import {
 } from '../core/index.js';
 import { state, bindCanvas, render } from '../web/state.js';
 import {
+  editingElement,
   activeFrameKind,
   setFrameKind,
   activeChromeTheme,
@@ -556,5 +557,70 @@ describe('stroke and shadow are written per element (Task 5)', () => {
     expect(showsStrokeColor(config, 'mobile')).toBe(true);
     expect(showsStrokeColor(config, 'web')).toBe(false);
     expect(showsStrokeWidth(config, 'web')).toBe(false);
+  });
+});
+
+// --- Cycle B Task 7: the inspector edits the SELECTED element ------------
+describe('the inspector edits the selected element (Task 7)', () => {
+  it('edits web by default', () => {
+    expect(editingElement({ selection: null, images: { web: {}, mobile: [] } })).toBe('web');
+  });
+
+  // The case that matters, and the reason "always web" is not good enough:
+  // a mobile-only shot has no web element at all, so a panel hard-wired to
+  // 'web' writes somewhere nothing reads. That is exactly the dead control
+  // Rock hit while testing Task 3.
+  it('edits mobile when that is the only thing on the canvas', () => {
+    expect(editingElement({ selection: null, images: { web: null, mobile: [{}] } }))
+      .toBe('mobile');
+  });
+
+  it('edits web when both are present and nothing is selected', () => {
+    expect(editingElement({ selection: null, images: { web: {}, mobile: [{}] } })).toBe('web');
+  });
+
+  it('an explicit selection wins over both', () => {
+    expect(editingElement({ selection: 'web', images: { web: null, mobile: [{}] } }))
+      .toBe('web');
+    expect(editingElement({ selection: 'mobile', images: { web: {}, mobile: [] } }))
+      .toBe('mobile');
+  });
+
+  it('survives a state with nothing in it', () => {
+    expect(editingElement({})).toBe('web');
+    expect(editingElement()).toBe('web');
+  });
+
+  it('writes the frame to the element named, and no other', () => {
+    const config = {};
+    setFrameKind(config, 'browser', 'mobile');
+    expect(config.elements.mobile.frameKind).toBe('browser');
+    expect(config.elements.web).toBeUndefined();
+    expect(config.frameKind).toBeUndefined();
+  });
+
+  it('reads back the element named, not always web', () => {
+    const config = { elements: { web: { frameKind: 'none' }, mobile: { frameKind: 'browser' } } };
+    expect(activeFrameKind(config, 'web')).toBe('none');
+    expect(activeFrameKind(config, 'mobile')).toBe('browser');
+    expect(showsBrowserOnlyControls(config, 'mobile')).toBe(true);
+    expect(showsBrowserOnlyControls(config, 'web')).toBe(false);
+  });
+
+  it('the chrome theme and url are per element too', () => {
+    const config = {};
+    setChromeTheme(config, 'light', 'mobile');
+    setUrl(config, 'phone.dev', 'mobile');
+    expect(activeChromeTheme(config, 'mobile')).toBe('light');
+    expect(activeUrl(config, 'mobile')).toBe('phone.dev');
+    expect(activeChromeTheme(config, 'web')).toBe('dark');
+    expect(activeUrl(config, 'web')).toBe('');
+  });
+
+  it('the corner radius follows the element as well', () => {
+    const config = {};
+    setRadiusPercent(config, 2, 'mobile');
+    expect(config.elements.mobile.radius).toBeGreaterThan(0);
+    expect(config.elements.web).toBeUndefined();
   });
 });
