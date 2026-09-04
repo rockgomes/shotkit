@@ -403,7 +403,10 @@ that still cannot act.
 **C — Background and palette.** Item 7's type-first restructure, the rendered
 preset tiles, a stronger ground palette, the dark ground, the accent colour,
 Angle (17), per-control Resets (18), and mesh's second hearing — mesh is
-judged again there, on a ground that can carry it, with a shot on top.
+judged again there, on a ground that can carry it, with a shot on top. It also
+carries the panel reorganisation and the luminosity slider that replaces
+`tone` — see "Cycle C's shape" near the end of this document, which is the
+detailed brief for all of it.
 
 **D — Shell.** Zoom and pan (15), new/close project (14), nameable custom
 sizes (13), export dropdown (16).
@@ -557,9 +560,12 @@ type-first Background rebuild, where sampled lives inside each type — a sample
 wants a rename, since "Light / Mid" stops making sense once a third option
 exists.
 
-Note the knock-on: `paintWeb` fills the screen with `#ffffff` behind the
-screenshot, and `paintShadow`'s alphas were verified against pale grounds. Both
-want re-checking against a near-black ground before it ships.
+Note the knock-on. Half of it is already closed: `paintWeb` used to fill the
+screen with `#ffffff` behind the screenshot, and Cycle A Task 4d removed every
+backing, so a near-black ground has nothing white to leak around the picture.
+The other half stands — `paintShadow`'s alphas were verified against pale
+grounds and want re-checking against a dark one. See "Tone becomes a
+luminosity slider" below, which makes that a requirement rather than a note.
 
 ## Carried forward — the accent colour
 
@@ -587,6 +593,106 @@ app currently says "active" with lightness alone.
 
 Any accent must clear the same bars Task 3b set: 3:1 as a component boundary,
 7:1 if it carries text, in both themes once the light theme exists.
+
+## Cycle C's shape — from Rock, 2026-09-03
+
+Brainstormed after Task 4 of Cycle B, and approved to be written down. This
+section is requirements, not notes.
+
+### The organising rule: left is the shot, right is the thing you clicked
+
+Controls are split by **what they belong to**, which is the same split Cycle
+B just made in the config — `c` is the canvas, `elements` is the things in
+the shot. The UI should say the same thing the data says.
+
+**Left — the shot as a whole**
+
+- Size: templates, ratios and custom
+- Background: type, presets, hue, angle, luminosity
+- Padding
+- Grain
+
+**Right — the selected element**
+
+- Frame (none / browser / phone), and the chrome theme and URL it gates
+- Corner radius
+- Stroke
+- Shadow
+
+Export stays where it is; it belongs to neither side.
+
+**Two of these are on the side they are, against first instinct.** Padding is
+the canvas's safe area and grain paints on the ground only (Cycle A Task 4b),
+so both are canvas properties however much they feel like finishing touches.
+Rock raised the split with both on the right and agreed the correction.
+
+**This lands AFTER Cycle B's selection model, not before.** Click-to-select is
+what gives the right panel a subject; a panel labelled "screenshot" that is
+editing something the user never chose is the defect this whole round exists
+to remove.
+
+The visible risk is that both sides get heavier and squeeze the canvas. The
+three items below are what pays for it.
+
+### Templates and ratios become one tabbed control
+
+They are already one decision — both write nothing but `w` and `h` — and today
+they read as two independent lists stacked on top of each other. Tabs make
+that truth visible, and showing one at a time is where most of the left
+panel's new space comes from.
+
+Custom size is the third tab, not a row hanging below them.
+
+### Background presets become rendered tiles
+
+Already required above under "Background, type-first"; restated here because
+it is load-bearing for the space budget. `.preset-swatch` is 14×14 today,
+which is why eight hues are indistinguishable, and a grid of ~44px tiles
+carries far more information per vertical pixel than a list of rows.
+
+**The tiles are rendered by the real generator into a small canvas.** Not
+approximated in CSS. That rule is not stylistic: CSS approximations are how
+the swatches came to lie about the sampled ground once before.
+
+### Tone becomes a luminosity slider
+
+`TONES` is `['light', 'mid']` and both branches are pale — "mid" means *less
+pale*, not dark. There is no dark ground anywhere in the tool, which is what
+Rock asked for on 2026-09-02, and the label has been misleading since round
+one. A continuous luminosity control removes a control, fixes the label, and
+reaches somewhere the current one cannot.
+
+**It replaces `tone` rather than joining it.** One value, one home — the rule
+Cycle B's element block was built on.
+
+**REQUIREMENT — the slider starts at the sampled value.** Sampling the
+screenshot is the product's premise, and Rock is explicit: *"being able to
+sample the image is our 'special sauce' and I'm not changing that. the idea
+is still to be streamlined, but giving people good controls too."*
+
+So the control behaves exactly as the ground hue already does: `null` means
+sampled, and the slider renders at the position `groundFor`'s own analysis
+chose. Touching it writes a value and makes it the user's. A slider that
+started at a fixed midpoint would throw the inference away on every shot,
+silently — which is the same failure as a preset that sets the hue but not
+the angle, one level up.
+
+Note what is being made continuous: today `groundFromMeta` picks a branch
+from `darkUI = lum < 0.34`, and the two branches sit at HSL lightness
+0.975/0.925/0.868 and 0.855/0.780/0.712. The slider spans those and continues
+down to roughly 0.15 for the near-black Rock asked for.
+
+**REQUIREMENT — the shadow is re-verified across the range, in Chromium.**
+`paintShadow`'s alphas were verified against pale grounds only. Two fixed
+tones meant two cases; a slider means the whole range has to hold, and the
+dark end is where a shadow stops reading. Measure it, do not assume it — and
+do not retune the alphas to fix it without saying so, given what happened the
+last time they were touched.
+
+The knock-on the earlier dark-ground note warned about is already gone:
+`paintWeb` no longer fills `#ffffff` behind the screenshot. Cycle A Task 4d
+removed every backing, so a near-black ground has nothing white to leak
+around the picture's edge.
 
 ## Out of scope
 
