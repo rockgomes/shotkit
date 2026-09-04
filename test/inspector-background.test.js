@@ -23,6 +23,7 @@ import {
   SEED_MIN,
   SEED_MAX,
   isSampledLuminosity,
+  isFullySampled,
   activeLuminosity,
   setLuminosity,
   resetLuminosityToSampled,
@@ -595,5 +596,48 @@ describe('mesh is withheld from the Background panel, not removed', () => {
     setMeshStops(config, 5);
     setMeshSpread(config, 120);
     expect(normalise(config).mesh).toEqual({ stops: 5, spread: 120 });
+  });
+});
+
+// --- "Sampled" means the WHOLE ground (Task 1, fix round 1) --------------
+//
+// Rock, on the preview: "I was hoping that clicking on 'sampled' would
+// reset everything, including luminosity. am I thinking wrong about it?" He
+// was not. The first version shipped a SECOND button also labelled
+// "Sampled" beside the luminosity slider, so two controls carried the same
+// word and meant different-sized things. "Sampled" is now the whole ground;
+// a single control's own reset is "Reset".
+describe('Sampled clears every override, not just the hue', () => {
+  it('resetToSampled clears hue AND luminosity', () => {
+    const config = {};
+    setHue(config, 200);
+    setLuminosity(config, 0.3);
+    expect(isFullySampled(config)).toBe(false);
+
+    resetToSampled(config);
+    expect(config.ground).toBeNull();
+    expect(config.luminosity).toBeNull();
+    expect(isFullySampled(config)).toBe(true);
+  });
+
+  it('is not fully sampled while EITHER is overridden', () => {
+    const hueOnly = {};
+    setHue(hueOnly, 200);
+    expect(isFullySampled(hueOnly)).toBe(false);
+
+    const lumOnly = {};
+    setLuminosity(lumOnly, 0.3);
+    // The half that was missing: a forced luminosity used to leave the
+    // Sampled row still claiming the ground came from the screenshot.
+    expect(isFullySampled(lumOnly)).toBe(false);
+  });
+
+  it('and the per-control reset still clears only its own control', () => {
+    const config = {};
+    setHue(config, 200);
+    setLuminosity(config, 0.3);
+    resetLuminosityToSampled(config);
+    expect(config.luminosity).toBeNull();
+    expect(forcedHueDeg(config)).toBe(200);   // the hue is untouched
   });
 });

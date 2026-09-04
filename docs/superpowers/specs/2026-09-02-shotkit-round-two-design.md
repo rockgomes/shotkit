@@ -699,6 +699,20 @@ from `darkUI = lum < 0.34`, and the two branches sit at HSL lightness
 0.975/0.925/0.868 and 0.855/0.780/0.712. The slider spans those and continues
 down to roughly 0.15 for the near-black Rock asked for.
 
+**REQUIREMENT — "Sampled" means the WHOLE ground.** Added 2026-09-04, from
+Rock on the first preview: *"I was hoping that clicking on 'sampled' would
+reset everything, including luminosity. am I thinking wrong about it?"*
+
+He was not. The first build shipped a second button also labelled "Sampled"
+beside the luminosity slider, so two controls carried the same word and meant
+different-sized things. The Sampled row clears every override the ground has
+— hue, luminosity, and anything sampled added later — and its swatch previews
+what clicking it would actually produce. A single control's own reset is
+"Reset", which is item 18's vocabulary and what Cycle D generalises.
+
+Anything sampled that is added later belongs in `resetToSampled`. That is
+what the word promises.
+
 **REQUIREMENT — the shadow is re-verified across the range, in Chromium.**
 `paintShadow`'s alphas were verified against pale grounds only. Two fixed
 tones meant two cases; a slider means the whole range has to hold, and the

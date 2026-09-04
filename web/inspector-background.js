@@ -91,8 +91,30 @@ export function setHue(config, deg) {
 
 /** Clears the override — "Sampled" is a real control, not just a label:
  *  clicking it hands the ground back to core/ground.js's own analysis. */
+/**
+ * Back to a fully sampled ground.
+ *
+ * IT CLEARS EVERY OVERRIDE, not just the hue, and that is Rock's call:
+ * *"I was hoping that clicking on 'sampled' would reset everything,
+ * including luminosity. am I thinking wrong about it?"* He was not - the
+ * first version of the luminosity slider shipped a second button also
+ * labelled "Sampled", which meant two controls with the same word on them
+ * doing different-sized things. "Sampled" means the whole ground comes from
+ * the screenshot; a single control's own reset is a different idea and is
+ * now labelled "Reset" (item 18's vocabulary, which Cycle D generalises).
+ *
+ * Anything sampled that is added later belongs in this function. That is
+ * what the word promises.
+ */
 export function resetToSampled(config) {
   config.ground = null;
+  config.luminosity = null;
+}
+
+/** Whether ANY part of the ground is currently overridden - what the
+ *  Sampled row's pressed state and the enabled/disabled call both read. */
+export function isFullySampled(config) {
+  return isAutoGround(config) && isSampledLuminosity(config);
 }
 
 export function setAngle(config, deg) {
@@ -427,7 +449,7 @@ export function initBackgroundInspector() {
   sampledRow.append(sampledStopsEl, sampledLabel);
   sampledRow.setAttribute(
     'aria-label',
-    'Sampled ground, derived automatically from the screenshot. Click to clear a manual hue override.',
+    'Sampled ground, derived automatically from the screenshot. Click to clear every manual override — hue and luminosity.',
   );
   section.appendChild(sampledRow);
 
@@ -593,7 +615,11 @@ export function initBackgroundInspector() {
   const lumReset = document.createElement('button');
   lumReset.type = 'button';
   lumReset.className = 'btn btn-ghost btn-mini';
-  lumReset.textContent = 'Sampled';
+  // "Reset", NOT "Sampled". The Sampled row at the top of this section
+  // clears the WHOLE ground; this clears one control. Two buttons reading
+  // "Sampled" and meaning different scopes is what Rock hit.
+  lumReset.textContent = 'Reset';
+  lumReset.setAttribute('aria-label', 'Reset luminosity to the sampled value');
   lumReset.setAttribute('aria-describedby', 'lumSampledState');
   lumResetRow.append(lumResetLabel, lumReset);
   section.appendChild(lumResetRow);
@@ -625,11 +651,19 @@ export function initBackgroundInspector() {
     // produce), but hue-locked to the true measured value (forceHue=null
     // keeps `meta.hue` — never the override) — see this file's header
     // comment on why `meta` here is NEVER `state.meta`.
-    const preview = groundFromMeta(meta, null, cfg.tone);
+    // `null` luminosity as well as `null` hue: this row previews what
+    // clicking it would ACTUALLY produce, and clicking it now clears both.
+    // Passing `cfg.luminosity` here would show the user's override in a
+    // swatch labelled "from screenshot".
+    const preview = groundFromMeta(meta, null, null);
     sampledStopEls.forEach((el, i) => { el.style.background = preview.ground[i]; });
     sampledSub.textContent = `from screenshot · ${Math.round(meta.hue)}°`;
-    sampledRow.classList.toggle('is-active', auto);
-    sampledRow.setAttribute('aria-pressed', String(auto));
+    // Active only when EVERYTHING is sampled - the row's claim is about the
+    // whole ground, so a forced luminosity makes it untrue just as a forced
+    // hue does.
+    const fully = isFullySampled(cfg);
+    sampledRow.classList.toggle('is-active', fully);
+    sampledRow.setAttribute('aria-pressed', String(fully));
 
     // Hue slider: the CURRENTLY EFFECTIVE hue — forced value if one is set,
     // else the sampled reading above (never `state.meta`, which already
@@ -700,6 +734,10 @@ export function initBackgroundInspector() {
 
   sampledRow.addEventListener('click', () => {
     resetToSampled(state.config);
+    // It clears luminosity too now, so that control has to be re-synced -
+    // otherwise the slider keeps showing the value it no longer holds,
+    // which is the exact failure mode of Cycle A's shadow slider.
+    syncLuminosityUI();
     syncGroundUI();
     scheduleRender();
   });
