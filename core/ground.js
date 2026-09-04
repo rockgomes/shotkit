@@ -1,3 +1,8 @@
+import {
+  LUM_ANCHOR_LIGHT, LUM_ANCHOR_MID, LUM_K1_RANGE, LUM_K2_RANGE,
+  LUM_SAT_RANGE, LUMINOSITY_RANGE,
+} from './presets.js';
+
 /**
  * ground.js - derive a background from the product screenshot itself.
  *
@@ -147,36 +152,57 @@ function analyse(samples) {
  * refactor: test/ground.test.js's existing assertions (goldens, overrides,
  * the neutral-image fallback) are unmodified and still pass.
  */
-function tail({ lum, hue, chroma }, forceHue, mode) {
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+function tail({ lum, hue, chroma }, forceHue, luminosity) {
   if (forceHue !== null && forceHue !== undefined) hue = forceHue / 360;
 
-  let darkUI = lum < 0.34;
-  if (mode === 'light') darkUI = false;
-  if (mode === 'mid') darkUI = true;
+  // SAMPLED IS STILL SAMPLED, and that is the product's premise rather than
+  // a default worth changing. `null` runs the same inference it always did
+  // - a dark UI gets a less-pale ground so the shot separates from it - and
+  // lands on one of the two anchors, which is why a config that never
+  // mentions luminosity renders byte-for-byte what it always did and why no
+  // frozen golden moves.
+  const darkUI = lum < 0.34;
+  const l = luminosity === null || luminosity === undefined
+    ? (darkUI ? LUM_ANCHOR_MID.l : LUM_ANCHOR_LIGHT.l)
+    : clamp(luminosity, LUMINOSITY_RANGE[0], LUMINOSITY_RANGE[1]);
 
   const sat = 0.16 + 0.26 * Math.min(chroma * 1.6, 1);   // never fully saturated
 
-  const ground = darkUI
-    // MID-TONE ground. This is what gives a dark UI its edge.
-    ? [hslToHex(hue, sat * 0.42, 0.855),
-       hslToHex(hue, sat * 0.40, 0.780),
-       hslToHex(hue, sat * 0.44, 0.712)]
-    // pale tint, brightest toward the top-left light source
-    : [hslToHex(hue, sat * 0.55, 0.975),
-       hslToHex(hue, sat * 0.62, 0.925),
-       hslToHex(hue, sat * 0.66, 0.868)];
+  // `t` is 0 at the light anchor and 1 at the mid one, and keeps going past
+  // both. At exactly 0 and exactly 1 every mix() below returns its anchor
+  // UNCHANGED - not approximately - which is what makes the two grounds
+  // that ship today reproducible to the last bit.
+  const t = (LUM_ANCHOR_LIGHT.l - l) / (LUM_ANCHOR_LIGHT.l - LUM_ANCHOR_MID.l);
+  const mix = (a, b) => a + (b - a) * t;
+
+  const k1 = clamp(mix(LUM_ANCHOR_LIGHT.k1, LUM_ANCHOR_MID.k1), ...LUM_K1_RANGE);
+  const k2 = clamp(mix(LUM_ANCHOR_LIGHT.k2, LUM_ANCHOR_MID.k2), ...LUM_K2_RANGE);
+  const s = [0, 1, 2].map(i =>
+    clamp(mix(LUM_ANCHOR_LIGHT.sat[i], LUM_ANCHOR_MID.sat[i]), ...LUM_SAT_RANGE));
+
+  const ground = [
+    hslToHex(hue, sat * s[0], l),
+    hslToHex(hue, sat * s[1], l * k1),
+    hslToHex(hue, sat * s[2], l * k2),
+  ];
 
   return {
     ground,
     lum: Math.round(lum * 1000) / 1000,
     hue: Math.round(hue * 360 * 10) / 10,
     chroma: Math.round(chroma * 1000) / 1000,
+    // The SAMPLED inference, not the override. It still drives the panel's
+    // "a dark screenshot gets a mid-tone ground" hint, and a caller that
+    // wants to know what was actually used reads `luminosity` below.
     darkUI,
+    luminosity: l,
   };
 }
 
-export function groundFor(samples, forceHue = null, mode = null) {
-  return tail(analyse(samples), forceHue, mode);
+export function groundFor(samples, forceHue = null, luminosity = null) {
+  return tail(analyse(samples), forceHue, luminosity);
 }
 
 /**
@@ -203,6 +229,6 @@ export function groundFor(samples, forceHue = null, mode = null) {
  * "groundFromMeta reproduces groundFor" case for the equivalence proof that
  * makes this shortcut safe to rely on.
  */
-export function groundFromMeta(meta, forceHue = null, mode = null) {
-  return tail({ lum: meta.lum, hue: (meta.hue ?? 0) / 360, chroma: meta.chroma }, forceHue, mode);
+export function groundFromMeta(meta, forceHue = null, luminosity = null) {
+  return tail({ lum: meta.lum, hue: (meta.hue ?? 0) / 360, chroma: meta.chroma }, forceHue, luminosity);
 }

@@ -30,7 +30,7 @@
 //
 // PERFORMANCE: none of frameKind/chromeTheme/url/pad/radius/grain/
 // shadowScale is part of web/state.js's `groundKeyFor` (images +
-// config.ground + config.tone only) — every control in this file hits the
+// config.ground + config.luminosity only) — every control in this file hits the
 // warm ~3ms colour cache, never groundFor's ~90-200ms analysis. shadowScale
 // (Task 6b) has nothing to do with the sampled ground even in principle — a
 // shadow multiplier over a fixed rgba colour — so it belongs in this list
@@ -530,7 +530,7 @@ export function initFrameInspector(onFrameChange = null) {
  * The Finish section: padding, corner radius, grain, shadow — the task
  * brief's own order, with Shadow (Task 6b) slotted in right after Grain:
  * both are "material" finishing touches over the composed shot rather than
- * layout, and neither touches `config.ground` or `config.tone`, so none of
+ * layout, and neither touches `config.ground` or `config.luminosity`, so none of
  * these four busts web/state.js's ground-meta cache; see this file's header
  * comment and test/inspector-frame.test.js. Fit and Caption used to open
  * and close this section; Cycle A Task 4 retired both. Task 7 adds Stroke

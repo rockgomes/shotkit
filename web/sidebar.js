@@ -188,16 +188,16 @@ function hslToRgbByte(h, s, l) {
 }
 
 /** The one hue a caller SEES matches the hue it FORCED, always — `tone`
- *  is `state.config.tone` (null/'light'/'mid'), the exact same value
+ *  is `state.config.luminosity` (null = sampled, else a number), the exact same value
  *  composeWithMeta reads as `c.tone` — so a swatch previews not just the
  *  right hue but the right BRANCH of groundFor for whatever tone override
  *  (if any) is currently active, matching exactly what clicking the swatch
  *  would produce. */
-export function gradientFor(hueName, meta, tone) {
+export function gradientFor(hueName, meta, luminosity) {
   const hueDeg = HUES[hueName];
   const { ground } = meta
-    ? groundFromMeta(meta, hueDeg, tone)
-    : groundFor([{ width: 1, height: 1, data: [...hslToRgbByte(hueDeg, 0.5, 0.7), 255] }], hueDeg, tone);
+    ? groundFromMeta(meta, hueDeg, luminosity)
+    : groundFor([{ width: 1, height: 1, data: [...hslToRgbByte(hueDeg, 0.5, 0.7), 255] }], hueDeg, luminosity);
   return `linear-gradient(135deg, ${ground[0]}, ${ground[1]}, ${ground[2]})`;
 }
 
@@ -241,7 +241,7 @@ export function renderGroundSwatches(listEl, onSelect) {
     const swatch = document.createElement('span');
     swatch.className = 'preset-swatch';
     swatch.setAttribute('aria-hidden', 'true');
-    swatch.style.background = gradientFor(name, state.meta, state.config.tone);
+    swatch.style.background = gradientFor(name, state.meta, state.config.luminosity);
     btn.append(swatch, titleCase(name));
     btn.addEventListener('click', () => {
       selectGround(state.config, name);

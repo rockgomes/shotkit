@@ -82,7 +82,7 @@ So, for every assertion added below:
 
 Cycle B learned that GitHub will not open a pull request on a branch with no commits, so this folds into Task 1: branch first, do Task 1's work, commit, then open the PR with it.
 
-- [ ] **Step 1: Branch from an up-to-date main**
+- [x] **Step 1: Branch from an up-to-date main**
 
 ```bash
 git checkout main && git pull --ff-only && git checkout -b feat/cycle-c
@@ -136,7 +136,7 @@ EOF
 
 **The whole task in one sentence:** `null` must reproduce today's output byte for byte, and a number must reach somewhere today cannot.
 
-- [ ] **Step 1: Understand the two triples you are interpolating between**
+- [x] **Step 1: Understand the two triples you are interpolating between**
 
 `tail()` in `core/ground.js` produces one of two hard-coded ground triples, chosen by `darkUI = lum < 0.34` and overridable by `mode`:
 
@@ -176,7 +176,7 @@ export const LUMINOSITY_RANGE = [0.15, 0.975];
 
 **The acceptance test is exactness, not closeness.** At `t = 0` and `t = 1` — that is, at luminosity 0.975 and 0.855 — the interpolation must return the two triples above *identically*, so that `luminosity: null` renders byte-for-byte what ships today. The ratios above are written as divisions, not decimals, precisely so this holds to the last bit.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Add to `test/ground.test.js`:
 
@@ -246,12 +246,12 @@ describe('luminosity replaces tone (Cycle C Task 1)', () => {
 
 Use `test/ground.test.js`'s own existing sample fixtures and frozen expectations rather than inventing new ones — that file already has a pale case and a dark-UI case with golden values, and reusing them is what makes the first three assertions meaningful.
 
-- [ ] **Step 3: Run and watch them fail**
+- [x] **Step 3: Run and watch them fail**
 
 Run: `npx vitest run test/ground.test.js -t 'luminosity replaces tone'`
 Expected: every one FAILS. `groundFor`'s third argument is a mode string today, so a number falls through every `if` and lands on the sampled branch — which means the "reaches a dark ground" and "monotonic" cases fail on the values, not on a crash. Confirm that specifically; a crash would prove less.
 
-- [ ] **Step 4: Rewrite `tail()`**
+- [x] **Step 4: Rewrite `tail()`**
 
 ```js
 function tail({ lum, hue, chroma }, forceHue, luminosity) {
@@ -300,7 +300,7 @@ function tail({ lum, hue, chroma }, forceHue, luminosity) {
 
 **Watch the saturation at the dark end.** `s` extrapolates past the mid anchor and the mid triple's multipliers are *lower* than the light one's, so a near-black ground gets progressively less chroma — the opposite of what it needs to avoid reading as flat grey. If the dark end looks muddy, clamp `s` with its own range rather than reworking the model, and record the measurement that made you.
 
-- [ ] **Step 5: Replace `tone` in the config and the panel**
+- [x] **Step 5: Replace `tone` in the config and the panel**
 
 `core/config.js`: `tone` is deleted, not deprecated. `luminosity: input.luminosity === undefined ? null : num(input.luminosity, null)`, clamped into `LUMINOSITY_RANGE` when not null.
 
@@ -308,7 +308,27 @@ function tail({ lum, hue, chroma }, forceHue, luminosity) {
 
 The hint text under the control must change with it. It currently says a dark screenshot gets a mid-tone ground; that is still true of the sampled default and is now only the default.
 
-- [ ] **Step 6: Run everything and check the goldens**
+> **Corrected during execution.** Three things.
+>
+> 1. The saturation multipliers needed their own clamp (`LUM_SAT_RANGE`),
+>    as the step warned they might: the mid anchor's are LOWER than the
+>    light one's, so extrapolating past it drains chroma exactly where a
+>    dark ground most needs to keep a hue. Measured at luminosity 0.15 with
+>    the clamp: `#20232c / #1c1e26 / #181b22` — blue-leaning, not grey.
+> 2. `Math.max(LUMINOSITY_RANGE[0], null)` returns the FLOOR, so a garbage
+>    value would have silently produced the darkest ground instead of
+>    falling back to sampled. Guarded, and the old "BREAK IT" test was
+>    re-aimed at exactly this.
+> 3. **The slider sat at the wrong place, and only the browser showed it.**
+>    It is built before any image exists, syncs once at init against a null
+>    `state.meta`, and so sat at the pale anchor over a dark screenshot
+>    whose sampled ground was the mid one — the requirement of this whole
+>    task, silently unmet with every test green. Same shape as Cycle B Task
+>    7's header reading "Desktop" over a phone-only shot. It re-syncs from
+>    `refreshSampled` now. Not unit-tested: `initBackgroundInspector` needs
+>    a DOM and this suite has none. Verified in Chromium instead.
+
+- [x] **Step 6: Run everything and check the goldens**
 
 ```bash
 npx vitest run && git status --short test/golden
@@ -316,7 +336,7 @@ npx vitest run && git status --short test/golden
 
 Expected: PASS, and **no golden modified.** Every golden omits `tone`, so every one takes the sampled branch, so every one must be byte-identical. A moved golden here means the interpolation does not reproduce its anchors and the whole cycle's foundation is wrong.
 
-- [ ] **Step 7: Commit, open the PR, deploy, and STOP**
+- [x] **Step 7: Commit, open the PR, deploy, and STOP**
 
 Then tell Rock:
 

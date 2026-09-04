@@ -36,8 +36,9 @@
 // could drift apart. See "syncGroundUI" below for how that single value
 // drives every visual in this panel at once.
 import {
-  HUES, TONES, BG_TYPES, DEFAULT_ANGLE, DEFAULTS, groundFor, groundFromMeta,
+  HUES, BG_TYPES, DEFAULT_ANGLE, DEFAULTS, groundFor, groundFromMeta,
   MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
+  LUMINOSITY_RANGE, LUM_ANCHOR_LIGHT, LUM_ANCHOR_MID,
 } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
 import { activeGroundKey, renderGroundSwatches } from './sidebar.js';
@@ -190,16 +191,45 @@ export function setMeshSpread(config, deg) {
   };
 }
 
-/** `tone` is 'auto' | 'light' | 'mid' from the UI; `config.tone` (what
- *  core/ actually reads) is null | 'light' | 'mid' — 'auto' IS null, not a
- *  string core/config.js would recognise (TONES, imported above, is only
- *  `['light', 'mid']`). */
-export function setTone(config, tone) {
-  config.tone = TONES.includes(tone) ? tone : null;
+// --- Luminosity (Cycle C Task 1) -----------------------------------------
+//
+// This was `tone`, a three-cell segmented over Auto / Light / Mid. Both of
+// those branches were pale - "Mid" meant LESS PALE - so the tool had no
+// dark ground at all, which is what Rock asked for.
+//
+// IT BEHAVES LIKE THE HUE CONTROL, and that is the requirement rather than
+// a convenience: `null` means SAMPLED, and the slider renders at whatever
+// position core/ground.js's own inference chose for this screenshot.
+// Touching it writes a number and makes it the user's. A slider that
+// started at a fixed midpoint would throw that inference away on every
+// shot, silently - and sampling the image is the product's premise, not a
+// default worth overwriting.
+export function isSampledLuminosity(config) {
+  return config.luminosity === null || config.luminosity === undefined;
 }
 
-export function activeToneUi(config) {
-  return TONES.includes(config.tone) ? config.tone : 'auto';
+/** The luminosity to SHOW: the user's if they set one, otherwise the value
+ *  the sampled inference actually used. `meta.luminosity` comes back from
+ *  every groundFor/groundFromMeta call (core/ground.js), so the slider can
+ *  sit on the sampled position without re-deriving the inference here. */
+export function activeLuminosity(config, meta = null) {
+  if (!isSampledLuminosity(config)) return config.luminosity;
+  if (meta && Number.isFinite(meta.luminosity)) return meta.luminosity;
+  // No render yet: the pale anchor, which is what an unanalysed image gets.
+  return LUM_ANCHOR_LIGHT.l;
+}
+
+export function setLuminosity(config, value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return;
+  config.luminosity = Math.min(LUMINOSITY_RANGE[1],
+                               Math.max(LUMINOSITY_RANGE[0], n));
+}
+
+/** Back to sampled. `null`, not a number that happens to equal the sampled
+ *  one - the difference is whether the ground follows the NEXT screenshot. */
+export function resetLuminosityToSampled(config) {
+  config.luminosity = null;
 }
 
 // ---------------------------------------------------------------------
@@ -222,7 +252,7 @@ export function activeToneUi(config) {
 //     composeWithMeta computes its own UNFORCED meta (same 800px thumbnail
 //     step, same groundFor call with forceHue=null/mode=null).
 // `createSampledCache` (below) wraps whichever path applies in a cache
-// keyed on image identity ONLY (never on config.ground/config.tone), so
+// keyed on image identity ONLY (never on config.ground/config.luminosity), so
 // neither path re-runs on every hue/tone/type/angle tick — only when the
 // loaded image SET actually changes.
 //
@@ -537,40 +567,42 @@ export function initBackgroundInspector() {
   const spreadValueEl = spreadRow.querySelector('.slider-value');
   section.appendChild(spreadRow);
 
-  // --- Tone -----------------------------------------------------------
-  // Labelled deliberately so the RULE reads, not a vibe: a dark UI gets a
-  // MID-TONE ground (never a dark one) so the shot separates from it — see
-  // core/ground.js's own header comment. "Light"/"Mid" here force one of
-  // those two branches regardless of the screenshot's own luminance;
-  // "Auto" is the default (infer from the screenshot, per-image).
-  const toneLabelRow = document.createElement('div');
-  toneLabelRow.className = 'slider-label';
-  toneLabelRow.innerHTML = '<span>Ground tone</span>';
-  section.appendChild(toneLabelRow);
+  // --- Luminosity (Cycle C Task 1) -------------------------------------
+  // Was a three-cell "Ground tone" segmented, Auto / Light / Mid. Both of
+  // those were pale; this reaches a genuinely dark ground, and starts on
+  // the sampled value rather than a fixed midpoint.
+  const lumRow = document.createElement('div');
+  lumRow.className = 'slider-row';
+  lumRow.innerHTML =
+    '<div class="slider-label"><span>Luminosity</span><span class="mono slider-value"></span></div>';
+  const lumInput = document.createElement('input');
+  lumInput.type = 'range';
+  lumInput.className = 'slider';
+  lumInput.min = String(LUMINOSITY_RANGE[0]);
+  lumInput.max = String(LUMINOSITY_RANGE[1]);
+  lumInput.step = '0.005';
+  lumInput.setAttribute('aria-label', "Ground luminosity — how light or dark the background is");
+  lumRow.appendChild(lumInput);
+  const lumValueEl = lumRow.querySelector('.slider-value');
+  section.appendChild(lumRow);
 
-  const toneSegmented = document.createElement('div');
-  toneSegmented.className = 'segmented segmented--mini';
-  toneSegmented.setAttribute('role', 'group');
-  toneSegmented.setAttribute('aria-label', 'Ground tone override');
-  const TONE_UI = ['auto', 'light', 'mid'];
-  const TONE_LABELS = { auto: 'Auto', light: 'Light', mid: 'Mid' };
-  const toneButtons = TONE_UI.map((tone) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'segmented-cell';
-    btn.dataset.tone = tone;
-    btn.textContent = TONE_LABELS[tone];
-    btn.setAttribute('aria-pressed', 'false');
-    toneSegmented.appendChild(btn);
-    return btn;
-  });
-  section.appendChild(toneSegmented);
+  const lumResetRow = document.createElement('div');
+  lumResetRow.className = 'inline-control-row';
+  const lumResetLabel = document.createElement('span');
+  lumResetLabel.id = 'lumSampledState';
+  const lumReset = document.createElement('button');
+  lumReset.type = 'button';
+  lumReset.className = 'btn btn-ghost btn-mini';
+  lumReset.textContent = 'Sampled';
+  lumReset.setAttribute('aria-describedby', 'lumSampledState');
+  lumResetRow.append(lumResetLabel, lumReset);
+  section.appendChild(lumResetRow);
 
-  const toneHint = document.createElement('p');
-  toneHint.className = 'control-hint';
-  toneHint.textContent =
-    'A dark screenshot gets a mid-tone ground, never a dark one, so the shot still separates from it — this is a correctness rule, not a mood setting.';
-  section.appendChild(toneHint);
+  const lumHint = document.createElement('p');
+  lumHint.className = 'control-hint';
+  lumHint.textContent =
+    'Sampled by default: a dark screenshot gets a less-pale ground so the shot still separates from it. Move the slider and it becomes yours until you press Sampled.';
+  section.appendChild(lumHint);
 
   // -----------------------------------------------------------------------
   // Sync functions: each updates exactly the DOM this panel's own state
@@ -655,13 +687,13 @@ export function initBackgroundInspector() {
     seedPlus.disabled = seed >= SEED_MAX;
   }
 
-  function syncToneUI() {
-    const tone = activeToneUi(state.config);
-    toneButtons.forEach((btn) => {
-      const active = btn.dataset.tone === tone;
-      btn.classList.toggle('is-active', active);
-      btn.setAttribute('aria-pressed', String(active));
-    });
+  function syncLuminosityUI() {
+    const sampled = isSampledLuminosity(state.config);
+    const l = activeLuminosity(state.config, state.meta);
+    lumInput.value = String(l);
+    syncSliderFill(lumInput, lumValueEl, `${Math.round(l * 100)}%`);
+    lumResetLabel.textContent = sampled ? 'From screenshot' : 'Overridden';
+    lumReset.disabled = sampled;
   }
 
   // --- Event wiring -----------------------------------------------------
@@ -678,7 +710,7 @@ export function initBackgroundInspector() {
     scheduleRender();
   });
 
-  // Angle NEVER touches `config.ground`/`config.tone` — web/state.js's
+  // Angle NEVER touches `config.ground`/`config.luminosity` — web/state.js's
   // groundKeyFor (its cache key) doesn't read `angle` at all, so this is
   // the one slider in this panel guaranteed to hit the warm cache on every
   // drag tick rather than re-running core/ground.js's analyse() pass. See
@@ -726,22 +758,27 @@ export function initBackgroundInspector() {
     scheduleRender();
   });
 
-  toneButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      setTone(state.config, btn.dataset.tone);
-      syncToneUI();
-      // Tone changes what every preset AND the Sampled swatch preview to
-      // (groundFromMeta's darkUI branch) even though it changes no hue —
-      // both need a refresh here, not just the tone row itself.
-      syncGroundUI();
-      scheduleRender();
-    });
+  // Luminosity changes what every preset AND the Sampled swatch preview to,
+  // even though it changes no hue - the presets are rendered at the current
+  // luminosity, so both need a refresh here, not just this row.
+  lumInput.addEventListener('input', () => {
+    setLuminosity(state.config, lumInput.value);
+    syncLuminosityUI();
+    syncGroundUI();
+    scheduleRender();
+  });
+
+  lumReset.addEventListener('click', () => {
+    resetLuminosityToSampled(state.config);
+    syncLuminosityUI();
+    syncGroundUI();
+    scheduleRender();
   });
 
   syncGroundUI();
   syncAngleUI();
   syncTypeUI();
-  syncToneUI();
+  syncLuminosityUI();
 
   // Returned so web/main.js can tell this panel to re-derive "Sampled" the
   // moment a screenshot decodes (see web/main.js's `handleFiles`). It also
@@ -751,6 +788,14 @@ export function initBackgroundInspector() {
   return {
     refreshSampled: () => {
       sampledCache.invalidate(); // force the next refresh() below to recompute
+      // AND the luminosity slider, which sits on the SAMPLED position when
+      // nothing is set - so a new screenshot moves it. Missing this was a
+      // real bug, caught by looking: the slider is built before any image
+      // exists, syncs once at init against a null `state.meta`, and so sat
+      // at the pale anchor over a dark screenshot whose sampled ground was
+      // the mid one. Same shape as Cycle B Task 7's panel header reading
+      // "Desktop" over a phone-only shot - a sync that only runs at init.
+      syncLuminosityUI();
       syncGroundUI();
     },
   };

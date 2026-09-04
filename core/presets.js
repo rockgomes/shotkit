@@ -21,7 +21,7 @@ export const DEFAULTS = {
   phoneBleed: 0.10,
   url: null,           // browser URL pill text - null means the pill stays
                         // empty (see URL_PILL_FONT_RATIO below and Task 6)
-  tone: null,          // null | 'light' | 'mid'
+  luminosity: null,    // null = sampled; else the ground's top-stop lightness
   bgType: 'linear',    // 'linear' | 'solid' | 'mesh'
   seed: 1,
   shadowScale: 1,      // 1 = frame.html's own alphas, unchanged - see
@@ -209,10 +209,12 @@ export const SCALES = [1, 2, 3];
 // and falls back to the existing web/mobile/web+mobile inference.
 export const LAYOUTS = ['web', 'mobile', 'web+mobile'];
 
-// Valid `tone` overrides for the ground's light/dark call. Anything else
-// falls back to DEFAULTS.tone (null - infer from the screenshot's own
-// luminance).
-export const TONES = ['light', 'mid'];
+// `TONES` used to live here - ['light', 'mid'], the two branches of
+// core/ground.js's light/dark call. Cycle C replaced it with a continuous
+// `luminosity`, because both branches were pale and the tool had no dark
+// ground at all; see LUM_ANCHOR_LIGHT / LUM_ANCHOR_MID at the end of this
+// file, which are those same two branches kept as the anchors the slider
+// interpolates between.
 
 // Valid `bgType` values - which ground painter core/render.js's paintGround
 // dispatches to. Anything else falls back to DEFAULTS.bgType ('linear').
@@ -307,3 +309,53 @@ export const BROWSER_RADIUS_RANGE = [0, 0.05];
 // 0.04 the body reads as a tablet bezel; at 0.25 the corner arcs meet and
 // the shape stops being a rectangle at all, so 0.24 is the ceiling.
 export const PHONE_RADIUS_RANGE = [0.04, 0.24];
+
+// --- Ground luminosity (Cycle C) ----------------------------------------
+//
+// `TONES` was ['light', 'mid'] and BOTH branches are pale - "mid" means
+// LESS PALE, not dark. There was no dark ground anywhere in the tool, which
+// is what Rock asked for: "by dark I mean like a black (or near black)
+// option." The label had been misleading since round one.
+//
+// So the two branches become ANCHORS that a single continuous luminosity
+// interpolates between and extrapolates past. `luminosity` is the TOP
+// stop's HSL lightness; the two stops below follow by RATIO.
+//
+// RATIOS AND NOT DIFFERENCES, deliberately. The light branch's stops sit
+// 0.050 and 0.107 below its top; extrapolate those gaps below a top stop of
+// 0.15 and the third stop is negative. A ratio cannot go below zero however
+// far it is pushed.
+//
+// The ratios are written as divisions rather than as decimals so that
+// asking for an anchor's exact luminosity returns that anchor's exact
+// triple - to the last bit, not to within a rounding error. That is what
+// lets `luminosity: null` reproduce today's output byte for byte, which is
+// in turn what lets every frozen golden stay unchanged.
+export const LUM_ANCHOR_LIGHT = {
+  l: 0.975,
+  k1: 0.925 / 0.975,
+  k2: 0.868 / 0.975,
+  sat: [0.55, 0.62, 0.66],
+};
+export const LUM_ANCHOR_MID = {
+  l: 0.855,
+  k1: 0.780 / 0.855,
+  k2: 0.712 / 0.855,
+  sat: [0.42, 0.40, 0.44],
+};
+
+// Clamps on the extrapolation. Unclamped, the ratios keep falling and the
+// lower stops collapse toward the top one long before the slider reaches
+// its own floor, which would turn a dark ground into a flat block.
+export const LUM_K1_RANGE = [0.86, 0.96];
+export const LUM_K2_RANGE = [0.76, 0.92];
+
+// The saturation multipliers extrapolate too, and the mid anchor's are
+// LOWER than the light one's - so without a floor a near-black ground would
+// drift toward grey exactly where it most needs to keep a hue.
+export const LUM_SAT_RANGE = [0.38, 0.70];
+
+// The slider's own bounds. 0.975 is the palest ground the tool has ever
+// produced and nothing above it is useful (a lighter ground is white);
+// 0.15 is the near-black end Rock asked for.
+export const LUMINOSITY_RANGE = [0.15, 0.975];

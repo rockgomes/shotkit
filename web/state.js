@@ -109,7 +109,7 @@ export function bindCanvas(el, canvasFactory = defaultMakeCanvas) {
 // every time it runs — measured, ~200ms of a ~216ms full render; layout,
 // painting and grain together are single-digit ms. Padding, radius, angle,
 // frame, shadow etc. never touch it — only the images themselves,
-// `config.ground` (which normalise() turns into forceHue) and `config.tone`
+// `config.ground` (which normalise() turns into forceHue) and `config.luminosity`
 // do.
 //
 // core/'s composeWithMeta now accepts an optional precomputed `meta` (Task 2
@@ -148,7 +148,7 @@ let metaCache = null; // { key, meta } | null
  *  point of caching groundFor's result at all. */
 function groundKeyFor(images, config) {
   const mobileIds = images.mobile.map((m) => m.__id).join(',');
-  return `${images.web ? images.web.__id : ''}|${mobileIds}|${config.ground ?? ''}|${config.tone ?? ''}`;
+  return `${images.web ? images.web.__id : ''}|${mobileIds}|${config.ground ?? ''}|${config.luminosity ?? ''}`;
 }
 
 /**

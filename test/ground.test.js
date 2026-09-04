@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { groundFor, groundFromMeta } from '../core/ground.js';
-import { HUES } from '../core/presets.js';
+import { HUES, LUMINOSITY_RANGE, LUM_ANCHOR_LIGHT, LUM_ANCHOR_MID } from '../core/presets.js';
+import { normalise } from '../core/config.js';
 
 const goldens = JSON.parse(readFileSync('test/golden/ground.json', 'utf8'));
 
@@ -169,24 +170,31 @@ describe('groundFor overrides', () => {
     expect(g.hue).toBeCloseTo(268, 1);
   });
 
-  it('tone "mid" forces the mid-tone ground', async () => {
-    // fieldset.png's natural darkUI is false (lum 0.973), so forcing "mid"
-    // (darkUI true) genuinely exercises the override.
-    const g = await groundFor([await sample('samples/fieldset.png')], null, 'mid');
-    expect(g.darkUI).toBe(true);
+  // CYCLE C TASK 1: the third argument is a LUMINOSITY, not a tone string.
+  // These used to assert `darkUI`, which was both the inference and the
+  // override; it is now only the inference, and the override is the
+  // luminosity itself. So they assert the ground that comes out - which is
+  // the product-visible thing and a stricter claim than the flag ever was.
+  it('an explicit luminosity overrides the pale inference', async () => {
+    // fieldset.png's natural darkUI is false (lum 0.973), so it samples to
+    // the pale anchor. Asking for the mid anchor must genuinely move it.
+    const s = await sample('samples/fieldset.png');
+    const sampled = groundFor([s], null, null);
+    const forced = groundFor([s], null, LUM_ANCHOR_MID.l);
+    expect(forced.ground).not.toEqual(sampled.ground);
+    expect(forced.luminosity).toBeCloseTo(LUM_ANCHOR_MID.l, 12);
   });
 
-  it('tone "light" forces the pale ground', async () => {
-    // Must use a sample whose NATURAL darkUI is true, or this assertion
-    // can't fail: fieldset.png's natural darkUI is already false, so
-    // deleting the `mode === 'light'` branch from core/ground.js entirely
-    // would leave that version of this test green. karaoke-web.png's
-    // natural darkUI is true (lum 0.096), so forcing "light" only passes if
-    // the override actually flips it - verified by temporarily commenting
-    // out the `mode === 'light'` branch in core/ground.js and confirming
-    // this assertion fails (darkUI stayed true) before restoring it.
-    const g = await groundFor([await sample('samples/karaoke-web.png')], null, 'light');
-    expect(g.darkUI).toBe(false);
+  it('and overrides the dark-UI inference the other way', async () => {
+    // Must use a sample whose NATURAL darkUI is true, or the assertion
+    // cannot fail. karaoke-web.png's natural darkUI is true (lum 0.096), so
+    // it samples to the mid anchor and asking for the pale one moves it.
+    const s = await sample('samples/karaoke-web.png');
+    const sampled = groundFor([s], null, null);
+    const forced = groundFor([s], null, LUM_ANCHOR_LIGHT.l);
+    expect(sampled.darkUI).toBe(true);
+    expect(forced.ground).not.toEqual(sampled.ground);
+    expect(forced.luminosity).toBeCloseTo(LUM_ANCHOR_LIGHT.l, 12);
   });
 
   it('falls back to neutral on a blank image', async () => {
@@ -238,14 +246,96 @@ describe('groundFor ground swatches (hex output)', () => {
     return ctx.getImageData(0, 0, 64, 64);
   }
 
+  // CYCLE C TASK 1 DRIVES THESE BY LUMINOSITY, AND THAT IS THE POINT. The
+  // two tone branches became the two ANCHORS a continuous slider
+  // interpolates between, so asking for an anchor's exact luminosity must
+  // return the exact triple that branch produced - these hexes came from
+  // ground.py's own formula, not from this codebase, so reproducing them
+  // proves the interpolation lands on its anchors rather than near them.
+  const ANCHOR_FOR = { mid: LUM_ANCHOR_MID.l, light: LUM_ANCHOR_LIGHT.l };
+
   for (const [hue, byMode] of Object.entries(GOLDEN_SWATCHES)) {
     for (const mode of ['mid', 'light']) {
-      it(`hue ${hue} / tone "${mode}"`, () => {
-        const g = groundFor([blankGrey()], Number(hue), mode);
+      it(`hue ${hue} / luminosity ${mode} anchor`, () => {
+        const g = groundFor([blankGrey()], Number(hue), ANCHOR_FOR[mode]);
         expect(g.ground).toEqual(byMode[mode]);
       });
     }
   }
+
+  // And the sampled path still lands on an anchor: a blank grey has
+  // darkUI false, so `null` must be identical to asking for the pale one.
+  it('null samples to the pale anchor for a light image, exactly', () => {
+    expect(groundFor([blankGrey()], 268, null).ground)
+      .toEqual(GOLDEN_SWATCHES[268].light);
+  });
+});
+
+// --- Cycle C Task 1: luminosity replaces tone ----------------------------
+//
+// `tone` was ['light', 'mid'] and BOTH branches are pale - "mid" means less
+// pale, not dark. There is no dark ground anywhere in the tool, which is
+// what Rock asked for: "by dark I mean like a black (or near black)
+// option." The label has been misleading since round one.
+describe('luminosity replaces tone (Task 1)', () => {
+  function blankGrey() {
+    const cv = createCanvas(64, 64);
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(0, 0, 64, 64);
+    return ctx.getImageData(0, 0, 64, 64);
+  }
+  const topOf = (l) => parseInt(groundFor([blankGrey()], 268, l).ground[0].slice(1, 3), 16);
+
+  it('reaches a genuinely dark ground, which nothing before it could', () => {
+    const dark = groundFor([blankGrey()], 268, 0.15);
+    for (const hex of dark.ground) {
+      const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+      expect(Math.max(r, g, b)).toBeLessThan(60);
+    }
+  });
+
+  it('never produces a black or collapsed stop at the floor', () => {
+    const dark = groundFor([blankGrey()], 268, LUMINOSITY_RANGE[0]);
+    const lums = dark.ground.map(hex => parseInt(hex.slice(1, 3), 16));
+    expect(Math.min(...lums)).toBeGreaterThan(0);
+    // still a gradient, not three identical stops
+    expect(new Set(dark.ground).size).toBe(3);
+  });
+
+  it('is monotonic: lower luminosity is never a lighter ground', () => {
+    let prev = Infinity;
+    for (let l = 0.975; l >= 0.15; l -= 0.05) {
+      const v = topOf(Math.round(l * 1000) / 1000);
+      expect(v).toBeLessThanOrEqual(prev);
+      prev = v;
+    }
+  });
+
+  it('clamps out of range rather than inverting', () => {
+    expect(groundFor([blankGrey()], 268, 9).ground)
+      .toEqual(groundFor([blankGrey()], 268, LUMINOSITY_RANGE[1]).ground);
+    expect(groundFor([blankGrey()], 268, -9).ground)
+      .toEqual(groundFor([blankGrey()], 268, LUMINOSITY_RANGE[0]).ground);
+  });
+
+  it('reports the luminosity it actually used, sampled or not', () => {
+    expect(groundFor([blankGrey()], 268, null).luminosity)
+      .toBeCloseTo(LUM_ANCHOR_LIGHT.l, 12);
+    expect(groundFor([blankGrey()], 268, 0.4).luminosity).toBeCloseTo(0.4, 12);
+  });
+
+  it('tone is gone from the config, not merely ignored', () => {
+    const c = normalise({ tone: 'mid' });
+    expect(c.tone).toBeUndefined();
+    expect(c.luminosity).toBeNull();
+  });
+
+  it('the config clamps luminosity into range', () => {
+    expect(normalise({ luminosity: 9 }).luminosity).toBe(LUMINOSITY_RANGE[1]);
+    expect(normalise({ luminosity: -9 }).luminosity).toBe(LUMINOSITY_RANGE[0]);
+    expect(normalise({ luminosity: 0.4 }).luminosity).toBeCloseTo(0.4, 12);
+  });
 });
 
 
@@ -270,7 +360,7 @@ describe('groundFor ground swatches (hex output)', () => {
 // x a real photographic sample, and fails on the FIRST mismatch of any of
 // those 24, not just a hand-picked one.
 describe('groundFromMeta reproduces groundFor exactly, without re-analysing', () => {
-  it('matches a fresh groundFor() for every named hue and every tone mode', async () => {
+  it('matches a fresh groundFor() for every named hue and across the luminosity range', async () => {
     // karaoke-web.png: a real, dark (lum ~0.097), highly-saturated sample -
     // not a synthetic flat colour - so this exercises the same kind of
     // image the swatch feature actually previews against.
@@ -285,29 +375,39 @@ describe('groundFromMeta reproduces groundFor exactly, without re-analysing', ()
     let comparisons = 0;
     for (const hueName of Object.keys(HUES)) {
       const hue = HUES[hueName];
-      for (const mode of [null, 'light', 'mid']) {
-        const fresh = groundFor([s], hue, mode);
-        const viaMeta = groundFromMeta(baseMeta, hue, mode);
+      // Cycle C Task 1: luminosities, not tone strings - null (sampled),
+      // both anchors, and a value BETWEEN them, which is the case that only
+      // exists now and the one a shortcut is most likely to get wrong.
+      for (const lum of [null, LUM_ANCHOR_LIGHT.l, LUM_ANCHOR_MID.l, 0.45]) {
+        const fresh = groundFor([s], hue, lum);
+        const viaMeta = groundFromMeta(baseMeta, hue, lum);
         expect(viaMeta).toEqual(fresh);
         comparisons++;
       }
     }
-    // Self-check: this test is actually exercising all 8 hues x 3 modes,
-    // not silently looping zero times because HUES or the mode list came
-    // back empty.
-    expect(comparisons).toBe(24);
+    // Self-check: this test is actually exercising all 8 hues x 4
+    // luminosities, not silently looping zero times because HUES or the
+    // list came back empty.
+    expect(comparisons).toBe(32);
   });
 
-  it('BREAK IT: a shortcut that forgot to re-derive darkUI per mode would fail this', () => {
+  it('BREAK IT: a shortcut that echoed the meta back would fail this', () => {
     // Demonstrates what this test is actually guarding: if groundFromMeta
     // just returned the ORIGINAL meta's own `ground` unchanged (ignoring
-    // forceHue/mode entirely - the bug this whole file exists to catch a
-    // regression of), the "light" override on a naturally-dark image would
-    // silently produce the WRONG (mid-tone) branch.
-    const baseMeta = { ground: ['#000', '#000', '#000'], lum: 0.097, hue: 268, chroma: 1, darkUI: true };
-    const broken = { ...baseMeta }; // simulates "forgot to re-run the tail"
-    const correct = groundFromMeta(baseMeta, 268, 'light');
-    expect(correct.darkUI).toBe(false); // the real function flips it...
-    expect(broken.darkUI).toBe(true);   // ...which is exactly what the broken stand-in gets wrong
+    // forceHue/luminosity entirely - the bug this whole file exists to
+    // catch a regression of), it would hand back the same three colours
+    // whatever it was asked for.
+    //
+    // CYCLE C TASK 1 CHANGED WHAT THIS LEANS ON, and the old version would
+    // now pass by accident. It compared `darkUI` across two tone modes,
+    // because `mode` used to override that flag. `darkUI` is purely the
+    // sampled inference now - luminosity is the override, and it does not
+    // touch the flag - so the same assertion would read `true` and `true`
+    // and prove nothing. The ground itself is the thing that must move.
+    const baseMeta = { ground: ['#123456', '#123456', '#123456'], lum: 0.097, hue: 268, chroma: 1, darkUI: true };
+    const pale = groundFromMeta(baseMeta, 268, LUM_ANCHOR_LIGHT.l);
+    const dark = groundFromMeta(baseMeta, 268, 0.18);
+    expect(pale.ground).not.toEqual(baseMeta.ground);   // it re-ran the tail...
+    expect(dark.ground).not.toEqual(pale.ground);       // ...and honoured the luminosity
   });
 });

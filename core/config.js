@@ -1,6 +1,6 @@
 import {
   RATIOS, HUES, DEFAULTS, RADIUS_RATIO, TEMPLATES, DEFAULT_ANGLE, SCALES, FRAME_KINDS,
-  LAYOUTS, TONES, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
+  LAYOUTS, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE, LUMINOSITY_RANGE,
   STROKE_STYLES, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
   MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
   ELEMENT_KINDS, ELEMENT_DEFAULTS,
@@ -143,7 +143,18 @@ export function normalise(input = {}) {
     // retired in Cycle A Task 4; it stands on its own now.)
     url: input.url ? String(input.url) : DEFAULTS.url,
     forceHue,
-    tone: TONES.includes(input.tone) ? input.tone : DEFAULTS.tone,
+    // Cycle C: `tone` retired. null means SAMPLED - core/ground.js runs its
+    // own inference and lands on one of the two anchors, reproducing what
+    // shipped before. A number is the ground's own top-stop lightness,
+    // clamped here the same defensive way every other bounded field is.
+    luminosity: (() => {
+      const v = num(input.luminosity, null);
+      // NOT `Math.max(lo, null)`, which is `lo` - so a garbage value would
+      // silently become the darkest ground instead of falling back to
+      // sampled. Anything that is not a real number is absent.
+      if (v === null) return DEFAULTS.luminosity;
+      return Math.min(LUMINOSITY_RANGE[1], Math.max(LUMINOSITY_RANGE[0], v));
+    })(),
     // `scale` renders the composition at `scale` times its `w`x`h` - see
     // composeWithMeta in index.js, the only reader of this field. w/h above
     // stay the unscaled composition size regardless: this reports what was

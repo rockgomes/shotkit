@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import {
   HUES, normalise, groundFor, MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
+  LUMINOSITY_RANGE, LUM_ANCHOR_LIGHT,
 } from '../core/index.js';
 import { state, bindCanvas, render } from '../web/state.js';
 import { selectGround, activeGroundKey } from '../web/sidebar.js';
@@ -21,8 +22,10 @@ import {
   setSeed,
   SEED_MIN,
   SEED_MAX,
-  setTone,
-  activeToneUi,
+  isSampledLuminosity,
+  activeLuminosity,
+  setLuminosity,
+  resetLuminosityToSampled,
   computeSampledMeta,
   sampledMetaFor,
   createSampledCache,
@@ -117,7 +120,7 @@ describe('the preset row and the hue slider agree, because they write the same f
   });
 });
 
-describe('angle, background type, seed and tone helpers', () => {
+describe('angle, background type, seed and luminosity helpers', () => {
   it('setAngle wraps degrees the same way setHue does', () => {
     const config = {};
     setAngle(config, 370);
@@ -146,32 +149,62 @@ describe('angle, background type, seed and tone helpers', () => {
     expect(config.seed).toBe(SEED_MIN);
   });
 
-  it('setTone/activeToneUi round-trip auto <-> null correctly', () => {
+  // Cycle C Task 1: the Auto/Light/Mid segmented became a luminosity
+  // slider with a Sampled reset. `null` still means sampled, exactly as
+  // 'auto' did - and it is still null rather than a number that happens to
+  // equal the sampled value, because the difference is whether the ground
+  // follows the NEXT screenshot.
+  it('setLuminosity/resetLuminosityToSampled round-trip through null', () => {
     const config = {};
-    expect(activeToneUi(config)).toBe('auto');
-    setTone(config, 'mid');
-    expect(config.tone).toBe('mid');
-    expect(activeToneUi(config)).toBe('mid');
-    setTone(config, 'auto');
-    expect(config.tone).toBeNull(); // NOT the string 'auto' — core/config.js's TONES is only ['light','mid']
-    expect(activeToneUi(config)).toBe('auto');
-    // Rejects a value that isn't a real tone at all — falls back to auto,
-    // not to whatever was there a moment ago.
-    setTone(config, 'not-a-tone');
-    expect(config.tone).toBeNull();
+    expect(isSampledLuminosity(config)).toBe(true);
+    setLuminosity(config, 0.4);
+    expect(config.luminosity).toBeCloseTo(0.4, 12);
+    expect(isSampledLuminosity(config)).toBe(false);
+    resetLuminosityToSampled(config);
+    expect(config.luminosity).toBeNull();   // NOT 0.4, and not the sampled number
+    expect(isSampledLuminosity(config)).toBe(true);
+    // Rejects a value that is not a number at all, leaving what was there.
+    setLuminosity(config, 0.4);
+    setLuminosity(config, 'not-a-number');
+    expect(config.luminosity).toBeCloseTo(0.4, 12);
   });
 
-  it('BREAK IT: if setTone stored the string "auto" instead of null, core would silently ignore it AND keep it forever', () => {
+  it('clamps to LUMINOSITY_RANGE at both ends', () => {
     const config = {};
-    config.tone = 'auto'; // the bug
-    // core/config.js's normalise(): TONES.includes(input.tone) ? input.tone : DEFAULTS.tone
-    expect(normalise(config).tone).toBe(null); // falls back correctly here...
-    // ...but activeToneUi would misreport it as staying forced, because
-    // TONES.includes('auto') is false, the same false as for `undefined` -
-    // so a naive reader could wrongly treat this as a THIRD distinct tone.
-    // The real setTone() never produces this value in the first place:
-    setTone(config, 'auto');
-    expect(config.tone).toBeNull();
+    setLuminosity(config, 9);
+    expect(config.luminosity).toBe(LUMINOSITY_RANGE[1]);
+    setLuminosity(config, -9);
+    expect(config.luminosity).toBe(LUMINOSITY_RANGE[0]);
+  });
+
+  it('shows the SAMPLED position when nothing is set, not a fixed midpoint', () => {
+    // The requirement, in one assertion: with no override, the slider sits
+    // where core/ground.js's own inference put it. A fixed midpoint would
+    // discard that on every shot.
+    expect(activeLuminosity({}, { luminosity: 0.855 })).toBeCloseTo(0.855, 12);
+    expect(activeLuminosity({}, { luminosity: 0.975 })).toBeCloseTo(0.975, 12);
+    // An explicit value wins over the sampled one.
+    expect(activeLuminosity({ luminosity: 0.3 }, { luminosity: 0.975 })).toBeCloseTo(0.3, 12);
+    // And with no meta at all - before the first render - it falls back to
+    // the pale anchor rather than to NaN.
+    expect(activeLuminosity({})).toBeCloseTo(LUM_ANCHOR_LIGHT.l, 12);
+  });
+
+  // The same guard, aimed at the shape luminosity can go wrong in. The old
+  // version asked what happened if `tone` held the string "auto"; a number
+  // cannot hold a sentinel string, so the equivalent trap is a value that
+  // is not a number at all reaching the clamp.
+  it('BREAK IT: a non-numeric luminosity must fall back to sampled, not to the floor', () => {
+    // The bug this catches is one line of arithmetic: clamping with
+    // `Math.max(LUMINOSITY_RANGE[0], null)` returns the FLOOR, so a garbage
+    // value would silently produce the darkest ground in the range instead
+    // of sampling the screenshot. Written after making exactly that
+    // mistake.
+    expect(normalise({ luminosity: 'nonsense' }).luminosity).toBeNull();
+    expect(normalise({ luminosity: NaN }).luminosity).toBeNull();
+    expect(normalise({ luminosity: '' }).luminosity).toBeNull();
+    // And a real 0 is NOT garbage - it clamps to the floor, deliberately.
+    expect(normalise({ luminosity: 0 }).luminosity).toBe(LUMINOSITY_RANGE[0]);
   });
 });
 
@@ -413,7 +446,7 @@ describe('createSampledCache: only recomputes when the loaded image SET changes'
 // threshold — see that file's header comment for why).
 // ---------------------------------------------------------------------
 
-describe('angle hits the warm ground cache; hue and tone bust it', () => {
+describe('angle hits the warm ground cache; hue and luminosity bust it', () => {
   beforeEach(() => {
     state.config = { ratio: '3:2' };
     state.images = { web: null, mobile: [] };
@@ -452,7 +485,7 @@ describe('angle hits the warm ground cache; hue and tone bust it', () => {
     expect(state.meta.hue).not.toBe(firstMeta.hue);
   });
 
-  it('changing tone DOES re-run groundFor (a new meta object)', async () => {
+  it('changing luminosity DOES re-run groundFor (a new meta object)', async () => {
     const web = await loadImage('samples/fieldset.png');
     const target = createCanvas(10, 10);
     bindCanvas(target, mkCanvas);
@@ -461,7 +494,7 @@ describe('angle hits the warm ground cache; hue and tone bust it', () => {
     render();
     const firstMeta = state.meta;
 
-    setTone(state.config, 'mid');
+    setLuminosity(state.config, 0.4);
     render();
 
     expect(state.meta).not.toBe(firstMeta);
