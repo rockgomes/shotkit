@@ -1364,3 +1364,74 @@ that element by element across 8.6 million entries, and each such assertion
 took **25–70 seconds**. Rewritten to `Buffer.compare` on the PNG bytes, the
 idiom the rest of the file already used: same claim, 3.8s for the whole file
 instead of ~170s.
+
+---
+
+# Cycle C Task 2 — the shadow across the luminosity range
+
+Measured in **Chromium**, over the dev server, calling `core/` directly. Not
+through `@napi-rs/canvas`: the shadow is the one thing in this codebase where
+the two engines have historically disagreed by a factor of five.
+
+Method: the same shot at each luminosity, rendered twice — once with the shot
+(and therefore its shadow), once as ground alone — and the two sampled at the
+same points 10, 20 and 40px below the shot's bottom edge. The number is the
+WCAG contrast ratio between the shadowed and unshadowed ground.
+
+| luminosity | ground | +10px | +20px | +40px |
+|---|---|---|---|---|
+| sampled (0.975) | `#ebeaee` | **1.382** | 1.312 | 1.210 |
+| 0.855 | `#c5c3ca` | 1.339 | 1.281 | 1.202 |
+| 0.65 | `#8a8895` | 1.266 | 1.224 | 1.142 |
+| 0.45 | `#5f5d69` | 1.176 | 1.152 | 1.104 |
+| 0.30 | `#3f3e46` | 1.094 | 1.094 | 1.062 |
+| 0.15 | `#201f23` | **1.022** | 1.013 | 1.011 |
+
+**The shadow decays smoothly to nothing.** At 0.15 it moves the ground by
+three levels — 25,25,30 against 28,27,31 — which is not visible.
+
+## Why raising the alphas cannot fix it
+
+The shadow is black at a fixed alpha, and **you cannot darken black**. At
+luminosity 0.15 the ground sits at relative luminance ≈ 0.0117, so even a
+fully opaque black shadow would reach only
+
+```
+(0.0117 + 0.05) / (0 + 0.05) = 1.23
+```
+
+— still below the 1.38 the pale end gets for free, at alpha 0.17. So outcome
+3 from the plan ("the shadow changes with the ground") is not available: the
+whole range of the instrument is smaller than the gap it would need to close.
+**The alphas are untouched.**
+
+## What actually fails, and what fixes it
+
+Rendered the combinations rather than reasoning about them. The failure is
+narrower than the table suggests:
+
+- **A light screenshot on a dark ground** separates enormously well — the
+  shot's own edge carries it, and the shadow was never doing the work.
+- **A dark screenshot on a pale ground** is the shipped default and is fine.
+- **A dark screenshot on a very dark ground** is the one that fails. At
+  luminosity 0.15 the shot nearly disappears into the ground, and rendering
+  it with `shadowScale: 0` is visually indistinguishable — confirming the
+  shadow contributes nothing there.
+- **The same shot with a 0.6% light stroke** separates completely.
+
+So this is the plan's outcome 2: the shadow disappears at the dark end and
+**the instrument that works is the shot's own edge, not the shadow**. The
+stroke already does it, opt-in since Cycle A Task 7, and one click away.
+
+## What was deliberately NOT done
+
+No automatic stroke at low luminosity. It would be a canvas-level control
+silently writing a per-element setting — the exact hidden coupling Cycle B
+spent eight tasks removing — and it would fire on the light-screenshot case
+that has no problem. Raised with Rock as a decision instead.
+
+## Golden
+
+`ground-dark` added: luminosity 0.18 with a dark screenshot, the one
+combination at risk. Every other golden is pale, so nothing else would catch
+a change to the ground maths, the edge blend or the shadow at that end.

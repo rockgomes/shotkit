@@ -82,6 +82,14 @@ const CASES = [
   // already existed.
   ['mobile-browser', { layout: 'mobile', ratio: '3:2', elements: { mobile: { frameKind: 'browser' } } }, { web: null, mobile: ['samples/karaoke-mobile.png'] }],
   ['mobile-bare',    { layout: 'mobile', ratio: '3:2', elements: { mobile: { frameKind: 'none' } } },    { web: null, mobile: ['samples/karaoke-mobile.png'] }],
+  // Cycle C Task 2: a DARK ground, with a DARK screenshot on it - the one
+  // combination where the shot's separation is at risk. Measured in
+  // Chromium, the shadow's contrast against the ground falls from 1.38 at
+  // the sampled pale ground to 1.02 at luminosity 0.15, so it is doing
+  // essentially nothing here and this golden is what would catch the
+  // ground maths, the edge blend or the shadow changing at that end. Every
+  // other golden is pale.
+  ['ground-dark', { ratio: '3:2', luminosity: 0.18 }, { web: 'samples/karaoke-web.png', mobile: [] }],
 ];
 
 for (const [name, cfg, files] of CASES) {
