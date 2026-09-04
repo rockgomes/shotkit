@@ -710,7 +710,7 @@ Wait for `gh pr checks`. Then hand Rock the URL and tell him:
 
 **The asymmetry Rock found.** *"in the other hand, you do allow me to add a phone border on a desktop screenshot. shouldn't it work the same way?"* A phone frame around a web screenshot works; a browser frame around a mobile screenshot does not exist. That was never a decision — `frameKind` was attached to one element and the mobile layout had its own hardcoded device.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 describe('the mobile element takes a frame like the web one (Task 4)', () => {
@@ -754,12 +754,12 @@ describe('the mobile element takes a frame like the web one (Task 4)', () => {
 });
 ```
 
-- [ ] **Step 2: Run and watch them fail**
+- [x] **Step 2: Run and watch them fail**
 
 Run: `npx vitest run test/layout.test.js -t 'the mobile element takes a frame'`
 Expected: the first PASSES only if `phoneBox` already reports a `chrome` block — it does not, so expect it to fail too. All five FAIL.
 
-- [ ] **Step 3: Give `phoneBox` the same shape a web box has**
+- [x] **Step 3: Give `phoneBox` the same shape a web box has**
 
 `phoneBox(ratio, h, cx, cy)` computes a bezel and two radii inline. Rewrite it to compute the screenshot's box first and grow the frame outward, exactly as `webBox` does, so both go through `frameInsets` and `chromeFor` and there is one outset model rather than two:
 
@@ -794,7 +794,7 @@ function phoneBox(c, el, ratio, h, cx, cy) {
 
 The legacy `frame` / `innerRadius` fields on the returned box are **removed**, not kept alongside `chrome` — two sources for one number is the defect this cycle exists to remove. `paintPhone` reads `box.chrome` instead.
 
-- [ ] **Step 4: Dispatch the mobile painter on `frameKind`**
+- [x] **Step 4: Dispatch the mobile painter on `frameKind`**
 
 `paintPhone` becomes a dispatcher with the same three branches `paintWeb` already has:
 
@@ -814,7 +814,20 @@ export function paintPhone(ctx, c, box, image, makeCanvas, el = c.elements.mobil
 
 **Note the fit changes from `cover` to `contain` on the unframed path, and only there.** `paintPhoneChrome` keeps its own behaviour. The reason: a bare screenshot has no bezel to crop against, so cropping it would silently discard picture the user can see nowhere else. Say this in the report — it is a visible change to what a phone screenshot shows.
 
-- [ ] **Step 5: Run everything, and check the goldens**
+> **Corrected during execution.** Two things the plan missed:
+>
+> 1. `layout()`'s stagger and web+mobile offset are fractions of the
+>    device's OUTER width. That used to be `h * ratio` because `h` was the
+>    device's own height; now `h` is the screenshot's, so the outer width
+>    has to be asked for or the arrangement quietly tightens by two bezels.
+>    Hence `phoneMetrics`, split out of `phoneBox`.
+> 2. `PRE_FRAME_BASELINE`'s phone entries could not simply be renumbered.
+>    They are left exactly as captured and compared by TRANSFORMATION
+>    instead — the picture now occupies what the device used to, and the
+>    device grew by one bezel a side — which states the change rather than
+>    burying it in new magic numbers.
+
+- [x] **Step 5: Run everything, and check the goldens**
 
 ```bash
 npx vitest run && git status --short test/golden
@@ -828,7 +841,7 @@ node scripts/make-render-goldens.js && git status --short test/golden
 
 Only `mobile.png` and `web-mobile.png` may appear. If `phone.png` moved, the web box's phone frame was disturbed and something is wrong.
 
-- [ ] **Step 6: Add two goldens for the new frames**
+- [x] **Step 6: Add two goldens for the new frames**
 
 ```js
   ['mobile-browser', { layout: 'mobile', ratio: '3:2', elements: { mobile: { frameKind: 'browser' } } }, { web: null, mobile: ['samples/karaoke-mobile.png'] }],
@@ -837,7 +850,7 @@ Only `mobile.png` and `web-mobile.png` may appear. If `phone.png` moved, the web
 
 Add them to both `scripts/make-render-goldens.js` and `test/compose.test.js`, with a comment in the file's own style saying that without them a stubbed mobile dispatcher would leave every existing golden untouched.
 
-- [ ] **Step 7: Commit, push, deploy, and STOP**
+- [x] **Step 7: Commit, push, deploy, and STOP**
 
 ```bash
 git add core test scripts

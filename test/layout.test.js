@@ -61,11 +61,20 @@ describe('web screen', () => {
   });
 });
 
+// CYCLE B TASK 4 MOVED WHAT THESE MEASURE, not what they claim. `h` used
+// to be the DEVICE's outer height, so the outer box carried the source
+// ratio and `phones[0].w / phones[0].h` was the picture's ratio. The bezel
+// is an outset now, so the outer box is the picture PLUS the device around
+// it and the ratio to check is the screen's. The claims - never squashed, a
+// bigger phone when there is only one - are unchanged.
 describe('mobile layout', () => {
+  const screenOf = (p) => (p.chrome ? p.chrome.screen : p);
+
   it('never squashes the phone', () => {
     const c = normalise({ layout: 'mobile', ratio: '3:2' });
     const { phones } = layout(c, { web: null, mobile: [0.5] });
-    expect(phones[0].w / phones[0].h).toBeCloseTo(0.5, 6);
+    const s = screenOf(phones[0]);
+    expect(s.w / s.h).toBeCloseTo(0.5, 6);
   });
 
   it('caps at three phones', () => {
@@ -78,8 +87,8 @@ describe('mobile layout', () => {
     const c = normalise({ layout: 'mobile', ratio: '3:2' });
     const one = layout(c, { web: null, mobile: [0.462] }).phones[0];
     const two = layout(c, { web: null, mobile: [0.462, 0.462] }).phones[0];
-    expect(one.h).toBeCloseTo(1200 * 0.86, 6);
-    expect(two.h).toBeCloseTo(1200 * 0.80, 6);
+    expect(screenOf(one).h).toBeCloseTo(1200 * 0.86, 6);
+    expect(screenOf(two).h).toBeCloseTo(1200 * 0.80, 6);
   });
 
   it('lifts the middle phone highest when there are three', () => {
@@ -92,7 +101,7 @@ describe('mobile layout', () => {
   it('falls back to a sane ratio when the source ratio is missing', () => {
     const c = normalise({ layout: 'mobile', ratio: '3:2' });
     const { phones } = layout(c, { web: null, mobile: [null] });
-    expect(phones[0].w / phones[0].h).toBeCloseTo(0.462, 6);
+    expect(screenOf(phones[0]).w / screenOf(phones[0]).h).toBeCloseTo(0.462, 6);
   });
 });
 
@@ -260,17 +269,70 @@ describe('frame: none (the existing behaviour)', () => {
       expect({ ...out, web: webWithoutFrameFields(out.web) }).toEqual(PRE_FRAME_BASELINE[`web:${ratio}`]);
     });
 
-    it(`produces exactly the same mobile-layout output as before, at ${ratio}`, () => {
+    // CYCLE B TASK 4 CHANGED THE PHONE MODEL ON PURPOSE, so the phone half
+    // of this baseline is compared by TRANSFORMATION rather than by
+    // equality. The numbers above are left exactly as captured - they are
+    // still the true pre-Task-4 geometry - and the relationship below is
+    // what this task claims about them:
+    //
+    //   the bezel became an OUTSET, so the picture now occupies exactly
+    //   what the DEVICE used to, and the device grew by one bezel a side.
+    //
+    // That is the same correction Cycle A Task 6 made for the web box. It
+    // was invisible there because the web element defaults to `frameKind:
+    // 'none'`, where every inset is 0; the mobile element defaults to
+    // 'phone', so here it shows.
+    function expectPhonesGrewOutward(phones, base, canvasW) {
+      expect(phones).toHaveLength(base.length);
+      phones.forEach((p, i) => {
+        const b = base[i];
+        // The picture is now exactly the old device.
+        expect(p.chrome.screen.w).toBeCloseTo(b.w, 9);
+        expect(p.chrome.screen.h).toBeCloseTo(b.h, 9);
+        // And the device is that plus one bezel on each side.
+        expect(p.w).toBeCloseTo(b.w + b.frame * 2, 9);
+        expect(p.h).toBeCloseTo(b.h + b.frame * 2, 9);
+        // The vertical placement is untouched: the lift maths never
+        // depended on the phone's width, so every centre is exactly where
+        // it was.
+        expect(p.y + p.h / 2).toBeCloseTo(b.y + b.h / 2, 9);
+        // Retired fields really are gone, not shadowing `chrome`.
+        expect(p.frame).toBeUndefined();
+        expect(p.innerRadius).toBeUndefined();
+      });
+      if (phones.length === 3) {
+        // The stagger scales with the device, so the outer two move - but
+        // the middle one is still centred on the canvas and the spacing is
+        // still even.
+        expect(phones[1].x + phones[1].w / 2).toBeCloseTo(canvasW / 2, 9);
+        const gap = (a, b2) => (b2.x + b2.w / 2) - (a.x + a.w / 2);
+        expect(gap(phones[0], phones[1])).toBeCloseTo(gap(phones[1], phones[2]), 9);
+      }
+    }
+
+    it(`grows the phones outward from the frozen baseline, at ${ratio}`, () => {
       const c = normalise({ layout: 'mobile', ratio });
       const out = layout(c, { web: null, mobile: [0.462, 0.462, 0.462] });
+      const base = PRE_FRAME_BASELINE[`mobile:${ratio}`];
       expect(out.web).toBeNull();
-      expect(out).toEqual(PRE_FRAME_BASELINE[`mobile:${ratio}`]);
+      expect(out.safe).toEqual(base.safe);
+      expectPhonesGrewOutward(out.phones, base.phones, c.w);
     });
 
-    it(`produces exactly the same web+mobile-layout output as before, at ${ratio}`, () => {
+    it(`keeps the web box and grows the phone outward, at ${ratio}`, () => {
       const c = normalise({ layout: 'web+mobile', ratio });
       const out = layout(c, { web: 1.6, mobile: [0.462] });
-      expect({ ...out, web: webWithoutFrameFields(out.web) }).toEqual(PRE_FRAME_BASELINE[`webmobile:${ratio}`]);
+      const base = PRE_FRAME_BASELINE[`webmobile:${ratio}`];
+      // The WEB box is still frozen exactly - Task 4 touched only phones.
+      expect(out.safe).toEqual(base.safe);
+      expect(webWithoutFrameFields(out.web)).toEqual(base.web);
+      expectPhonesGrewOutward(out.phones, base.phones, c.w);
+      // The phone's horizontal anchor is 0.46 of its own width in from the
+      // safe box's right edge, so growing the device moves it left by
+      // exactly 0.46 of the growth - not by an unexplained amount.
+      const grew = out.phones[0].w - base.phones[0].w;
+      expect(out.phones[0].x + out.phones[0].w / 2)
+        .toBeCloseTo(base.phones[0].x + base.phones[0].w / 2 - grew * 0.46, 9);
     });
   }
 });
@@ -710,5 +772,74 @@ describe('corner radius under a frame (Task 3)', () => {
       const b = web({ elements: { web: { frameKind } } });
       expect(b.radius).toBeCloseTo(b.chrome.radius, 12);
     }
+  });
+});
+
+// --- Cycle B Task 4: the mobile element takes a frame --------------------
+//
+// The asymmetry Rock found: "you do allow me to add a phone border on a
+// desktop screenshot. shouldn't it work the same way?" A phone frame around
+// a web screenshot works; a browser frame around a mobile one did not exist.
+// That was never a decision - frameKind was attached to one element, and the
+// mobile layout had its own hardcoded device.
+describe('the mobile element takes a frame like the web one (Task 4)', () => {
+  const mob = (o) => layout(normalise({ layout: 'mobile', ratio: '3:2', ...o }),
+                            { web: null, mobile: [0.462] }).phones[0];
+
+  it('defaults to the phone body, exactly as it always did', () => {
+    const p = mob({});
+    expect(p.chrome.kind).toBe('phone');
+    expect(p.chrome.frame).toBeGreaterThan(0);
+  });
+
+  it('frameKind none gives a bare screenshot — no bezel, no device body', () => {
+    const p = mob({ elements: { mobile: { frameKind: 'none' } } });
+    expect(p.chrome).toBeNull();
+  });
+
+  it('frameKind browser puts a title bar above a portrait screenshot', () => {
+    const p = mob({ elements: { mobile: { frameKind: 'browser' } } });
+    expect(p.chrome.kind).toBe('browser');
+    expect(p.chrome.barH).toBeGreaterThan(0);
+    expect(p.chrome.screen.h / p.chrome.screen.w).toBeCloseTo(1 / 0.462, 6);
+  });
+
+  it('the screenshot keeps its own ratio under every frame', () => {
+    for (const frameKind of ['none', 'browser', 'phone']) {
+      const p = mob({ elements: { mobile: { frameKind } } });
+      const s = p.chrome ? p.chrome.screen : p;
+      expect(s.w / s.h).toBeCloseTo(0.462, 6);
+    }
+  });
+
+  it('the frame grows OUTWARD — the screenshot is the same size with or without it', () => {
+    // The same correction Cycle A Task 6 made for the web box. Turning the
+    // bezel off must make the picture bigger, not leave a hole where the
+    // bezel was.
+    const bare = mob({ elements: { mobile: { frameKind: 'none' } } });
+    const framed = mob({ elements: { mobile: { frameKind: 'phone' } } });
+    expect(framed.chrome.screen.w).toBeCloseTo(bare.w, 9);
+    expect(framed.chrome.screen.h).toBeCloseTo(bare.h, 9);
+    expect(framed.w).toBeGreaterThan(bare.w);
+  });
+
+  it('a web+mobile shot can frame each element differently', () => {
+    const out = layout(normalise({
+      layout: 'web+mobile', ratio: '3:2',
+      elements: { web: { frameKind: 'browser' }, mobile: { frameKind: 'none' } },
+    }), { web: 1.6, mobile: [0.462] });
+    expect(out.web.chrome.kind).toBe('browser');
+    expect(out.phones[0].chrome).toBeNull();
+  });
+
+  it('a phone box now has the same shape a web box has', () => {
+    // The legacy `frame` / `innerRadius` fields are GONE, not kept beside
+    // `chrome` - two sources for one number is the defect this cycle exists
+    // to remove.
+    const p = mob({});
+    expect(p.frame).toBeUndefined();
+    expect(p.innerRadius).toBeUndefined();
+    expect(p.inner).toBeDefined();
+    expect(p.strokeWidth).toBe(0);
   });
 });

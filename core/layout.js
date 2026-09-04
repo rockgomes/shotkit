@@ -227,12 +227,61 @@ function webBox(c, el, box, ratio) {
   return web;
 }
 
-function phoneBox(ratio, h, cx, cy) {
-  // phone width follows the source ratio, so the screenshot is never squashed
-  const w = h * (ratio || PHONE_FALLBACK_RATIO);
-  const frame = Math.max(PHONE_BEZEL_MIN, w * PHONE_BEZEL_RATIO);   // bezel thickness
-  const radius = w * PHONE_RADIUS_RATIO;                            // phone corner radius
-  return { x: cx - w / 2, y: cy - h / 2, w, h, frame, radius, innerRadius: radius - frame };
+/**
+ * A phone box, built exactly the way webBox builds a web one - Cycle B
+ * Task 4.
+ *
+ * It used to be its own little model: `h` was the DEVICE's outer height and
+ * the screen was carved out of it by insetting a bezel, with `frame` and
+ * `innerRadius` reported as bespoke fields. That is the inset model Cycle A
+ * Task 6 replaced everywhere else, and keeping it here is why the mobile
+ * layout could not take any frame but a phone: there was nothing for
+ * `frameKind` to act on.
+ *
+ * Now `h` is the SCREENSHOT's height and the frame grows outward from it,
+ * through the same `frameInsets` and `chromeFor` the web box uses. Turning
+ * the bezel off therefore makes the picture bigger rather than leaving a
+ * hole where the bezel was - and a phone in the mobile layout, a phone
+ * frame around a web shot, and a browser frame around a portrait shot are
+ * all one piece of geometry instead of three that agree by accident.
+ *
+ * NO MIN_MARGIN SHRINK HERE, unlike webBox. A phone in the web+mobile
+ * layout deliberately bleeds past the canvas edge (see layout() below), so
+ * a floor that pulled it back would fight the composition on purpose.
+ */
+/**
+ * The sizes a phone box will have, without placing it.
+ *
+ * Split out because layout() needs the OUTER width before it can position
+ * anything: the stagger's step and the web+mobile offset are both fractions
+ * of the device's outer width, and were so before this task too - `h` used
+ * to be the device's own height, so `h * ratio` was its outer width. Now
+ * that `h` is the screenshot's height, the outer width has to be asked for
+ * rather than assumed, or the arrangement quietly tightens by two bezels.
+ */
+function phoneMetrics(c, el, ratio, h) {
+  // The screenshot's own box. Width follows the SOURCE ratio, so the
+  // picture is never squashed.
+  const sh = h;
+  const sw = sh * (ratio || PHONE_FALLBACK_RATIO);
+  // Grow the frame outward from it - the same call webBox makes.
+  const ins = frameInsets(c, el, sw, Math.min(c.w, c.h));
+  return { sw, sh, ins, ow: sw + ins.left + ins.right, oh: sh + ins.top + ins.bottom };
+}
+
+function phoneBox(c, el, ratio, h, cx, cy) {
+  const { sw, sh, ins, ow, oh } = phoneMetrics(c, el, ratio, h);
+
+  const box = { x: cx - ow / 2, y: cy - oh / 2, w: ow, h: oh };
+  box.radius = radiusFor(c, el, ow);
+  box.strokeWidth = ins.stroke;
+  box.inner = {
+    x: box.x + ins.stroke, y: box.y + ins.stroke,
+    w: ow - ins.stroke * 2, h: oh - ins.stroke * 2,
+    radius: Math.max(0, box.radius - ins.stroke),
+  };
+  box.chrome = chromeFor(c, el, box, ins, sw, sh);
+  return box;
 }
 
 export function layout(c, sources) {
@@ -248,7 +297,8 @@ export function layout(c, sources) {
     // 1-3 phones, staggered. Middle one sits highest.
     const n = mobile.length;
     const ph = c.h * (n === 1 ? 0.86 : 0.80);
-    const pw = ph * (mobile[0] || PHONE_FALLBACK_RATIO);
+    // The device's OUTER width, not the screenshot's - see phoneMetrics.
+    const pw = phoneMetrics(c, c.elements.mobile, mobile[0], ph).ow;
     const step = pw * 0.86;               // slight overlap
     const total = step * (n - 1);
     for (let i = 0; i < n; i++) {
@@ -256,7 +306,7 @@ export function layout(c, sources) {
       const lift = n === 2
         ? (i === 0 ? c.h * 0.030 : -c.h * 0.030)
         : (i === 1 ? -c.h * 0.035 : c.h * 0.028);
-      out.phones.push(phoneBox(mobile[i], ph, cx, c.h / 2 + lift));
+      out.phones.push(phoneBox(c, c.elements.mobile, mobile[i], ph, cx, c.h / 2 + lift));
     }
   }
 
@@ -267,10 +317,10 @@ export function layout(c, sources) {
       // the bottom edge reads as deliberate layering and buries less of the
       // app than a phone parked in the middle of the right-hand side.
       const ph = c.h * c.phoneScale;
-      const pw = ph * (mobile[0] || PHONE_FALLBACK_RATIO);
+      const pw = phoneMetrics(c, c.elements.mobile, mobile[0], ph).ow;
       const cx = safe.x + safe.w - pw * 0.46;
       const cy = c.h / 2 + c.h * c.phoneBleed;
-      out.phones.push(phoneBox(mobile[0], ph, cx, cy));
+      out.phones.push(phoneBox(c, c.elements.mobile, mobile[0], ph, cx, cy));
     }
   }
 

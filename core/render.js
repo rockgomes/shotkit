@@ -656,6 +656,22 @@ export function paintShadow(ctx, box, spreadY, blur, a1, a2, scale = 1) {
 }
 
 /**
+ * The two verified shadow pairings, named rather than repeated at four call
+ * sites - Cycle B Task 4, which needed the chrome painters to serve both.
+ *
+ * WHICH ONE APPLIES IS DECIDED BY WHERE THE THING SITS, NOT BY ITS FRAME.
+ * Anything in `lay.web` is a web-box-sized card dropped onto the ground;
+ * anything in `lay.phones` is a phone-sized one. That is the distinction
+ * the alphas were verified against, and it is why a browser frame around a
+ * portrait screenshot takes the phone pairing: it is standing where a phone
+ * stands. Do not retune either pair - see paintShadow's own comment for the
+ * pass that did, shipped ~65 RGB levels too dark in the browser, and had to
+ * be reverted with every Node test green.
+ */
+const WEB_SHADOW = c => ({ spreadY: c.h * 0.040, blur: c.h * 0.105, a1: 0.17, a2: 0.07 });
+const PHONE_SHADOW = box => ({ spreadY: box.h * 0.055, blur: box.h * 0.14, a1: 0.22, a2: 0.10 });
+
+/**
  * Draw `image` into `box` with object-fit and object-position: top center,
  * at the box's TRUE rect - no rounding, no snapping, no clip - and then
  * clamp its outermost row and column one pixel further out.
@@ -914,7 +930,8 @@ export function paintWeb(ctx, c, box, image, makeCanvas, el = c.elements.web) {
   // shipping a far-too-heavy shadow to the browser, the actual product).
   // `el.shadowScale` (Cycle B: per element) multiplies ON TOP of these -
   // the alphas themselves stay exactly as written here.
-  paintShadow(ctx, box, c.h * 0.040, c.h * 0.105, 0.17, 0.07, el.shadowScale);
+  const sh = WEB_SHADOW(c);
+  paintShadow(ctx, box, sh.spreadY, sh.blur, sh.a1, sh.a2, el.shadowScale);
 
   // NOTHING IS PAINTED BEHIND THE SCREENSHOT (Task 4d). This line was
   // `fillRoundRect(..., '#ffffff')` - frame.html's `--screen-bg`, a white
@@ -1149,7 +1166,7 @@ export function paintChrome(ctx, c, box, theme, el = c.elements.web) {
  * 'phone' to paintPhoneChrome instead, so this function's body is exactly
  * what it was before the phone frame existed.
  */
-function paintWebChrome(ctx, c, box, image, makeCanvas, el = c.elements.web) {
+function paintWebChrome(ctx, c, box, image, makeCanvas, el = c.elements.web, sh = WEB_SHADOW(c)) {
   const chrome = box.chrome;
   const outer = { x: box.x, y: box.y, w: box.w, h: box.h, radius: chrome.radius };
   // The frame itself, inside the mat. Identical to `outer` when there is no
@@ -1169,7 +1186,7 @@ function paintWebChrome(ctx, c, box, image, makeCanvas, el = c.elements.web) {
   // the shadowed box changes (the outer frame, not the bare screenshot).
   // Do NOT retune: see the doc comment above paintShadow. `el.shadowScale`
   // multiplies on top, same as every other paintShadow call site.
-  paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07, el.shadowScale);
+  paintShadow(ctx, outer, sh.spreadY, sh.blur, sh.a1, sh.a2, el.shadowScale);
 
   // The mat wraps the whole window, bar included - see paintStroke above.
   paintStroke(ctx, outer, el.stroke, box.strokeWidth);
@@ -1253,7 +1270,7 @@ function paintDeviceHairline(ctx, box) {
  * 0.22/0.10 pairing stays reserved for an actual mobile-layout phone box, per
  * the doc comment on paintPhone below - do not blend the two.
  */
-function paintPhoneChrome(ctx, c, box, image, makeCanvas, el = c.elements.web) {
+function paintPhoneChrome(ctx, c, box, image, makeCanvas, el = c.elements.web, sh = WEB_SHADOW(c)) {
   const chrome = box.chrome;
   const outer = { x: box.x, y: box.y, w: box.w, h: box.h, radius: chrome.radius };
   // The device, inside the mat. Identical to `outer` with no stroke.
@@ -1262,7 +1279,7 @@ function paintPhoneChrome(ctx, c, box, image, makeCanvas, el = c.elements.web) {
   // Same alphas as paintWebChrome's own outer shadow (see this function's
   // doc comment above); `el.shadowScale` multiplies on top, same as every
   // other paintShadow call site.
-  paintShadow(ctx, outer, c.h * 0.040, c.h * 0.105, 0.17, 0.07, el.shadowScale);
+  paintShadow(ctx, outer, sh.spreadY, sh.blur, sh.a1, sh.a2, el.shadowScale);
 
   // The mat wraps the device - see paintStroke above.
   paintStroke(ctx, outer, el.stroke, box.strokeWidth);
@@ -1309,25 +1326,30 @@ function paintPhoneChrome(ctx, c, box, image, makeCanvas, el = c.elements.web) {
  * not change them.
  */
 export function paintPhone(ctx, c, box, image, makeCanvas, el = c.elements.mobile) {
-  paintShadow(ctx, box, box.h * 0.055, box.h * 0.14, 0.22, 0.10, el.shadowScale);
+  const sh = PHONE_SHADOW(box);
 
-  // body - shared with the phone frame's paintPhoneChrome via
-  // paintDeviceBody, defined above. A path fill, so its edge against the
-  // ground is already a single antialiased boundary.
-  paintDeviceBody(ctx, box);
+  // Cycle B Task 4: the same three-way dispatch paintWeb has had since
+  // Cycle A. `box.chrome` comes from layout.js's phoneBox, which now builds
+  // a phone box exactly the way webBox builds a web one.
+  if (box.chrome?.kind === 'browser') return paintWebChrome(ctx, c, box, image, makeCanvas, el, sh);
+  if (box.chrome?.kind === 'phone') return paintPhoneChrome(ctx, c, box, image, makeCanvas, el, sh);
 
-  // screen, inset by the bezel. Always cover, anchored top center, and
-  // backed by the device for the reasons paintPhoneChrome sets out above.
-  const inner = {
-    x: box.x + box.frame,
-    y: box.y + box.frame,
-    w: box.w - box.frame * 2,
-    h: box.h - box.frame * 2,
-  };
-  placeShot(ctx, makeCanvas, inner, { ...inner, radius: box.innerRadius },
-    (t, at) => drawFitted(t, at(inner), image, 'cover'));
+  // Unframed: a bare portrait screenshot, and the three calls paintWeb
+  // makes for a bare landscape one.
+  paintShadow(ctx, box, sh.spreadY, sh.blur, sh.a1, sh.a2, el.shadowScale);
+  paintStroke(ctx, box, el.stroke, box.strokeWidth);
 
-  // inset 0 0 0 1px rgba(255,255,255,0.10) - shared via paintDeviceHairline,
-  // same as the body above.
-  paintDeviceHairline(ctx, box);
+  // 'contain', NOT 'cover', and only on this path. A framed phone crops to
+  // fill because the bezel decides the screen's shape and the picture has
+  // to fill it. A bare screenshot has no bezel to crop against, so cropping
+  // would silently discard picture the user can see nowhere else. This is a
+  // visible change to what an unframed phone screenshot shows, and it is
+  // deliberate.
+  placeShot(ctx, makeCanvas, box.inner, box.inner,
+    (t, at) => drawFitted(t, at(box.inner), image, 'contain'));
+
+  // NO DEVICE HAIRLINE HERE. paintDeviceHairline's white inner line belongs
+  // to the DEVICE - it is the phone's equivalent of the browser frame's
+  // border. With no device there is nothing for it to sit on, and it would
+  // read as exactly the unrequested border Cycle A Task 1 removed.
 }

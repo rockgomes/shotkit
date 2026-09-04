@@ -76,6 +76,12 @@ const CASES = [
   // `stops` reach the canvas at all - the exact gap that let the old
   // two-tone mesh sit there looking like a feature.
   ['mesh-wide', { ratio: '3:2', bgType: 'mesh', seed: 7, mesh: { stops: 5, spread: 140 } }, { web: 'samples/fieldset.png', mobile: [] }],
+  // Cycle B Task 4: the mobile element's own frames. Without these, a
+  // stubbed dispatcher would leave every golden above untouched - none of
+  // them sets `elements.mobile`, and its default 'phone' is the path that
+  // already existed.
+  ['mobile-browser', { layout: 'mobile', ratio: '3:2', elements: { mobile: { frameKind: 'browser' } } }, { web: null, mobile: ['samples/karaoke-mobile.png'] }],
+  ['mobile-bare',    { layout: 'mobile', ratio: '3:2', elements: { mobile: { frameKind: 'none' } } },    { web: null, mobile: ['samples/karaoke-mobile.png'] }],
 ];
 
 for (const [name, cfg, files] of CASES) {
