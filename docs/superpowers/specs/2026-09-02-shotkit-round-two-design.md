@@ -699,6 +699,21 @@ from `darkUI = lum < 0.34`, and the two branches sit at HSL lightness
 0.975/0.925/0.868 and 0.855/0.780/0.712. The slider spans those and continues
 down to roughly 0.15 for the near-black Rock asked for.
 
+**DECIDED — the dark ground does not auto-apply a stroke.** Rock, 2026-09-04,
+after Cycle C Task 2 measured the shadow across the range: *"A, leave it
+manual."*
+
+The shadow fades to nothing as the ground darkens (1.38 → 1.02 contrast), and
+raising its alphas cannot help — it is black, and black cannot be darkened.
+The one combination that actually fails is a DARK screenshot on a very dark
+ground; a light one separates on its own edge. A light stroke fixes it
+completely and is one click away.
+
+The app does not add that stroke by itself. A canvas-level control silently
+writing a per-element setting is the hidden coupling Cycle B spent eight
+tasks removing, and it would fire on the light-screenshot case that has no
+problem.
+
 **REQUIREMENT — "Sampled" means the WHOLE ground.** Added 2026-09-04, from
 Rock on the first preview: *"I was hoping that clicking on 'sampled' would
 reset everything, including luminosity. am I thinking wrong about it?"*

@@ -1435,3 +1435,75 @@ that has no problem. Raised with Rock as a decision instead.
 `ground-dark` added: luminosity 0.18 with a dark screenshot, the one
 combination at risk. Every other golden is pale, so nothing else would catch
 a change to the ground maths, the edge blend or the shadow at that end.
+
+---
+
+# Cycle C Task 3 — the palette
+
+Rock: *"our selection is good, but poor. I can't even see the difference
+between them on their thumbnails."* Half of that is the 14×14 swatch, which
+Task 5 fixes. This is the other half.
+
+## How close they actually were
+
+Measured before changing anything: all eight named grounds rendered from a
+deliberately vivid source, so `chroma` sits at its ceiling and this is the
+MOST saturated ground the palette could produce.
+
+| | mid stop | HSL saturation |
+|---|---|---|
+| every one of the eight | — | **0.263** |
+| closest pair, `paper` vs `ash` | `#f1ede7` / `#f1eee7` | **1 level apart** |
+| a low-chroma screenshot (the common case) | `#eceaee` | 0.105 |
+
+One level in the largest channel. They are not similar; they are the same
+colour.
+
+## What changed
+
+`sat = 0.16 + 0.26 × min(chroma × 1.6, 1)` → `0.26 + 0.38 × …`
+
+Both ends rise. The floor so a nearly-colourless screenshot still produces a
+ground with a hue rather than a tinted grey; the ceiling so a colourful one
+produces a ground you could name. **The ceiling still exists**, and that is
+not negotiable — a ground competing with the screenshot is worse than a dull
+one, which is why this was never a plain `chroma` passthrough.
+
+After: 0.263 → **0.385** at the ceiling, 0.105 → **0.158** at the common end.
+
+The per-stop multipliers are untouched. They carry the relationship between
+the three stops, which Task 1 now interpolates across the luminosity range,
+and disturbing them would move two things at once.
+
+## What this did NOT fix, and cannot
+
+`paper` (34°) and `ash` (40°) are **six degrees apart**. After the change
+they are still one level apart in their largest channel. No saturation
+setting separates two hues six degrees apart — that is a palette *selection*
+problem, not a saturation one.
+
+The eight sit at 24, 34, 40, 158, 205, 240, 268, 340. Three are crammed into
+a 16° arc and there is a 118° hole between 40 and 158. Raised with Rock as a
+decision rather than fixed unilaterally: the names carry intent he chose, and
+re-hueing `ash` is a naming question as much as a colour one.
+
+## What the golden suite proves about this task: nothing
+
+All sixteen renders change, because the ground is in every one. They were
+regenerated wholesale. The evidence for this task is the before/after contact
+sheet — rendered **with a shot on top**, because a screenshot covers most of
+the canvas and only a border of ground shows, which is the thing being judged.
+
+## A test that got weaker, said out loud
+
+`GOLDEN_SWATCHES` in `test/ground.test.js` held values generated from
+`ground.py`'s own `hsl()` helper, so it proved `core/ground.js` agreed with
+the Python original's actual formula rather than merely with itself. Raising
+the saturation formula breaks that agreement deliberately.
+
+`ground.py` was retired in Cycle A, so the cross-check was already
+historical — but this is the commit that ends it. The values are now
+generated from `core/ground.js`, and what remains is a freeze: it still
+catches the hex output drifting silently, which the golden-image test above
+cannot (it reads only hue/lum/chroma/darkUI), but it can no longer catch this
+file disagreeing with an external reference, because there is no longer one.

@@ -168,7 +168,20 @@ function tail({ lum, hue, chroma }, forceHue, luminosity) {
     ? (darkUI ? LUM_ANCHOR_MID.l : LUM_ANCHOR_LIGHT.l)
     : clamp(luminosity, LUMINOSITY_RANGE[0], LUMINOSITY_RANGE[1]);
 
-  const sat = 0.16 + 0.26 * Math.min(chroma * 1.6, 1);   // never fully saturated
+  // CYCLE C TASK 3 RAISED BOTH ENDS. Was `0.16 + 0.26 * ...`, topping out
+  // at 0.42 before the per-stop multipliers - so the most saturated ground
+  // any screenshot could produce had a mid stop at HSL 0.263, and a
+  // low-chroma screenshot landed at 0.105, which is nearly grey. Rock:
+  // "our selection is good, but poor. I can't even see the difference
+  // between them on their thumbnails."
+  //
+  // The floor rises so a nearly-colourless screenshot still produces a
+  // ground with a hue rather than a tinted grey. The ceiling rises so a
+  // colourful one produces a ground you could name. THE CEILING STILL
+  // EXISTS and that is not negotiable: a ground competing with the
+  // screenshot is worse than a dull one, which is why this was never a
+  // plain `chroma` passthrough.
+  const sat = 0.26 + 0.38 * Math.min(chroma * 1.6, 1);
 
   // `t` is 0 at the light anchor and 1 at the mid one, and keeps going past
   // both. At exactly 0 and exactly 1 every mix() below returns its anchor
