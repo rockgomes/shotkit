@@ -400,15 +400,27 @@ nothing: Corner radius live under all three frames, a bounded phone radius, a
 browser frame for a mobile shot, and an explicit disabled state for anything
 that still cannot act.
 
-**C — Background and palette.** Item 7's type-first restructure, the rendered
-preset tiles, a stronger ground palette, the dark ground, the accent colour,
-Angle (17), per-control Resets (18), and mesh's second hearing — mesh is
-judged again there, on a ground that can carry it, with a shot on top. It also
-carries the panel reorganisation and the luminosity slider that replaces
-`tone` — see "Cycle C's shape" near the end of this document, which is the
-detailed brief for all of it.
+**C — Background, end to end.** *Split again 2026-09-04, Rock's call, for
+the same reason B was: the original C was thirteen tasks.* The seam is what
+each cycle is ABOUT. C is the background: the luminosity slider that replaces
+`tone` and finally reaches a dark ground, the shadow re-verified across that
+range, a stronger palette, item 7's type-first restructure with sampled
+inside each type, the rendered preset tiles, preset click targets and the
+preset-angle question, Angle made legible (17), and mesh's second hearing —
+judged on a ground that can carry it, with a shot on top.
 
-**D — Shell.** Zoom and pan (15), new/close project (14), nameable custom
+**D — How the app is organised.** The left/right panel split (left is the
+shot, right is the thing you clicked), templates and ratios as one tabbed
+control, per-control Resets (18), and the accent colour.
+
+**The accent colour moved from C to D** when C split. Rock had placed it "with
+the palette", and the reasoning was that it is a visual-identity decision
+rather than a per-control one. It still is — but the places it acts are
+selected rail items, active segmented cells, focus rings and slider fills,
+which is exactly the surface D rebuilds. Doing it in C would mean styling
+states that D then moves.
+
+**E — Shell.** Zoom and pan (15), new/close project (14), nameable custom
 sizes (13), export dropdown (16).
 
 Each cycle is its own plan, run task by task, stopping after every task.
@@ -584,9 +596,11 @@ brighter design.
 identity decision, not a contrast fix, and folding it into a task about
 readability is how the two would get confused.
 
-**It lands in Cycle C**, Rock's call on 2026-09-03: it is a palette decision,
-and doing it alongside the ground palette makes one visual-identity pass
-rather than two. Candidates when it is taken up:
+**It lands in Cycle D**, and the route there is worth recording: Rock placed
+it "with the palette" on 2026-09-03, which was Cycle C at the time. When C
+split on 2026-09-04 it followed the panel work rather than the palette,
+because every place an accent acts — selected rail items, active segmented
+cells, focus rings, slider fills — is a surface D rebuilds. Candidates when it is taken up:
 selected states in the rail and template list, the active segmented cell, focus
 rings, slider fills, and the sampled-ground indicator — all places where the
 app currently says "active" with lightness alone.
@@ -604,6 +618,9 @@ section is requirements, not notes.
 Controls are split by **what they belong to**, which is the same split Cycle
 B just made in the config — `c` is the canvas, `elements` is the things in
 the shot. The UI should say the same thing the data says.
+
+*(The panel split itself is Cycle D. The rest of this section — tabbed size,
+rendered tiles, the luminosity slider — is Cycle C, except where noted.)*
 
 **Left — the shot as a whole**
 
