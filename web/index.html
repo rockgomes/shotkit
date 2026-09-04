@@ -211,7 +211,14 @@
         <p id="dropError" class="drop-error" role="alert" hidden></p>
 
         <div id="canvas" class="canvas-surface" data-surround="mid">
-          <canvas id="renderCanvas" class="render-canvas" aria-label="Shot preview"></canvas>
+          <canvas id="renderCanvas" class="render-canvas" aria-label="Shot preview" tabindex="0"></canvas>
+
+          <!-- The selection outline. A DOM element over the canvas, NEVER a
+               painted pixel: the preview canvas is the export canvas, so an
+               outline drawn into it would ship inside every PNG. See
+               web/selection.js, and the byte-identical guard in
+               test/web-export.test.js. -->
+          <div id="selectionOutline" class="selection-outline" hidden></div>
 
           <!-- The empty state IS the app with no file open — an empty frame
                at the current ratio, not a marketing panel (see task-7-brief.md:

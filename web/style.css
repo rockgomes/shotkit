@@ -824,6 +824,10 @@ input {
 
 .canvas-surface {
   flex: 1;
+  /* The selection outline is absolutely positioned against this, so it has
+     to be the positioned ancestor. Without it the outline would escape to
+     the viewport. */
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1546,4 +1550,35 @@ input {
   .render-canvas.is-settling {
     animation: none;
   }
+}
+
+/* The selection outline (Cycle B Task 6). Absolutely positioned over the
+   canvas and sized by web/selection.js from the layout core/ just used.
+   It is NEVER painted into the canvas — that would ship it in every
+   exported PNG.
+
+   `outline` rather than `border` so it cannot change the box it marks, and
+   `pointer-events: none` so it never eats the next click. 2px against
+   --border-strong (#696e7f), the interactive-boundary token.
+
+   MEASURED, not assumed: 4.17:1 against #ece6fb, the pale lavender ground
+   the app ships as its default and the palest thing this outline ever has
+   to sit on. That clears Cycle A Task 3b's 3:1 floor for a graphic
+   boundary. Every other ground is darker, so every other ground has more
+   contrast, not less. Re-measure when Cycle C adds a near-black ground —
+   the outline will then need checking at the OTHER end of the range.
+
+   No `opacity` anywhere: a state is an explicit colour. */
+.selection-outline {
+  position: absolute;
+  pointer-events: none;
+  outline: 2px solid var(--border-strong);
+  outline-offset: 3px;
+}
+
+/* The canvas is focusable so the selection has a keyboard path — Escape
+   clears it. A selection you can only make with a mouse is not finished. */
+.render-canvas:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 4px;
 }

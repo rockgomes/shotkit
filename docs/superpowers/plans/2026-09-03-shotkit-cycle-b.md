@@ -985,7 +985,7 @@ Tell Rock:
 
 **The rule that makes this task dangerous.** The preview canvas *is* the export canvas. An outline drawn into it ships in the PNG. So the outline is a DOM element positioned over the canvas, and `web/selection.js` may not contain the string `getContext` at all.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `test/selection.test.js`:
 
@@ -1062,14 +1062,14 @@ it('an active selection leaves the export byte-identical', async () => {
 
 Use that file's existing export harness rather than a new one.
 
-- [ ] **Step 2: Run and watch them fail**
+- [x] **Step 2: Run and watch them fail**
 
 Run: `npx vitest run test/selection.test.js`
 Expected: every test FAILS — `web/selection.js` does not exist.
 
 The export test will PASS immediately, because nothing draws a selection yet. **Say so in the report.** It is a regression guard for the rest of this cycle, not a new-behaviour guard, and calling it a passing test would be the twelfth dead guard.
 
-- [ ] **Step 3: Write `web/selection.js`**
+- [x] **Step 3: Write `web/selection.js`**
 
 ```js
 // web/selection.js — which element the pointer is over, and the DOM outline
@@ -1125,17 +1125,34 @@ export function placeOutline(el, box, scale) {
 }
 ```
 
-- [ ] **Step 4: Add `state.selection` and nothing else**
+- [x] **Step 4: Add `state.selection` and nothing else**
 
 In `web/state.js`, add `selection: null` to `state`. **Do not** add outline logic there — `state.js` holds state and calls `core/`, and giving it a view concern is how the one-render-path rule erodes.
 
-- [ ] **Step 5: Wire the click and the outline in `main.js`**
+- [x] **Step 5: Wire the click and the outline in `main.js`**
 
 The outline is a `<div id="selectionOutline">` inside `.canvas-surface`, a sibling of the canvas. Position it after every render and on resize, from `state.meta`'s layout. A click on the canvas converts client coordinates to canvas space by the same scale factor and calls `hitTest`; a click that hits nothing clears the selection.
 
 Give it a real keyboard path as well as a pointer one: `Escape` clears the selection, and the canvas takes focus so that is reachable. A selection you can only make with a mouse is not finished.
 
-- [ ] **Step 6: Style the outline**
+> **Corrected during execution.** Three things.
+>
+> 1. `placeOutline` needs an ORIGIN as well as a scale. The canvas is
+>    centred inside `.canvas-surface`'s 28px padding, so box coordinates
+>    (canvas-relative) and the outline (surface-relative) differ by that
+>    offset. Without it the outline sits a padding's width off — a bug that
+>    looks like a rounding error and is not. `.canvas-surface` also needed
+>    `position: relative`, or the outline escapes to the viewport.
+> 2. `main.js` had no post-render hook, so `state.js` gained a small
+>    `onRender(fn)` subscriber list. That keeps the inversion where
+>    `render()` lives instead of making every caller remember to reposition.
+> 3. The structural guard's first run FAILED on the word `getContext` inside
+>    `web/selection.js`'s own comment explaining why it must never call it.
+>    The test now strips comments and scans code — and carries a second
+>    assertion proving the stripping did not swallow the code too, by
+>    checking `core/render.js` still reads as containing `getContext`.
+
+- [x] **Step 6: Style the outline**
 
 In `web/style.css`, using tokens only:
 
@@ -1154,7 +1171,7 @@ In `web/style.css`, using tokens only:
 
 If `--border-strong` does not clear 3:1 against the palest ground the app can produce, add a token for this rather than reaching for a raw hex — `web/tokens.css` is the only file allowed one.
 
-- [ ] **Step 7: Run everything**
+- [x] **Step 7: Run everything**
 
 ```bash
 npx vitest run && git status --short test/golden
@@ -1162,7 +1179,7 @@ npx vitest run && git status --short test/golden
 
 Expected: PASS, no golden moved. The export test is the one to read twice.
 
-- [ ] **Step 8: Commit, push, deploy, and STOP**
+- [x] **Step 8: Commit, push, deploy, and STOP**
 
 ```bash
 git add web test

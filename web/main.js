@@ -6,11 +6,12 @@
 // where a drop/browse/surround click actually reaches `state` and the
 // on-page canvas — see web/state.js for the render() pipeline itself.
 
-import { state, SURROUNDS, bindCanvas, addFiles, hasContent } from './state.js';
+import { state, SURROUNDS, bindCanvas, addFiles, hasContent, onRender } from './state.js';
 import { exportShot } from './export.js';
 import { initSidebar } from './sidebar.js';
 import { initBackgroundInspector } from './inspector-background.js';
 import { initFrameInspector, initFinishInspector } from './inspector-frame.js';
+import { hitTest, boxFor, placeOutline } from './selection.js';
 // `normalise` only — read-only, to learn the canvas's EFFECTIVE size for the
 // empty-state frame below (Task 7). Never used to decide what to write; see
 // updateEmptyFrame()'s own comment. Same read-only pattern web/sidebar.js's
@@ -486,6 +487,74 @@ sidebarEl?.addEventListener('keydown', (event) => {
   if ((event.key === 'Enter' || event.key === ' ') && !hasContent()) updateEmptyFrame();
 });
 window.addEventListener('resize', updateEmptyFrame);
+
+/* -------------------------------------------------------------------------
+   Cycle B Task 6: click the canvas to select an element.
+
+   THE OUTLINE IS A DOM ELEMENT, NEVER A PAINTED PIXEL. The preview canvas
+   is the export canvas, so anything drawn into it ships inside every
+   exported PNG — see web/selection.js, which may not touch a canvas at all,
+   and the byte-identical guard in test/web-export.test.js.
+   ---------------------------------------------------------------------- */
+const selectionOutline = document.getElementById('selectionOutline');
+
+/** Canvas-space coordinates for a pointer event, and the scale between the
+ *  two. The canvas is rendered at full output resolution and displayed
+ *  scaled down by CSS (see web/state.js), so a click in CSS pixels has to be
+ *  divided by that same factor to land on the right box. */
+function canvasSpace(event) {
+  const r = renderCanvas.getBoundingClientRect();
+  if (!r.width || !renderCanvas.width) return null;
+  const scale = r.width / renderCanvas.width;
+  return { x: (event.clientX - r.left) / scale, y: (event.clientY - r.top) / scale };
+}
+
+function placeSelectionOutline() {
+  if (!selectionOutline) return;
+  const box = hasContent() ? boxFor(state.lay, state.selection) : null;
+  const r = renderCanvas.getBoundingClientRect();
+  if (!box || !r.width || !renderCanvas.width) {
+    placeOutline(selectionOutline, null);
+    return;
+  }
+  // The canvas is centred inside the surface's padding, so the outline
+  // needs that offset as well as the scale.
+  const surface = canvasSurface.getBoundingClientRect();
+  placeOutline(selectionOutline, box, r.width / renderCanvas.width,
+               r.left - surface.left, r.top - surface.top);
+}
+
+function setSelection(next) {
+  if (state.selection === next) return;
+  state.selection = next;
+  placeSelectionOutline();
+}
+
+renderCanvas.addEventListener('click', (event) => {
+  if (!hasContent()) return;
+  const p = canvasSpace(event);
+  if (p) setSelection(hitTest(state.lay, p.x, p.y));
+});
+
+// A click on the surface but NOT on the canvas is a click on the ground:
+// clear the selection. Registered on the surface rather than the document so
+// clicking a panel does not deselect — the panel is where you go to act on
+// the thing you just selected.
+canvasSurface.addEventListener('click', (event) => {
+  if (event.target !== renderCanvas) setSelection(null);
+});
+
+// The keyboard path. A selection you can only make with a mouse is not
+// finished; the canvas is focusable (tabindex in index.html) so Escape is
+// reachable from it.
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && state.selection) setSelection(null);
+});
+
+// The layout moves with every render and with every resize, so the outline
+// is repositioned from both.
+onRender(placeSelectionOutline);
+window.addEventListener('resize', placeSelectionOutline);
 
 /** A bad drop is an inline message, never a wiped canvas — addFiles() never
  *  touches state.images for files it couldn't decode, so whatever was last

@@ -83,3 +83,30 @@ describe('web export - the canvas surround never reaches the exported pixels', (
     expect(Buffer.compare(a, b)).toBe(0);
   });
 });
+
+// --- Cycle B Task 6: the selection outline is never a painted pixel ------
+//
+// The preview canvas IS the export canvas, so this is the load-bearing test
+// for the whole selection feature. It is a REGRESSION guard and passes on
+// arrival - nothing draws a selection today - which is exactly why it is
+// written before the outline exists rather than after.
+describe('an active selection never reaches the exported pixels', () => {
+  it('the export is byte-identical with and without a selection', async () => {
+    const web = await loadImage('samples/fieldset.png');
+    const target = createCanvas(10, 10);
+    bindCanvas(target, mkCanvas);
+    state.images.web = web;
+    state.images.mobile = [];
+    state.selection = null;
+
+    render();
+    const before = target.toBuffer('image/png');
+
+    state.selection = 'web';
+    render();
+    const after = target.toBuffer('image/png');
+
+    expect(Buffer.compare(before, after)).toBe(0);
+    state.selection = null;
+  });
+});
