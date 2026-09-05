@@ -1786,3 +1786,74 @@ suppressed. Changing the *hue* did nothing either, which is what gave it
 away. Reloading with `requestAnimationFrame` patched produced the numbers
 above. **A canvas that never updates in a hidden preview is the harness, not
 the app** — check a control known to work before believing a regression.
+
+---
+
+# Cycle C Task 8 — mesh's second hearing, and its deletion
+
+Mesh was withheld in Cycle A, not removed, because Rock could not see it:
+*"I can see it on your screenshots, but when there's a screen on top, there
+isn't much to see, and our current colors are very faint."* The spec set the
+terms for this rematch — judged on the new palette, with a shot on top, at
+several luminosities, and **deleted rather than hidden a second time** if it
+still could not be seen.
+
+## Measured
+
+Composed through `composeWithMeta` with a dark UI screenshot on top, and
+measured **only in the ground that is actually visible** — every pixel
+outside the shot's box plus a 3.5% margin, so the shadow and the stroke are
+excluded.
+
+| padding | ground | luminosity | linear's own spread | mesh's own spread | mesh vs linear, mean / worst |
+|---|---|---|---|---|---|
+| 5.2% | lavender | sampled | 60 | 56 | 6.20 / 20 |
+| 5.2% | lavender | 0.5 | 64 | 61 | 5.77 / 17 |
+| 5.2% | lavender | 0.25 | 45 | 44 | 2.88 / 9 |
+| 5.2% | ash | sampled | 60 | 57 | 4.93 / 17 |
+| 5.2% | ash | 0.25 | 46 | 45 | 2.18 / 9 |
+| 14% | lavender | sampled | 58 | 56 | 5.59 / 20 |
+| 22% | lavender | sampled | 57 | 55 | 5.59 / 20 |
+| 22% | lavender | 0.25 | 45 | 44 | 2.71 / 9 |
+
+Two things to read off it.
+
+**Mesh is not flatter than the gradient** — its own spread tracks linear's
+within a few levels. It was never broken.
+
+**It is not different from it either.** Five levels of mean difference, and
+it gets *worse* as the ground darkens, not better. More ground does not help:
+at 22% padding, with four times the visible border, the numbers do not move.
+
+## Why, and why no amount of tuning fixes it
+
+Every blob took its saturation and lightness from `g1` or `g3` — the sampled
+palette's own light and dark stops. Those sit about 60 levels apart across
+the whole canvas. A field assembled only from colours inside that range
+cannot vary more than the plain gradient already does. Only the **hue**
+rotated, and hue rotation at these saturations is worth a handful of levels.
+
+The way out would be to paint colours the screenshot does not contain — which
+is the one thing `core/ground.js` exists to refuse, and the argument
+`paintMesh`'s own comment made before Cycle A weakened it.
+
+So the palette was never the thing that failed. The measurement in Cycle A
+pointed at the palette because the palette was about to be rewritten; it has
+been rewritten, and mesh reads exactly as it did.
+
+## Deleted
+
+`paintMesh`, `MESH_STOPS_RANGE`, `MESH_SPREAD_RANGE`, `MESH_DEFAULTS`, the
+`mesh` config block, the top-level `seed` that only mesh read, `'mesh'` from
+`BG_TYPES`, the four panel helpers and `SEED_MIN`/`SEED_MAX`/`clampSeed`/
+`setSeed`, the Seed and Stops steppers and the Spread slider,
+`test/render-mesh.test.js`, both goldens, and the README's "not built yet"
+entry.
+
+Four helpers in `core/render.js` went with it, having lost their only
+callers: `hexToHsl`, `hslToHex`, and — checked, not assumed — nothing else.
+`hexToRgb` and `rgba` stay: `radial()` still uses them, and deleting them on
+a first pass broke every ground test, which is how that was caught.
+
+**16 goldens remain**, not the 15 the plan predicted; the plan's arithmetic
+predated `ground-ash`.

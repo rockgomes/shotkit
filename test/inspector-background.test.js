@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { readFileSync } from 'node:fs';
 import {
-  HUES, normalise, groundFor, MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
+  HUES, normalise, groundFor, BG_TYPES,
   LUMINOSITY_RANGE, LUM_ANCHOR_LIGHT,
 } from '../core/index.js';
 import { state, bindCanvas, render } from '../web/state.js';
@@ -11,20 +11,12 @@ import {
   UI_BG_TYPES,
   TYPE_LABELS,
   showsAngle,
-  activeMeshStops,
-  setMeshStops,
-  activeMeshSpread,
-  setMeshSpread,
   isAutoGround,
   forcedHueDeg,
   setHue,
   resetToSampled,
   setAngle,
   setBgType,
-  clampSeed,
-  setSeed,
-  SEED_MIN,
-  SEED_MAX,
   isSampledLuminosity,
   lightEndLabel,
   ANGLE_SLIDER_MAX,
@@ -137,22 +129,13 @@ describe('angle, background type, seed and luminosity helpers', () => {
     const config = {};
     setBgType(config, 'not-a-type');
     expect(config.bgType).toBeUndefined();
-    setBgType(config, 'mesh');
-    expect(config.bgType).toBe('mesh');
+    setBgType(config, 'solid');
+    expect(config.bgType).toBe('solid');
     // Rejects a value that looks plausible but was never a member of
     // BG_TYPES, and does not clobber the last good value while doing so —
     // this exercises setBgType's own guard, not BG_TYPES' own contents.
     setBgType(config, 'gradient');
-    expect(config.bgType).toBe('mesh');
-  });
-
-  it('clampSeed/setSeed keep the seed inside [SEED_MIN, SEED_MAX]', () => {
-    expect(clampSeed(0)).toBe(SEED_MIN);
-    expect(clampSeed(500)).toBe(SEED_MAX);
-    expect(clampSeed(12.6)).toBe(13);
-    const config = {};
-    setSeed(config, -5);
-    expect(config.seed).toBe(SEED_MIN);
+    expect(config.bgType).toBe('solid');
   });
 
   // Cycle C Task 1: the Auto/Light/Mid segmented became a luminosity
@@ -507,100 +490,28 @@ describe('angle hits the warm ground cache; hue and luminosity bust it', () => {
   });
 });
 
-// --- Mesh stops and spread (Cycle A Task 9) ------------------------------
-//
-// The round trip goes through the REAL normalise() on both sides, so these
-// prove the panel agrees with core/config.js rather than only with itself.
-describe('mesh stops and spread (Task 9)', () => {
-  it('an unset config reads back the shipped defaults', () => {
-    expect(activeMeshStops({})).toBe(MESH_DEFAULTS.stops);
-    expect(activeMeshSpread({})).toBe(MESH_DEFAULTS.spread);
-    expect(normalise({}).mesh).toEqual(MESH_DEFAULTS);
-  });
-
-  it('setMeshStops writes a block normalise() reads back unchanged', () => {
-    const config = {};
-    setMeshStops(config, 5);
-    expect(activeMeshStops(config)).toBe(5);
-    expect(normalise(config).mesh.stops).toBe(5);
-  });
-
-  it('setMeshSpread writes degrees normalise() reads back unchanged', () => {
-    const config = {};
-    setMeshSpread(config, 130);
-    expect(activeMeshSpread(config)).toBe(130);
-    expect(normalise(config).mesh.spread).toBe(130);
-  });
-
-  it('clamps both at each end of their range', () => {
-    const config = {};
-    setMeshStops(config, 0);
-    expect(config.mesh.stops).toBe(MESH_STOPS_RANGE[0]);
-    setMeshStops(config, 99);
-    expect(config.mesh.stops).toBe(MESH_STOPS_RANGE[1]);
-    setMeshSpread(config, -40);
-    expect(config.mesh.spread).toBe(MESH_SPREAD_RANGE[0]);
-    setMeshSpread(config, 999);
-    expect(config.mesh.spread).toBe(MESH_SPREAD_RANGE[1]);
-  });
-
-  it('changing one field leaves the other alone', () => {
-    // Task 5b reset the user's value here by spreading defaults LAST while
-    // the control went on showing the old number. It must not happen again.
-    const config = {};
-    setMeshSpread(config, 130);
-    setMeshStops(config, 5);
-    expect(activeMeshSpread(config)).toBe(130);
-    setMeshSpread(config, 20);
-    expect(activeMeshStops(config)).toBe(5);
-  });
-
-  it('never moves the seed, which lives at the top level and not in the block', () => {
-    // One value, one home. A `seed` inside `config.mesh` would be a second
-    // writable source for it - the shape of the Task 5b failure.
-    const config = { seed: 12 };
-    setMeshStops(config, 5);
-    setMeshSpread(config, 90);
-    expect(config.seed).toBe(12);
-    expect(config.mesh.seed).toBeUndefined();
-    expect(normalise(config).mesh.seed).toBeUndefined();
-  });
-
-  it('ignores a non-numeric value rather than corrupting the block', () => {
-    const config = {};
-    setMeshStops(config, 4);
-    setMeshStops(config, 'lots');
-    setMeshSpread(config, 'wide');
-    expect(activeMeshStops(config)).toBe(4);
-    expect(activeMeshSpread(config)).toBe(MESH_DEFAULTS.spread);
-  });
-});
-
 // --- Mesh withheld from the panel (2026-09-03) ---------------------------
 //
 // Rock's call after using the rebuilt mesh: it cannot carry a shot on a pale
 // palette, and the palette is Cycle B's work. These assert the shape of that
 // decision - the way IN is closed, the feature is not deleted - so that
 // restoring it later is one line rather than an archaeology exercise.
-describe('mesh is withheld from the Background panel, not removed', () => {
-  it('the panel does not offer mesh', () => {
-    expect(UI_BG_TYPES).not.toContain('mesh');
-    expect(UI_BG_TYPES).toContain('linear');
-    expect(UI_BG_TYPES).toContain('solid');
+// `mesh is withheld from the Background panel, not removed` stood here, and
+// its own name is why it is gone: the type was deleted in Cycle C Task 8
+// rather than hidden a second time. What is left of it is the assertion
+// below — the panel offers exactly what core/ can render, with nothing held
+// back.
+describe('the panel offers exactly what core/ renders', () => {
+  it('UI_BG_TYPES and BG_TYPES say the same thing', () => {
+    expect([...UI_BG_TYPES].sort()).toEqual([...BG_TYPES].sort());
   });
 
-  it('core still accepts and renders it, so nothing was thrown away', () => {
-    expect(normalise({ bgType: 'mesh' }).bgType).toBe('mesh');
+  it('and mesh is gone from both, not merely hidden from one', () => {
+    expect(BG_TYPES).not.toContain('mesh');
     const config = {};
     setBgType(config, 'mesh');
-    expect(config.bgType).toBe('mesh');
-  });
-
-  it('and the mesh controls still work for whatever does set it', () => {
-    const config = {};
-    setMeshStops(config, 5);
-    setMeshSpread(config, 120);
-    expect(normalise(config).mesh).toEqual({ stops: 5, spread: 120 });
+    expect(config.bgType).toBeUndefined();
+    expect(normalise({ bgType: 'mesh' }).bgType).toBe('linear');
   });
 });
 
@@ -697,7 +608,8 @@ describe('the Background panel is type-first (Task 4)', () => {
     expect(showsAngle({ bgType: 'linear' })).toBe(true);
     expect(showsAngle({})).toBe(true);                 // linear is the default
     expect(showsAngle({ bgType: 'solid' })).toBe(false);
-    expect(showsAngle({ bgType: 'mesh' })).toBe(false);
+    // A type core/ does not know falls back to the default, which is linear.
+    expect(showsAngle({ bgType: 'mesh' })).toBe(true);
   });
 });
 

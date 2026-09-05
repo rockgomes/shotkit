@@ -9,8 +9,7 @@
 //     -> Presets (the eight named HUES)
 //       -> Hue slider (any degree, not just the eight)
 //         -> Angle slider (gradient direction — layout, not colour)
-//           -> Type (linear / solid / mesh)
-//             -> Seed (mesh only)
+//           -> Type (linear / solid)
 //               -> Tone (auto / light / mid — a CORRECTNESS override, not a
 //                  mood setting; see its own section below)
 //
@@ -37,7 +36,6 @@
 // drives every visual in this panel at once.
 import {
   HUES, GROUNDS, BG_TYPES, DEFAULT_ANGLE, DEFAULTS, groundFor, groundFromMeta, normalise,
-  MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
   LUMINOSITY_RANGE, LUM_ANCHOR_LIGHT, LUM_ANCHOR_MID,
 } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
@@ -179,110 +177,39 @@ export function setAngle(config, deg) {
   config.angle = ((Math.round(n) % 360) + 360) % 360;
 }
 
-// WHAT THE PANEL OFFERS, which is deliberately NOT all of BG_TYPES.
-//
-// Mesh is withheld from the UI as of 2026-09-03, at Rock's call, after he
-// used the rebuilt version: "I can barely see anything... when there's a
-// screen on top, there isn't much to see, and our current colors are very
-// faint. would it be a good idea to turn mesh option off for now and
-// revisit it later?"
-//
-// He is diagnosing it correctly, and the diagnosis is the reason this is a
-// HIDE AND NOT A DELETE. Cycle A Task 9's three gates all pass on their own
-// terms - mesh spans real hue variety, spread/stops/seed all steer it, and
-// it does not go muddy - but a shot is a screenshot with a border of ground
-// around it, and on a pale palette that border shows almost nothing. What
-// fails is the palette, which Cycle B rewrites anyway. So `paintMesh`, its
-// config block, its tests and both its goldens all stay, fully guarded;
-// only the way in is closed.
-//
-// TO RESTORE IT: delete this constant and map over BG_TYPES again below.
-// Nothing else has to come back, because nothing else went away.
-export const UI_BG_TYPES = BG_TYPES.filter(t => t !== 'mesh');
+// WHAT THE PANEL OFFERS. Mesh was the one type BG_TYPES carried and this
+// list withheld — deleted outright in Cycle C Task 8 rather than hidden a
+// second time, so the two lists are the same list again. Kept as its own
+// export because the panel asking core/ "what may I offer?" is the right
+// shape the moment a type is added that the app cannot yet drive.
+export const UI_BG_TYPES = [...BG_TYPES];
 
 // The user-facing names. "Gradient", not "Linear": `bgType`'s stored value
 // stays 'linear' everywhere in core/ and in every jobs.json ever written -
 // the label changes, the value does not.
-export const TYPE_LABELS = { linear: 'Gradient', solid: 'Solid', mesh: 'Mesh' };
+export const TYPE_LABELS = { linear: 'Gradient', solid: 'Solid' };
 
 /** Angle is a GRADIENT control. `paintSolid` fills flat with the middle
- *  stop and never reads it, and `paintMesh` places its blobs from a seed -
- *  so on either of those it is a slider that moves and changes nothing,
- *  which is the defect Cycle B spent eight tasks removing and which was
+ *  stop and never reads it, so on Solid the slider would move and change
+ *  nothing - the defect Cycle B spent eight tasks removing, which was
  *  sitting in this panel the whole time. */
 export function showsAngle(config) {
   const type = BG_TYPES.includes(config.bgType) ? config.bgType : DEFAULTS.bgType;
   return type === 'linear';
 }
 
-// Still validated against core's BG_TYPES, not against UI_BG_TYPES above: a
-// jobs.json or a saved config carrying `mesh` is a legitimate input that
-// core/ renders correctly, and this function's job is to reject nonsense,
-// not to enforce what the panel happens to show today.
+// Validated against core's BG_TYPES rather than UI_BG_TYPES: this
+// function's job is to reject nonsense, not to enforce what the panel
+// happens to show today. The two lists are identical now that mesh is gone,
+// and this stays pointed at core's on purpose.
 export function setBgType(config, type) {
   if (!BG_TYPES.includes(type)) return;
   config.bgType = type;
 }
 
-export const SEED_MIN = 1;
-export const SEED_MAX = 99;
-
-export function clampSeed(n) {
-  const v = Math.round(Number(n));
-  if (!Number.isFinite(v)) return DEFAULTS.seed;
-  return Math.min(SEED_MAX, Math.max(SEED_MIN, v));
-}
-
-export function setSeed(config, n) {
-  config.seed = clampSeed(n);
-}
-
-// --- Mesh stops and spread (Cycle A Task 9) ------------------------------
-//
-// `config.mesh` is a nested block ({ stops, spread }) matching core/config.js.
-// SEED IS NOT IN IT and must not be moved into it: it already lives at the
-// top level with its own clamp and its own control above, and a second
-// writable home for one value is how Task 5b killed the shadow slider.
-//
-// Both writers seed from MESH_DEFAULTS first and the current block second,
-// so changing one field never resets the other - the same ordering rule
-// spelled out on the stroke writers in web/inspector-frame.js, and for the
-// same reason.
-export function activeMeshStops(config) {
-  const m = config.mesh || {};
-  const n = Math.round(Number(m.stops));
-  return Number.isFinite(n)
-    ? Math.min(MESH_STOPS_RANGE[1], Math.max(MESH_STOPS_RANGE[0], n))
-    : MESH_DEFAULTS.stops;
-}
-
-export function setMeshStops(config, n) {
-  const v = Math.round(Number(n));
-  if (!Number.isFinite(v)) return;
-  config.mesh = {
-    ...MESH_DEFAULTS,
-    ...(config.mesh || {}),
-    stops: Math.min(MESH_STOPS_RANGE[1], Math.max(MESH_STOPS_RANGE[0], v)),
-  };
-}
-
-export function activeMeshSpread(config) {
-  const m = config.mesh || {};
-  const v = Number(m.spread);
-  return Number.isFinite(v)
-    ? Math.min(MESH_SPREAD_RANGE[1], Math.max(MESH_SPREAD_RANGE[0], v))
-    : MESH_DEFAULTS.spread;
-}
-
-export function setMeshSpread(config, deg) {
-  const v = Number(deg);
-  if (!Number.isFinite(v)) return;
-  config.mesh = {
-    ...MESH_DEFAULTS,
-    ...(config.mesh || {}),
-    spread: Math.min(MESH_SPREAD_RANGE[1], Math.max(MESH_SPREAD_RANGE[0], v)),
-  };
-}
+// `SEED_MIN`/`SEED_MAX`/`clampSeed`/`setSeed` and the four mesh
+// stops-and-spread helpers lived here. All of them steered paintMesh and
+// nothing else, and went with it in Cycle C Task 8.
 
 // --- Luminosity (Cycle C Task 1) -----------------------------------------
 //
@@ -631,77 +558,8 @@ export function initBackgroundInspector() {
   });
   section.appendChild(typeSegmented);
 
-  // --- Seed (mesh only) -----------------------------------------------------------
-  const seedRow = document.createElement('div');
-  seedRow.id = 'backgroundSeedRow';
-  seedRow.className = 'inline-control-row';
-  seedRow.hidden = true;
-  const seedLabel = document.createElement('span');
-  seedLabel.textContent = 'Seed';
-  const seedStepper = document.createElement('div');
-  seedStepper.className = 'zoom-stepper';
-  const seedMinus = document.createElement('button');
-  seedMinus.type = 'button';
-  seedMinus.className = 'zoom-btn';
-  seedMinus.setAttribute('aria-label', 'Decrease mesh seed');
-  seedMinus.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-minus"></use></svg>';
-  const seedValueEl = document.createElement('span');
-  seedValueEl.className = 'zoom-value mono';
-  const seedPlus = document.createElement('button');
-  seedPlus.type = 'button';
-  seedPlus.className = 'zoom-btn';
-  seedPlus.setAttribute('aria-label', 'Increase mesh seed');
-  seedPlus.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-plus"></use></svg>';
-  seedStepper.append(seedMinus, seedValueEl, seedPlus);
-  seedRow.append(seedLabel, seedStepper);
-  section.appendChild(seedRow);
-
-  // --- Stops and Spread (mesh only, Task 9) ---------------------------
-  // Without these, `spread` and `stops` are unreachable - which is exactly
-  // the state that made mesh useless in the first place, and there would be
-  // no way for anyone to judge whether it is worth having. Deliberately
-  // minimal; Cycle B's Background rework replaces them. Same idioms as the
-  // Seed stepper above and the Angle slider below - no new control
-  // vocabulary is invented here.
-  const stopsRow = document.createElement('div');
-  stopsRow.id = 'backgroundStopsRow';
-  stopsRow.className = 'inline-control-row';
-  stopsRow.hidden = true;
-  const stopsLabel = document.createElement('span');
-  stopsLabel.textContent = 'Stops';
-  const stopsStepper = document.createElement('div');
-  stopsStepper.className = 'zoom-stepper';
-  const stopsMinus = document.createElement('button');
-  stopsMinus.type = 'button';
-  stopsMinus.className = 'zoom-btn';
-  stopsMinus.setAttribute('aria-label', 'Fewer mesh colour stops');
-  stopsMinus.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-minus"></use></svg>';
-  const stopsValueEl = document.createElement('span');
-  stopsValueEl.className = 'zoom-value mono';
-  const stopsPlus = document.createElement('button');
-  stopsPlus.type = 'button';
-  stopsPlus.className = 'zoom-btn';
-  stopsPlus.setAttribute('aria-label', 'More mesh colour stops');
-  stopsPlus.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-plus"></use></svg>';
-  stopsStepper.append(stopsMinus, stopsValueEl, stopsPlus);
-  stopsRow.append(stopsLabel, stopsStepper);
-  section.appendChild(stopsRow);
-
-  const spreadRow = document.createElement('div');
-  spreadRow.id = 'backgroundSpreadRow';
-  spreadRow.className = 'slider-row';
-  spreadRow.hidden = true;
-  spreadRow.innerHTML = '<div class="slider-label"><span>Spread</span><span class="mono slider-value"></span></div>';
-  const spreadInput = document.createElement('input');
-  spreadInput.type = 'range';
-  spreadInput.className = 'slider';
-  spreadInput.min = String(MESH_SPREAD_RANGE[0]);
-  spreadInput.max = String(MESH_SPREAD_RANGE[1]);
-  spreadInput.step = '1';
-  spreadInput.setAttribute('aria-label', 'Mesh hue spread, in degrees around the ground’s own hue');
-  spreadRow.appendChild(spreadInput);
-  const spreadValueEl = spreadRow.querySelector('.slider-value');
-  section.appendChild(spreadRow);
+  // The Seed stepper, the Stops stepper and the Spread slider lived here.
+  // All three steered mesh and nothing else, and went with it in Task 8.
 
   // --- Luminosity (Cycle C Task 1) -------------------------------------
   // Was a three-cell "Ground tone" segmented, Auto / Light / Mid. Both of
@@ -746,8 +604,7 @@ export function initBackgroundInspector() {
   //
   // Type first, because it decides what every control below it means.
   // Then the ground itself - sampled, then the presets - because that is
-  // the choice. Then the adjustments to whatever was chosen. Mesh's own
-  // controls sit last, gated on the type.
+  // the choice. Then the adjustments to whatever was chosen.
   //
   // SAMPLED LIVES INSIDE THE TYPE and is not a fourth option beside it:
   // there is a sampled gradient and a sampled solid, and switching type
@@ -757,7 +614,6 @@ export function initBackgroundInspector() {
     sampledRow, presetList,
     hueRow, angleRow,
     lumRow,
-    seedRow, stopsRow, spreadRow,
   ]) section.appendChild(el);
 
   // -----------------------------------------------------------------------
@@ -903,9 +759,9 @@ export function initBackgroundInspector() {
   }
 
   function syncTypeUI() {
-    // UI_BG_TYPES, not BG_TYPES: a config carrying a type the panel does
-    // not offer (mesh, today) must not leave the section showing that
-    // type's own rows with no button selected to explain them.
+    // UI_BG_TYPES, not BG_TYPES: the two are identical today, and a config
+    // carrying a type the panel does not offer must still land on something
+    // rather than leave every button unselected.
     const type = UI_BG_TYPES.includes(state.config.bgType)
       ? state.config.bgType : DEFAULTS.bgType;
     typeButtons.forEach((btn) => {
@@ -913,30 +769,8 @@ export function initBackgroundInspector() {
       btn.classList.toggle('is-active', active);
       btn.setAttribute('aria-pressed', String(active));
     });
-    seedRow.hidden = type !== 'mesh';
-    stopsRow.hidden = type !== 'mesh';
-    spreadRow.hidden = type !== 'mesh';
     // Angle only means something for a gradient - see showsAngle.
     angleRow.hidden = !showsAngle(state.config);
-    if (!seedRow.hidden) { syncSeedUI(); syncMeshUI(); }
-  }
-
-  function syncMeshUI() {
-    const stops = activeMeshStops(state.config);
-    stopsValueEl.textContent = String(stops);
-    stopsMinus.disabled = stops <= MESH_STOPS_RANGE[0];
-    stopsPlus.disabled = stops >= MESH_STOPS_RANGE[1];
-
-    const spread = activeMeshSpread(state.config);
-    spreadInput.value = String(spread);
-    syncSliderFill(spreadInput, spreadValueEl, `${Math.round(spread)}°`);
-  }
-
-  function syncSeedUI() {
-    const seed = Number.isFinite(state.config.seed) ? state.config.seed : DEFAULTS.seed;
-    seedValueEl.textContent = String(seed);
-    seedMinus.disabled = seed <= SEED_MIN;
-    seedPlus.disabled = seed >= SEED_MAX;
   }
 
   function syncLuminosityUI() {
@@ -984,30 +818,6 @@ export function initBackgroundInspector() {
       setBgType(state.config, btn.dataset.type);
       afterBackgroundChange();
     });
-  });
-
-  seedMinus.addEventListener('click', () => {
-    const current = Number.isFinite(state.config.seed) ? state.config.seed : DEFAULTS.seed;
-    setSeed(state.config, current - 1);
-    afterBackgroundChange();
-  });
-  seedPlus.addEventListener('click', () => {
-    const current = Number.isFinite(state.config.seed) ? state.config.seed : DEFAULTS.seed;
-    setSeed(state.config, current + 1);
-    afterBackgroundChange();
-  });
-
-  stopsMinus.addEventListener('click', () => {
-    setMeshStops(state.config, activeMeshStops(state.config) - 1);
-    afterBackgroundChange();
-  });
-  stopsPlus.addEventListener('click', () => {
-    setMeshStops(state.config, activeMeshStops(state.config) + 1);
-    afterBackgroundChange();
-  });
-  spreadInput.addEventListener('input', () => {
-    setMeshSpread(state.config, spreadInput.value);
-    afterBackgroundChange();
   });
 
   // Luminosity changes what every preset AND the Sampled swatch preview to,

@@ -2,7 +2,6 @@ import {
   RATIOS, HUES, GROUNDS, DEFAULTS, RADIUS_RATIO, TEMPLATES, DEFAULT_ANGLE, SCALES, FRAME_KINDS,
   LAYOUTS, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE, LUMINOSITY_RANGE,
   STROKE_STYLES, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
-  MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
   ELEMENT_KINDS, ELEMENT_DEFAULTS,
 } from './presets.js';
 
@@ -173,7 +172,6 @@ export function normalise(input = {}) {
     })(),
     template: tpl ? input.template : null,
     bgType: BG_TYPES.includes(input.bgType) ? input.bgType : DEFAULTS.bgType,
-    seed: Math.round(num(input.seed, DEFAULTS.seed)),
     frameKind: FRAME_KINDS.includes(input.frameKind) ? input.frameKind : 'none',
     chromeTheme: CHROME_THEMES.includes(input.chromeTheme) ? input.chromeTheme : 'dark',
     // Task 6b: a MULTIPLIER over paintShadow's verified alphas, never a
@@ -194,23 +192,6 @@ export function normalise(input = {}) {
     // sensible to land. Width is clamped to STROKE_WIDTH_RANGE here, the
     // same defensive clamp shadowScale gets, so a stale jobs.json or a
     // runaway slider can never reach layout.js unbounded.
-    // Task 9. `stops` and `spread` only - `seed` stays the top-level field
-    // it always was, for the one-value-one-home reason spelled out beside
-    // MESH_DEFAULTS in presets.js. Both are clamped here, the same
-    // defensive clamp shadowScale and stroke.width get.
-    mesh: (() => {
-      const m = input.mesh || {};
-      return {
-        stops: Math.min(
-          MESH_STOPS_RANGE[1],
-          Math.max(MESH_STOPS_RANGE[0], Math.round(num(m.stops, MESH_DEFAULTS.stops))),
-        ),
-        spread: Math.min(
-          MESH_SPREAD_RANGE[1],
-          Math.max(MESH_SPREAD_RANGE[0], num(m.spread, MESH_DEFAULTS.spread)),
-        ),
-      };
-    })(),
     stroke: normaliseStroke(input.stroke),
     // Cycle B Task 1. Read by nothing yet - see elementsFrom above.
     elements: elementsFrom(input),

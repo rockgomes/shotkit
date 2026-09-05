@@ -48,8 +48,7 @@ export const DEFAULTS = {
   url: null,           // browser URL pill text - null means the pill stays
                         // empty (see URL_PILL_FONT_RATIO below and Task 6)
   luminosity: null,    // null = sampled; else the ground's top-stop lightness
-  bgType: 'linear',    // 'linear' | 'solid' | 'mesh'
-  seed: 1,
+  bgType: 'linear',    // 'linear' | 'solid'
   shadowScale: 1,      // 1 = frame.html's own alphas, unchanged - see
                         // SHADOW_SCALE_RANGE below and core/render.js's
                         // paintShadow doc comment.
@@ -244,7 +243,7 @@ export const LAYOUTS = ['web', 'mobile', 'web+mobile'];
 
 // Valid `bgType` values - which ground painter core/render.js's paintGround
 // dispatches to. Anything else falls back to DEFAULTS.bgType ('linear').
-export const BG_TYPES = ['linear', 'solid', 'mesh'];
+export const BG_TYPES = ['linear', 'solid'];
 
 // Valid `chromeTheme` values for a 'browser' frameKind. Anything else falls
 // back to 'dark'.
@@ -274,28 +273,21 @@ export const STROKE_WIDTH_RANGE = [0, 0.06];
 
 export const STROKE_DEFAULTS = { style: 'none', width: 0.008, color: '#ffffff' };
 
-// --- Mesh (Cycle A Task 9) ----------------------------------------------
+// Mesh lived here — MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS, and
+// the top-level `seed` that only it read. DELETED 2026-09-05 after its second
+// hearing (Cycle C Task 8), not hidden a second time.
 //
-// Mesh was two tints of ONE hue with a reroll button, which is why it could
-// only ever look like a blotchier linear gradient. Rock: "I still don't know
-// what mesh does. you're gonna need to show me the value of it."
+// It worked, and that was never the question. Its blobs are painted in
+// colours taken from g1 and g3 — the sampled palette's own light and dark
+// stops, about 60 levels apart across the whole canvas — so a field built
+// only from colours inside that range cannot vary more than the plain
+// gradient already does. Measured against `linear` over the same screenshot:
+// a mean difference of 5 levels in the visible ground, 20 at worst, and no
+// better at 22% padding than at 5%. Making it visible would mean inventing
+// colours the screenshot does not contain, which is the one thing
+// core/ground.js exists to refuse.
 //
-// `stops` is how many distinct hues are placed. `spread` is the total hue
-// arc in DEGREES they are distributed across, CENTRED on the ground's own
-// hue - so a sampled mesh still belongs to the screenshot it came from, and
-// spread 0 reproduces the single-hue behaviour exactly. That centring is
-// what keeps core/ground.js's "the ground comes from the product" rule
-// intact while still letting the mesh do something a linear ramp cannot.
-//
-// NO `seed` HERE, DELIBERATELY. `seed` already exists at the top level of
-// the config, is already clamped, and already has a UI control. Giving it a
-// second home inside this block would create two writable sources for one
-// value - which is precisely how Task 5b killed the shadow slider: a nested
-// default silently outranked the flat field, and the control went dead
-// while still displaying the old number. One value, one home.
-export const MESH_STOPS_RANGE = [3, 5];
-export const MESH_SPREAD_RANGE = [0, 180];
-export const MESH_DEFAULTS = { stops: 4, spread: 70 };
+// Numbers in docs/verification-2026-09-01.md.
 
 // --- Per-element settings (Cycle B) -------------------------------------
 //

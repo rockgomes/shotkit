@@ -521,6 +521,26 @@ grounds. Mesh should be judged again then, on a ground that can carry it, and
 with a shot on top rather than on its own. If it still cannot be seen at that
 point, delete it rather than hiding it a second time.
 
+> **DELETED, 2026-09-05 — Cycle C Task 8.** Judged on the rebuilt palette,
+> with a dark UI screenshot on top, at four luminosities and three paddings.
+> Measured in the ground that is actually visible: mesh differs from the
+> plain gradient by a mean of **5 levels**, 20 at worst, and it gets *worse*
+> as the ground darkens. Four times the visible border, at 22% padding,
+> changes nothing.
+>
+> **The diagnosis above was wrong, and correcting it is the point of writing
+> this down.** The palette was not what failed. Every blob takes its
+> saturation and lightness from `g1` or `g3` — the sampled palette's own two
+> ends, about 60 levels apart — so a field built only from colours inside
+> that range cannot vary more than the gradient already does. Only the hue
+> rotates, and hue rotation at these saturations is worth a handful of
+> levels. Rewriting the palette could not have fixed that, and did not.
+>
+> Making mesh visible would mean painting colours the screenshot does not
+> contain. That is the one thing `core/ground.js` exists to refuse, so mesh
+> was never going to be worth having on these terms. Deleted whole, per the
+> paragraph above. Numbers in `docs/verification-2026-09-01.md`.
+
 ## Carried forward — Background panel, from Rock 2026-09-02
 
 Raised while approving Task 5, and explicitly deferred by him: *"I guess this

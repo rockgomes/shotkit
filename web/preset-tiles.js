@@ -25,7 +25,7 @@ import {
  * Paint one named preset into `canvas`.
  *
  * `config` is the app's own config — the tile has to honour the type, the
- * angle, the luminosity and the mesh settings, or it previews something the
+ * angle and the luminosity, or it previews something the
  * canvas will not produce. `meta` is a previously-returned ground meta for
  * the loaded screenshot, so a preset can be previewed against the user's own
  * image without re-analysing it per tile; `null` falls back to a synthetic

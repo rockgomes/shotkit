@@ -670,17 +670,27 @@ Keep the slider — it is good for sweeping — and add the indicator beside it.
 
 **The task may end with mesh still withheld, and that is a real outcome.** From the spec: *"If it still cannot be seen at that point, delete it rather than hiding it a second time."*
 
-- [ ] **Step 1: Restore it locally and look, with a shot on top**
+- [x] **Step 1: Restore it locally and look, with a shot on top**
 
 Mesh was withheld because on the shipped palette it could not be seen — and Rock was precise about why: *"I can see it on your screenshots, but when there's a screen on top, there isn't much to see."* The mistake the first time was judging it on a bare ground.
 
 So: temporarily add `'mesh'` back to `UI_BG_TYPES`, render it **with a screenshot covering the middle**, on the Task 3 palette, at several luminosities including a dark one, and look at the border of ground that actually shows.
 
-- [ ] **Step 2: Take one of the three outcomes, and say which**
+- [x] **Step 2: Take one of the three outcomes, and say which**
 
 1. **It reads now.** Restore it: remove it from `UI_BG_TYPES`, delete the "not built yet" entry, add the mesh tiles to Task 5's grid, and hand Rock a preview.
 2. **It still cannot be seen.** Delete it — `paintMesh`, `MESH_*`, the config block, both goldens, the tests, and `'mesh'` from `BG_TYPES`. The spec says so explicitly, and hiding it a second time would be the worse choice.
 3. **It reads only at some luminosities.** Report that and let Rock decide; do not invent a rule that hides it conditionally.
+
+> **Outcome 2 — deleted.** Not a taste call in the end. Measured in the
+> visible ground with a shot on top: a mean difference from the plain
+> gradient of 5 levels, worse as the ground darkens, unchanged at four times
+> the padding. The cause is structural — every blob takes its saturation and
+> lightness from `g1`/`g3`, about 60 levels apart, so the field cannot vary
+> more than the gradient already does. **The palette was never what failed**,
+> which means the Cycle A diagnosis was wrong and no tuning would have fixed
+> it. Numbers in `docs/verification-2026-09-01.md`; the spec's mesh section
+> now records the correction.
 
 - [ ] **Step 3: Commit, deploy, and STOP**
 
