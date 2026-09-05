@@ -52,8 +52,8 @@ export function composeWithMeta(target, rawConfig, images, makeCanvas, precomput
   const meta = precomputedMeta || (() => {
     const samples = [web, ...mobile].filter(Boolean).map(im => sampleOf(im, makeCanvas));
     return samples.length
-      ? groundFor(samples, c.forceHue, c.luminosity)
-      : groundFor([{ width: 1, height: 1, data: [128, 128, 128, 255] }], c.forceHue, c.luminosity);
+      ? groundFor(samples, c.forceHue, c.luminosity, c.forceSat)
+      : groundFor([{ width: 1, height: 1, data: [128, 128, 128, 255] }], c.forceHue, c.luminosity, c.forceSat);
   })();
 
   // `scale` renders this SAME composition at `c.scale` times the canvas
@@ -115,7 +115,7 @@ export function compose(target, rawConfig, images, makeCanvas) {
 
 export { normalise, layout, groundFor, groundFromMeta };
 export {
-  RATIOS, HUES, DEFAULTS, TEMPLATES, FRAME_KINDS, SCALES, DEFAULT_ANGLE,
+  RATIOS, HUES, GROUNDS, DEFAULTS, TEMPLATES, FRAME_KINDS, SCALES, DEFAULT_ANGLE,
   LAYOUTS, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
   STROKE_STYLES, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
   MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,

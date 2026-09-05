@@ -40,7 +40,7 @@
 // not a burden. A bespoke widget buys nothing here and adds real failure
 // surface (wrap-around, Home/End, orientation) for a keyboard user who
 // already has a working, consistent way to reach every row.
-import { TEMPLATES, RATIOS, HUES, groundFor, groundFromMeta, normalise } from '../core/index.js';
+import { TEMPLATES, RATIOS, HUES, GROUNDS, groundFor, groundFromMeta, normalise } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
 
 // ---------------------------------------------------------------------
@@ -194,10 +194,17 @@ function hslToRgbByte(h, s, l) {
  *  (if any) is currently active, matching exactly what clicking the swatch
  *  would produce. */
 export function gradientFor(hueName, meta, luminosity) {
-  const hueDeg = HUES[hueName];
+  const preset = GROUNDS[hueName];
+  const hueDeg = preset.hue;
+  // The preset's OWN saturation, when it declares one. Without this the
+  // `ash` swatch would preview as a blue tint and then render as a grey -
+  // a swatch lying about what selecting it produces, which is the exact
+  // defect this file's own test suite exists to catch. It caught it.
+  const forceSat = preset.sat ?? null;
   const { ground } = meta
-    ? groundFromMeta(meta, hueDeg, luminosity)
-    : groundFor([{ width: 1, height: 1, data: [...hslToRgbByte(hueDeg, 0.5, 0.7), 255] }], hueDeg, luminosity);
+    ? groundFromMeta(meta, hueDeg, luminosity, forceSat)
+    : groundFor([{ width: 1, height: 1, data: [...hslToRgbByte(hueDeg, 0.5, 0.7), 255] }],
+                hueDeg, luminosity, forceSat);
   return `linear-gradient(135deg, ${ground[0]}, ${ground[1]}, ${ground[2]})`;
 }
 

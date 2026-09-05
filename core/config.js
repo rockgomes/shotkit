@@ -1,5 +1,5 @@
 import {
-  RATIOS, HUES, DEFAULTS, RADIUS_RATIO, TEMPLATES, DEFAULT_ANGLE, SCALES, FRAME_KINDS,
+  RATIOS, HUES, GROUNDS, DEFAULTS, RADIUS_RATIO, TEMPLATES, DEFAULT_ANGLE, SCALES, FRAME_KINDS,
   LAYOUTS, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE, LUMINOSITY_RANGE,
   STROKE_STYLES, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
   MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
@@ -107,11 +107,17 @@ export function normalise(input = {}) {
   const w = num(input.w, baseW);
   const h = num(input.h, baseH);
 
+  // A named preset carries its own saturation as well as its hue - that is
+  // what lets `ash` be a grey rather than a hue nobody can see. A RAW
+  // DEGREE carries only a hue, so the hue slider and a jobs.json full of
+  // numbers behave exactly as they always did.
   let forceHue = null;
+  let forceSat = null;
   if (input.ground !== undefined && input.ground !== null && input.ground !== 'auto') {
-    const named = HUES[input.ground];
-    const parsed = named !== undefined ? named : Number(input.ground);
+    const named = GROUNDS[input.ground];
+    const parsed = named !== undefined ? named.hue : Number(input.ground);
     if (Number.isFinite(parsed)) forceHue = parsed;
+    if (named && named.sat !== undefined) forceSat = named.sat;
   }
 
   // Only a recognised layout string is honoured verbatim; anything else
@@ -143,6 +149,7 @@ export function normalise(input = {}) {
     // retired in Cycle A Task 4; it stands on its own now.)
     url: input.url ? String(input.url) : DEFAULTS.url,
     forceHue,
+    forceSat,
     // Cycle C: `tone` retired. null means SAMPLED - core/ground.js runs its
     // own inference and lands on one of the two anchors, reproducing what
     // shipped before. A number is the ground's own top-stop lightness,

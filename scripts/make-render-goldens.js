@@ -90,6 +90,11 @@ const CASES = [
   // ground maths, the edge blend or the shadow changing at that end. Every
   // other golden is pale.
   ['ground-dark', { ratio: '3:2', luminosity: 0.18 }, { web: 'samples/karaoke-web.png', mobile: [] }],
+  // Cycle C Task 3, round two: `ash` is the ONLY preset that declares its
+  // own saturation, and no other golden picks a named ground at all - they
+  // all take the sampled one - so without this the whole forceSat path is
+  // unguarded and a regression would be silent.
+  ['ground-ash', { ratio: '3:2', ground: 'ash' }, { web: 'samples/fieldset.png', mobile: [] }],
 ];
 
 for (const [name, cfg, files] of CASES) {

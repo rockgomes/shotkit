@@ -154,7 +154,7 @@ function analyse(samples) {
  */
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
-function tail({ lum, hue, chroma }, forceHue, luminosity) {
+function tail({ lum, hue, chroma }, forceHue, luminosity, forceSat) {
   if (forceHue !== null && forceHue !== undefined) hue = forceHue / 360;
 
   // SAMPLED IS STILL SAMPLED, and that is the product's premise rather than
@@ -181,7 +181,13 @@ function tail({ lum, hue, chroma }, forceHue, luminosity) {
   // EXISTS and that is not negotiable: a ground competing with the
   // screenshot is worse than a dull one, which is why this was never a
   // plain `chroma` passthrough.
-  const sat = 0.26 + 0.38 * Math.min(chroma * 1.6, 1);
+  //
+  // `forceSat` REPLACES this rather than scaling it: a named preset that
+  // declares a saturation means that saturation whatever it is dropped on,
+  // which is the only way `ash` can be a grey on a vivid screenshot.
+  const sat = forceSat !== null && forceSat !== undefined
+    ? forceSat
+    : 0.26 + 0.38 * Math.min(chroma * 1.6, 1);
 
   // `t` is 0 at the light anchor and 1 at the mid one, and keeps going past
   // both. At exactly 0 and exactly 1 every mix() below returns its anchor
@@ -214,8 +220,8 @@ function tail({ lum, hue, chroma }, forceHue, luminosity) {
   };
 }
 
-export function groundFor(samples, forceHue = null, luminosity = null) {
-  return tail(analyse(samples), forceHue, luminosity);
+export function groundFor(samples, forceHue = null, luminosity = null, forceSat = null) {
+  return tail(analyse(samples), forceHue, luminosity, forceSat);
 }
 
 /**
@@ -242,6 +248,6 @@ export function groundFor(samples, forceHue = null, luminosity = null) {
  * "groundFromMeta reproduces groundFor" case for the equivalence proof that
  * makes this shortcut safe to rely on.
  */
-export function groundFromMeta(meta, forceHue = null, luminosity = null) {
-  return tail({ lum: meta.lum, hue: (meta.hue ?? 0) / 360, chroma: meta.chroma }, forceHue, luminosity);
+export function groundFromMeta(meta, forceHue = null, luminosity = null, forceSat = null) {
+  return tail({ lum: meta.lum, hue: (meta.hue ?? 0) / 360, chroma: meta.chroma }, forceHue, luminosity, forceSat);
 }

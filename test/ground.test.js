@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { groundFor, groundFromMeta } from '../core/ground.js';
-import { HUES, LUMINOSITY_RANGE, LUM_ANCHOR_LIGHT, LUM_ANCHOR_MID } from '../core/presets.js';
+import {
+  HUES, GROUNDS, LUMINOSITY_RANGE, LUM_ANCHOR_LIGHT, LUM_ANCHOR_MID,
+} from '../core/presets.js';
 import { normalise } from '../core/config.js';
 
 const goldens = JSON.parse(readFileSync('test/golden/ground.json', 'utf8'));
@@ -423,5 +425,52 @@ describe('groundFromMeta reproduces groundFor exactly, without re-analysing', ()
     const dark = groundFromMeta(baseMeta, 268, 0.18);
     expect(pale.ground).not.toEqual(baseMeta.ground);   // it re-ran the tail...
     expect(dark.ground).not.toEqual(pale.ground);       // ...and honoured the luminosity
+  });
+});
+
+// --- A preset can declare its own saturation (Task 3, round two) ---------
+//
+// Rock, on the palette sheet: "when you say 'ash' I expect 'grey'. we don't
+// have a gray one there." He was right twice over - `ash` sat six degrees
+// from `paper` and rendered as a second warm cream, and grey was
+// unreachable because a preset was a hue and nothing else. Grey is not a
+// hue; it is the absence of chroma.
+describe('a preset carries its own saturation (Task 3)', () => {
+  function vivid() {
+    const cv = createCanvas(64, 64);
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#c8329b';       // deliberately saturated
+    ctx.fillRect(0, 0, 64, 64);
+    return ctx.getImageData(0, 0, 64, 64);
+  }
+  const chromaOf = (hex) => {
+    const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+    return Math.max(r, g, b) - Math.min(r, g, b);
+  };
+
+  it('HUES is derived from GROUNDS, so there is one table and not two', () => {
+    for (const [name, g] of Object.entries(GROUNDS)) expect(HUES[name]).toBe(g.hue);
+    expect(Object.keys(HUES)).toEqual(Object.keys(GROUNDS));
+  });
+
+  it('ash stays grey even on a vividly coloured screenshot', () => {
+    const ash = groundFor([vivid()], GROUNDS.ash.hue, null, GROUNDS.ash.sat);
+    for (const hex of ash.ground) expect(chromaOf(hex)).toBeLessThan(8);
+  });
+
+  it('and every other preset is still as colourful as the screenshot warrants', () => {
+    const mint = groundFor([vivid()], GROUNDS.mint.hue, null, null);
+    expect(chromaOf(mint.ground[1])).toBeGreaterThan(12);
+  });
+
+  it('forceSat REPLACES the chroma-derived saturation, it does not scale it', () => {
+    // Scaling would let a grey preset drift with the screenshot; replacing
+    // is what makes "grey" mean grey whatever it is dropped on.
+    const onVivid = groundFor([vivid()], 220, null, 0.12).ground;
+    const flat = createCanvas(64, 64);
+    const fx = flat.getContext('2d');
+    fx.fillStyle = '#8e8e92'; fx.fillRect(0, 0, 64, 64);
+    const onDull = groundFor([fx.getImageData(0, 0, 64, 64)], 220, null, 0.12).ground;
+    expect(onVivid).toEqual(onDull);
   });
 });

@@ -6,11 +6,37 @@ export const RATIOS = {
   '1:1':  [1500, 1500],
 };
 
-// Named grounds, as hue degrees.
-export const HUES = {
-  lavender: 268, paper: 34, mint: 158, ember: 24,
-  slate: 240, ash: 40, sky: 205, rose: 340,
+// The named grounds. ONE TABLE - a preset's whole identity lives here.
+//
+// A preset used to be a hue and nothing else, which is why there was no grey
+// one: grey is not a hue, it is the absence of chroma, and nothing in the
+// pipeline could ask for that. Rock, on the palette sheet: *"when you say
+// 'ash' I expect 'grey'. we don't have a gray one there."* He is right, and
+// `ash` had been sitting at 40 degrees - six from `paper` - producing a
+// second warm cream indistinguishable from it.
+//
+// `sat`, when present, REPLACES the saturation the screenshot's own chroma
+// would have produced, so a grey preset stays grey whatever it is dropped
+// on. Absent, the ground is as saturated as the screenshot warrants, which
+// is every other preset and the default behaviour.
+export const GROUNDS = {
+  lavender: { hue: 268 },
+  paper:    { hue: 34 },
+  mint:     { hue: 158 },
+  ember:    { hue: 24 },
+  slate:    { hue: 240 },
+  // The grey. A cool hue at very low saturation rather than a true neutral:
+  // a dead-grey ground reads as "no background chosen", where a barely-blue
+  // one reads as deliberate. 0.12 against the 0.26-0.64 the others span.
+  ash:      { hue: 220, sat: 0.12 },
+  sky:      { hue: 205 },
+  rose:     { hue: 340 },
 };
+
+// Derived, not a second source: several callers only ever want the degrees.
+export const HUES = Object.fromEntries(
+  Object.entries(GROUNDS).map(([name, g]) => [name, g.hue]),
+);
 
 export const DEFAULTS = {
   ratio: '3:2',

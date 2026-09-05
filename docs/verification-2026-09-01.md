@@ -1507,3 +1507,50 @@ generated from `core/ground.js`, and what remains is a freeze: it still
 catches the hex output drifting silently, which the golden-image test above
 cannot (it reads only hue/lum/chroma/darkUI), but it can no longer catch this
 file disagreeing with an external reference, because there is no longer one.
+
+## Task 3, round two — a preset carries its own saturation
+
+Rock, on the palette sheet: *"yeah they are extremely similar. when you say
+'ash' I expect 'grey'. we don't have a gray one there."*
+
+Right twice over. `ash` sat six degrees from `paper` and rendered as a second
+warm cream — and **grey was unreachable**, because a preset was a hue and
+nothing else. Grey is not a hue; it is the absence of chroma, and nothing in
+the pipeline could ask for that.
+
+`HUES` (name → degrees) becomes `GROUNDS` (name → `{ hue, sat? }`), with
+`HUES` kept as a derived export so the several callers that only want degrees
+are untouched. One table, not two. `sat` REPLACES the chroma-derived
+saturation rather than scaling it — scaling would let a grey preset drift
+with the screenshot, where replacing makes "grey" mean grey whatever it is
+dropped on.
+
+`ash` becomes hue 220 at `sat: 0.12`. A cool near-neutral rather than a dead
+grey: a true neutral reads as "no background chosen", where a barely-blue one
+reads as deliberate.
+
+| | before | after |
+|---|---|---|
+| closest pair | `paper` vs `ash`, **1 level** | `paper` vs `ember`, **3 levels** |
+| `ash` mid stop | `#f1eee7` (warm cream) | `#eaebed` (grey) |
+
+`paper` and `ember` are ten degrees apart and are now the closest pair. They
+are at least distinguishable — cream against peach — but they are the next
+candidates if the palette is revisited.
+
+### The test suite caught this one, unprompted
+
+`gradientFor` in `web/sidebar.js` previews a preset in its swatch, and it did
+not know about `forceSat` — so the `ash` swatch would have previewed as a
+blue tint and then rendered as a grey. **A swatch lying about what selecting
+it produces** is the exact defect that file's own suite exists to catch, and
+it caught it: "every swatch, computed for the loaded dark image, matches what
+selecting it actually renders" went red on the first run.
+
+### And a gap this exposed
+
+**Regenerating the goldens after this change moved nothing at all** — because
+no golden picks a named ground. They all take the sampled one, so the entire
+`forceSat` path was unguarded. `ground-ash` added, plus four unit tests
+covering the one-table rule, grey-on-vivid, colour-on-vivid, and
+replace-not-scale.
