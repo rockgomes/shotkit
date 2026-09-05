@@ -3,6 +3,7 @@ import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { readFileSync } from 'node:fs';
 import { TEMPLATES, RATIOS, HUES, normalise } from '../core/index.js';
 import { state, bindCanvas, render } from '../web/state.js';
+import { renderTile } from '../web/preset-tiles.js';
 import {
   isCustomSize,
   activeTemplateKey,
@@ -12,7 +13,6 @@ import {
   selectRatio,
   applyCustomSize,
   selectGround,
-  gradientFor,
 } from '../web/sidebar.js';
 
 // ---------------------------------------------------------------------
@@ -205,7 +205,18 @@ describe('sidebar size changes reuse the ground cache; ground changes bust it', 
 // there, since demonstrating the bug is the entire point of this test.
 // ---------------------------------------------------------------------
 
-describe('ground preset swatches tell the truth about a loaded (dark) image', () => {
+describe('preset tiles tell the truth about a loaded (dark) image', () => {
+  // CYCLE C TASK 5 MOVED WHAT THIS DRIVES, NOT WHAT IT CLAIMS. It used to
+  // compare `gradientFor`'s CSS string against the gradient render()
+  // actually produced. That function is gone - it was a second
+  // implementation of the ground, in a different language - and the tile is
+  // now painted by core/'s own paintGround. So the claim is made against
+  // PIXELS instead of a string: paint the tile, select the preset, render,
+  // and compare the tile's own centre to the ground the shot actually got.
+  //
+  // The guarantee is unchanged and is the reason this suite exists: a
+  // swatch that misrepresents what selecting it produces is worse than no
+  // swatch, because it is trusted.
   beforeEach(() => {
     state.config = { ratio: '3:2' };
     state.images = { web: null, mobile: [] };
@@ -213,7 +224,14 @@ describe('ground preset swatches tell the truth about a loaded (dark) image', ()
     state.surround = 'mid';
   });
 
-  it('every swatch, computed for the loaded dark image, matches what selecting it actually renders', async () => {
+  const centreOf = (cv) => {
+    const d = cv.getContext('2d').getImageData(
+      Math.round(cv.width / 2), Math.round(cv.height / 2), 1, 1).data;
+    return [d[0], d[1], d[2]];
+  };
+  const hexToRgb = (hex) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+
+  it('every tile, computed for the loaded dark image, matches what selecting it renders', async () => {
     const web = await loadImage('samples/karaoke-web.png');
     const target = createCanvas(10, 10);
     bindCanvas(target, mkCanvas);
@@ -221,51 +239,58 @@ describe('ground preset swatches tell the truth about a loaded (dark) image', ()
 
     render(); // populates state.meta from the real, dark image
     // Sanity: this really is a dark-UI sample (lum ~0.097, well under the
-    // 0.34 threshold) — if it weren't, a swatch that ALWAYS previews pale
-    // could accidentally still match, and this test would prove nothing.
+    // 0.34 threshold). If it were not, a tile that ALWAYS previews pale
+    // could accidentally still match and this test would prove nothing.
     expect(state.meta.darkUI).toBe(true);
 
-    for (const hueName of Object.keys(HUES)) {
-      const previewed = gradientFor(hueName, state.meta, state.config.tone);
+    for (const name of Object.keys(HUES)) {
+      const tile = createCanvas(64, 64);
+      renderTile(tile, name, state.config, state.meta, mkCanvas);
+      const previewed = centreOf(tile);
 
-      selectGround(state.config, hueName);
-      render(); // a real, fresh groundFor() call — the ground actually changed
-      const [g0, g1, g2] = state.meta.ground;
-      const actuallyProduced = `linear-gradient(135deg, ${g0}, ${g1}, ${g2})`;
+      selectGround(state.config, name);
+      render(); // a real, fresh groundFor() call - the ground actually changed
+      const produced = hexToRgb(state.meta.ground[1]);   // the middle stop
 
-      expect(previewed).toBe(actuallyProduced);
+      // The tile's centre is the gradient's own midpoint, which is the
+      // middle stop. Within a level or two for the gradient's
+      // interpolation across 64px; a WRONG preview is off by far more -
+      // the ash bug this caught earlier was a blue tint against a grey.
+      for (let i = 0; i < 3; i++) {
+        expect(Math.abs(previewed[i] - produced[i]),
+          `${name} channel ${i}: tile ${previewed.join()} vs render ${produced.join()}`)
+          .toBeLessThanOrEqual(3);
+      }
       // And the branch itself, not just incidental colour equality: a dark
-      // image must stay on the mid-tone branch for every forced hue — the
-      // exact thing the old synthetic-sample implementation could never
-      // reach for ANY hue.
+      // image must stay on the less-pale ground for every forced hue.
       expect(state.meta.darkUI).toBe(true);
     }
   });
 
-  it('falls back to a synthetic (still non-flat) sample before any image is loaded, and stops the moment one is', async () => {
-    // No image yet: gradientFor must still return a real 3-stop gradient
-    // (never a flat single colour — see web/sidebar.js's own header
-    // comment on why a flat grey sample specifically fails at this), even
-    // though there is no state.meta to draw truth from.
+  it('falls back to a synthetic sample before any image is loaded, and stops the moment one is', async () => {
+    // No image yet: the tile must still paint a real ground rather than a
+    // flat nothing, even with no state.meta to draw truth from.
     expect(state.meta).toBeNull();
-    const beforeImage = gradientFor('rose', state.meta, state.config.tone);
-    expect(beforeImage).toMatch(/^linear-gradient\(135deg, #[0-9a-f]{6}, #[0-9a-f]{6}, #[0-9a-f]{6}\)$/);
+    const before = createCanvas(64, 64);
+    renderTile(before, 'rose', state.config, null, mkCanvas);
+    const beforeCentre = centreOf(before);
+    expect(beforeCentre.some(v => v > 0)).toBe(true);
 
-    // Load a real dark image — the exact regression this round guards
-    // against is the fallback silently OUTLIVING this moment.
+    // Load a real dark image - the regression this guards is the fallback
+    // silently OUTLIVING this moment.
     const web = await loadImage('samples/karaoke-web.png');
     const target = createCanvas(10, 10);
     bindCanvas(target, mkCanvas);
     state.images.web = web;
     render();
 
-    const afterImage = gradientFor('rose', state.meta, state.config.tone);
-    // The real image is dark, so its "rose" ground uses the mid-tone
-    // branch; the synthetic pre-image fallback can only ever produce the
-    // pale branch (see header comment). These must therefore differ — if
-    // gradientFor() were still using a cached/stale pre-image value, they
-    // would be identical instead.
-    expect(afterImage).not.toBe(beforeImage);
+    const after = createCanvas(64, 64);
+    renderTile(after, 'rose', state.config, state.meta, mkCanvas);
+    // The real image is dark, so its "rose" ground is the less-pale one;
+    // the synthetic pre-image fallback can only ever produce the pale one.
+    // These must therefore differ - if they did not, the fallback would
+    // still be in charge after an image had loaded.
+    expect(centreOf(after)).not.toEqual(beforeCentre);
   });
 });
 
@@ -301,12 +326,18 @@ describe('the rail does not duplicate the Background panel', () => {
     expect(init).not.toMatch(/renderGroundSwatches\(/);
   });
 
-  it('still exports renderGroundSwatches for the inspector', async () => {
+  it('no longer renders the presets at all — the panel does, with real tiles', async () => {
+    // Cycle A Task 2 removed the rail's duplicate Ground group and this
+    // asserted the shared renderer survived for the inspector. Cycle C Task
+    // 5 retired that renderer: it built a CSS gradient approximating the
+    // real one, and the panel now paints canvases through core/ instead.
+    // Kept, aimed at the current architecture, so nothing quietly grows a
+    // second ground implementation here again.
     const mod = await import('../web/sidebar.js');
-    expect(typeof mod.renderGroundSwatches).toBe('function');
-    // And the inspector is still the caller that needs it.
+    expect(mod.renderGroundSwatches).toBeUndefined();
+    expect(mod.gradientFor).toBeUndefined();
     expect(readFileSync('web/inspector-background.js', 'utf8')).toMatch(
-      /renderGroundSwatches\(presetList/,
+      /renderTile\(cv, name/,
     );
   });
 });

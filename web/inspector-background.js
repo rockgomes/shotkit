@@ -36,12 +36,13 @@
 // could drift apart. See "syncGroundUI" below for how that single value
 // drives every visual in this panel at once.
 import {
-  HUES, BG_TYPES, DEFAULT_ANGLE, DEFAULTS, groundFor, groundFromMeta,
+  HUES, GROUNDS, BG_TYPES, DEFAULT_ANGLE, DEFAULTS, groundFor, groundFromMeta,
   MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
   LUMINOSITY_RANGE, LUM_ANCHOR_LIGHT, LUM_ANCHOR_MID,
 } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
-import { activeGroundKey, renderGroundSwatches } from './sidebar.js';
+import { activeGroundKey, selectGround } from './sidebar.js';
+import { renderTile } from './preset-tiles.js';
 
 // ---------------------------------------------------------------------
 // Pure state helpers — no DOM, no canvas. These are what
@@ -674,8 +675,8 @@ export function initBackgroundInspector() {
   // (only their value/label/fill/class) — a slider that got torn down and
   // recreated on its own 'input' event would abort the user's own drag
   // gesture. Rebuilding the (small, un-focused) preset <ul> on every hue
-  // tick is fine: renderGroundSwatches -> gradientFor -> groundFromMeta is
-  // the CHEAP tail-only path (a handful of hslToHex calls), never the
+  // tick is fine: renderTile -> groundFromMeta is the CHEAP tail-only path
+  // (a handful of hslToHex calls plus a 88px paintGround), never the
   // expensive analyse() pass — see the perf note further down.
   // -----------------------------------------------------------------------
 
@@ -711,11 +712,57 @@ export function initBackgroundInspector() {
     hueInput.value = String(effective);
     syncSliderFill(hueInput, hueValueEl, `${effective}°`);
 
-    // Presets: Task 4's own rendering, reused rather than reimplemented.
-    renderGroundSwatches(presetList, () => {
-      syncGroundUI();
-      scheduleRender();
-    });
+    renderPresetTiles(meta);
+  }
+
+  /**
+   * The preset grid — Cycle C Task 5.
+   *
+   * Each tile is a real <canvas> painted by web/preset-tiles.js through
+   * core/'s own `paintGround`, at the current type, angle and luminosity.
+   * It replaces eight 14x14 CSS chips whose gradient was an approximation
+   * of what the canvas would draw: two of the eight were indistinguishable
+   * at that size, and the approximation lied about `ash` the moment that
+   * preset gained its own saturation.
+   *
+   * Rebuilt on every sync rather than mutated, like the swatches were: the
+   * grid is eight small elements, nothing in it holds focus mid-drag, and
+   * `groundFromMeta` is the cheap tail-only path, never `analyse()`.
+   */
+  function renderPresetTiles(meta) {
+    presetList.innerHTML = '';
+    const active = activeGroundKey(state.config);
+    for (const name of Object.keys(GROUNDS)) {
+      const li = document.createElement('li');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'preset-tile' + (active === name ? ' is-selected' : '');
+      btn.setAttribute('aria-pressed', String(active === name));
+
+      const cv = document.createElement('canvas');
+      // A fixed backing size, not the CSS size: the tile is drawn once per
+      // sync and scaled by CSS, and a ground is smooth enough that this
+      // costs nothing visible while keeping the paint cheap.
+      cv.width = 88;
+      cv.height = 88;
+      cv.className = 'preset-tile-canvas';
+      cv.setAttribute('aria-hidden', 'true');
+      renderTile(cv, name, state.config, meta);
+
+      const label = document.createElement('span');
+      label.className = 'preset-tile-label';
+      label.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+
+      btn.append(cv, label);
+      btn.addEventListener('click', () => {
+        selectGround(state.config, name);
+        syncGroundUI();
+        syncLuminosityUI();
+        scheduleRender();
+      });
+      li.appendChild(btn);
+      presetList.appendChild(li);
+    }
   }
 
   function syncAngleUI() {

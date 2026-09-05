@@ -524,7 +524,7 @@ Move the DOM construction, not the logic. Every pure helper in this file already
 
 **The rule with a file to itself.** `gradientFor` in `web/sidebar.js` builds a CSS `linear-gradient` string that *approximates* what `paintGround` will draw. It is a second implementation of the ground, in a different language, and it has already lied once. A 44px tile drawn by the real generator cannot.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 describe('preset tiles are the real thing (Task 5)', () => {
@@ -555,23 +555,23 @@ describe('preset tiles are the real thing (Task 5)', () => {
 
 The tolerance of 4 is for the gradient's own interpolation across two very different pixel counts, not for a different algorithm. Print the actual differences and record them; if any channel is out by more than a few levels the tile is not drawing what the canvas draws.
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Expected: the file does not exist, and `web/sidebar.js` still contains `linear-gradient`.
 
-- [ ] **Step 3: Write `web/preset-tiles.js`**
+- [x] **Step 3: Write `web/preset-tiles.js`**
 
 It builds a small config (`w`/`h` at tile size, the preset's `forceHue`, the current `bgType`, `luminosity` and `seed`), calls `groundFromMeta` for the stops and `paintGround` for the pixels. `groundFromMeta` is the cheap path that already exists precisely for previewing a different hue against the current image's analysis — see its doc comment, and `web/sidebar.js`'s existing caller for the no-image fallback.
 
 Nothing here may re-implement a gradient.
 
-- [ ] **Step 4: Replace the swatch rows with a tile grid**
+- [x] **Step 4: Replace the swatch rows with a tile grid**
 
 ~44px tiles in a grid, per the spec. The row's whole area stays clickable — Task 6 is where that is made true for the rows that remain, but a tile grid gets it for free and must not lose it.
 
 Delete `gradientFor` and `renderGroundSwatches` rather than leaving them unused. An unused second implementation of the ground is exactly the thing that lies later.
 
-- [ ] **Step 5: Commit, deploy, and STOP**
+- [x] **Step 5: Commit, deploy, and STOP**
 
 > The eight grounds are tiles now, each one painted by the same code that paints the canvas — so what you see in the tile is what you get. With Task 3's palette behind it, this is the point where "I can't tell them apart" should be fixed or clearly not fixed. Tell me which.
 

@@ -113,7 +113,13 @@ export function compose(target, rawConfig, images, makeCanvas) {
   return composeWithMeta(target, rawConfig, images, makeCanvas).target;
 }
 
-export { normalise, layout, groundFor, groundFromMeta };
+// `paintGround` is exported for one caller and one reason: web/preset-tiles.js
+// paints a preset into a 44px canvas with the SAME function that paints the
+// real one, so a swatch cannot misrepresent what selecting it produces. The
+// other painters stay internal - composeWithMeta is the only way to draw a
+// shot, and that is what keeps the preview canvas and the export canvas from
+// disagreeing.
+export { normalise, layout, groundFor, groundFromMeta, paintGround };
 export {
   RATIOS, HUES, GROUNDS, DEFAULTS, TEMPLATES, FRAME_KINDS, SCALES, DEFAULT_ANGLE,
   LAYOUTS, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,

@@ -1554,3 +1554,59 @@ no golden picks a named ground. They all take the sampled one, so the entire
 `forceSat` path was unguarded. `ground-ash` added, plus four unit tests
 covering the one-table rule, grey-on-vivid, colour-on-vivid, and
 replace-not-scale.
+
+---
+
+# Cycle C Task 5 — preset tiles
+
+`gradientFor` in `web/sidebar.js` built a CSS `linear-gradient` string that
+APPROXIMATED what `paintGround` draws, and `renderGroundSwatches` painted
+eight 14×14 chips with it. A second implementation of the ground, in a
+different language, kept in step by hand.
+
+It lied twice. Once before Cycle A, and again within an hour of `ash` gaining
+its own saturation in Task 3 — it previewed a blue tint for a preset that
+renders grey. Both are deleted. `web/preset-tiles.js` paints a preset into a
+real canvas with the real generator, at the current type, angle and
+luminosity.
+
+`paintGround` is now exported from `core/index.js` for exactly this. The
+other painters stay internal — `composeWithMeta` remains the only way to draw
+a shot, which is what keeps the preview canvas and the export canvas from
+disagreeing.
+
+## Verified
+
+Painted the same preset at 44px and at 1800px and compared at matching
+relative positions: every channel within 6 levels, which is the gradient's
+own interpolation across two very different pixel counts. An approximation
+drifts across that; the real generator cannot.
+
+In the browser: eight tiles, **eight distinct colours**, `ash` at
+`234,235,237` (grey) against `rose` at `243,228,233`.
+
+## A test ported rather than deleted
+
+`test/sidebar.test.js`'s "swatches tell the truth about a loaded dark image"
+compared `gradientFor`'s string against the gradient `render()` produced. The
+function is gone, but the claim is the reason that suite exists — so it is
+made against PIXELS now: paint the tile, select the preset, render, compare
+the tile's centre to the ground the shot actually got. Within 3 levels for
+all eight, against a genuinely dark sample.
+
+## The mistake, and why the suite did not catch it
+
+Deleting `gradientFor` and `renderGroundSwatches` meant removing the block
+they sat in — and that block also contained `matchesQuery`, the sidebar's
+search filter, which I removed with them.
+
+`node --check` passed: the syntax was fine. **All 518 tests passed**: nothing
+in the suite drives the search box. The app threw
+`ReferenceError: matchesQuery is not defined` on load and rendered nothing at
+all — no templates, no ratios, no panel.
+
+Caught by opening it. This is the second time this cycle that the browser
+found something green tests could not (the first was the luminosity slider
+sitting at the wrong position), and both were in `web/`, where the suite has
+no DOM. Worth stating plainly: **for this app, a green suite is not evidence
+that the page loads.**

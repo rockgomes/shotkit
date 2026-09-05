@@ -1613,3 +1613,71 @@ input {
   text-transform: uppercase;
   color: var(--text-muted);
 }
+
+/* The preset grid (Cycle C Task 5). Each tile is a real <canvas> painted by
+   core/'s own paintGround — see web/preset-tiles.js — replacing eight 14x14
+   CSS chips that approximated it. Two of the eight were indistinguishable at
+   that size; the approximation also lied about `ash` the moment that preset
+   gained its own saturation.
+
+   A grid rather than a list, because that is where the vertical space for
+   Cycle D's panel split comes from: eight rows become two. */
+.preset-list {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.preset-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-secondary);
+}
+
+/* The whole tile is the target, label included — the full-width click area
+   Rock asked for on the old rows, which a grid gets for free. */
+.preset-tile-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 7px;
+  border: 1px solid var(--border-hairline);
+  box-sizing: border-box;
+}
+
+.preset-tile-label {
+  font-size: 10.5px;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.preset-tile:hover:not(.is-selected) .preset-tile-canvas {
+  border-color: var(--border-strong);
+}
+
+.preset-tile.is-selected .preset-tile-canvas {
+  border-color: var(--text-primary);
+  box-shadow: 0 0 0 1px var(--text-primary);
+}
+
+.preset-tile.is-selected .preset-tile-label {
+  color: var(--text-primary);
+}
+
+.preset-tile:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
