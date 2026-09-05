@@ -66,6 +66,7 @@
 .segmented-cell:disabled,
 .slider:disabled,
 .chip:disabled,
+.slider-reset:disabled,
 .select-control:disabled {
   --text-primary: var(--text-inert);
   --text-secondary: var(--text-inert);
@@ -1680,4 +1681,63 @@ input {
   outline: 2px solid var(--text-primary);
   outline-offset: 2px;
   border-radius: 8px;
+}
+
+/* A slider and its own Reset, side by side (Cycle C Task 5, fix round 1).
+   Rock: "I'm not sure I follow the logic of that reset button that only
+   activates for luminosity... just a reset button in front of the slider."
+   Every slider in the Background panel carries the same one now, in the
+   same place, so no one control is special. */
+.slider-track-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slider-track-row .slider {
+  flex: 1;
+  min-width: 0;
+}
+
+.slider-reset {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.slider-reset .icon {
+  width: 13px;
+  height: 13px;
+}
+
+.slider-reset:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.slider-reset:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+
+/* The DISABLED state is not defined here. `.slider-reset:disabled` is
+   registered in the one shared off-state rule at the top of this file, which
+   is what test/contrast.test.js enforces: every off state goes through a
+   single rule so none of them can drift, and none of them may use `opacity`.
+   Only the cursor is this control's own business.
+
+   Disabled rather than hidden, deliberately: a reset that vanished when
+   there was nothing to reset would make the row jump mid-drag and would hide
+   the fact that the control has a default at all. */
+.slider-reset:disabled {
+  cursor: default;
 }

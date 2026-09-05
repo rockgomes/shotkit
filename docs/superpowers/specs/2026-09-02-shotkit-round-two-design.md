@@ -699,6 +699,30 @@ from `darkUI = lum < 0.34`, and the two branches sit at HSL lightness
 0.975/0.925/0.868 and 0.855/0.780/0.712. The slider spans those and continues
 down to roughly 0.15 for the near-black Rock asked for.
 
+**DECIDED — no explanatory paragraphs under controls.** Rock, 2026-09-04:
+*"get rid of this ... and stop putting messages there."*
+
+Twice now a `.control-hint` paragraph has been written under a slider to
+explain behaviour the control did not communicate — under Padding in Cycle A,
+under Luminosity in Cycle C — and both were cut on sight. A paragraph under a
+slider is the control failing to explain itself. If one is confusing, the fix
+is the control.
+
+**DECIDED — every slider carries its own Reset.** Rock, on the first
+luminosity build: *"I'm not sure I follow the logic of that reset button that
+only activates for luminosity. I think we could have just a reset button in
+front of the slider ... a small square button with the round arrow icon."*
+
+One slider having a reset and the others not is arbitrary. Every slider gets
+the same control, in the same place, **disabled** (never hidden) when its
+value is already the one the app chose — hiding it would make the row jump
+mid-drag and hide the fact that the control has a default. That is item 18's
+shape, brought forward from Cycle D for the Background panel; Cycle D
+generalises it to the rest.
+
+The whole-ground **Sampled** row stays, and is a different scope: it clears
+every override at once.
+
 **DECIDED — the dark ground does not auto-apply a stroke.** Rock, 2026-09-04,
 after Cycle C Task 2 measured the shadow across the range: *"A, leave it
 manual."*

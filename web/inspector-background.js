@@ -112,6 +112,24 @@ export function resetToSampled(config) {
   config.luminosity = null;
 }
 
+/** Back to the SAMPLED hue, and nothing else. The per-control reset beside
+ *  the Hue slider; `resetToSampled` above is the whole-ground one. */
+export function resetHueToSampled(config) {
+  config.ground = null;
+}
+
+/** Back to the default gradient angle. Angle is not sampled from anything -
+ *  it has a fixed default, so its reset restores that rather than clearing
+ *  to null. */
+export function resetAngle(config) {
+  config.angle = DEFAULT_ANGLE;
+}
+
+export function isDefaultAngle(config) {
+  const a = Number.isFinite(config.angle) ? config.angle : DEFAULT_ANGLE;
+  return a === DEFAULT_ANGLE;
+}
+
 /** Whether ANY part of the ground is currently overridden - what the
  *  Sampled row's pressed state and the enabled/disabled call both read. */
 export function isFullySampled(config) {
@@ -422,6 +440,32 @@ export function createSampledCache() {
 // exactly that reason, so there is no ambiguity about it).
 // ---------------------------------------------------------------------
 
+/**
+ * A slider's own Reset — Cycle C Task 5, fix round 1.
+ *
+ * Rock: *"I'm not sure I follow the logic of that reset button that only
+ * activates for luminosity. I think we could have just a reset button in
+ * front of the slider... a small square button with the round arrow icon."*
+ *
+ * He is right that one slider having a reset and the others not is
+ * arbitrary. Every slider in this panel gets the same control, in the same
+ * place, disabled when the value is already the one the app chose. That is
+ * item 18's shape; Cycle D generalises it to the Finish panel.
+ *
+ * DISABLED, NOT HIDDEN. A reset that vanishes when there is nothing to reset
+ * makes the row jump as you drag, and hides the fact that the control HAS a
+ * default. Disabled says both things at once, and Task 3b's rule makes that
+ * an explicit colour rather than an opacity.
+ */
+function makeResetButton(label) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'slider-reset';
+  btn.setAttribute('aria-label', label);
+  btn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-reset"></use></svg>';
+  return btn;
+}
+
 function syncSliderFill(input, valueEl, text) {
   const min = Number(input.min) || 0;
   const max = Number(input.max) || 100;
@@ -489,7 +533,11 @@ export function initBackgroundInspector() {
   hueInput.max = '360';
   hueInput.step = '1';
   hueInput.setAttribute('aria-label', 'Ground hue, in degrees — dragging forces a hue and leaves Sampled');
-  hueRow.appendChild(hueInput);
+  const hueReset = makeResetButton('Reset hue to the sampled value');
+  const hueResetTrack = document.createElement('div');
+  hueResetTrack.className = 'slider-track-row';
+  hueResetTrack.append(hueInput, hueReset);
+  hueRow.appendChild(hueResetTrack);
   const hueValueEl = hueRow.querySelector('.slider-value');
   section.appendChild(hueRow);
 
@@ -506,7 +554,11 @@ export function initBackgroundInspector() {
   angleInput.max = '360';
   angleInput.step = '1';
   angleInput.setAttribute('aria-label', 'Gradient angle, in degrees');
-  angleRow.appendChild(angleInput);
+  const angleReset = makeResetButton('Reset angle to the default');
+  const angleResetTrack = document.createElement('div');
+  angleResetTrack.className = 'slider-track-row';
+  angleResetTrack.append(angleInput, angleReset);
+  angleRow.appendChild(angleResetTrack);
   const angleValueEl = angleRow.querySelector('.slider-value');
   section.appendChild(angleRow);
 
@@ -619,31 +671,23 @@ export function initBackgroundInspector() {
   lumInput.max = String(LUMINOSITY_RANGE[1]);
   lumInput.step = '0.005';
   lumInput.setAttribute('aria-label', "Ground luminosity — how light or dark the background is");
-  lumRow.appendChild(lumInput);
+  const lumReset2 = makeResetButton('Reset luminosity to the sampled value');
+  const lumReset2Track = document.createElement('div');
+  lumReset2Track.className = 'slider-track-row';
+  lumReset2Track.append(lumInput, lumReset2);
+  lumRow.appendChild(lumReset2Track);
   const lumValueEl = lumRow.querySelector('.slider-value');
   section.appendChild(lumRow);
 
-  const lumResetRow = document.createElement('div');
-  lumResetRow.className = 'inline-control-row';
-  const lumResetLabel = document.createElement('span');
-  lumResetLabel.id = 'lumSampledState';
-  const lumReset = document.createElement('button');
-  lumReset.type = 'button';
-  lumReset.className = 'btn btn-ghost btn-mini';
-  // "Reset", NOT "Sampled". The Sampled row at the top of this section
-  // clears the WHOLE ground; this clears one control. Two buttons reading
-  // "Sampled" and meaning different scopes is what Rock hit.
-  lumReset.textContent = 'Reset';
-  lumReset.setAttribute('aria-label', 'Reset luminosity to the sampled value');
-  lumReset.setAttribute('aria-describedby', 'lumSampledState');
-  lumResetRow.append(lumResetLabel, lumReset);
-  section.appendChild(lumResetRow);
+  // The old standalone "Sampled"/"Reset" row under Luminosity is gone: every
+  // slider carries its own reset now, in the same place, so no one control
+  // is special. See makeResetButton.
 
-  const lumHint = document.createElement('p');
-  lumHint.className = 'control-hint';
-  lumHint.textContent =
-    'Sampled by default: a dark screenshot gets a less-pale ground so the shot still separates from it. Move the slider and it becomes yours until you press Sampled.';
-  section.appendChild(lumHint);
+  // NO HINT PARAGRAPH HERE. Cycle A put one under Padding explaining the
+  // outset model and Rock cut it on sight; Cycle C put one under Luminosity
+  // and he cut that too, with the general instruction: "stop putting
+  // messages there". A paragraph under a slider is the control failing to
+  // explain itself. If one is confusing, the fix is the control.
 
   // --- THE ORDER IS THE ARGUMENT (Cycle C Task 4) ----------------------
   //
@@ -665,7 +709,7 @@ export function initBackgroundInspector() {
     typeLabelRow, typeSegmented,
     sampledRow, presetList,
     hueRow, angleRow,
-    lumRow, lumResetRow, lumHint,
+    lumRow,
     seedRow, stopsRow, spreadRow,
   ]) section.appendChild(el);
 
@@ -711,6 +755,7 @@ export function initBackgroundInspector() {
     const effective = forcedHueDeg(cfg) ?? Math.round(meta.hue);
     hueInput.value = String(effective);
     syncSliderFill(hueInput, hueValueEl, `${effective}°`);
+    hueReset.disabled = isAutoGround(cfg);
 
     renderPresetTiles(meta);
   }
@@ -756,19 +801,40 @@ export function initBackgroundInspector() {
       btn.append(cv, label);
       btn.addEventListener('click', () => {
         selectGround(state.config, name);
-        syncGroundUI();
-        syncLuminosityUI();
-        scheduleRender();
+        afterBackgroundChange();
       });
       li.appendChild(btn);
       presetList.appendChild(li);
     }
   }
 
+  /**
+   * EVERY BACKGROUND CHANGE GOES THROUGH HERE — Cycle C Task 5, fix round 1.
+   *
+   * Rock: *"HAL changes CT, and that's cool. but, A only updates CT after
+   * you change H."* Exactly right. The preset tiles are painted at the
+   * CURRENT type, angle and luminosity, so they go stale whenever one of
+   * those changes — and only Hue and Luminosity happened to call
+   * `syncGroundUI`. Angle, type and the mesh controls did not, so a tile
+   * kept showing the angle you had before.
+   *
+   * Patching each listener would fix the three that are wrong today and
+   * leave the next control someone adds to be wrong tomorrow. One function
+   * that syncs everything removes the whole class instead.
+   */
+  function afterBackgroundChange() {
+    syncTypeUI();
+    syncGroundUI();
+    syncAngleUI();
+    syncLuminosityUI();
+    scheduleRender();
+  }
+
   function syncAngleUI() {
     const deg = Number.isFinite(state.config.angle) ? state.config.angle : DEFAULT_ANGLE;
     angleInput.value = String(deg);
     syncSliderFill(angleInput, angleValueEl, `${deg}°`);
+    angleReset.disabled = isDefaultAngle(state.config);
   }
 
   function syncTypeUI() {
@@ -813,26 +879,19 @@ export function initBackgroundInspector() {
     const l = activeLuminosity(state.config, state.meta);
     lumInput.value = String(l);
     syncSliderFill(lumInput, lumValueEl, `${Math.round(l * 100)}%`);
-    lumResetLabel.textContent = sampled ? 'From screenshot' : 'Overridden';
-    lumReset.disabled = sampled;
+    lumReset2.disabled = sampled;
   }
 
   // --- Event wiring -----------------------------------------------------
 
   sampledRow.addEventListener('click', () => {
     resetToSampled(state.config);
-    // It clears luminosity too now, so that control has to be re-synced -
-    // otherwise the slider keeps showing the value it no longer holds,
-    // which is the exact failure mode of Cycle A's shadow slider.
-    syncLuminosityUI();
-    syncGroundUI();
-    scheduleRender();
+    afterBackgroundChange();
   });
 
   hueInput.addEventListener('input', () => {
     setHue(state.config, hueInput.value);
-    syncGroundUI();
-    scheduleRender();
+    afterBackgroundChange();
   });
 
   // Angle NEVER touches `config.ground`/`config.luminosity` — web/state.js's
@@ -842,45 +901,48 @@ export function initBackgroundInspector() {
   // task-5-report.md for the measured numbers.
   angleInput.addEventListener('input', () => {
     setAngle(state.config, angleInput.value);
-    syncAngleUI();
-    scheduleRender();
+    afterBackgroundChange();
+  });
+
+  hueReset.addEventListener('click', () => {
+    resetHueToSampled(state.config);
+    afterBackgroundChange();
+  });
+
+  angleReset.addEventListener('click', () => {
+    resetAngle(state.config);
+    afterBackgroundChange();
   });
 
   typeButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
       setBgType(state.config, btn.dataset.type);
-      syncTypeUI();
-      scheduleRender();
+      afterBackgroundChange();
     });
   });
 
   seedMinus.addEventListener('click', () => {
     const current = Number.isFinite(state.config.seed) ? state.config.seed : DEFAULTS.seed;
     setSeed(state.config, current - 1);
-    syncSeedUI();
-    scheduleRender();
+    afterBackgroundChange();
   });
   seedPlus.addEventListener('click', () => {
     const current = Number.isFinite(state.config.seed) ? state.config.seed : DEFAULTS.seed;
     setSeed(state.config, current + 1);
-    syncSeedUI();
-    scheduleRender();
+    afterBackgroundChange();
   });
 
   stopsMinus.addEventListener('click', () => {
     setMeshStops(state.config, activeMeshStops(state.config) - 1);
-    syncMeshUI();
-    scheduleRender();
+    afterBackgroundChange();
   });
   stopsPlus.addEventListener('click', () => {
     setMeshStops(state.config, activeMeshStops(state.config) + 1);
-    syncMeshUI();
-    scheduleRender();
+    afterBackgroundChange();
   });
   spreadInput.addEventListener('input', () => {
     setMeshSpread(state.config, spreadInput.value);
-    syncMeshUI();
-    scheduleRender();
+    afterBackgroundChange();
   });
 
   // Luminosity changes what every preset AND the Sampled swatch preview to,
@@ -888,16 +950,12 @@ export function initBackgroundInspector() {
   // luminosity, so both need a refresh here, not just this row.
   lumInput.addEventListener('input', () => {
     setLuminosity(state.config, lumInput.value);
-    syncLuminosityUI();
-    syncGroundUI();
-    scheduleRender();
+    afterBackgroundChange();
   });
 
-  lumReset.addEventListener('click', () => {
+  lumReset2.addEventListener('click', () => {
     resetLuminosityToSampled(state.config);
-    syncLuminosityUI();
-    syncGroundUI();
-    scheduleRender();
+    afterBackgroundChange();
   });
 
   syncGroundUI();
