@@ -1726,6 +1726,26 @@ input {
   cursor: pointer;
 }
 
+/* The Angle dial (Cycle C Task 7). A circle of the REAL ground at the
+   current settings, painted by core/'s own paintGround — see
+   web/preset-tiles.js — with a tick on the gradient's light end.
+
+   It is decorative, not a control: `aria-hidden`, no pointer handler, and
+   the same sentence it draws is given to everyone else through the slider's
+   `aria-valuetext` ("166 degrees, light from the top left"). The two ink
+   colours are handed to the canvas as custom properties because tokens.css
+   is the only file here allowed a raw colour. */
+.angle-dial {
+  --dial-ink: var(--text-primary);
+  --dial-halo: var(--surface-window);
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  box-sizing: border-box;
+}
+
 .slider-reset .icon {
   width: 13px;
   height: 13px;

@@ -36,13 +36,13 @@
 // could drift apart. See "syncGroundUI" below for how that single value
 // drives every visual in this panel at once.
 import {
-  HUES, GROUNDS, BG_TYPES, DEFAULT_ANGLE, DEFAULTS, groundFor, groundFromMeta,
+  HUES, GROUNDS, BG_TYPES, DEFAULT_ANGLE, DEFAULTS, groundFor, groundFromMeta, normalise,
   MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
   LUMINOSITY_RANGE, LUM_ANCHOR_LIGHT, LUM_ANCHOR_MID,
 } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
 import { activeGroundKey, selectGround } from './sidebar.js';
-import { renderTile } from './preset-tiles.js';
+import { renderTile, renderGroundDial, lightEndBearing } from './preset-tiles.js';
 
 // ---------------------------------------------------------------------
 // Pure state helpers — no DOM, no canvas. These are what
@@ -128,6 +128,27 @@ export function resetAngle(config) {
 export function isDefaultAngle(config) {
   const a = Number.isFinite(config.angle) ? config.angle : DEFAULT_ANGLE;
   return a === DEFAULT_ANGLE;
+}
+
+/**
+ * The gradient's light end, in words. Cycle C Task 7.
+ *
+ * `angle` is the direction the gradient TRAVELS, light to dark — 0 points
+ * up, rising numbers turn clockwise — so the light end is half a turn away.
+ * Measured rather than read off the source: at 0° the light sits at the
+ * BOTTOM, at 90° at the LEFT, at 180° at the top. See
+ * docs/verification-2026-09-01.md.
+ *
+ * This is what the dial shows a sighted user; `aria-valuetext` says the same
+ * sentence to everyone else, so the two cannot drift apart.
+ */
+export function lightEndLabel(angle) {
+  const b = lightEndBearing(angle);
+  const names = [
+    'top', 'top right', 'right', 'bottom right',
+    'bottom', 'bottom left', 'left', 'top left',
+  ];
+  return names[Math.round(b / 45) % 8];
 }
 
 /** Whether ANY part of the ground is currently overridden - what the
@@ -555,9 +576,19 @@ export function initBackgroundInspector() {
   angleInput.step = '1';
   angleInput.setAttribute('aria-label', 'Gradient angle, in degrees');
   const angleReset = makeResetButton('Reset angle to the default');
+  // THE DIAL (Task 7). A number cannot say which way 166° points, and an
+  // arrow drawn from that number would only restate it. This is a circle of
+  // the REAL ground, painted by paintGround from the stops the canvas itself
+  // used, with a tick on the light end — so it cannot disagree with what it
+  // is describing.
+  const angleDial = document.createElement('canvas');
+  angleDial.width = 44;
+  angleDial.height = 44;
+  angleDial.className = 'angle-dial';
+  angleDial.setAttribute('aria-hidden', 'true');
   const angleResetTrack = document.createElement('div');
   angleResetTrack.className = 'slider-track-row';
-  angleResetTrack.append(angleInput, angleReset);
+  angleResetTrack.append(angleInput, angleDial, angleReset);
   angleRow.appendChild(angleResetTrack);
   const angleValueEl = angleRow.querySelector('.slider-value');
   section.appendChild(angleRow);
@@ -835,6 +866,24 @@ export function initBackgroundInspector() {
     angleInput.value = String(deg);
     syncSliderFill(angleInput, angleValueEl, `${deg}°`);
     angleReset.disabled = isDefaultAngle(state.config);
+
+    // The dial's stops come from the same call core/index.js makes for the
+    // canvas — `groundFromMeta(meta, forceHue, luminosity, forceSat)`, with
+    // every argument taken from `normalise()` rather than re-read by hand.
+    // `state.meta.ground` would have been the same triple but one frame
+    // stale, since it is only written after a render; this is the tiles'
+    // arrangement, and it is not stale.
+    const eff = normalise(state.config);
+    const dialMeta = sampledCache.refresh(state.images, state.config, state.meta);
+    const dialStops = dialMeta
+      ? groundFromMeta(dialMeta, eff.forceHue, eff.luminosity, eff.forceSat).ground
+      : null;
+    const dialStyle = getComputedStyle(angleDial);
+    renderGroundDial(angleDial, state.config, dialStops, {
+      markInk: dialStyle.getPropertyValue('--dial-ink').trim(),
+      markHalo: dialStyle.getPropertyValue('--dial-halo').trim(),
+    });
+    angleInput.setAttribute('aria-valuetext', `${deg} degrees, light from the ${lightEndLabel(deg)}`);
   }
 
   function syncTypeUI() {

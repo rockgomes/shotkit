@@ -26,6 +26,7 @@ import {
   SEED_MIN,
   SEED_MAX,
   isSampledLuminosity,
+  lightEndLabel,
   isFullySampled,
   activeLuminosity,
   setLuminosity,
@@ -746,5 +747,28 @@ describe('a segmented cell is never sized by its own label (Task 6)', () => {
     // Removed with the Luminosity paragraph in Task 5's fix round. A rule
     // with no user is the thing that gets reattached later.
     expect(css).not.toMatch(/\.control-hint\s*\{/);
+  });
+});
+
+describe('the angle says which way it points (Task 7)', () => {
+  it('names the light end in words, from the measured behaviour', () => {
+    // 0 deg travels UP, so the light is at the bottom. Rising numbers turn
+    // clockwise. The default, 166 deg, travels nearly straight down, so the
+    // light end is at 346 deg - 14 deg off the top, and named 'top'. The
+    // wording is deliberately eight-way and coarse; the dial beside it
+    // carries the exact direction, and a label that claimed more precision
+    // than eight names would be inventing it.
+    expect(lightEndLabel(0)).toBe('bottom');
+    expect(lightEndLabel(90)).toBe('left');
+    expect(lightEndLabel(180)).toBe('top');
+    expect(lightEndLabel(270)).toBe('right');
+    expect(lightEndLabel(166)).toBe('top');
+    expect(lightEndLabel(135)).toBe('top left');
+    expect(lightEndLabel(210)).toBe('top right');
+  });
+
+  it('and wraps rather than running off either end', () => {
+    expect(lightEndLabel(360)).toBe(lightEndLabel(0));
+    expect(lightEndLabel(-90)).toBe(lightEndLabel(270));
   });
 });

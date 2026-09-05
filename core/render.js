@@ -16,6 +16,7 @@ import {
   URL_PILL_HEIGHT_RATIO,
   URL_PILL_RADIUS_RATIO,
   URL_PILL_FONT_RATIO,
+  DEFAULT_ANGLE,
 } from './presets.js';
 
 export const SHADOW_RGB = '12,14,20';
@@ -256,7 +257,7 @@ export function paintGround(ctx, c, stops) {
 
   // linear-gradient(<angle>deg, g1 0%, g2 52%, g3 100%) - 166deg by default.
   // CSS 0deg points up and angles run clockwise.
-  const rad = ((c.angle ?? 166) - 90) * Math.PI / 180;
+  const rad = ((c.angle ?? DEFAULT_ANGLE) - 90) * Math.PI / 180;
   const len = Math.abs(c.w * Math.cos(rad)) + Math.abs(c.h * Math.sin(rad));
   const dx = Math.cos(rad) * len / 2, dy = Math.sin(rad) * len / 2;
   const lin = ctx.createLinearGradient(c.w / 2 - dx, c.h / 2 - dy, c.w / 2 + dx, c.h / 2 + dy);
@@ -266,10 +267,46 @@ export function paintGround(ctx, c, stops) {
   ctx.fillStyle = lin;
   ctx.fillRect(0, 0, c.w, c.h);
 
+  // The two washes TURN WITH THE ANGLE (Cycle C Task 7).
+  //
+  // They used to be pinned: the light one at 22%/6% and the dark one at
+  // 88%/97% of the canvas, whatever `angle` said. Since they are two of the
+  // three layers, the angle only ever steered a third of the picture, and
+  // measurement showed how badly that reads: sweeping the slider through
+  // 285-345 deg moved the ground's brightest point NOT AT ALL, and across
+  // the range the light actually landed up to 178 deg away from where the
+  // number pointed. That is the whole of Rock's "I can't seem to understand
+  // the logic behind how Angle works" - there was no logic to find.
+  //
+  // Rotating their offsets about the centre by `angle - DEFAULT_ANGLE`
+  // leaves the default EXACTLY as authored - no golden moves, the shipped
+  // look is untouched - and makes every other angle mean what it says. The
+  // ellipses stay axis-aligned; only their centres travel, which is the
+  // smaller change and the one that cannot distort a wash.
+  const [lx, ly] = spin(c, 0.22, 0.06);
+  const [dx3, dy3] = spin(c, 0.88, 0.97);
   // radial-gradient(115% 85% at 22% 6%,  g1 0%, transparent 58%)
-  radial(ctx, c, g1, 0.22, 0.06, 1.15, 0.85, 0.58);
+  radial(ctx, c, g1, lx, ly, 1.15, 0.85, 0.58);
   // radial-gradient(105% 90% at 88% 97%, g3 0%, transparent 62%)
-  radial(ctx, c, g3, 0.88, 0.97, 1.05, 0.90, 0.62);
+  radial(ctx, c, g3, dx3, dy3, 1.05, 0.90, 0.62);
+}
+
+/**
+ * Rotate a wash's normalised centre about the canvas centre by however far
+ * `angle` has been turned from the default. Screen coordinates run y-down,
+ * so the positive sine term turns clockwise, matching CSS's angle sense and
+ * `paintGround`'s own `rad` above.
+ *
+ * Normalised, not pixel, space: a wash keeps the same fraction of the canvas
+ * between it and the centre, so it stays in frame on a wide ratio instead of
+ * swinging off the edge.
+ */
+function spin(c, x, y) {
+  const t = ((c.angle ?? DEFAULT_ANGLE) - DEFAULT_ANGLE) * Math.PI / 180;
+  if (t === 0) return [x, y];
+  const dx = x - 0.5, dy = y - 0.5;
+  const cos = Math.cos(t), sin = Math.sin(t);
+  return [0.5 + dx * cos - dy * sin, 0.5 + dx * sin + dy * cos];
 }
 
 /**

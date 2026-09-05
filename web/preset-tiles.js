@@ -1,5 +1,6 @@
-// web/preset-tiles.js — a background preset, painted into a small canvas by
-// the code that paints the real one.
+// web/preset-tiles.js — the small ground thumbnails in the Background panel,
+// each painted into its canvas by the code that paints the real one: the
+// eight preset tiles, and the Angle dial.
 //
 // THE TILE IS DRAWN BY THE REAL GENERATOR, NEVER APPROXIMATED. That is this
 // file's whole reason to exist, and it is not a style preference.
@@ -84,4 +85,64 @@ function defaultMakeCanvas(w, h) {
   cv.width = w;
   cv.height = h;
   return cv;
+}
+
+/**
+ * The Angle dial (Cycle C Task 7). Rock, on the shipped app: *"I can't seem
+ * to understand the logic behind how Angle works."*
+ *
+ * A number cannot say which way 166° points, and an ARROW drawn from that
+ * number would only restate it. So the dial is a circle of the REAL ground
+ * at the current settings — the same rule as the tiles above, and the same
+ * reason: it cannot disagree with the canvas, because it is the canvas's own
+ * function. The tick then marks the light end, from the same `angle` field
+ * `paintGround` reads.
+ *
+ * `markInk` and `markHalo` are passed in rather than read here: `web/` keeps
+ * its colours in tokens.css, and this file is not the one allowed raw hex.
+ */
+export function renderGroundDial(canvas, config, stops, { markInk, markHalo } = {}) {
+  // `stops` may be null before a screenshot is loaded: there is no ground to
+  // show yet, and inventing one would be the tile's old lie in a new place.
+  // The tick still draws, so the control says which way it points regardless.
+  if (!canvas) return;
+  const eff = normalise(config || {});
+  const w = canvas.width, h = canvas.height;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+
+  const cx = w / 2, cy = h / 2, r = Math.min(w, h) / 2 - 1;
+
+  if (stops) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.clip();
+    paintGround(ctx, { ...eff, w, h }, stops);
+    ctx.restore();
+  }
+
+  // THE LIGHT END. Measured, not assumed - see docs/verification-2026-09-01.md:
+  // `angle` is the direction the gradient TRAVELS, light to dark, with 0
+  // pointing up and rising numbers turning clockwise. So the light end sits
+  // half a turn away from it.
+  const bearing = (lightEndBearing(eff.angle)) * Math.PI / 180;
+  const ux = Math.sin(bearing), uy = -Math.cos(bearing);
+  const draw = (colour, width) => {
+    ctx.beginPath();
+    ctx.moveTo(cx + ux * r * 0.5, cy + uy * r * 0.5);
+    ctx.lineTo(cx + ux * r * 0.92, cy + uy * r * 0.92);
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  };
+  // A halo under the tick so it reads against a pale ground AND a dark one.
+  if (markHalo) draw(markHalo, 3.5);
+  if (markInk) draw(markInk, 1.5);
+}
+
+/** Compass bearing of the gradient's LIGHT end: 0 is up, clockwise. */
+export function lightEndBearing(angle) {
+  return (((angle ?? 166) + 180) % 360 + 360) % 360;
 }

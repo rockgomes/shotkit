@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createCanvas } from '@napi-rs/canvas';
 import { GROUNDS } from '../core/presets.js';
-import { renderTile } from '../web/preset-tiles.js';
+import { renderTile, renderGroundDial, lightEndBearing } from '../web/preset-tiles.js';
 
 // Comment-stripped source, so the structural guards below read CODE and not
 // prose. Same helper as test/selection.test.js, which earned it by failing
@@ -107,5 +107,51 @@ describe('preset tiles are the real thing (Task 5)', () => {
     const dark = mk(44, 44);
     renderTile(dark, 'mint', { ratio: '3:2', luminosity: 0.18 }, null, mk);
     expect(px(dark, 22, 22)[0]).toBeLessThan(px(pale, 22, 22)[0] - 100);
+  });
+});
+
+describe('the Angle dial shows the real ground (Task 7)', () => {
+  const S = 44;
+  const STOPS = ['#ffffff', '#888888', '#000000'];
+  const half = (cv, top) => {
+    const d = cv.getContext('2d').getImageData(0, top ? 0 : S / 2, S, S / 2).data;
+    let sum = 0, n = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 200) continue;           // outside the clipped circle
+      sum += (d[i] + d[i + 1] + d[i + 2]) / 3; n++;
+    }
+    return sum / n;
+  };
+  const dial = (angle) => {
+    const cv = mk(S, S);
+    renderGroundDial(cv, { ratio: '3:2', angle }, STOPS, {});
+    return cv;
+  };
+
+  it('names the light end from the same rule the render uses', () => {
+    // Measured, not assumed: at 0 deg the light sits at the BOTTOM, at 90
+    // deg at the LEFT. See docs/verification-2026-09-01.md.
+    expect(lightEndBearing(0)).toBe(180);
+    expect(lightEndBearing(90)).toBe(270);
+    expect(lightEndBearing(180)).toBe(0);
+    expect(lightEndBearing(270)).toBe(90);
+  });
+
+  it('and paints the light where that says it is', () => {
+    // The dial is paintGround itself, clipped to a circle, so this is the
+    // canvas's own behaviour read at 44px.
+    expect(half(dial(0), false)).toBeGreaterThan(half(dial(0), true) + 40);
+    expect(half(dial(180), true)).toBeGreaterThan(half(dial(180), false) + 40);
+  });
+
+  it('draws nothing but the tick when there is no ground to show', () => {
+    // Before a screenshot loads there are no sampled stops. Inventing some
+    // would be the retired CSS swatch's lie in a new place.
+    const cv = mk(S, S);
+    renderGroundDial(cv, { ratio: '3:2' }, null, {});
+    const d = cv.getContext('2d').getImageData(0, 0, S, S).data;
+    let painted = 0;
+    for (let i = 3; i < d.length; i += 4) if (d[i] > 0) painted++;
+    expect(painted).toBe(0);
   });
 });

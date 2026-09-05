@@ -635,15 +635,25 @@ Recommend one, implement it after Rock answers, and write the answer into the sp
 
 Item 17. Rock, on the shipped app: *"I can't seem to understand the logic behind how Angle works."*
 
-- [ ] **Step 1: Find out what it actually does before changing how it reads**
+- [x] **Step 1: Find out what it actually does before changing how it reads**
 
 `DEFAULT_ANGLE` is 166°, and `paintGround`'s linear gradient uses it. Determine, by rendering and measuring rather than by reading: at 0°, where is the light end? At 90°? Which way does increasing the number rotate? Write the answer down — that is the thing the control has to communicate, and it cannot be communicated until it is known.
 
-- [ ] **Step 2: Make the control show it**
+- [x] **Step 2: Make the control show it**
 
 A number alone cannot say which way 166° points. The control needs a **direction you can see**: a small dial, or the readout paired with an arrow that rotates. Whatever it is, it must be drawn from the same angle value the render uses, so it cannot drift.
 
 Keep the slider — it is good for sweeping — and add the indicator beside it. Do not replace one unclear control with a different unclear control.
+
+> **Done, and Step 1 found more than an unclear readout.** The angle steered
+> one of `paintGround`'s three layers; the two radial washes were pinned to
+> the canvas. Measured, the light landed up to **178° from where the number
+> pointed**, and through 285°–345° it did not move at all. An arrow drawn
+> from the number would therefore have been a lie, which is the exact failure
+> this step warns against — so the washes now rotate with the angle
+> (`angle − DEFAULT_ANGLE`, zero at the default, **no golden moved**), and the
+> indicator is a circle of the real ground rather than a drawn arrow.
+> Numbers in `docs/verification-2026-09-01.md`.
 
 - [ ] **Step 3: Commit, deploy, and STOP**
 

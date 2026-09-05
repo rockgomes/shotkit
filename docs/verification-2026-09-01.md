@@ -1699,3 +1699,90 @@ inside its 1px border).
 `.zoom-btn` and are hidden while mesh is withheld, so they were not in the
 DOM to measure. If mesh comes back in Task 8, measure them then — two
 `.zoom-btn`s inside one stepper sit closer together than the canvas zoom's do.
+
+---
+
+# Cycle C Task 7 — what Angle actually did
+
+Rock, on the shipped app: *"I can't seem to understand the logic behind how
+Angle works."* Step 1 of the task was to find out by rendering and measuring,
+before changing how the control reads. The answer turned out to be that there
+was no logic to find.
+
+## The number itself
+
+`angle` is the direction the gradient **travels**, light end to dark end, in
+CSS's sense: 0° points up, rising numbers turn clockwise. So the light end
+sits half a turn from the number. Measured on the linear layer alone, at
+400×400, stops white / grey / black:
+
+| angle | light end lands |
+|---|---|
+| 0° | bottom |
+| 90° | left |
+| 180° | top |
+| 270° | right |
+
+The default, 166°, travels almost straight down, so the light is at the top —
+14° off vertical, which is why the shipped ground has always been lightest at
+the top and a little to the left.
+
+## Why it read as illogical
+
+`paintGround` draws **three** layers: the linear gradient, which turns, and
+two radial washes, which were **pinned** — the light one at 22%/6% of the
+canvas, the dark one at 88%/97%, whatever the angle said. The angle steered
+one layer of three.
+
+Measured on the full composite, brightest-region centroid as a bearing:
+
+| | before | after |
+|---|---|---|
+| worst disagreement between the number and where the light actually is | **178°** (dead opposite, at 330°) | **17°** |
+| the 285°–345° arc | brightest point **frozen** at 22%/6°, identical at every step | moves with the number |
+| gradient's own axis ends, at 0° | 149 vs 145 — **four levels**, a gradient with nothing left of it | 205 vs 177 |
+
+## The change, and what it costs
+
+The two washes now rotate about the centre by `angle − DEFAULT_ANGLE`. That
+term is zero at 166°, so **the shipped look is byte-identical and no golden
+moved** — all 531 tests pass, including the 15 pixel-diff goldens. Every
+other angle now means what it says.
+
+The ellipses stay axis-aligned; only their centres travel. Rotating the
+ellipse axes as well was the larger change and could distort a wash, so it
+was not made.
+
+## The dial
+
+An arrow drawn from the angle number would only restate the number — and
+before the fix it would have pointed up to 178° away from the light. So the
+indicator is a 22px circle of the **real ground**, painted by `paintGround`
+from the same `groundFromMeta(meta, forceHue, luminosity, forceSat)` call
+`core/index.js` makes for the canvas. It cannot disagree with what it
+describes. The tick on its rim is drawn from the same `angle` field, now that
+the two are within 17° of each other.
+
+Verified end to end in Chromium, sweeping the real slider with a screenshot
+loaded, sampling the exported canvas at 1800×1200:
+
+| angle | brightest canvas edge | dial agrees |
+|---|---|---|
+| 0° | bottom, 205 | yes |
+| 90° | left, 214 | yes |
+| 166° | top, 213 | yes (dial top 215) |
+| 270° | right, 216 | yes |
+
+`aria-valuetext` says the same sentence — "166 degrees, light from the top" —
+so the dial and the screen reader cannot drift apart either.
+
+## A trap worth writing down
+
+The first browser sweep showed the canvas **not changing at all** at any
+angle. Nothing was wrong with the render: the Browser pane was hidden,
+`document.hidden` was true, so `requestAnimationFrame` never fired,
+`scheduleRender`'s `rafHandle` stayed non-null, and every later render was
+suppressed. Changing the *hue* did nothing either, which is what gave it
+away. Reloading with `requestAnimationFrame` patched produced the numbers
+above. **A canvas that never updates in a hidden preview is the harness, not
+the app** — check a control known to work before believing a regression.
