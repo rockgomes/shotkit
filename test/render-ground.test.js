@@ -241,3 +241,105 @@ describe('paintGround angle', () => {
     expect(left).toBeGreaterThan(right);
   });
 });
+
+// ---------------------------------------------------------------------
+// Cycle C Task 7 — the angle steers the WHOLE ground, not a third of it.
+//
+// paintGround draws three layers: one linear gradient that turns with
+// `angle`, and two radial washes that used to be pinned to 22%/6% and
+// 88%/97% of the canvas whatever the angle said. Measured before the fix:
+// the ground's brightest point landed up to 178° away from where the number
+// pointed, and through 285-345° it did not move at all. That is what Rock's
+// "I can't seem to understand the logic behind how Angle works" was made of.
+// ---------------------------------------------------------------------
+describe('the angle steers the whole ground (Task 7)', () => {
+  const W = 300, H = 200;
+  const STOPS = ['#ffffff', '#888888', '#000000'];
+
+  /** Compass bearing (0 up, clockwise) of the ground's brightest region. */
+  function lightBearing(angle) {
+    const cv = createCanvas(W, H);
+    const ctx = cv.getContext('2d');
+    paintGround(ctx, { w: W, h: H, angle, bgType: 'linear' }, STOPS);
+    const d = ctx.getImageData(0, 0, W, H).data;
+    let min = 255, max = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      const l = (d[i] + d[i + 1] + d[i + 2]) / 3;
+      if (l < min) min = l;
+      if (l > max) max = l;
+    }
+    const thr = max - (max - min) * 0.15;
+    let sx = 0, sy = 0, n = 0;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4;
+        if ((d[i] + d[i + 1] + d[i + 2]) / 3 < thr) continue;
+        sx += x / W - 0.5; sy += y / H - 0.5; n++;
+      }
+    }
+    const b = Math.atan2(sx / n, -(sy / n)) * 180 / Math.PI;
+    return { bearing: (b + 360) % 360, spread: max - min };
+  }
+
+  const apart = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+
+  it('puts the light where the number says, all the way round', () => {
+    // `angle` is the direction the gradient TRAVELS, light to dark, so the
+    // light end is half a turn away. Worst case measured after the fix: 17°,
+    // the washes' authored offsets not sitting exactly on the axis. Before
+    // it, this same loop peaked at 178° — the light dead opposite the number.
+    for (let a = 0; a < 360; a += 15) {
+      const { bearing } = lightBearing(a);
+      expect(apart(bearing, (a + 180) % 360),
+        `angle ${a}: light reads at ${Math.round(bearing)}°, number says ${(a + 180) % 360}°`)
+        .toBeLessThanOrEqual(25);
+    }
+  });
+
+  it('and moves it through the arc where it used to be frozen', () => {
+    // 285° through 345°: the pinned light wash won outright, and the
+    // brightest point sat at 22%/6% for the whole sweep. Measured then:
+    // identical centroid at every step.
+    const seen = [285, 300, 315, 330, 345].map(a => lightBearing(a).bearing);
+    for (let i = 1; i < seen.length; i++) {
+      expect(apart(seen[i], seen[i - 1]),
+        `the light did not move between ${270 + i * 15}° and ${285 + i * 15}°`)
+        .toBeGreaterThan(8);
+    }
+  });
+
+  it('and keeps the two ends of the gradient apart at every angle', () => {
+    // The other half of the old defect. Sampled at the two ends of the
+    // gradient's OWN axis — not the whole canvas, which stayed contrasty
+    // because the pinned wash was itself bright. At 0° the axis ends
+    // measured 149 (top) against 145 (bottom): four levels, a gradient with
+    // nothing left of it.
+    const lum = (ctx, x, y) => {
+      const d = ctx.getImageData(Math.round(x), Math.round(y), 1, 1).data;
+      return (d[0] + d[1] + d[2]) / 3;
+    };
+    for (let a = 0; a < 360; a += 15) {
+      const cv = createCanvas(W, H);
+      const ctx = cv.getContext('2d');
+      paintGround(ctx, { w: W, h: H, angle: a, bgType: 'linear' }, STOPS);
+      // 38% of the way out along the axis, both directions: inside the
+      // canvas at every angle, and clear of the corners.
+      const rad = (a - 90) * Math.PI / 180;
+      const ex = Math.cos(rad) * 0.38, ey = Math.sin(rad) * 0.38;
+      const dark = lum(ctx, (0.5 + ex) * W, (0.5 + ey) * H);
+      const light = lum(ctx, (0.5 - ex) * W, (0.5 - ey) * H);
+      expect(light - dark, `angle ${a}: light end ${Math.round(light)}, dark end ${Math.round(dark)}`)
+        .toBeGreaterThan(60);
+    }
+  });
+
+  it('leaves the default angle exactly as it was', () => {
+    // The shipped look is not up for renegotiation by this fix: the washes
+    // rotate by `angle - DEFAULT_ANGLE`, which is zero at the default. The
+    // goldens are the real proof; this states the intent where it can be read.
+    const a = createCanvas(W, H), b = createCanvas(W, H);
+    paintGround(a.getContext('2d'), { w: W, h: H, bgType: 'linear' }, STOPS);
+    paintGround(b.getContext('2d'), { w: W, h: H, angle: 166, bgType: 'linear' }, STOPS);
+    expect(Buffer.from(a.toBuffer('image/png')).equals(Buffer.from(b.toBuffer('image/png')))).toBe(true);
+  });
+});

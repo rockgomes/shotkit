@@ -40,7 +40,7 @@ export function composeWithMeta(target, rawConfig, images, makeCanvas, precomput
   // `precomputedMeta` is optional and additive: every existing caller omits
   // it and gets exactly the behaviour above always had — samples built from
   // the live images, fed to groundFor. A caller that already knows the
-  // images, forceHue and tone are unchanged since it last got a `meta` back
+  // images, forceHue and luminosity are unchanged since it last got a `meta` back
   // from this function (the app's job to track, not core's) can hand that
   // `meta` back in here and skip both sample-building and groundFor's own
   // analysis entirely - measured, groundFor is essentially the whole cost of
@@ -52,8 +52,8 @@ export function composeWithMeta(target, rawConfig, images, makeCanvas, precomput
   const meta = precomputedMeta || (() => {
     const samples = [web, ...mobile].filter(Boolean).map(im => sampleOf(im, makeCanvas));
     return samples.length
-      ? groundFor(samples, c.forceHue, c.tone)
-      : groundFor([{ width: 1, height: 1, data: [128, 128, 128, 255] }], c.forceHue, c.tone);
+      ? groundFor(samples, c.forceHue, c.luminosity, c.forceSat)
+      : groundFor([{ width: 1, height: 1, data: [128, 128, 128, 255] }], c.forceHue, c.luminosity, c.forceSat);
   })();
 
   // `scale` renders this SAME composition at `c.scale` times the canvas
@@ -113,13 +113,19 @@ export function compose(target, rawConfig, images, makeCanvas) {
   return composeWithMeta(target, rawConfig, images, makeCanvas).target;
 }
 
-export { normalise, layout, groundFor, groundFromMeta };
+// `paintGround` is exported for one caller and one reason: web/preset-tiles.js
+// paints a preset into a 44px canvas with the SAME function that paints the
+// real one, so a swatch cannot misrepresent what selecting it produces. The
+// other painters stay internal - composeWithMeta is the only way to draw a
+// shot, and that is what keeps the preview canvas and the export canvas from
+// disagreeing.
+export { normalise, layout, groundFor, groundFromMeta, paintGround };
 export {
-  RATIOS, HUES, DEFAULTS, TEMPLATES, FRAME_KINDS, SCALES, DEFAULT_ANGLE,
-  LAYOUTS, TONES, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
+  RATIOS, HUES, GROUNDS, DEFAULTS, TEMPLATES, FRAME_KINDS, SCALES, DEFAULT_ANGLE,
+  LAYOUTS, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
   STROKE_STYLES, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
-  MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
   ELEMENT_KINDS, ELEMENT_DEFAULTS,
+  LUMINOSITY_RANGE, LUM_ANCHOR_LIGHT, LUM_ANCHOR_MID,
   BROWSER_RADIUS_RATIO, PHONE_RADIUS_RATIO,
   BROWSER_RADIUS_RANGE, PHONE_RADIUS_RANGE,
 } from './presets.js';

@@ -110,7 +110,7 @@ const PAIRS = [
 
   // The busiest token. On --surface-window: .section-label,
   // .template-row--add, .custom-size-field, .canvas-toolbar-label,
-  // .control-hint, .sampled-hue, .file-slot--empty, the rail icons, and the
+  // .sampled-hue, .file-slot--empty, the rail icons, and the
   // two usages absorbed from --text-disabled — .template-row .dim (the
   // "2800x2100" dimensions) and .export-footnote. On --surface-hover:
   // .template-row--add is a .template-row, so its hover lands there, and so

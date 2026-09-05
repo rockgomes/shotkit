@@ -40,7 +40,7 @@
 // not a burden. A bespoke widget buys nothing here and adds real failure
 // surface (wrap-around, Home/End, orientation) for a keyboard user who
 // already has a working, consistent way to reach every row.
-import { TEMPLATES, RATIOS, HUES, groundFor, groundFromMeta, normalise } from '../core/index.js';
+import { TEMPLATES, RATIOS, HUES, normalise } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
 
 // ---------------------------------------------------------------------
@@ -103,154 +103,32 @@ export function selectGround(config, key) {
   if (HUES[key] === undefined) return;
   config.ground = key;
 }
-
-// ---------------------------------------------------------------------
-// Ground swatch gradients.
-//
-// FIX ROUND 1: the first version of this fed groundFor a synthetic sample
-// for EVERY swatch, always - including once a real screenshot was loaded.
-// That produced a plausible-looking preview that could still be flatly
-// WRONG: a synthetic sample built at HSL(hue, 50%, 70%) has luminance
-// ~0.85-0.97 for every hue, comfortably clearing core/ground.js's `lum <
-// 0.34` darkUI threshold every time - so every swatch rendered the PALE
-// branch and none could ever show the mid-tone branch groundFor uses for a
-// dark screenshot (the branch ground.py's own header calls out as the
-// thing that stops dark-on-dark reading as mush). Measured on a real dark
-// image (samples/karaoke-web.png, lum 0.097): the synthetic Lavender swatch
-// showed `#f9f7fa/#ece7f1/#ddd4e7` (the PALE branch); actually SELECTING
-// that preset against the real image produced `#dad4e1/#c6bdd0/#b5a8c3`
-// instead — the MID-TONE branch, correctly chosen because the real image's
-// own luminance (0.097) is well under the 0.34 darkUI threshold. Two
-// different branches of the algorithm, not sampling noise — the swatch was
-// confidently showing the wrong one. See task-4-report.md's fix-round-1
-// section for the full before/after numbers. test/sidebar.test.js's
-// "swatches tell the truth" case guards against this regressing again.
-//
-// THE FIX: derive each swatch from the user's CURRENTLY LOADED image, with
-// only the hue forced - via groundFromMeta() (core/ground.js), the exact
-// arithmetic tail groundFor() itself runs, fed `state.meta` (already
-// computed by the one real render this app ever does - see web/state.js)
-// instead of raw pixels. Calling the real groundFor() again, per swatch,
-// against the actual decoded image was measured and rejected: 8 calls
-// against samples/karaoke-web.png (800x519, the same thumbnail size
-// composeWithMeta itself analyses) took ~700ms total (~87ms/call) - close
-// to the cost of a full cold render, EIGHT TIMES on every image load. That
-// is core/'s own colour maths (analyse() in core/ground.js) being the
-// expensive part, so the fix does not reimplement it: groundFromMeta()
-// skips analyse() entirely and reruns only the cheap tail (a handful of
-// hslToHex calls) against each of the 8 named hues - see core/ground.js's
-// own comment on that function, and test/ground.test.js's
-// "groundFromMeta reproduces groundFor" case for the proof that this
-// shortcut is exact, not approximate.
-//
-// Nothing here is cached or memoised across calls: gradientFor() reads
-// `state.meta` FRESH every time renderGroundSwatches() runs. That is what
-// keeps the "no image yet" fallback below from silently persisting once a
-// real image loads - there is no stored value that could go stale, because
-// nothing is stored. The Background panel re-runs renderGroundSwatches()
-// on every interaction of its own (a preset click, the hue slider, tone)
-// AND is explicitly refreshed the moment a screenshot is decoded
-// (`refreshSampled()`, returned by initBackgroundInspector() and called
-// from web/main.js's handleFiles() - see there), so the fallback is
-// showing until the instant a real image exists, never a frame longer.
-//
-// The one remaining case IS a synthetic, representative sample: before any
-// screenshot is loaded, `state.meta` is null and there genuinely is no
-// truth to preview yet - a flat mid-grey sample fails even at that job
-// (zero HSV saturation trips analyse()'s neutral-fallback branch, pinning
-// chroma to 0 - see this file's git history for the measured near-white
-// smear that produced), so a single, moderately-saturated pixel IN THE
-// SAME HUE (HSL(hue, 50%, 70%)) is used instead - real math, still a
-// genuine 3-stop gradient, just not derived from a real screenshot because
-// there isn't one yet. This path calling groundFor() directly (not
-// groundFromMeta()) is fine performance-wise regardless: analyse()'s cost
-// scales with pixel COUNT, and a 1x1 sample is negligible - measured at
-// microseconds, nothing like the ~87ms/call cost of a real decoded image.
-// ---------------------------------------------------------------------
-
-/** Small, self-contained HSL→RGB conversion for the synthetic no-image
- *  fallback sample below — core/ only exports the reverse (hslToHex, and
- *  it isn't even exported outside core/ground.js), so this doesn't
- *  duplicate anything core/ already does. h in degrees, s/l in [0, 1]. */
-function hslToRgbByte(h, s, l) {
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const hp = (((h % 360) + 360) % 360) / 60;
-  const x = c * (1 - Math.abs((hp % 2) - 1));
-  const m = l - c / 2;
-  const [r, g, b] =
-    hp < 1 ? [c, x, 0] :
-    hp < 2 ? [x, c, 0] :
-    hp < 3 ? [0, c, x] :
-    hp < 4 ? [0, x, c] :
-    hp < 5 ? [x, 0, c] :
-    [c, 0, x];
-  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
-}
-
-/** The one hue a caller SEES matches the hue it FORCED, always — `tone`
- *  is `state.config.tone` (null/'light'/'mid'), the exact same value
- *  composeWithMeta reads as `c.tone` — so a swatch previews not just the
- *  right hue but the right BRANCH of groundFor for whatever tone override
- *  (if any) is currently active, matching exactly what clicking the swatch
- *  would produce. */
-export function gradientFor(hueName, meta, tone) {
-  const hueDeg = HUES[hueName];
-  const { ground } = meta
-    ? groundFromMeta(meta, hueDeg, tone)
-    : groundFor([{ width: 1, height: 1, data: [...hslToRgbByte(hueDeg, 0.5, 0.7), 255] }], hueDeg, tone);
-  return `linear-gradient(135deg, ${ground[0]}, ${ground[1]}, ${ground[2]})`;
-}
-
-function titleCase(word) {
-  return word.charAt(0).toUpperCase() + word.slice(1);
-}
-
+/** Case-insensitive substring match for the sidebar's search box. An
+ *  empty query matches everything.
+ *
+ *  RESTORED, not new. Cycle C Task 5 deleted `gradientFor` and
+ *  `renderGroundSwatches` from this file by removing the block they sat in
+ *  - and took this with them, because it lived between the two. `node
+ *  --check` passed (the syntax was fine), the whole suite passed (nothing
+ *  in it drives the search box), and the app threw
+ *  "matchesQuery is not defined" on load. Caught by opening it. */
 function matchesQuery(label, query) {
   return !query || label.toLowerCase().includes(query);
 }
 
-/**
- * Build the eight named-hue preset rows (`.preset-row`/`.preset-swatch`,
- * the exact markup/gradient logic above) into `listEl` — an already-empty
- * `<ul>` (or similar) the caller owns. Originally factored out of this
- * file's own rail-side `renderGrounds()` so web/inspector-background.js's
- * Background panel (Task 5) could show the SAME eight presets, rendered the
- * SAME way, without a second implementation of the swatch/gradient logic —
- * the brief for that task is explicit that this must be reused, not
- * rewritten. Cycle A Task 2 then removed the rail's duplicate group, so the
- * Background panel is now the only caller; this stays here because the
- * gradient logic it depends on does.
- *
- * `onSelect()` runs after `selectGround` has already mutated
- * `state.config` for the clicked preset — the caller decides what needs to
- * re-render (this file's own `renderAll()` + `scheduleRender()` for the
- * sidebar; the Background panel's own sync + `scheduleRender()` there).
- * `scheduleRender()` itself is NOT called here, on purpose: this module
- * must not assume which single call site is the last thing that needs to
- * happen after a click.
- */
-export function renderGroundSwatches(listEl, onSelect) {
-  listEl.innerHTML = '';
-  const active = activeGroundKey(state.config);
-  for (const name of Object.keys(HUES)) {
-    const li = document.createElement('li');
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'preset-row' + (active === name ? ' is-selected' : '');
-    btn.setAttribute('aria-pressed', String(active === name));
-    const swatch = document.createElement('span');
-    swatch.className = 'preset-swatch';
-    swatch.setAttribute('aria-hidden', 'true');
-    swatch.style.background = gradientFor(name, state.meta, state.config.tone);
-    btn.append(swatch, titleCase(name));
-    btn.addEventListener('click', () => {
-      selectGround(state.config, name);
-      onSelect();
-    });
-    li.appendChild(btn);
-    listEl.appendChild(li);
-  }
-}
+// CYCLE C TASK 5 REMOVED THE SWATCH GRADIENTS FROM THIS FILE.
+//
+// `gradientFor` built a CSS `linear-gradient` string that APPROXIMATED what
+// `paintGround` draws, and `renderGroundSwatches` painted eight 14x14 chips
+// with it. It was a second implementation of the ground, in a different
+// language, kept in step by hand — and it lied twice: once before Cycle A,
+// and again within an hour of `ash` gaining its own saturation, when it
+// previewed a blue tint for a preset that renders grey.
+//
+// Both are gone. web/preset-tiles.js paints a preset into a real canvas with
+// the real generator, and web/inspector-background.js renders the grid.
+// `hslToRgbByte` went with them; it existed only to build a synthetic pixel
+// for the no-image case, which preset-tiles.js now does with a canvas.
 
 // ---------------------------------------------------------------------
 // DOM wiring. Reuses Task 1's existing sidebar markup and CSS classes
@@ -470,6 +348,6 @@ export function initSidebar() {
   // panel renders, which is the duplication this task removed. The panel
   // keeps its own screenshot-decoded handshake (`refreshSampled` in
   // web/inspector-background.js, called from web/main.js's handleFiles),
-  // and it re-renders the presets through renderGroundSwatches — still
-  // exported above — as part of it.
+  // and it re-renders the presets itself, through web/preset-tiles.js
+  // (Cycle C Task 5), as part of it.
 }

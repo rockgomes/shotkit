@@ -9,8 +9,7 @@
 //     -> Presets (the eight named HUES)
 //       -> Hue slider (any degree, not just the eight)
 //         -> Angle slider (gradient direction — layout, not colour)
-//           -> Type (linear / solid / mesh)
-//             -> Seed (mesh only)
+//           -> Type (linear / solid)
 //               -> Tone (auto / light / mid — a CORRECTNESS override, not a
 //                  mood setting; see its own section below)
 //
@@ -36,11 +35,12 @@
 // could drift apart. See "syncGroundUI" below for how that single value
 // drives every visual in this panel at once.
 import {
-  HUES, TONES, BG_TYPES, DEFAULT_ANGLE, DEFAULTS, groundFor, groundFromMeta,
-  MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
+  HUES, GROUNDS, BG_TYPES, DEFAULT_ANGLE, DEFAULTS, groundFor, groundFromMeta, normalise,
+  LUMINOSITY_RANGE, LUM_ANCHOR_LIGHT, LUM_ANCHOR_MID,
 } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
-import { activeGroundKey, renderGroundSwatches } from './sidebar.js';
+import { activeGroundKey, selectGround } from './sidebar.js';
+import { renderTile, renderGroundDial, lightEndBearing } from './preset-tiles.js';
 
 // ---------------------------------------------------------------------
 // Pure state helpers — no DOM, no canvas. These are what
@@ -90,9 +90,86 @@ export function setHue(config, deg) {
 
 /** Clears the override — "Sampled" is a real control, not just a label:
  *  clicking it hands the ground back to core/ground.js's own analysis. */
+/**
+ * Back to a fully sampled ground.
+ *
+ * IT CLEARS EVERY OVERRIDE, not just the hue, and that is Rock's call:
+ * *"I was hoping that clicking on 'sampled' would reset everything,
+ * including luminosity. am I thinking wrong about it?"* He was not - the
+ * first version of the luminosity slider shipped a second button also
+ * labelled "Sampled", which meant two controls with the same word on them
+ * doing different-sized things. "Sampled" means the whole ground comes from
+ * the screenshot; a single control's own reset is a different idea and is
+ * now labelled "Reset" (item 18's vocabulary, which Cycle D generalises).
+ *
+ * Anything sampled that is added later belongs in this function. That is
+ * what the word promises.
+ */
 export function resetToSampled(config) {
   config.ground = null;
+  config.luminosity = null;
 }
+
+/** Back to the SAMPLED hue, and nothing else. The per-control reset beside
+ *  the Hue slider; `resetToSampled` above is the whole-ground one. */
+export function resetHueToSampled(config) {
+  config.ground = null;
+}
+
+/** Back to the default gradient angle. Angle is not sampled from anything -
+ *  it has a fixed default, so its reset restores that rather than clearing
+ *  to null. */
+export function resetAngle(config) {
+  config.angle = DEFAULT_ANGLE;
+}
+
+export function isDefaultAngle(config) {
+  const a = Number.isFinite(config.angle) ? config.angle : DEFAULT_ANGLE;
+  return a === DEFAULT_ANGLE;
+}
+
+/**
+ * The gradient's light end, in words. Cycle C Task 7.
+ *
+ * `angle` is the direction the gradient TRAVELS, light to dark — 0 points
+ * up, rising numbers turn clockwise — so the light end is half a turn away.
+ * Measured rather than read off the source: at 0° the light sits at the
+ * BOTTOM, at 90° at the LEFT, at 180° at the top. See
+ * docs/verification-2026-09-01.md.
+ *
+ * This is what the dial shows a sighted user; `aria-valuetext` says the same
+ * sentence to everyone else, so the two cannot drift apart.
+ */
+export function lightEndLabel(angle) {
+  const b = lightEndBearing(angle);
+  const names = [
+    'top', 'top right', 'right', 'bottom right',
+    'bottom', 'bottom left', 'left', 'top left',
+  ];
+  return names[Math.round(b / 45) % 8];
+}
+
+/** Whether ANY part of the ground is currently overridden - what the
+ *  Sampled row's pressed state and the enabled/disabled call both read. */
+export function isFullySampled(config) {
+  return isAutoGround(config) && isSampledLuminosity(config);
+}
+
+/**
+ * The angle slider's maximum, and why it is not 360.
+ *
+ * Rock, 2026-09-05: *"dragging the slider to 360 makes it jump to 0."*
+ * Exactly what it did: `setAngle` wraps a full turn back to zero — correct,
+ * and what every other caller wants — and the panel then wrote that 0 back
+ * into the input, so the thumb snapped to the far LEFT while he was still
+ * holding the far right.
+ *
+ * The fix belongs on the slider, not on the wrap: a full turn is the same
+ * ground as no turn, so 360 was never a distinct position to offer. The
+ * maximum has to be a value `setAngle` leaves alone, which is what
+ * test/inspector-background.test.js asserts.
+ */
+export const ANGLE_SLIDER_MAX = 359;
 
 export function setAngle(config, deg) {
   const n = Number(deg);
@@ -100,106 +177,79 @@ export function setAngle(config, deg) {
   config.angle = ((Math.round(n) % 360) + 360) % 360;
 }
 
-// WHAT THE PANEL OFFERS, which is deliberately NOT all of BG_TYPES.
-//
-// Mesh is withheld from the UI as of 2026-09-03, at Rock's call, after he
-// used the rebuilt version: "I can barely see anything... when there's a
-// screen on top, there isn't much to see, and our current colors are very
-// faint. would it be a good idea to turn mesh option off for now and
-// revisit it later?"
-//
-// He is diagnosing it correctly, and the diagnosis is the reason this is a
-// HIDE AND NOT A DELETE. Cycle A Task 9's three gates all pass on their own
-// terms - mesh spans real hue variety, spread/stops/seed all steer it, and
-// it does not go muddy - but a shot is a screenshot with a border of ground
-// around it, and on a pale palette that border shows almost nothing. What
-// fails is the palette, which Cycle B rewrites anyway. So `paintMesh`, its
-// config block, its tests and both its goldens all stay, fully guarded;
-// only the way in is closed.
-//
-// TO RESTORE IT: delete this constant and map over BG_TYPES again below.
-// Nothing else has to come back, because nothing else went away.
-export const UI_BG_TYPES = BG_TYPES.filter(t => t !== 'mesh');
+// WHAT THE PANEL OFFERS. Mesh was the one type BG_TYPES carried and this
+// list withheld — deleted outright in Cycle C Task 8 rather than hidden a
+// second time, so the two lists are the same list again. Kept as its own
+// export because the panel asking core/ "what may I offer?" is the right
+// shape the moment a type is added that the app cannot yet drive.
+export const UI_BG_TYPES = [...BG_TYPES];
 
-// Still validated against core's BG_TYPES, not against UI_BG_TYPES above: a
-// jobs.json or a saved config carrying `mesh` is a legitimate input that
-// core/ renders correctly, and this function's job is to reject nonsense,
-// not to enforce what the panel happens to show today.
+// The user-facing names. "Gradient", not "Linear": `bgType`'s stored value
+// stays 'linear' everywhere in core/ and in every jobs.json ever written -
+// the label changes, the value does not.
+export const TYPE_LABELS = { linear: 'Gradient', solid: 'Solid' };
+
+/** Angle is a GRADIENT control. `paintSolid` fills flat with the middle
+ *  stop and never reads it, so on Solid the slider would move and change
+ *  nothing - the defect Cycle B spent eight tasks removing, which was
+ *  sitting in this panel the whole time. */
+export function showsAngle(config) {
+  const type = BG_TYPES.includes(config.bgType) ? config.bgType : DEFAULTS.bgType;
+  return type === 'linear';
+}
+
+// Validated against core's BG_TYPES rather than UI_BG_TYPES: this
+// function's job is to reject nonsense, not to enforce what the panel
+// happens to show today. The two lists are identical now that mesh is gone,
+// and this stays pointed at core's on purpose.
 export function setBgType(config, type) {
   if (!BG_TYPES.includes(type)) return;
   config.bgType = type;
 }
 
-export const SEED_MIN = 1;
-export const SEED_MAX = 99;
+// `SEED_MIN`/`SEED_MAX`/`clampSeed`/`setSeed` and the four mesh
+// stops-and-spread helpers lived here. All of them steered paintMesh and
+// nothing else, and went with it in Cycle C Task 8.
 
-export function clampSeed(n) {
-  const v = Math.round(Number(n));
-  if (!Number.isFinite(v)) return DEFAULTS.seed;
-  return Math.min(SEED_MAX, Math.max(SEED_MIN, v));
-}
-
-export function setSeed(config, n) {
-  config.seed = clampSeed(n);
-}
-
-// --- Mesh stops and spread (Cycle A Task 9) ------------------------------
+// --- Luminosity (Cycle C Task 1) -----------------------------------------
 //
-// `config.mesh` is a nested block ({ stops, spread }) matching core/config.js.
-// SEED IS NOT IN IT and must not be moved into it: it already lives at the
-// top level with its own clamp and its own control above, and a second
-// writable home for one value is how Task 5b killed the shadow slider.
+// This was `tone`, a three-cell segmented over Auto / Light / Mid. Both of
+// those branches were pale - "Mid" meant LESS PALE - so the tool had no
+// dark ground at all, which is what Rock asked for.
 //
-// Both writers seed from MESH_DEFAULTS first and the current block second,
-// so changing one field never resets the other - the same ordering rule
-// spelled out on the stroke writers in web/inspector-frame.js, and for the
-// same reason.
-export function activeMeshStops(config) {
-  const m = config.mesh || {};
-  const n = Math.round(Number(m.stops));
-  return Number.isFinite(n)
-    ? Math.min(MESH_STOPS_RANGE[1], Math.max(MESH_STOPS_RANGE[0], n))
-    : MESH_DEFAULTS.stops;
+// IT BEHAVES LIKE THE HUE CONTROL, and that is the requirement rather than
+// a convenience: `null` means SAMPLED, and the slider renders at whatever
+// position core/ground.js's own inference chose for this screenshot.
+// Touching it writes a number and makes it the user's. A slider that
+// started at a fixed midpoint would throw that inference away on every
+// shot, silently - and sampling the image is the product's premise, not a
+// default worth overwriting.
+export function isSampledLuminosity(config) {
+  return config.luminosity === null || config.luminosity === undefined;
 }
 
-export function setMeshStops(config, n) {
-  const v = Math.round(Number(n));
-  if (!Number.isFinite(v)) return;
-  config.mesh = {
-    ...MESH_DEFAULTS,
-    ...(config.mesh || {}),
-    stops: Math.min(MESH_STOPS_RANGE[1], Math.max(MESH_STOPS_RANGE[0], v)),
-  };
+/** The luminosity to SHOW: the user's if they set one, otherwise the value
+ *  the sampled inference actually used. `meta.luminosity` comes back from
+ *  every groundFor/groundFromMeta call (core/ground.js), so the slider can
+ *  sit on the sampled position without re-deriving the inference here. */
+export function activeLuminosity(config, meta = null) {
+  if (!isSampledLuminosity(config)) return config.luminosity;
+  if (meta && Number.isFinite(meta.luminosity)) return meta.luminosity;
+  // No render yet: the pale anchor, which is what an unanalysed image gets.
+  return LUM_ANCHOR_LIGHT.l;
 }
 
-export function activeMeshSpread(config) {
-  const m = config.mesh || {};
-  const v = Number(m.spread);
-  return Number.isFinite(v)
-    ? Math.min(MESH_SPREAD_RANGE[1], Math.max(MESH_SPREAD_RANGE[0], v))
-    : MESH_DEFAULTS.spread;
+export function setLuminosity(config, value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return;
+  config.luminosity = Math.min(LUMINOSITY_RANGE[1],
+                               Math.max(LUMINOSITY_RANGE[0], n));
 }
 
-export function setMeshSpread(config, deg) {
-  const v = Number(deg);
-  if (!Number.isFinite(v)) return;
-  config.mesh = {
-    ...MESH_DEFAULTS,
-    ...(config.mesh || {}),
-    spread: Math.min(MESH_SPREAD_RANGE[1], Math.max(MESH_SPREAD_RANGE[0], v)),
-  };
-}
-
-/** `tone` is 'auto' | 'light' | 'mid' from the UI; `config.tone` (what
- *  core/ actually reads) is null | 'light' | 'mid' — 'auto' IS null, not a
- *  string core/config.js would recognise (TONES, imported above, is only
- *  `['light', 'mid']`). */
-export function setTone(config, tone) {
-  config.tone = TONES.includes(tone) ? tone : null;
-}
-
-export function activeToneUi(config) {
-  return TONES.includes(config.tone) ? config.tone : 'auto';
+/** Back to sampled. `null`, not a number that happens to equal the sampled
+ *  one - the difference is whether the ground follows the NEXT screenshot. */
+export function resetLuminosityToSampled(config) {
+  config.luminosity = null;
 }
 
 // ---------------------------------------------------------------------
@@ -222,7 +272,7 @@ export function activeToneUi(config) {
 //     composeWithMeta computes its own UNFORCED meta (same 800px thumbnail
 //     step, same groundFor call with forceHue=null/mode=null).
 // `createSampledCache` (below) wraps whichever path applies in a cache
-// keyed on image identity ONLY (never on config.ground/config.tone), so
+// keyed on image identity ONLY (never on config.ground/config.luminosity), so
 // neither path re-runs on every hue/tone/type/angle tick — only when the
 // loaded image SET actually changes.
 //
@@ -354,6 +404,32 @@ export function createSampledCache() {
 // exactly that reason, so there is no ambiguity about it).
 // ---------------------------------------------------------------------
 
+/**
+ * A slider's own Reset — Cycle C Task 5, fix round 1.
+ *
+ * Rock: *"I'm not sure I follow the logic of that reset button that only
+ * activates for luminosity. I think we could have just a reset button in
+ * front of the slider... a small square button with the round arrow icon."*
+ *
+ * He is right that one slider having a reset and the others not is
+ * arbitrary. Every slider in this panel gets the same control, in the same
+ * place, disabled when the value is already the one the app chose. That is
+ * item 18's shape; Cycle D generalises it to the Finish panel.
+ *
+ * DISABLED, NOT HIDDEN. A reset that vanishes when there is nothing to reset
+ * makes the row jump as you drag, and hides the fact that the control HAS a
+ * default. Disabled says both things at once, and Task 3b's rule makes that
+ * an explicit colour rather than an opacity.
+ */
+function makeResetButton(label) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'slider-reset';
+  btn.setAttribute('aria-label', label);
+  btn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-reset"></use></svg>';
+  return btn;
+}
+
 function syncSliderFill(input, valueEl, text) {
   const min = Number(input.min) || 0;
   const max = Number(input.max) || 100;
@@ -397,7 +473,7 @@ export function initBackgroundInspector() {
   sampledRow.append(sampledStopsEl, sampledLabel);
   sampledRow.setAttribute(
     'aria-label',
-    'Sampled ground, derived automatically from the screenshot. Click to clear a manual hue override.',
+    'Sampled ground, derived automatically from the screenshot. Click to clear every manual override — hue and luminosity.',
   );
   section.appendChild(sampledRow);
 
@@ -421,7 +497,11 @@ export function initBackgroundInspector() {
   hueInput.max = '360';
   hueInput.step = '1';
   hueInput.setAttribute('aria-label', 'Ground hue, in degrees — dragging forces a hue and leaves Sampled');
-  hueRow.appendChild(hueInput);
+  const hueReset = makeResetButton('Reset hue to the sampled value');
+  const hueResetTrack = document.createElement('div');
+  hueResetTrack.className = 'slider-track-row';
+  hueResetTrack.append(hueInput, hueReset);
+  hueRow.appendChild(hueResetTrack);
   const hueValueEl = hueRow.querySelector('.slider-value');
   section.appendChild(hueRow);
 
@@ -435,10 +515,24 @@ export function initBackgroundInspector() {
   angleInput.type = 'range';
   angleInput.className = 'slider';
   angleInput.min = '0';
-  angleInput.max = '360';
+  angleInput.max = String(ANGLE_SLIDER_MAX);
   angleInput.step = '1';
   angleInput.setAttribute('aria-label', 'Gradient angle, in degrees');
-  angleRow.appendChild(angleInput);
+  const angleReset = makeResetButton('Reset angle to the default');
+  // THE DIAL (Task 7). A number cannot say which way 166° points, and an
+  // arrow drawn from that number would only restate it. This is a circle of
+  // the REAL ground, painted by paintGround from the stops the canvas itself
+  // used, with a tick on the light end — so it cannot disagree with what it
+  // is describing.
+  const angleDial = document.createElement('canvas');
+  angleDial.width = 44;
+  angleDial.height = 44;
+  angleDial.className = 'angle-dial';
+  angleDial.setAttribute('aria-hidden', 'true');
+  const angleResetTrack = document.createElement('div');
+  angleResetTrack.className = 'slider-track-row';
+  angleResetTrack.append(angleInput, angleDial, angleReset);
+  angleRow.appendChild(angleResetTrack);
   const angleValueEl = angleRow.querySelector('.slider-value');
   section.appendChild(angleRow);
 
@@ -452,7 +546,6 @@ export function initBackgroundInspector() {
   typeSegmented.className = 'segmented';
   typeSegmented.setAttribute('role', 'group');
   typeSegmented.setAttribute('aria-label', 'Background type');
-  const TYPE_LABELS = { linear: 'Linear', solid: 'Solid', mesh: 'Mesh' };
   const typeButtons = UI_BG_TYPES.map((type) => {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -465,112 +558,63 @@ export function initBackgroundInspector() {
   });
   section.appendChild(typeSegmented);
 
-  // --- Seed (mesh only) -----------------------------------------------------------
-  const seedRow = document.createElement('div');
-  seedRow.id = 'backgroundSeedRow';
-  seedRow.className = 'inline-control-row';
-  seedRow.hidden = true;
-  const seedLabel = document.createElement('span');
-  seedLabel.textContent = 'Seed';
-  const seedStepper = document.createElement('div');
-  seedStepper.className = 'zoom-stepper';
-  const seedMinus = document.createElement('button');
-  seedMinus.type = 'button';
-  seedMinus.className = 'zoom-btn';
-  seedMinus.setAttribute('aria-label', 'Decrease mesh seed');
-  seedMinus.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-minus"></use></svg>';
-  const seedValueEl = document.createElement('span');
-  seedValueEl.className = 'zoom-value mono';
-  const seedPlus = document.createElement('button');
-  seedPlus.type = 'button';
-  seedPlus.className = 'zoom-btn';
-  seedPlus.setAttribute('aria-label', 'Increase mesh seed');
-  seedPlus.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-plus"></use></svg>';
-  seedStepper.append(seedMinus, seedValueEl, seedPlus);
-  seedRow.append(seedLabel, seedStepper);
-  section.appendChild(seedRow);
+  // The Seed stepper, the Stops stepper and the Spread slider lived here.
+  // All three steered mesh and nothing else, and went with it in Task 8.
 
-  // --- Stops and Spread (mesh only, Task 9) ---------------------------
-  // Without these, `spread` and `stops` are unreachable - which is exactly
-  // the state that made mesh useless in the first place, and there would be
-  // no way for anyone to judge whether it is worth having. Deliberately
-  // minimal; Cycle B's Background rework replaces them. Same idioms as the
-  // Seed stepper above and the Angle slider below - no new control
-  // vocabulary is invented here.
-  const stopsRow = document.createElement('div');
-  stopsRow.id = 'backgroundStopsRow';
-  stopsRow.className = 'inline-control-row';
-  stopsRow.hidden = true;
-  const stopsLabel = document.createElement('span');
-  stopsLabel.textContent = 'Stops';
-  const stopsStepper = document.createElement('div');
-  stopsStepper.className = 'zoom-stepper';
-  const stopsMinus = document.createElement('button');
-  stopsMinus.type = 'button';
-  stopsMinus.className = 'zoom-btn';
-  stopsMinus.setAttribute('aria-label', 'Fewer mesh colour stops');
-  stopsMinus.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-minus"></use></svg>';
-  const stopsValueEl = document.createElement('span');
-  stopsValueEl.className = 'zoom-value mono';
-  const stopsPlus = document.createElement('button');
-  stopsPlus.type = 'button';
-  stopsPlus.className = 'zoom-btn';
-  stopsPlus.setAttribute('aria-label', 'More mesh colour stops');
-  stopsPlus.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-plus"></use></svg>';
-  stopsStepper.append(stopsMinus, stopsValueEl, stopsPlus);
-  stopsRow.append(stopsLabel, stopsStepper);
-  section.appendChild(stopsRow);
+  // --- Luminosity (Cycle C Task 1) -------------------------------------
+  // Was a three-cell "Ground tone" segmented, Auto / Light / Mid. Both of
+  // those were pale; this reaches a genuinely dark ground, and starts on
+  // the sampled value rather than a fixed midpoint.
+  const lumRow = document.createElement('div');
+  lumRow.className = 'slider-row';
+  lumRow.innerHTML =
+    '<div class="slider-label"><span>Luminosity</span><span class="mono slider-value"></span></div>';
+  const lumInput = document.createElement('input');
+  lumInput.type = 'range';
+  lumInput.className = 'slider';
+  lumInput.min = String(LUMINOSITY_RANGE[0]);
+  lumInput.max = String(LUMINOSITY_RANGE[1]);
+  lumInput.step = '0.005';
+  lumInput.setAttribute('aria-label', "Ground luminosity — how light or dark the background is");
+  const lumReset2 = makeResetButton('Reset luminosity to the sampled value');
+  const lumReset2Track = document.createElement('div');
+  lumReset2Track.className = 'slider-track-row';
+  lumReset2Track.append(lumInput, lumReset2);
+  lumRow.appendChild(lumReset2Track);
+  const lumValueEl = lumRow.querySelector('.slider-value');
+  section.appendChild(lumRow);
 
-  const spreadRow = document.createElement('div');
-  spreadRow.id = 'backgroundSpreadRow';
-  spreadRow.className = 'slider-row';
-  spreadRow.hidden = true;
-  spreadRow.innerHTML = '<div class="slider-label"><span>Spread</span><span class="mono slider-value"></span></div>';
-  const spreadInput = document.createElement('input');
-  spreadInput.type = 'range';
-  spreadInput.className = 'slider';
-  spreadInput.min = String(MESH_SPREAD_RANGE[0]);
-  spreadInput.max = String(MESH_SPREAD_RANGE[1]);
-  spreadInput.step = '1';
-  spreadInput.setAttribute('aria-label', 'Mesh hue spread, in degrees around the ground’s own hue');
-  spreadRow.appendChild(spreadInput);
-  const spreadValueEl = spreadRow.querySelector('.slider-value');
-  section.appendChild(spreadRow);
+  // The old standalone "Sampled"/"Reset" row under Luminosity is gone: every
+  // slider carries its own reset now, in the same place, so no one control
+  // is special. See makeResetButton.
 
-  // --- Tone -----------------------------------------------------------
-  // Labelled deliberately so the RULE reads, not a vibe: a dark UI gets a
-  // MID-TONE ground (never a dark one) so the shot separates from it — see
-  // core/ground.js's own header comment. "Light"/"Mid" here force one of
-  // those two branches regardless of the screenshot's own luminance;
-  // "Auto" is the default (infer from the screenshot, per-image).
-  const toneLabelRow = document.createElement('div');
-  toneLabelRow.className = 'slider-label';
-  toneLabelRow.innerHTML = '<span>Ground tone</span>';
-  section.appendChild(toneLabelRow);
+  // NO HINT PARAGRAPH HERE. Cycle A put one under Padding explaining the
+  // outset model and Rock cut it on sight; Cycle C put one under Luminosity
+  // and he cut that too, with the general instruction: "stop putting
+  // messages there". A paragraph under a slider is the control failing to
+  // explain itself. If one is confusing, the fix is the control.
 
-  const toneSegmented = document.createElement('div');
-  toneSegmented.className = 'segmented segmented--mini';
-  toneSegmented.setAttribute('role', 'group');
-  toneSegmented.setAttribute('aria-label', 'Ground tone override');
-  const TONE_UI = ['auto', 'light', 'mid'];
-  const TONE_LABELS = { auto: 'Auto', light: 'Light', mid: 'Mid' };
-  const toneButtons = TONE_UI.map((tone) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'segmented-cell';
-    btn.dataset.tone = tone;
-    btn.textContent = TONE_LABELS[tone];
-    btn.setAttribute('aria-pressed', 'false');
-    toneSegmented.appendChild(btn);
-    return btn;
-  });
-  section.appendChild(toneSegmented);
-
-  const toneHint = document.createElement('p');
-  toneHint.className = 'control-hint';
-  toneHint.textContent =
-    'A dark screenshot gets a mid-tone ground, never a dark one, so the shot still separates from it — this is a correctness rule, not a mood setting.';
-  section.appendChild(toneHint);
+  // --- THE ORDER IS THE ARGUMENT (Cycle C Task 4) ----------------------
+  //
+  // Everything above was appended in the order it happened to be built.
+  // This re-appends it in the order it should READ, in one place, so the
+  // panel's structure is a statement rather than an accident of
+  // construction. `appendChild` moves an existing node, so this reorders
+  // rather than duplicating.
+  //
+  // Type first, because it decides what every control below it means.
+  // Then the ground itself - sampled, then the presets - because that is
+  // the choice. Then the adjustments to whatever was chosen.
+  //
+  // SAMPLED LIVES INSIDE THE TYPE and is not a fourth option beside it:
+  // there is a sampled gradient and a sampled solid, and switching type
+  // keeps whichever you had.
+  for (const el of [
+    typeLabelRow, typeSegmented,
+    sampledRow, presetList,
+    hueRow, angleRow,
+    lumRow,
+  ]) section.appendChild(el);
 
   // -----------------------------------------------------------------------
   // Sync functions: each updates exactly the DOM this panel's own state
@@ -578,8 +622,8 @@ export function initBackgroundInspector() {
   // (only their value/label/fill/class) — a slider that got torn down and
   // recreated on its own 'input' event would abort the user's own drag
   // gesture. Rebuilding the (small, un-focused) preset <ul> on every hue
-  // tick is fine: renderGroundSwatches -> gradientFor -> groundFromMeta is
-  // the CHEAP tail-only path (a handful of hslToHex calls), never the
+  // tick is fine: renderTile -> groundFromMeta is the CHEAP tail-only path
+  // (a handful of hslToHex calls plus a 88px paintGround), never the
   // expensive analyse() pass — see the perf note further down.
   // -----------------------------------------------------------------------
 
@@ -593,11 +637,19 @@ export function initBackgroundInspector() {
     // produce), but hue-locked to the true measured value (forceHue=null
     // keeps `meta.hue` — never the override) — see this file's header
     // comment on why `meta` here is NEVER `state.meta`.
-    const preview = groundFromMeta(meta, null, cfg.tone);
+    // `null` luminosity as well as `null` hue: this row previews what
+    // clicking it would ACTUALLY produce, and clicking it now clears both.
+    // Passing `cfg.luminosity` here would show the user's override in a
+    // swatch labelled "from screenshot".
+    const preview = groundFromMeta(meta, null, null);
     sampledStopEls.forEach((el, i) => { el.style.background = preview.ground[i]; });
     sampledSub.textContent = `from screenshot · ${Math.round(meta.hue)}°`;
-    sampledRow.classList.toggle('is-active', auto);
-    sampledRow.setAttribute('aria-pressed', String(auto));
+    // Active only when EVERYTHING is sampled - the row's claim is about the
+    // whole ground, so a forced luminosity makes it untrue just as a forced
+    // hue does.
+    const fully = isFullySampled(cfg);
+    sampledRow.classList.toggle('is-active', fully);
+    sampledRow.setAttribute('aria-pressed', String(fully));
 
     // Hue slider: the CURRENTLY EFFECTIVE hue — forced value if one is set,
     // else the sampled reading above (never `state.meta`, which already
@@ -606,24 +658,110 @@ export function initBackgroundInspector() {
     const effective = forcedHueDeg(cfg) ?? Math.round(meta.hue);
     hueInput.value = String(effective);
     syncSliderFill(hueInput, hueValueEl, `${effective}°`);
+    hueReset.disabled = isAutoGround(cfg);
 
-    // Presets: Task 4's own rendering, reused rather than reimplemented.
-    renderGroundSwatches(presetList, () => {
-      syncGroundUI();
-      scheduleRender();
-    });
+    renderPresetTiles(meta);
+  }
+
+  /**
+   * The preset grid — Cycle C Task 5.
+   *
+   * Each tile is a real <canvas> painted by web/preset-tiles.js through
+   * core/'s own `paintGround`, at the current type, angle and luminosity.
+   * It replaces eight 14x14 CSS chips whose gradient was an approximation
+   * of what the canvas would draw: two of the eight were indistinguishable
+   * at that size, and the approximation lied about `ash` the moment that
+   * preset gained its own saturation.
+   *
+   * Rebuilt on every sync rather than mutated, like the swatches were: the
+   * grid is eight small elements, nothing in it holds focus mid-drag, and
+   * `groundFromMeta` is the cheap tail-only path, never `analyse()`.
+   */
+  function renderPresetTiles(meta) {
+    presetList.innerHTML = '';
+    const active = activeGroundKey(state.config);
+    for (const name of Object.keys(GROUNDS)) {
+      const li = document.createElement('li');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'preset-tile' + (active === name ? ' is-selected' : '');
+      btn.setAttribute('aria-pressed', String(active === name));
+
+      const cv = document.createElement('canvas');
+      // A fixed backing size, not the CSS size: the tile is drawn once per
+      // sync and scaled by CSS, and a ground is smooth enough that this
+      // costs nothing visible while keeping the paint cheap.
+      cv.width = 88;
+      cv.height = 88;
+      cv.className = 'preset-tile-canvas';
+      cv.setAttribute('aria-hidden', 'true');
+      renderTile(cv, name, state.config, meta);
+
+      const label = document.createElement('span');
+      label.className = 'preset-tile-label';
+      label.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+
+      btn.append(cv, label);
+      btn.addEventListener('click', () => {
+        selectGround(state.config, name);
+        afterBackgroundChange();
+      });
+      li.appendChild(btn);
+      presetList.appendChild(li);
+    }
+  }
+
+  /**
+   * EVERY BACKGROUND CHANGE GOES THROUGH HERE — Cycle C Task 5, fix round 1.
+   *
+   * Rock: *"HAL changes CT, and that's cool. but, A only updates CT after
+   * you change H."* Exactly right. The preset tiles are painted at the
+   * CURRENT type, angle and luminosity, so they go stale whenever one of
+   * those changes — and only Hue and Luminosity happened to call
+   * `syncGroundUI`. Angle, type and the mesh controls did not, so a tile
+   * kept showing the angle you had before.
+   *
+   * Patching each listener would fix the three that are wrong today and
+   * leave the next control someone adds to be wrong tomorrow. One function
+   * that syncs everything removes the whole class instead.
+   */
+  function afterBackgroundChange() {
+    syncTypeUI();
+    syncGroundUI();
+    syncAngleUI();
+    syncLuminosityUI();
+    scheduleRender();
   }
 
   function syncAngleUI() {
     const deg = Number.isFinite(state.config.angle) ? state.config.angle : DEFAULT_ANGLE;
     angleInput.value = String(deg);
     syncSliderFill(angleInput, angleValueEl, `${deg}°`);
+    angleReset.disabled = isDefaultAngle(state.config);
+
+    // The dial's stops come from the same call core/index.js makes for the
+    // canvas — `groundFromMeta(meta, forceHue, luminosity, forceSat)`, with
+    // every argument taken from `normalise()` rather than re-read by hand.
+    // `state.meta.ground` would have been the same triple but one frame
+    // stale, since it is only written after a render; this is the tiles'
+    // arrangement, and it is not stale.
+    const eff = normalise(state.config);
+    const dialMeta = sampledCache.refresh(state.images, state.config, state.meta);
+    const dialStops = dialMeta
+      ? groundFromMeta(dialMeta, eff.forceHue, eff.luminosity, eff.forceSat).ground
+      : null;
+    const dialStyle = getComputedStyle(angleDial);
+    renderGroundDial(angleDial, state.config, dialStops, {
+      markInk: dialStyle.getPropertyValue('--dial-ink').trim(),
+      markHalo: dialStyle.getPropertyValue('--dial-halo').trim(),
+    });
+    angleInput.setAttribute('aria-valuetext', `${deg} degrees, light from the ${lightEndLabel(deg)}`);
   }
 
   function syncTypeUI() {
-    // UI_BG_TYPES, not BG_TYPES: a config carrying a type the panel does
-    // not offer (mesh, today) must not leave the section showing that
-    // type's own rows with no button selected to explain them.
+    // UI_BG_TYPES, not BG_TYPES: the two are identical today, and a config
+    // carrying a type the panel does not offer must still land on something
+    // rather than leave every button unselected.
     const type = UI_BG_TYPES.includes(state.config.bgType)
       ? state.config.bgType : DEFAULTS.bgType;
     typeButtons.forEach((btn) => {
@@ -631,117 +769,74 @@ export function initBackgroundInspector() {
       btn.classList.toggle('is-active', active);
       btn.setAttribute('aria-pressed', String(active));
     });
-    seedRow.hidden = type !== 'mesh';
-    stopsRow.hidden = type !== 'mesh';
-    spreadRow.hidden = type !== 'mesh';
-    if (!seedRow.hidden) { syncSeedUI(); syncMeshUI(); }
+    // Angle only means something for a gradient - see showsAngle.
+    angleRow.hidden = !showsAngle(state.config);
   }
 
-  function syncMeshUI() {
-    const stops = activeMeshStops(state.config);
-    stopsValueEl.textContent = String(stops);
-    stopsMinus.disabled = stops <= MESH_STOPS_RANGE[0];
-    stopsPlus.disabled = stops >= MESH_STOPS_RANGE[1];
-
-    const spread = activeMeshSpread(state.config);
-    spreadInput.value = String(spread);
-    syncSliderFill(spreadInput, spreadValueEl, `${Math.round(spread)}°`);
-  }
-
-  function syncSeedUI() {
-    const seed = Number.isFinite(state.config.seed) ? state.config.seed : DEFAULTS.seed;
-    seedValueEl.textContent = String(seed);
-    seedMinus.disabled = seed <= SEED_MIN;
-    seedPlus.disabled = seed >= SEED_MAX;
-  }
-
-  function syncToneUI() {
-    const tone = activeToneUi(state.config);
-    toneButtons.forEach((btn) => {
-      const active = btn.dataset.tone === tone;
-      btn.classList.toggle('is-active', active);
-      btn.setAttribute('aria-pressed', String(active));
-    });
+  function syncLuminosityUI() {
+    const sampled = isSampledLuminosity(state.config);
+    const l = activeLuminosity(state.config, state.meta);
+    lumInput.value = String(l);
+    syncSliderFill(lumInput, lumValueEl, `${Math.round(l * 100)}%`);
+    lumReset2.disabled = sampled;
   }
 
   // --- Event wiring -----------------------------------------------------
 
   sampledRow.addEventListener('click', () => {
     resetToSampled(state.config);
-    syncGroundUI();
-    scheduleRender();
+    afterBackgroundChange();
   });
 
   hueInput.addEventListener('input', () => {
     setHue(state.config, hueInput.value);
-    syncGroundUI();
-    scheduleRender();
+    afterBackgroundChange();
   });
 
-  // Angle NEVER touches `config.ground`/`config.tone` — web/state.js's
+  // Angle NEVER touches `config.ground`/`config.luminosity` — web/state.js's
   // groundKeyFor (its cache key) doesn't read `angle` at all, so this is
   // the one slider in this panel guaranteed to hit the warm cache on every
   // drag tick rather than re-running core/ground.js's analyse() pass. See
   // task-5-report.md for the measured numbers.
   angleInput.addEventListener('input', () => {
     setAngle(state.config, angleInput.value);
-    syncAngleUI();
-    scheduleRender();
+    afterBackgroundChange();
+  });
+
+  hueReset.addEventListener('click', () => {
+    resetHueToSampled(state.config);
+    afterBackgroundChange();
+  });
+
+  angleReset.addEventListener('click', () => {
+    resetAngle(state.config);
+    afterBackgroundChange();
   });
 
   typeButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
       setBgType(state.config, btn.dataset.type);
-      syncTypeUI();
-      scheduleRender();
+      afterBackgroundChange();
     });
   });
 
-  seedMinus.addEventListener('click', () => {
-    const current = Number.isFinite(state.config.seed) ? state.config.seed : DEFAULTS.seed;
-    setSeed(state.config, current - 1);
-    syncSeedUI();
-    scheduleRender();
-  });
-  seedPlus.addEventListener('click', () => {
-    const current = Number.isFinite(state.config.seed) ? state.config.seed : DEFAULTS.seed;
-    setSeed(state.config, current + 1);
-    syncSeedUI();
-    scheduleRender();
+  // Luminosity changes what every preset AND the Sampled swatch preview to,
+  // even though it changes no hue - the presets are rendered at the current
+  // luminosity, so both need a refresh here, not just this row.
+  lumInput.addEventListener('input', () => {
+    setLuminosity(state.config, lumInput.value);
+    afterBackgroundChange();
   });
 
-  stopsMinus.addEventListener('click', () => {
-    setMeshStops(state.config, activeMeshStops(state.config) - 1);
-    syncMeshUI();
-    scheduleRender();
-  });
-  stopsPlus.addEventListener('click', () => {
-    setMeshStops(state.config, activeMeshStops(state.config) + 1);
-    syncMeshUI();
-    scheduleRender();
-  });
-  spreadInput.addEventListener('input', () => {
-    setMeshSpread(state.config, spreadInput.value);
-    syncMeshUI();
-    scheduleRender();
-  });
-
-  toneButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      setTone(state.config, btn.dataset.tone);
-      syncToneUI();
-      // Tone changes what every preset AND the Sampled swatch preview to
-      // (groundFromMeta's darkUI branch) even though it changes no hue —
-      // both need a refresh here, not just the tone row itself.
-      syncGroundUI();
-      scheduleRender();
-    });
+  lumReset2.addEventListener('click', () => {
+    resetLuminosityToSampled(state.config);
+    afterBackgroundChange();
   });
 
   syncGroundUI();
   syncAngleUI();
   syncTypeUI();
-  syncToneUI();
+  syncLuminosityUI();
 
   // Returned so web/main.js can tell this panel to re-derive "Sampled" the
   // moment a screenshot decodes (see web/main.js's `handleFiles`). It also
@@ -751,6 +846,14 @@ export function initBackgroundInspector() {
   return {
     refreshSampled: () => {
       sampledCache.invalidate(); // force the next refresh() below to recompute
+      // AND the luminosity slider, which sits on the SAMPLED position when
+      // nothing is set - so a new screenshot moves it. Missing this was a
+      // real bug, caught by looking: the slider is built before any image
+      // exists, syncs once at init against a null `state.meta`, and so sat
+      // at the pale anchor over a dark screenshot whose sampled ground was
+      // the mid one. Same shape as Cycle B Task 7's panel header reading
+      // "Desktop" over a phone-only shot - a sync that only runs at init.
+      syncLuminosityUI();
       syncGroundUI();
     },
   };

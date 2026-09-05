@@ -66,6 +66,7 @@
 .segmented-cell:disabled,
 .slider:disabled,
 .chip:disabled,
+.slider-reset:disabled,
 .select-control:disabled {
   --text-primary: var(--text-inert);
   --text-secondary: var(--text-inert);
@@ -1174,16 +1175,31 @@ input {
   position: relative;
 }
 
+/* A mini segmented control shrink-wraps in a toolbar row instead of filling
+   it, so `flex: 1` on its cells buys nothing: there is no free space to
+   share out, and each cell falls back to the width of its own label. Grid
+   sizes every column to the WIDEST cell instead, which is the same
+   equal-share rule by the one mechanism that works on a shrink-to-fit box.
+
+   Rock, 2026-09-02: "short names have also a short click target." Measured
+   in Chromium before this rule - Dark 43.2px, Mid 36.9px, Light 49.5px:
+   three peers whose targets differ by 34%. After: 49.5px each. */
 .segmented--mini {
-  height: 24px;
+  /* 26px, not 24: the cells sit inside the control's 1px border, so a 24px
+     control gives 22px targets. WCAG 2.2 AA 2.5.8 asks for 24x24, and
+     adjacent cells touch, so the spacing exception does not apply. Rock
+     took this call on 2026-09-05. */
+  height: 26px;
   flex: none;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
 }
 
 .segmented--mini .segmented-cell {
   font-family: var(--font-mono);
   font-size: 10.5px;
   padding: 0 9px;
-  flex: none;
 }
 
 /* -------------------------------------------------------------------------
@@ -1359,15 +1375,12 @@ input {
   color: var(--text-faint);
 }
 
-/* Small explanatory line under a control whose rule isn't self-evident
-   from its label alone (currently: Ground tone) — same tone as
-   .export-footnote, left-aligned instead of centred. */
-.control-hint {
-  margin: 0;
-  font-size: 10.5px;
-  line-height: 1.4;
-  color: var(--text-fainter);
-}
+/* `.control-hint` - a small explanatory line under a control - lived here.
+   It is gone with its last user (the Luminosity paragraph), and the rule
+   that removed it is now a standing one: NO EXPLANATORY PARAGRAPHS UNDER
+   CONTROLS. Rock has cut two, under Padding in Cycle A and under Luminosity
+   in Cycle C. A paragraph under a slider is the control failing to explain
+   itself; fix the control. */
 
 /* -------------------------------------------------------------------------
    Control primitive: pill chip
@@ -1612,4 +1625,151 @@ input {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-muted);
+}
+
+/* The preset grid (Cycle C Task 5). Each tile is a real <canvas> painted by
+   core/'s own paintGround — see web/preset-tiles.js — replacing eight 14x14
+   CSS chips that approximated it. Two of the eight were indistinguishable at
+   that size; the approximation also lied about `ash` the moment that preset
+   gained its own saturation.
+
+   A grid rather than a list, because that is where the vertical space for
+   Cycle D's panel split comes from: eight rows become two. */
+.preset-list {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.preset-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-secondary);
+}
+
+/* The whole tile is the target, label included — the full-width click area
+   Rock asked for on the old rows, which a grid gets for free. */
+.preset-tile-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 7px;
+  border: 1px solid var(--border-hairline);
+  box-sizing: border-box;
+}
+
+.preset-tile-label {
+  font-size: 10.5px;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.preset-tile:hover:not(.is-selected) .preset-tile-canvas {
+  border-color: var(--border-strong);
+}
+
+.preset-tile.is-selected .preset-tile-canvas {
+  border-color: var(--text-primary);
+  box-shadow: 0 0 0 1px var(--text-primary);
+}
+
+.preset-tile.is-selected .preset-tile-label {
+  color: var(--text-primary);
+}
+
+.preset-tile:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* A slider and its own Reset, side by side (Cycle C Task 5, fix round 1).
+   Rock: "I'm not sure I follow the logic of that reset button that only
+   activates for luminosity... just a reset button in front of the slider."
+   Every slider in the Background panel carries the same one now, in the
+   same place, so no one control is special. */
+.slider-track-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slider-track-row .slider {
+  flex: 1;
+  min-width: 0;
+}
+
+.slider-reset {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* The Angle dial (Cycle C Task 7). A circle of the REAL ground at the
+   current settings, painted by core/'s own paintGround — see
+   web/preset-tiles.js — with a tick on the gradient's light end.
+
+   It is decorative, not a control: `aria-hidden`, no pointer handler, and
+   the same sentence it draws is given to everyone else through the slider's
+   `aria-valuetext` ("166 degrees, light from the top left"). The two ink
+   colours are handed to the canvas as custom properties because tokens.css
+   is the only file here allowed a raw colour. */
+.angle-dial {
+  --dial-ink: var(--text-primary);
+  --dial-halo: var(--surface-window);
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  box-sizing: border-box;
+}
+
+.slider-reset .icon {
+  width: 13px;
+  height: 13px;
+}
+
+.slider-reset:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.slider-reset:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+
+/* The DISABLED state is not defined here. `.slider-reset:disabled` is
+   registered in the one shared off-state rule at the top of this file, which
+   is what test/contrast.test.js enforces: every off state goes through a
+   single rule so none of them can drift, and none of them may use `opacity`.
+   Only the cursor is this control's own business.
+
+   Disabled rather than hidden, deliberately: a reset that vanished when
+   there was nothing to reset would make the row jump mid-drag and would hide
+   the fact that the control has a default at all. */
+.slider-reset:disabled {
+  cursor: default;
 }

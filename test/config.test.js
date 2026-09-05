@@ -75,10 +75,16 @@ describe('normalise', () => {
     expect(given.insetY).toBe(34);
   });
 
-  it('resolves tone to "light" or "mid" when given, and null otherwise', () => {
-    expect(normalise({ tone: 'light' }).tone).toBe('light');
-    expect(normalise({ tone: 'mid' }).tone).toBe('mid');
-    expect(normalise({}).tone).toBeNull();
+  // Cycle C Task 1: `tone` retired in favour of a continuous `luminosity`.
+  // Both of its branches were pale, so the tool had no dark ground at all.
+  it('resolves luminosity to a clamped number when given, and null otherwise', () => {
+    expect(normalise({ luminosity: 0.4 }).luminosity).toBeCloseTo(0.4, 12);
+    expect(normalise({}).luminosity).toBeNull();
+    expect(normalise({ luminosity: null }).luminosity).toBeNull();
+    // null means SAMPLED - core/ground.js runs its own inference - which is
+    // a different thing from any particular number, and is why it survives
+    // a change of screenshot.
+    expect(normalise({ luminosity: 'nonsense' }).luminosity).toBeNull();
   });
 });
 

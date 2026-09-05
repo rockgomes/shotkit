@@ -245,7 +245,6 @@ describe('pixel-diff against frozen renders', () => {
     ['web',        { ratio: '3:2' },                       { web: 'samples/fieldset.png' }],
     ['mobile',     { layout: 'mobile', ratio: '3:2' },     { mobile: ['samples/karaoke-mobile.png', 'samples/karaoke-mobile-2.png'] }],
     ['web-mobile', { layout: 'web+mobile', ratio: '3:2' }, { web: 'samples/karaoke-web.png', mobile: ['samples/karaoke-mobile.png'] }],
-    ['mesh',       { ratio: '3:2', bgType: 'mesh', seed: 7 },   { web: 'samples/fieldset.png' }],
     // Task 6: the browser chrome in both themes, and the phone frame - the
     // last three cases before core/ is done. macOS is deliberately absent
     // (see FRAME_KINDS in core/presets.js): no design exists for it in v1.
@@ -284,16 +283,25 @@ describe('pixel-diff against frozen renders', () => {
     ['stroke-light',   { ratio: '3:2', stroke: { style: 'light', width: 0.02 } },  { web: 'samples/fieldset.png' }],
     ['stroke-glass',   { ratio: '3:2', stroke: { style: 'glass', width: 0.02 } },  { web: 'samples/fieldset.png' }],
     ['stroke-browser', { ratio: '3:2', frameKind: 'browser', stroke: { style: 'light', width: 0.015 } }, { web: 'samples/fieldset.png' }],
-    // Task 9: the `mesh` case above uses the defaults, so it would freeze
-    // the default field and prove nothing about `spread` or `stops`
-    // reaching the canvas. This is the wide, five-stop end of the range.
-    ['mesh-wide', { ratio: '3:2', bgType: 'mesh', seed: 7, mesh: { stops: 5, spread: 140 } }, { web: 'samples/fieldset.png' }],
     // Cycle B Task 4: the mobile element's own frames. Without these, a
     // stubbed dispatcher would leave every golden above untouched - none of
     // them sets `elements.mobile`, and its default 'phone' is the path that
     // already existed.
     ['mobile-browser', { layout: 'mobile', ratio: '3:2', elements: { mobile: { frameKind: 'browser' } } }, { web: null, mobile: ['samples/karaoke-mobile.png'] }],
     ['mobile-bare',    { layout: 'mobile', ratio: '3:2', elements: { mobile: { frameKind: 'none' } } },    { web: null, mobile: ['samples/karaoke-mobile.png'] }],
+    // Cycle C Task 2: a DARK ground, with a DARK screenshot on it - the one
+    // combination where the shot's separation is at risk. Measured in
+    // Chromium, the shadow's contrast against the ground falls from 1.38 at
+    // the sampled pale ground to 1.02 at luminosity 0.15, so it is doing
+    // essentially nothing here and this golden is what would catch the
+    // ground maths, the edge blend or the shadow changing at that end. Every
+    // other golden is pale.
+    ['ground-dark', { ratio: '3:2', luminosity: 0.18 }, { web: 'samples/karaoke-web.png' }],
+    // Cycle C Task 3, round two: `ash` is the ONLY preset that declares its
+    // own saturation, and no other golden picks a named ground at all - they
+    // all take the sampled one - so without this the whole forceSat path is
+    // unguarded and a regression would be silent.
+    ['ground-ash', { ratio: '3:2', ground: 'ash' }, { web: 'samples/fieldset.png' }],
   ];
 
   for (const [name, cfg, files] of CASES) {

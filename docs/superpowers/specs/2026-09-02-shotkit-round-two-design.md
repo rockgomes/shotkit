@@ -521,6 +521,26 @@ grounds. Mesh should be judged again then, on a ground that can carry it, and
 with a shot on top rather than on its own. If it still cannot be seen at that
 point, delete it rather than hiding it a second time.
 
+> **DELETED, 2026-09-05 — Cycle C Task 8.** Judged on the rebuilt palette,
+> with a dark UI screenshot on top, at four luminosities and three paddings.
+> Measured in the ground that is actually visible: mesh differs from the
+> plain gradient by a mean of **5 levels**, 20 at worst, and it gets *worse*
+> as the ground darkens. Four times the visible border, at 22% padding,
+> changes nothing.
+>
+> **The diagnosis above was wrong, and correcting it is the point of writing
+> this down.** The palette was not what failed. Every blob takes its
+> saturation and lightness from `g1` or `g3` — the sampled palette's own two
+> ends, about 60 levels apart — so a field built only from colours inside
+> that range cannot vary more than the gradient already does. Only the hue
+> rotates, and hue rotation at these saturations is worth a handful of
+> levels. Rewriting the palette could not have fixed that, and did not.
+>
+> Making mesh visible would mean painting colours the screenshot does not
+> contain. That is the one thing `core/ground.js` exists to refuse, so mesh
+> was never going to be worth having on these terms. Deleted whole, per the
+> paragraph above. Numbers in `docs/verification-2026-09-01.md`.
+
 ## Carried forward — Background panel, from Rock 2026-09-02
 
 Raised while approving Task 5, and explicitly deferred by him: *"I guess this
@@ -541,6 +561,21 @@ to `DEFAULT_ANGLE` (166°). That is not a decision anyone took — it is how the
 CLI's flags happened to map. Whether a preset should carry its own angle (so
 each named ground has a considered direction) is a real design question for the
 type-first rebuild, where each type gets its own set.
+
+> **DECIDED, 2026-09-05: a preset sets the hue only.** Rock: *"that's because
+> I feel like we have solved it already. now that HAL controls have a reset,
+> and every update on the sliders also update the color block, I feel like
+> this is less confusing now."* The confusion this question came from was
+> fixed by Cycle C Task 5 — the per-slider Resets, and colour tiles that
+> repaint on every background change — not by wiring hue to angle.
+>
+> The alternative was weaker than it first looked, and saying why is the
+> point of writing it down. A preset carrying its own angle still had to
+> leave an angle the user set explicitly alone, by the same
+> sampled-versus-explicit rule as the rest of the panel. So it would have
+> differed from today in exactly one case — before you first touch the Angle
+> slider — and behaved identically ever after. A feature that stops working
+> the first time you use the control next to it is not worth the wiring.
 
 **Background blur belongs here too.** Rock described Screen Studio's control:
 it blurs a *wallpaper* — waves, glass reflections. It is meaningless against a
@@ -698,6 +733,59 @@ Note what is being made continuous: today `groundFromMeta` picks a branch
 from `darkUI = lum < 0.34`, and the two branches sit at HSL lightness
 0.975/0.925/0.868 and 0.855/0.780/0.712. The slider spans those and continues
 down to roughly 0.15 for the near-black Rock asked for.
+
+**DECIDED — no explanatory paragraphs under controls.** Rock, 2026-09-04:
+*"get rid of this ... and stop putting messages there."*
+
+Twice now a `.control-hint` paragraph has been written under a slider to
+explain behaviour the control did not communicate — under Padding in Cycle A,
+under Luminosity in Cycle C — and both were cut on sight. A paragraph under a
+slider is the control failing to explain itself. If one is confusing, the fix
+is the control.
+
+**DECIDED — every slider carries its own Reset.** Rock, on the first
+luminosity build: *"I'm not sure I follow the logic of that reset button that
+only activates for luminosity. I think we could have just a reset button in
+front of the slider ... a small square button with the round arrow icon."*
+
+One slider having a reset and the others not is arbitrary. Every slider gets
+the same control, in the same place, **disabled** (never hidden) when its
+value is already the one the app chose — hiding it would make the row jump
+mid-drag and hide the fact that the control has a default. That is item 18's
+shape, brought forward from Cycle D for the Background panel; Cycle D
+generalises it to the rest.
+
+The whole-ground **Sampled** row stays, and is a different scope: it clears
+every override at once.
+
+**DECIDED — the dark ground does not auto-apply a stroke.** Rock, 2026-09-04,
+after Cycle C Task 2 measured the shadow across the range: *"A, leave it
+manual."*
+
+The shadow fades to nothing as the ground darkens (1.38 → 1.02 contrast), and
+raising its alphas cannot help — it is black, and black cannot be darkened.
+The one combination that actually fails is a DARK screenshot on a very dark
+ground; a light one separates on its own edge. A light stroke fixes it
+completely and is one click away.
+
+The app does not add that stroke by itself. A canvas-level control silently
+writing a per-element setting is the hidden coupling Cycle B spent eight
+tasks removing, and it would fire on the light-screenshot case that has no
+problem.
+
+**REQUIREMENT — "Sampled" means the WHOLE ground.** Added 2026-09-04, from
+Rock on the first preview: *"I was hoping that clicking on 'sampled' would
+reset everything, including luminosity. am I thinking wrong about it?"*
+
+He was not. The first build shipped a second button also labelled "Sampled"
+beside the luminosity slider, so two controls carried the same word and meant
+different-sized things. The Sampled row clears every override the ground has
+— hue, luminosity, and anything sampled added later — and its swatch previews
+what clicking it would actually produce. A single control's own reset is
+"Reset", which is item 18's vocabulary and what Cycle D generalises.
+
+Anything sampled that is added later belongs in `resetToSampled`. That is
+what the word promises.
 
 **REQUIREMENT — the shadow is re-verified across the range, in Chromium.**
 `paintShadow`'s alphas were verified against pale grounds only. Two fixed

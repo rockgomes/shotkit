@@ -1,8 +1,7 @@
 import {
-  RATIOS, HUES, DEFAULTS, RADIUS_RATIO, TEMPLATES, DEFAULT_ANGLE, SCALES, FRAME_KINDS,
-  LAYOUTS, TONES, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
+  RATIOS, HUES, GROUNDS, DEFAULTS, RADIUS_RATIO, TEMPLATES, DEFAULT_ANGLE, SCALES, FRAME_KINDS,
+  LAYOUTS, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE, LUMINOSITY_RANGE,
   STROKE_STYLES, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
-  MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
   ELEMENT_KINDS, ELEMENT_DEFAULTS,
 } from './presets.js';
 
@@ -107,11 +106,17 @@ export function normalise(input = {}) {
   const w = num(input.w, baseW);
   const h = num(input.h, baseH);
 
+  // A named preset carries its own saturation as well as its hue - that is
+  // what lets `ash` be a grey rather than a hue nobody can see. A RAW
+  // DEGREE carries only a hue, so the hue slider and a jobs.json full of
+  // numbers behave exactly as they always did.
   let forceHue = null;
+  let forceSat = null;
   if (input.ground !== undefined && input.ground !== null && input.ground !== 'auto') {
-    const named = HUES[input.ground];
-    const parsed = named !== undefined ? named : Number(input.ground);
+    const named = GROUNDS[input.ground];
+    const parsed = named !== undefined ? named.hue : Number(input.ground);
     if (Number.isFinite(parsed)) forceHue = parsed;
+    if (named && named.sat !== undefined) forceSat = named.sat;
   }
 
   // Only a recognised layout string is honoured verbatim; anything else
@@ -143,7 +148,19 @@ export function normalise(input = {}) {
     // retired in Cycle A Task 4; it stands on its own now.)
     url: input.url ? String(input.url) : DEFAULTS.url,
     forceHue,
-    tone: TONES.includes(input.tone) ? input.tone : DEFAULTS.tone,
+    forceSat,
+    // Cycle C: `tone` retired. null means SAMPLED - core/ground.js runs its
+    // own inference and lands on one of the two anchors, reproducing what
+    // shipped before. A number is the ground's own top-stop lightness,
+    // clamped here the same defensive way every other bounded field is.
+    luminosity: (() => {
+      const v = num(input.luminosity, null);
+      // NOT `Math.max(lo, null)`, which is `lo` - so a garbage value would
+      // silently become the darkest ground instead of falling back to
+      // sampled. Anything that is not a real number is absent.
+      if (v === null) return DEFAULTS.luminosity;
+      return Math.min(LUMINOSITY_RANGE[1], Math.max(LUMINOSITY_RANGE[0], v));
+    })(),
     // `scale` renders the composition at `scale` times its `w`x`h` - see
     // composeWithMeta in index.js, the only reader of this field. w/h above
     // stay the unscaled composition size regardless: this reports what was
@@ -155,7 +172,6 @@ export function normalise(input = {}) {
     })(),
     template: tpl ? input.template : null,
     bgType: BG_TYPES.includes(input.bgType) ? input.bgType : DEFAULTS.bgType,
-    seed: Math.round(num(input.seed, DEFAULTS.seed)),
     frameKind: FRAME_KINDS.includes(input.frameKind) ? input.frameKind : 'none',
     chromeTheme: CHROME_THEMES.includes(input.chromeTheme) ? input.chromeTheme : 'dark',
     // Task 6b: a MULTIPLIER over paintShadow's verified alphas, never a
@@ -176,23 +192,6 @@ export function normalise(input = {}) {
     // sensible to land. Width is clamped to STROKE_WIDTH_RANGE here, the
     // same defensive clamp shadowScale gets, so a stale jobs.json or a
     // runaway slider can never reach layout.js unbounded.
-    // Task 9. `stops` and `spread` only - `seed` stays the top-level field
-    // it always was, for the one-value-one-home reason spelled out beside
-    // MESH_DEFAULTS in presets.js. Both are clamped here, the same
-    // defensive clamp shadowScale and stroke.width get.
-    mesh: (() => {
-      const m = input.mesh || {};
-      return {
-        stops: Math.min(
-          MESH_STOPS_RANGE[1],
-          Math.max(MESH_STOPS_RANGE[0], Math.round(num(m.stops, MESH_DEFAULTS.stops))),
-        ),
-        spread: Math.min(
-          MESH_SPREAD_RANGE[1],
-          Math.max(MESH_SPREAD_RANGE[0], num(m.spread, MESH_DEFAULTS.spread)),
-        ),
-      };
-    })(),
     stroke: normaliseStroke(input.stroke),
     // Cycle B Task 1. Read by nothing yet - see elementsFrom above.
     elements: elementsFrom(input),

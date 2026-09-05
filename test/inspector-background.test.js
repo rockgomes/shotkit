@@ -1,28 +1,29 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { readFileSync } from 'node:fs';
 import {
-  HUES, normalise, groundFor, MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
+  HUES, normalise, groundFor, BG_TYPES,
+  LUMINOSITY_RANGE, LUM_ANCHOR_LIGHT,
 } from '../core/index.js';
 import { state, bindCanvas, render } from '../web/state.js';
 import { selectGround, activeGroundKey } from '../web/sidebar.js';
 import {
   UI_BG_TYPES,
-  activeMeshStops,
-  setMeshStops,
-  activeMeshSpread,
-  setMeshSpread,
+  TYPE_LABELS,
+  showsAngle,
   isAutoGround,
   forcedHueDeg,
   setHue,
   resetToSampled,
   setAngle,
   setBgType,
-  clampSeed,
-  setSeed,
-  SEED_MIN,
-  SEED_MAX,
-  setTone,
-  activeToneUi,
+  isSampledLuminosity,
+  lightEndLabel,
+  ANGLE_SLIDER_MAX,
+  isFullySampled,
+  activeLuminosity,
+  setLuminosity,
+  resetLuminosityToSampled,
   computeSampledMeta,
   sampledMetaFor,
   createSampledCache,
@@ -117,7 +118,7 @@ describe('the preset row and the hue slider agree, because they write the same f
   });
 });
 
-describe('angle, background type, seed and tone helpers', () => {
+describe('angle, background type, seed and luminosity helpers', () => {
   it('setAngle wraps degrees the same way setHue does', () => {
     const config = {};
     setAngle(config, 370);
@@ -128,50 +129,71 @@ describe('angle, background type, seed and tone helpers', () => {
     const config = {};
     setBgType(config, 'not-a-type');
     expect(config.bgType).toBeUndefined();
-    setBgType(config, 'mesh');
-    expect(config.bgType).toBe('mesh');
+    setBgType(config, 'solid');
+    expect(config.bgType).toBe('solid');
     // Rejects a value that looks plausible but was never a member of
     // BG_TYPES, and does not clobber the last good value while doing so —
     // this exercises setBgType's own guard, not BG_TYPES' own contents.
     setBgType(config, 'gradient');
-    expect(config.bgType).toBe('mesh');
+    expect(config.bgType).toBe('solid');
   });
 
-  it('clampSeed/setSeed keep the seed inside [SEED_MIN, SEED_MAX]', () => {
-    expect(clampSeed(0)).toBe(SEED_MIN);
-    expect(clampSeed(500)).toBe(SEED_MAX);
-    expect(clampSeed(12.6)).toBe(13);
+  // Cycle C Task 1: the Auto/Light/Mid segmented became a luminosity
+  // slider with a Sampled reset. `null` still means sampled, exactly as
+  // 'auto' did - and it is still null rather than a number that happens to
+  // equal the sampled value, because the difference is whether the ground
+  // follows the NEXT screenshot.
+  it('setLuminosity/resetLuminosityToSampled round-trip through null', () => {
     const config = {};
-    setSeed(config, -5);
-    expect(config.seed).toBe(SEED_MIN);
+    expect(isSampledLuminosity(config)).toBe(true);
+    setLuminosity(config, 0.4);
+    expect(config.luminosity).toBeCloseTo(0.4, 12);
+    expect(isSampledLuminosity(config)).toBe(false);
+    resetLuminosityToSampled(config);
+    expect(config.luminosity).toBeNull();   // NOT 0.4, and not the sampled number
+    expect(isSampledLuminosity(config)).toBe(true);
+    // Rejects a value that is not a number at all, leaving what was there.
+    setLuminosity(config, 0.4);
+    setLuminosity(config, 'not-a-number');
+    expect(config.luminosity).toBeCloseTo(0.4, 12);
   });
 
-  it('setTone/activeToneUi round-trip auto <-> null correctly', () => {
+  it('clamps to LUMINOSITY_RANGE at both ends', () => {
     const config = {};
-    expect(activeToneUi(config)).toBe('auto');
-    setTone(config, 'mid');
-    expect(config.tone).toBe('mid');
-    expect(activeToneUi(config)).toBe('mid');
-    setTone(config, 'auto');
-    expect(config.tone).toBeNull(); // NOT the string 'auto' — core/config.js's TONES is only ['light','mid']
-    expect(activeToneUi(config)).toBe('auto');
-    // Rejects a value that isn't a real tone at all — falls back to auto,
-    // not to whatever was there a moment ago.
-    setTone(config, 'not-a-tone');
-    expect(config.tone).toBeNull();
+    setLuminosity(config, 9);
+    expect(config.luminosity).toBe(LUMINOSITY_RANGE[1]);
+    setLuminosity(config, -9);
+    expect(config.luminosity).toBe(LUMINOSITY_RANGE[0]);
   });
 
-  it('BREAK IT: if setTone stored the string "auto" instead of null, core would silently ignore it AND keep it forever', () => {
-    const config = {};
-    config.tone = 'auto'; // the bug
-    // core/config.js's normalise(): TONES.includes(input.tone) ? input.tone : DEFAULTS.tone
-    expect(normalise(config).tone).toBe(null); // falls back correctly here...
-    // ...but activeToneUi would misreport it as staying forced, because
-    // TONES.includes('auto') is false, the same false as for `undefined` -
-    // so a naive reader could wrongly treat this as a THIRD distinct tone.
-    // The real setTone() never produces this value in the first place:
-    setTone(config, 'auto');
-    expect(config.tone).toBeNull();
+  it('shows the SAMPLED position when nothing is set, not a fixed midpoint', () => {
+    // The requirement, in one assertion: with no override, the slider sits
+    // where core/ground.js's own inference put it. A fixed midpoint would
+    // discard that on every shot.
+    expect(activeLuminosity({}, { luminosity: 0.855 })).toBeCloseTo(0.855, 12);
+    expect(activeLuminosity({}, { luminosity: 0.975 })).toBeCloseTo(0.975, 12);
+    // An explicit value wins over the sampled one.
+    expect(activeLuminosity({ luminosity: 0.3 }, { luminosity: 0.975 })).toBeCloseTo(0.3, 12);
+    // And with no meta at all - before the first render - it falls back to
+    // the pale anchor rather than to NaN.
+    expect(activeLuminosity({})).toBeCloseTo(LUM_ANCHOR_LIGHT.l, 12);
+  });
+
+  // The same guard, aimed at the shape luminosity can go wrong in. The old
+  // version asked what happened if `tone` held the string "auto"; a number
+  // cannot hold a sentinel string, so the equivalent trap is a value that
+  // is not a number at all reaching the clamp.
+  it('BREAK IT: a non-numeric luminosity must fall back to sampled, not to the floor', () => {
+    // The bug this catches is one line of arithmetic: clamping with
+    // `Math.max(LUMINOSITY_RANGE[0], null)` returns the FLOOR, so a garbage
+    // value would silently produce the darkest ground in the range instead
+    // of sampling the screenshot. Written after making exactly that
+    // mistake.
+    expect(normalise({ luminosity: 'nonsense' }).luminosity).toBeNull();
+    expect(normalise({ luminosity: NaN }).luminosity).toBeNull();
+    expect(normalise({ luminosity: '' }).luminosity).toBeNull();
+    // And a real 0 is NOT garbage - it clamps to the floor, deliberately.
+    expect(normalise({ luminosity: 0 }).luminosity).toBe(LUMINOSITY_RANGE[0]);
   });
 });
 
@@ -413,7 +435,7 @@ describe('createSampledCache: only recomputes when the loaded image SET changes'
 // threshold — see that file's header comment for why).
 // ---------------------------------------------------------------------
 
-describe('angle hits the warm ground cache; hue and tone bust it', () => {
+describe('angle hits the warm ground cache; hue and luminosity bust it', () => {
   beforeEach(() => {
     state.config = { ratio: '3:2' };
     state.images = { web: null, mobile: [] };
@@ -452,7 +474,7 @@ describe('angle hits the warm ground cache; hue and tone bust it', () => {
     expect(state.meta.hue).not.toBe(firstMeta.hue);
   });
 
-  it('changing tone DOES re-run groundFor (a new meta object)', async () => {
+  it('changing luminosity DOES re-run groundFor (a new meta object)', async () => {
     const web = await loadImage('samples/fieldset.png');
     const target = createCanvas(10, 10);
     bindCanvas(target, mkCanvas);
@@ -461,79 +483,10 @@ describe('angle hits the warm ground cache; hue and tone bust it', () => {
     render();
     const firstMeta = state.meta;
 
-    setTone(state.config, 'mid');
+    setLuminosity(state.config, 0.4);
     render();
 
     expect(state.meta).not.toBe(firstMeta);
-  });
-});
-
-// --- Mesh stops and spread (Cycle A Task 9) ------------------------------
-//
-// The round trip goes through the REAL normalise() on both sides, so these
-// prove the panel agrees with core/config.js rather than only with itself.
-describe('mesh stops and spread (Task 9)', () => {
-  it('an unset config reads back the shipped defaults', () => {
-    expect(activeMeshStops({})).toBe(MESH_DEFAULTS.stops);
-    expect(activeMeshSpread({})).toBe(MESH_DEFAULTS.spread);
-    expect(normalise({}).mesh).toEqual(MESH_DEFAULTS);
-  });
-
-  it('setMeshStops writes a block normalise() reads back unchanged', () => {
-    const config = {};
-    setMeshStops(config, 5);
-    expect(activeMeshStops(config)).toBe(5);
-    expect(normalise(config).mesh.stops).toBe(5);
-  });
-
-  it('setMeshSpread writes degrees normalise() reads back unchanged', () => {
-    const config = {};
-    setMeshSpread(config, 130);
-    expect(activeMeshSpread(config)).toBe(130);
-    expect(normalise(config).mesh.spread).toBe(130);
-  });
-
-  it('clamps both at each end of their range', () => {
-    const config = {};
-    setMeshStops(config, 0);
-    expect(config.mesh.stops).toBe(MESH_STOPS_RANGE[0]);
-    setMeshStops(config, 99);
-    expect(config.mesh.stops).toBe(MESH_STOPS_RANGE[1]);
-    setMeshSpread(config, -40);
-    expect(config.mesh.spread).toBe(MESH_SPREAD_RANGE[0]);
-    setMeshSpread(config, 999);
-    expect(config.mesh.spread).toBe(MESH_SPREAD_RANGE[1]);
-  });
-
-  it('changing one field leaves the other alone', () => {
-    // Task 5b reset the user's value here by spreading defaults LAST while
-    // the control went on showing the old number. It must not happen again.
-    const config = {};
-    setMeshSpread(config, 130);
-    setMeshStops(config, 5);
-    expect(activeMeshSpread(config)).toBe(130);
-    setMeshSpread(config, 20);
-    expect(activeMeshStops(config)).toBe(5);
-  });
-
-  it('never moves the seed, which lives at the top level and not in the block', () => {
-    // One value, one home. A `seed` inside `config.mesh` would be a second
-    // writable source for it - the shape of the Task 5b failure.
-    const config = { seed: 12 };
-    setMeshStops(config, 5);
-    setMeshSpread(config, 90);
-    expect(config.seed).toBe(12);
-    expect(config.mesh.seed).toBeUndefined();
-    expect(normalise(config).mesh.seed).toBeUndefined();
-  });
-
-  it('ignores a non-numeric value rather than corrupting the block', () => {
-    const config = {};
-    setMeshStops(config, 4);
-    setMeshStops(config, 'lots');
-    setMeshSpread(config, 'wide');
-    expect(activeMeshStops(config)).toBe(4);
-    expect(activeMeshSpread(config)).toBe(MESH_DEFAULTS.spread);
   });
 });
 
@@ -543,24 +496,217 @@ describe('mesh stops and spread (Task 9)', () => {
 // palette, and the palette is Cycle B's work. These assert the shape of that
 // decision - the way IN is closed, the feature is not deleted - so that
 // restoring it later is one line rather than an archaeology exercise.
-describe('mesh is withheld from the Background panel, not removed', () => {
-  it('the panel does not offer mesh', () => {
-    expect(UI_BG_TYPES).not.toContain('mesh');
-    expect(UI_BG_TYPES).toContain('linear');
-    expect(UI_BG_TYPES).toContain('solid');
+// `mesh is withheld from the Background panel, not removed` stood here, and
+// its own name is why it is gone: the type was deleted in Cycle C Task 8
+// rather than hidden a second time. What is left of it is the assertion
+// below — the panel offers exactly what core/ can render, with nothing held
+// back.
+describe('the panel offers exactly what core/ renders', () => {
+  it('UI_BG_TYPES and BG_TYPES say the same thing', () => {
+    expect([...UI_BG_TYPES].sort()).toEqual([...BG_TYPES].sort());
   });
 
-  it('core still accepts and renders it, so nothing was thrown away', () => {
-    expect(normalise({ bgType: 'mesh' }).bgType).toBe('mesh');
+  it('and mesh is gone from both, not merely hidden from one', () => {
+    expect(BG_TYPES).not.toContain('mesh');
     const config = {};
     setBgType(config, 'mesh');
-    expect(config.bgType).toBe('mesh');
+    expect(config.bgType).toBeUndefined();
+    expect(normalise({ bgType: 'mesh' }).bgType).toBe('linear');
+  });
+});
+
+// --- "Sampled" means the WHOLE ground (Task 1, fix round 1) --------------
+//
+// Rock, on the preview: "I was hoping that clicking on 'sampled' would
+// reset everything, including luminosity. am I thinking wrong about it?" He
+// was not. The first version shipped a SECOND button also labelled
+// "Sampled" beside the luminosity slider, so two controls carried the same
+// word and meant different-sized things. "Sampled" is now the whole ground;
+// a single control's own reset is "Reset".
+describe('Sampled clears every override, not just the hue', () => {
+  it('resetToSampled clears hue AND luminosity', () => {
+    const config = {};
+    setHue(config, 200);
+    setLuminosity(config, 0.3);
+    expect(isFullySampled(config)).toBe(false);
+
+    resetToSampled(config);
+    expect(config.ground).toBeNull();
+    expect(config.luminosity).toBeNull();
+    expect(isFullySampled(config)).toBe(true);
   });
 
-  it('and the mesh controls still work for whatever does set it', () => {
+  it('is not fully sampled while EITHER is overridden', () => {
+    const hueOnly = {};
+    setHue(hueOnly, 200);
+    expect(isFullySampled(hueOnly)).toBe(false);
+
+    const lumOnly = {};
+    setLuminosity(lumOnly, 0.3);
+    // The half that was missing: a forced luminosity used to leave the
+    // Sampled row still claiming the ground came from the screenshot.
+    expect(isFullySampled(lumOnly)).toBe(false);
+  });
+
+  it('and the per-control reset still clears only its own control', () => {
     const config = {};
-    setMeshStops(config, 5);
-    setMeshSpread(config, 120);
-    expect(normalise(config).mesh).toEqual({ stops: 5, spread: 120 });
+    setHue(config, 200);
+    setLuminosity(config, 0.3);
+    resetLuminosityToSampled(config);
+    expect(config.luminosity).toBeNull();
+    expect(forcedHueDeg(config)).toBe(200);   // the hue is untouched
+  });
+});
+
+// --- Cycle C Task 4: the Background panel is type-first ------------------
+//
+// From the spec: type is the top control, and SAMPLED LIVES INSIDE EACH TYPE
+// rather than being a fourth option beside them. The panel now reads
+// top-down - pick the kind of background, then which one, then adjust it.
+describe('the Background panel is type-first (Task 4)', () => {
+  it('offers the types under their user-facing names', () => {
+    // "Gradient", not "Linear": the label changes, the stored value does
+    // not - `bgType` is still 'linear' everywhere in core/ and in every
+    // jobs.json ever written.
+    expect(TYPE_LABELS.linear).toBe('Gradient');
+    expect(TYPE_LABELS.solid).toBe('Solid');
+  });
+
+  it('stores the internal value, not the label', () => {
+    const config = {};
+    setBgType(config, 'linear');
+    expect(config.bgType).toBe('linear');
+    expect(normalise(config).bgType).toBe('linear');
+  });
+
+  it('sampled belongs to the type, so switching type keeps it sampled', () => {
+    const config = {};
+    expect(isAutoGround(config)).toBe(true);
+    setBgType(config, 'solid');
+    expect(isAutoGround(config)).toBe(true);
+  });
+
+  it('and switching type keeps an explicit hue explicit', () => {
+    const config = {};
+    setHue(config, 200);
+    setBgType(config, 'solid');
+    expect(forcedHueDeg(config)).toBe(200);
+  });
+
+  it('and keeps an explicit luminosity too', () => {
+    const config = {};
+    setLuminosity(config, 0.3);
+    setBgType(config, 'solid');
+    expect(config.luminosity).toBeCloseTo(0.3, 12);
+  });
+
+  // Angle is a GRADIENT control. paintSolid fills flat with the middle stop
+  // and never reads it, so on Solid it is a slider that moves and changes
+  // nothing - the defect Cycle B spent eight tasks removing, sitting in
+  // this panel the whole time.
+  it('hides Angle for a type that cannot use it', () => {
+    expect(showsAngle({ bgType: 'linear' })).toBe(true);
+    expect(showsAngle({})).toBe(true);                 // linear is the default
+    expect(showsAngle({ bgType: 'solid' })).toBe(false);
+    // A type core/ does not know falls back to the default, which is linear.
+    expect(showsAngle({ bgType: 'mesh' })).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------
+// Task 6 - equal click targets among peers.
+//
+// STRUCTURAL GUARDS. These read web/style.css as text, the same way
+// test/selection.test.js and test/preset-tiles.test.js hold their own
+// rules. Vitest has no layout engine, so the real measurement was taken in
+// Chromium and recorded in docs/verification-2026-09-01.md; what a source
+// guard buys is that nobody puts the old rule back without reading why.
+// ---------------------------------------------------------------------
+describe('a segmented cell is never sized by its own label (Task 6)', () => {
+  const css = readFileSync('web/style.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+
+  it('mini segmented controls share their width equally between cells', () => {
+    // Rock, 2026-09-02: "short names have also a short click target."
+    // `.segmented--mini` shrink-wraps, so flex-grow has no free space to
+    // share; grid columns are the mechanism that works on such a box.
+    const block = css.match(/\.segmented--mini\s*\{([^}]*)\}/);
+    expect(block, '.segmented--mini rule not found').toBeTruthy();
+    expect(block[1]).toMatch(/grid-auto-columns:\s*1fr/);
+  });
+
+  it('and no rule anywhere lets a segmented cell size to its content', () => {
+    // The exact declaration that caused it. `flex: none` on a cell means
+    // "be as wide as your label", which is the defect itself.
+    const cellRules = [...css.matchAll(/\.segmented-cell[^{]*\{([^}]*)\}/g)];
+    expect(cellRules.length).toBeGreaterThan(0);
+    for (const [, body] of cellRules) {
+      expect(body, `a .segmented-cell rule sets flex: none:\n${body}`)
+        .not.toMatch(/flex:\s*none/);
+    }
+  });
+
+  it('and its cells clear the 24px target minimum', () => {
+    // 26px on the control, because the cells sit inside its 1px border.
+    // WCAG 2.2 AA 2.5.8 wants 24x24, and adjacent cells touch, so the
+    // spacing exception does not apply to these. Measured at 24px in
+    // Chromium after the change; every other undersized target in the app
+    // was measured to PASS the spacing exception - see
+    // docs/verification-2026-09-01.md.
+    const block = css.match(/\.segmented--mini\s*\{([^}]*)\}/);
+    expect(block[1]).toMatch(/height:\s*26px/);
+  });
+
+  it('the retired .control-hint is gone, not merely unused', () => {
+    // Removed with the Luminosity paragraph in Task 5's fix round. A rule
+    // with no user is the thing that gets reattached later.
+    expect(css).not.toMatch(/\.control-hint\s*\{/);
+  });
+});
+
+describe('the angle says which way it points (Task 7)', () => {
+  it('names the light end in words, from the measured behaviour', () => {
+    // 0 deg travels UP, so the light is at the bottom. Rising numbers turn
+    // clockwise. The default, 166 deg, travels nearly straight down, so the
+    // light end is at 346 deg - 14 deg off the top, and named 'top'. The
+    // wording is deliberately eight-way and coarse; the dial beside it
+    // carries the exact direction, and a label that claimed more precision
+    // than eight names would be inventing it.
+    expect(lightEndLabel(0)).toBe('bottom');
+    expect(lightEndLabel(90)).toBe('left');
+    expect(lightEndLabel(180)).toBe('top');
+    expect(lightEndLabel(270)).toBe('right');
+    expect(lightEndLabel(166)).toBe('top');
+    expect(lightEndLabel(135)).toBe('top left');
+    expect(lightEndLabel(210)).toBe('top right');
+  });
+
+  it('and wraps rather than running off either end', () => {
+    expect(lightEndLabel(360)).toBe(lightEndLabel(0));
+    expect(lightEndLabel(-90)).toBe(lightEndLabel(270));
+  });
+});
+
+describe('the angle slider cannot wrap under the thumb (Task 7, fix round 1)', () => {
+  it('stops one degree short of a full turn', () => {
+    // Rock: "dragging the slider to 360 makes it jump to 0." setAngle wraps
+    // a full turn to zero - right for every caller - and the panel wrote
+    // that zero back into the input, so the thumb jumped to the far left
+    // mid-drag. The slider's maximum must therefore be a value setAngle
+    // leaves alone.
+    const at = {};
+    setAngle(at, ANGLE_SLIDER_MAX);
+    expect(at.angle).toBe(ANGLE_SLIDER_MAX);
+
+    // And the value that caused it, to show the rule has teeth.
+    const wrapped = {};
+    setAngle(wrapped, 360);
+    expect(wrapped.angle).toBe(0);
+  });
+
+  it('and still covers the whole turn between its ends', () => {
+    // 0 and 359 are one degree apart on the dial, not 359 - nothing is out
+    // of reach, which is why capping is the right fix rather than a loss.
+    expect(lightEndLabel(0)).toBe('bottom');
+    expect(lightEndLabel(ANGLE_SLIDER_MAX)).toBe('bottom');
   });
 });

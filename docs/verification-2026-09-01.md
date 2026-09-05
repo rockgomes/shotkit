@@ -1364,3 +1364,496 @@ that element by element across 8.6 million entries, and each such assertion
 took **25–70 seconds**. Rewritten to `Buffer.compare` on the PNG bytes, the
 idiom the rest of the file already used: same claim, 3.8s for the whole file
 instead of ~170s.
+
+---
+
+# Cycle C Task 2 — the shadow across the luminosity range
+
+Measured in **Chromium**, over the dev server, calling `core/` directly. Not
+through `@napi-rs/canvas`: the shadow is the one thing in this codebase where
+the two engines have historically disagreed by a factor of five.
+
+Method: the same shot at each luminosity, rendered twice — once with the shot
+(and therefore its shadow), once as ground alone — and the two sampled at the
+same points 10, 20 and 40px below the shot's bottom edge. The number is the
+WCAG contrast ratio between the shadowed and unshadowed ground.
+
+| luminosity | ground | +10px | +20px | +40px |
+|---|---|---|---|---|
+| sampled (0.975) | `#ebeaee` | **1.382** | 1.312 | 1.210 |
+| 0.855 | `#c5c3ca` | 1.339 | 1.281 | 1.202 |
+| 0.65 | `#8a8895` | 1.266 | 1.224 | 1.142 |
+| 0.45 | `#5f5d69` | 1.176 | 1.152 | 1.104 |
+| 0.30 | `#3f3e46` | 1.094 | 1.094 | 1.062 |
+| 0.15 | `#201f23` | **1.022** | 1.013 | 1.011 |
+
+**The shadow decays smoothly to nothing.** At 0.15 it moves the ground by
+three levels — 25,25,30 against 28,27,31 — which is not visible.
+
+## Why raising the alphas cannot fix it
+
+The shadow is black at a fixed alpha, and **you cannot darken black**. At
+luminosity 0.15 the ground sits at relative luminance ≈ 0.0117, so even a
+fully opaque black shadow would reach only
+
+```
+(0.0117 + 0.05) / (0 + 0.05) = 1.23
+```
+
+— still below the 1.38 the pale end gets for free, at alpha 0.17. So outcome
+3 from the plan ("the shadow changes with the ground") is not available: the
+whole range of the instrument is smaller than the gap it would need to close.
+**The alphas are untouched.**
+
+## What actually fails, and what fixes it
+
+Rendered the combinations rather than reasoning about them. The failure is
+narrower than the table suggests:
+
+- **A light screenshot on a dark ground** separates enormously well — the
+  shot's own edge carries it, and the shadow was never doing the work.
+- **A dark screenshot on a pale ground** is the shipped default and is fine.
+- **A dark screenshot on a very dark ground** is the one that fails. At
+  luminosity 0.15 the shot nearly disappears into the ground, and rendering
+  it with `shadowScale: 0` is visually indistinguishable — confirming the
+  shadow contributes nothing there.
+- **The same shot with a 0.6% light stroke** separates completely.
+
+So this is the plan's outcome 2: the shadow disappears at the dark end and
+**the instrument that works is the shot's own edge, not the shadow**. The
+stroke already does it, opt-in since Cycle A Task 7, and one click away.
+
+## What was deliberately NOT done
+
+No automatic stroke at low luminosity. It would be a canvas-level control
+silently writing a per-element setting — the exact hidden coupling Cycle B
+spent eight tasks removing — and it would fire on the light-screenshot case
+that has no problem. Raised with Rock as a decision instead.
+
+## Golden
+
+`ground-dark` added: luminosity 0.18 with a dark screenshot, the one
+combination at risk. Every other golden is pale, so nothing else would catch
+a change to the ground maths, the edge blend or the shadow at that end.
+
+---
+
+# Cycle C Task 3 — the palette
+
+Rock: *"our selection is good, but poor. I can't even see the difference
+between them on their thumbnails."* Half of that is the 14×14 swatch, which
+Task 5 fixes. This is the other half.
+
+## How close they actually were
+
+Measured before changing anything: all eight named grounds rendered from a
+deliberately vivid source, so `chroma` sits at its ceiling and this is the
+MOST saturated ground the palette could produce.
+
+| | mid stop | HSL saturation |
+|---|---|---|
+| every one of the eight | — | **0.263** |
+| closest pair, `paper` vs `ash` | `#f1ede7` / `#f1eee7` | **1 level apart** |
+| a low-chroma screenshot (the common case) | `#eceaee` | 0.105 |
+
+One level in the largest channel. They are not similar; they are the same
+colour.
+
+## What changed
+
+`sat = 0.16 + 0.26 × min(chroma × 1.6, 1)` → `0.26 + 0.38 × …`
+
+Both ends rise. The floor so a nearly-colourless screenshot still produces a
+ground with a hue rather than a tinted grey; the ceiling so a colourful one
+produces a ground you could name. **The ceiling still exists**, and that is
+not negotiable — a ground competing with the screenshot is worse than a dull
+one, which is why this was never a plain `chroma` passthrough.
+
+After: 0.263 → **0.385** at the ceiling, 0.105 → **0.158** at the common end.
+
+The per-stop multipliers are untouched. They carry the relationship between
+the three stops, which Task 1 now interpolates across the luminosity range,
+and disturbing them would move two things at once.
+
+## What this did NOT fix, and cannot
+
+`paper` (34°) and `ash` (40°) are **six degrees apart**. After the change
+they are still one level apart in their largest channel. No saturation
+setting separates two hues six degrees apart — that is a palette *selection*
+problem, not a saturation one.
+
+The eight sit at 24, 34, 40, 158, 205, 240, 268, 340. Three are crammed into
+a 16° arc and there is a 118° hole between 40 and 158. Raised with Rock as a
+decision rather than fixed unilaterally: the names carry intent he chose, and
+re-hueing `ash` is a naming question as much as a colour one.
+
+## What the golden suite proves about this task: nothing
+
+All sixteen renders change, because the ground is in every one. They were
+regenerated wholesale. The evidence for this task is the before/after contact
+sheet — rendered **with a shot on top**, because a screenshot covers most of
+the canvas and only a border of ground shows, which is the thing being judged.
+
+## A test that got weaker, said out loud
+
+`GOLDEN_SWATCHES` in `test/ground.test.js` held values generated from
+`ground.py`'s own `hsl()` helper, so it proved `core/ground.js` agreed with
+the Python original's actual formula rather than merely with itself. Raising
+the saturation formula breaks that agreement deliberately.
+
+`ground.py` was retired in Cycle A, so the cross-check was already
+historical — but this is the commit that ends it. The values are now
+generated from `core/ground.js`, and what remains is a freeze: it still
+catches the hex output drifting silently, which the golden-image test above
+cannot (it reads only hue/lum/chroma/darkUI), but it can no longer catch this
+file disagreeing with an external reference, because there is no longer one.
+
+## Task 3, round two — a preset carries its own saturation
+
+Rock, on the palette sheet: *"yeah they are extremely similar. when you say
+'ash' I expect 'grey'. we don't have a gray one there."*
+
+Right twice over. `ash` sat six degrees from `paper` and rendered as a second
+warm cream — and **grey was unreachable**, because a preset was a hue and
+nothing else. Grey is not a hue; it is the absence of chroma, and nothing in
+the pipeline could ask for that.
+
+`HUES` (name → degrees) becomes `GROUNDS` (name → `{ hue, sat? }`), with
+`HUES` kept as a derived export so the several callers that only want degrees
+are untouched. One table, not two. `sat` REPLACES the chroma-derived
+saturation rather than scaling it — scaling would let a grey preset drift
+with the screenshot, where replacing makes "grey" mean grey whatever it is
+dropped on.
+
+`ash` becomes hue 220 at `sat: 0.12`. A cool near-neutral rather than a dead
+grey: a true neutral reads as "no background chosen", where a barely-blue one
+reads as deliberate.
+
+| | before | after |
+|---|---|---|
+| closest pair | `paper` vs `ash`, **1 level** | `paper` vs `ember`, **3 levels** |
+| `ash` mid stop | `#f1eee7` (warm cream) | `#eaebed` (grey) |
+
+`paper` and `ember` are ten degrees apart and are now the closest pair. They
+are at least distinguishable — cream against peach — but they are the next
+candidates if the palette is revisited.
+
+### The test suite caught this one, unprompted
+
+`gradientFor` in `web/sidebar.js` previews a preset in its swatch, and it did
+not know about `forceSat` — so the `ash` swatch would have previewed as a
+blue tint and then rendered as a grey. **A swatch lying about what selecting
+it produces** is the exact defect that file's own suite exists to catch, and
+it caught it: "every swatch, computed for the loaded dark image, matches what
+selecting it actually renders" went red on the first run.
+
+### And a gap this exposed
+
+**Regenerating the goldens after this change moved nothing at all** — because
+no golden picks a named ground. They all take the sampled one, so the entire
+`forceSat` path was unguarded. `ground-ash` added, plus four unit tests
+covering the one-table rule, grey-on-vivid, colour-on-vivid, and
+replace-not-scale.
+
+---
+
+# Cycle C Task 5 — preset tiles
+
+`gradientFor` in `web/sidebar.js` built a CSS `linear-gradient` string that
+APPROXIMATED what `paintGround` draws, and `renderGroundSwatches` painted
+eight 14×14 chips with it. A second implementation of the ground, in a
+different language, kept in step by hand.
+
+It lied twice. Once before Cycle A, and again within an hour of `ash` gaining
+its own saturation in Task 3 — it previewed a blue tint for a preset that
+renders grey. Both are deleted. `web/preset-tiles.js` paints a preset into a
+real canvas with the real generator, at the current type, angle and
+luminosity.
+
+`paintGround` is now exported from `core/index.js` for exactly this. The
+other painters stay internal — `composeWithMeta` remains the only way to draw
+a shot, which is what keeps the preview canvas and the export canvas from
+disagreeing.
+
+## Verified
+
+Painted the same preset at 44px and at 1800px and compared at matching
+relative positions: every channel within 6 levels, which is the gradient's
+own interpolation across two very different pixel counts. An approximation
+drifts across that; the real generator cannot.
+
+In the browser: eight tiles, **eight distinct colours**, `ash` at
+`234,235,237` (grey) against `rose` at `243,228,233`.
+
+## A test ported rather than deleted
+
+`test/sidebar.test.js`'s "swatches tell the truth about a loaded dark image"
+compared `gradientFor`'s string against the gradient `render()` produced. The
+function is gone, but the claim is the reason that suite exists — so it is
+made against PIXELS now: paint the tile, select the preset, render, compare
+the tile's centre to the ground the shot actually got. Within 3 levels for
+all eight, against a genuinely dark sample.
+
+## The mistake, and why the suite did not catch it
+
+Deleting `gradientFor` and `renderGroundSwatches` meant removing the block
+they sat in — and that block also contained `matchesQuery`, the sidebar's
+search filter, which I removed with them.
+
+`node --check` passed: the syntax was fine. **All 518 tests passed**: nothing
+in the suite drives the search box. The app threw
+`ReferenceError: matchesQuery is not defined` on load and rendered nothing at
+all — no templates, no ratios, no panel.
+
+Caught by opening it. This is the second time this cycle that the browser
+found something green tests could not (the first was the luminosity slider
+sitting at the wrong position), and both were in `web/`, where the suite has
+no DOM. Worth stating plainly: **for this app, a green suite is not evidence
+that the page loads.**
+
+---
+
+# Cycle C Task 6 — click targets, measured
+
+Rock, 2026-09-02: *"the color names's clickable area should be the whole row,
+like we have for templates. short names atm have also a short click target."*
+
+Measured in Chromium (`getBoundingClientRect`) on every clickable row and
+cell in the app, not read off the CSS.
+
+**Already fixed by Task 5.** The eight ground rows are gone. The preset tiles
+are grid cells at `width: 100%`, canvas and label both inside the button.
+
+**Already right.** `.sampled-row` is `width: 100%` (measured 237px, the
+section's full content width). The Background type cells are a plain
+`.segmented`, whose cells carry `flex: 1` — **Gradient 117.5px, Solid
+117.5px**, equal and filling.
+
+**The one real instance left.** `.segmented--mini`:
+
+| cell | before | after |
+|---|---|---|
+| Dark | 43.2px | 49.5px |
+| Mid | **36.9px** | 49.5px |
+| Light | 49.5px | 49.5px |
+
+Three peers whose targets differed by 34%, purely by label length. Export's
+`1x / 2x / 3x` measured equal only because those labels are the same width —
+an accident, not a rule, and it now holds by construction.
+
+`flex: 1` does not fix this one: a mini control shrink-wraps inside a toolbar
+row, so there is no free space for `flex-grow` to distribute. Probed both in
+the page before choosing — `flex: 1 1 0` left the cells at 43.2 / 36.9 / 49.5,
+unchanged. `grid-auto-columns: 1fr` sizes every column to the widest cell and
+the control grows to 150.5px. That is the mechanism that works on a
+shrink-to-fit box.
+
+**Left alone, deliberately.** The `.chip` rows (None / Browser / Phone at
+50.9 / 65.6 / 55.3px) are pills in a wrapping row, not rows — sizing to the
+label is that idiom, and each is already ≥50px wide.
+
+**Found while measuring, not fixed.** Every `.segmented-cell` is **22px
+tall**. WCAG 2.2 AA 2.5.8 asks for 24×24 CSS px, and adjacent cells touch, so
+the spacing exception does not apply. Raising `.segmented--mini` to 26px
+would fix it and would change the density of the canvas toolbar, the frame
+theme control and the export scale at once — an app-wide look change, so it
+is Rock's call, not a silent edit inside a Background task.
+
+## The rest of the accessibility check, measured
+
+Rock, 2026-09-05: *"is anything else failing accessibility rules?"* Measured
+in Chromium at 1440×900 across every `button`, `input`, `select`, `a` and
+`[tabindex]` that the page renders.
+
+**Target size (WCAG 2.2 AA, 2.5.8).** Seven elements are under 24×24:
+`.zoom-btn` (20×20), the search field's inner `<input>` (17.5px tall), four
+`.slider` tracks (11px tall) and three `.slider-reset` buttons (22×22).
+
+**All seven pass, through the spacing exception**, and that was computed
+rather than assumed: for each one, a 24px circle centred on its bounding box
+was tested against every other target's box and against every other
+undersized target's circle. **Zero intersections.** The sliders are 40px
+apart vertically; a reset button's nearest neighbour is its own slider, whose
+box centre is ~120px away.
+
+The segmented cells were the only genuine failure, because they are the only
+undersized targets that **touch** — a segmented control has no gaps, so the
+exception cannot apply to it. 22px → 24px (control 24px → 26px; the cells sit
+inside its 1px border).
+
+**Everything else checked, and clean.**
+
+- **Accessible names.** No interactive element lacks one.
+- **Focus.** Every interactive class carries its own `:focus-visible` rule.
+  The one apparent gap — the search `<input>`, which sets `outline: none` —
+  is covered by `.sidebar-search:focus-within`, which draws the ring on the
+  wrapper.
+- **Reduced motion.** Five rules declare a transition or animation
+  (`.btn`, `.btn.is-loading::before`, `.canvas-surface`,
+  `.dropzone.is-leaving`, `.render-canvas.is-settling`). All five are
+  cancelled under `prefers-reduced-motion: reduce`.
+- **Horizontal scroll.** None at 320px or at 1440px.
+- **Contrast.** Already enforced by `test/contrast.test.js`, 58 assertions.
+
+**Not covered, and worth saying.** The mesh seed and stops steppers use
+`.zoom-btn` and are hidden while mesh is withheld, so they were not in the
+DOM to measure. If mesh comes back in Task 8, measure them then — two
+`.zoom-btn`s inside one stepper sit closer together than the canvas zoom's do.
+
+---
+
+# Cycle C Task 7 — what Angle actually did
+
+Rock, on the shipped app: *"I can't seem to understand the logic behind how
+Angle works."* Step 1 of the task was to find out by rendering and measuring,
+before changing how the control reads. The answer turned out to be that there
+was no logic to find.
+
+## The number itself
+
+`angle` is the direction the gradient **travels**, light end to dark end, in
+CSS's sense: 0° points up, rising numbers turn clockwise. So the light end
+sits half a turn from the number. Measured on the linear layer alone, at
+400×400, stops white / grey / black:
+
+| angle | light end lands |
+|---|---|
+| 0° | bottom |
+| 90° | left |
+| 180° | top |
+| 270° | right |
+
+The default, 166°, travels almost straight down, so the light is at the top —
+14° off vertical, which is why the shipped ground has always been lightest at
+the top and a little to the left.
+
+## Why it read as illogical
+
+`paintGround` draws **three** layers: the linear gradient, which turns, and
+two radial washes, which were **pinned** — the light one at 22%/6% of the
+canvas, the dark one at 88%/97%, whatever the angle said. The angle steered
+one layer of three.
+
+Measured on the full composite, brightest-region centroid as a bearing:
+
+| | before | after |
+|---|---|---|
+| worst disagreement between the number and where the light actually is | **178°** (dead opposite, at 330°) | **17°** |
+| the 285°–345° arc | brightest point **frozen** at 22%/6°, identical at every step | moves with the number |
+| gradient's own axis ends, at 0° | 149 vs 145 — **four levels**, a gradient with nothing left of it | 205 vs 177 |
+
+## The change, and what it costs
+
+The two washes now rotate about the centre by `angle − DEFAULT_ANGLE`. That
+term is zero at 166°, so **the shipped look is byte-identical and no golden
+moved** — all 531 tests pass, including the 15 pixel-diff goldens. Every
+other angle now means what it says.
+
+The ellipses stay axis-aligned; only their centres travel. Rotating the
+ellipse axes as well was the larger change and could distort a wash, so it
+was not made.
+
+## The dial
+
+An arrow drawn from the angle number would only restate the number — and
+before the fix it would have pointed up to 178° away from the light. So the
+indicator is a 22px circle of the **real ground**, painted by `paintGround`
+from the same `groundFromMeta(meta, forceHue, luminosity, forceSat)` call
+`core/index.js` makes for the canvas. It cannot disagree with what it
+describes. The tick on its rim is drawn from the same `angle` field, now that
+the two are within 17° of each other.
+
+Verified end to end in Chromium, sweeping the real slider with a screenshot
+loaded, sampling the exported canvas at 1800×1200:
+
+| angle | brightest canvas edge | dial agrees |
+|---|---|---|
+| 0° | bottom, 205 | yes |
+| 90° | left, 214 | yes |
+| 166° | top, 213 | yes (dial top 215) |
+| 270° | right, 216 | yes |
+
+`aria-valuetext` says the same sentence — "166 degrees, light from the top" —
+so the dial and the screen reader cannot drift apart either.
+
+## A trap worth writing down
+
+The first browser sweep showed the canvas **not changing at all** at any
+angle. Nothing was wrong with the render: the Browser pane was hidden,
+`document.hidden` was true, so `requestAnimationFrame` never fired,
+`scheduleRender`'s `rafHandle` stayed non-null, and every later render was
+suppressed. Changing the *hue* did nothing either, which is what gave it
+away. Reloading with `requestAnimationFrame` patched produced the numbers
+above. **A canvas that never updates in a hidden preview is the harness, not
+the app** — check a control known to work before believing a regression.
+
+---
+
+# Cycle C Task 8 — mesh's second hearing, and its deletion
+
+Mesh was withheld in Cycle A, not removed, because Rock could not see it:
+*"I can see it on your screenshots, but when there's a screen on top, there
+isn't much to see, and our current colors are very faint."* The spec set the
+terms for this rematch — judged on the new palette, with a shot on top, at
+several luminosities, and **deleted rather than hidden a second time** if it
+still could not be seen.
+
+## Measured
+
+Composed through `composeWithMeta` with a dark UI screenshot on top, and
+measured **only in the ground that is actually visible** — every pixel
+outside the shot's box plus a 3.5% margin, so the shadow and the stroke are
+excluded.
+
+| padding | ground | luminosity | linear's own spread | mesh's own spread | mesh vs linear, mean / worst |
+|---|---|---|---|---|---|
+| 5.2% | lavender | sampled | 60 | 56 | 6.20 / 20 |
+| 5.2% | lavender | 0.5 | 64 | 61 | 5.77 / 17 |
+| 5.2% | lavender | 0.25 | 45 | 44 | 2.88 / 9 |
+| 5.2% | ash | sampled | 60 | 57 | 4.93 / 17 |
+| 5.2% | ash | 0.25 | 46 | 45 | 2.18 / 9 |
+| 14% | lavender | sampled | 58 | 56 | 5.59 / 20 |
+| 22% | lavender | sampled | 57 | 55 | 5.59 / 20 |
+| 22% | lavender | 0.25 | 45 | 44 | 2.71 / 9 |
+
+Two things to read off it.
+
+**Mesh is not flatter than the gradient** — its own spread tracks linear's
+within a few levels. It was never broken.
+
+**It is not different from it either.** Five levels of mean difference, and
+it gets *worse* as the ground darkens, not better. More ground does not help:
+at 22% padding, with four times the visible border, the numbers do not move.
+
+## Why, and why no amount of tuning fixes it
+
+Every blob took its saturation and lightness from `g1` or `g3` — the sampled
+palette's own light and dark stops. Those sit about 60 levels apart across
+the whole canvas. A field assembled only from colours inside that range
+cannot vary more than the plain gradient already does. Only the **hue**
+rotated, and hue rotation at these saturations is worth a handful of levels.
+
+The way out would be to paint colours the screenshot does not contain — which
+is the one thing `core/ground.js` exists to refuse, and the argument
+`paintMesh`'s own comment made before Cycle A weakened it.
+
+So the palette was never the thing that failed. The measurement in Cycle A
+pointed at the palette because the palette was about to be rewritten; it has
+been rewritten, and mesh reads exactly as it did.
+
+## Deleted
+
+`paintMesh`, `MESH_STOPS_RANGE`, `MESH_SPREAD_RANGE`, `MESH_DEFAULTS`, the
+`mesh` config block, the top-level `seed` that only mesh read, `'mesh'` from
+`BG_TYPES`, the four panel helpers and `SEED_MIN`/`SEED_MAX`/`clampSeed`/
+`setSeed`, the Seed and Stops steppers and the Spread slider,
+`test/render-mesh.test.js`, both goldens, and the README's "not built yet"
+entry.
+
+Four helpers in `core/render.js` went with it, having lost their only
+callers: `hexToHsl`, `hslToHex`, and — checked, not assumed — nothing else.
+`hexToRgb` and `rgba` stay: `radial()` still uses them, and deleting them on
+a first pass broke every ground test, which is how that was caught.
+
+**16 goldens remain**, not the 15 the plan predicted; the plan's arithmetic
+predated `ground-ash`.
