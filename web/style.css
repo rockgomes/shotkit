@@ -1175,16 +1175,27 @@ input {
   position: relative;
 }
 
+/* A mini segmented control shrink-wraps in a toolbar row instead of filling
+   it, so `flex: 1` on its cells buys nothing: there is no free space to
+   share out, and each cell falls back to the width of its own label. Grid
+   sizes every column to the WIDEST cell instead, which is the same
+   equal-share rule by the one mechanism that works on a shrink-to-fit box.
+
+   Rock, 2026-09-02: "short names have also a short click target." Measured
+   in Chromium before this rule - Dark 43.2px, Mid 36.9px, Light 49.5px:
+   three peers whose targets differ by 34%. After: 49.5px each. */
 .segmented--mini {
   height: 24px;
   flex: none;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
 }
 
 .segmented--mini .segmented-cell {
   font-family: var(--font-mono);
   font-size: 10.5px;
   padding: 0 9px;
-  flex: none;
 }
 
 /* -------------------------------------------------------------------------
@@ -1360,15 +1371,12 @@ input {
   color: var(--text-faint);
 }
 
-/* Small explanatory line under a control whose rule isn't self-evident
-   from its label alone (currently: Ground tone) — same tone as
-   .export-footnote, left-aligned instead of centred. */
-.control-hint {
-  margin: 0;
-  font-size: 10.5px;
-  line-height: 1.4;
-  color: var(--text-fainter);
-}
+/* `.control-hint` - a small explanatory line under a control - lived here.
+   It is gone with its last user (the Luminosity paragraph), and the rule
+   that removed it is now a standing one: NO EXPLANATORY PARAGRAPHS UNDER
+   CONTROLS. Rock has cut two, under Padding in Cycle A and under Luminosity
+   in Cycle C. A paragraph under a slider is the control failing to explain
+   itself; fix the control. */
 
 /* -------------------------------------------------------------------------
    Control primitive: pill chip

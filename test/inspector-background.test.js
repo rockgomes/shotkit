@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { readFileSync } from 'node:fs';
 import {
   HUES, normalise, groundFor, MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS,
   LUMINOSITY_RANGE, LUM_ANCHOR_LIGHT,
@@ -695,5 +696,44 @@ describe('the Background panel is type-first (Task 4)', () => {
     expect(showsAngle({})).toBe(true);                 // linear is the default
     expect(showsAngle({ bgType: 'solid' })).toBe(false);
     expect(showsAngle({ bgType: 'mesh' })).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------
+// Task 6 - equal click targets among peers.
+//
+// STRUCTURAL GUARDS. These read web/style.css as text, the same way
+// test/selection.test.js and test/preset-tiles.test.js hold their own
+// rules. Vitest has no layout engine, so the real measurement was taken in
+// Chromium and recorded in docs/verification-2026-09-01.md; what a source
+// guard buys is that nobody puts the old rule back without reading why.
+// ---------------------------------------------------------------------
+describe('a segmented cell is never sized by its own label (Task 6)', () => {
+  const css = readFileSync('web/style.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+
+  it('mini segmented controls share their width equally between cells', () => {
+    // Rock, 2026-09-02: "short names have also a short click target."
+    // `.segmented--mini` shrink-wraps, so flex-grow has no free space to
+    // share; grid columns are the mechanism that works on such a box.
+    const block = css.match(/\.segmented--mini\s*\{([^}]*)\}/);
+    expect(block, '.segmented--mini rule not found').toBeTruthy();
+    expect(block[1]).toMatch(/grid-auto-columns:\s*1fr/);
+  });
+
+  it('and no rule anywhere lets a segmented cell size to its content', () => {
+    // The exact declaration that caused it. `flex: none` on a cell means
+    // "be as wide as your label", which is the defect itself.
+    const cellRules = [...css.matchAll(/\.segmented-cell[^{]*\{([^}]*)\}/g)];
+    expect(cellRules.length).toBeGreaterThan(0);
+    for (const [, body] of cellRules) {
+      expect(body, `a .segmented-cell rule sets flex: none:\n${body}`)
+        .not.toMatch(/flex:\s*none/);
+    }
+  });
+
+  it('the retired .control-hint is gone, not merely unused', () => {
+    // Removed with the Luminosity paragraph in Task 5's fix round. A rule
+    // with no user is the thing that gets reattached later.
+    expect(css).not.toMatch(/\.control-hint\s*\{/);
   });
 });

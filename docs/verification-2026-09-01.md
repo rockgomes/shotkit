@@ -1610,3 +1610,51 @@ found something green tests could not (the first was the luminosity slider
 sitting at the wrong position), and both were in `web/`, where the suite has
 no DOM. Worth stating plainly: **for this app, a green suite is not evidence
 that the page loads.**
+
+---
+
+# Cycle C Task 6 — click targets, measured
+
+Rock, 2026-09-02: *"the color names's clickable area should be the whole row,
+like we have for templates. short names atm have also a short click target."*
+
+Measured in Chromium (`getBoundingClientRect`) on every clickable row and
+cell in the app, not read off the CSS.
+
+**Already fixed by Task 5.** The eight ground rows are gone. The preset tiles
+are grid cells at `width: 100%`, canvas and label both inside the button.
+
+**Already right.** `.sampled-row` is `width: 100%` (measured 237px, the
+section's full content width). The Background type cells are a plain
+`.segmented`, whose cells carry `flex: 1` — **Gradient 117.5px, Solid
+117.5px**, equal and filling.
+
+**The one real instance left.** `.segmented--mini`:
+
+| cell | before | after |
+|---|---|---|
+| Dark | 43.2px | 49.5px |
+| Mid | **36.9px** | 49.5px |
+| Light | 49.5px | 49.5px |
+
+Three peers whose targets differed by 34%, purely by label length. Export's
+`1x / 2x / 3x` measured equal only because those labels are the same width —
+an accident, not a rule, and it now holds by construction.
+
+`flex: 1` does not fix this one: a mini control shrink-wraps inside a toolbar
+row, so there is no free space for `flex-grow` to distribute. Probed both in
+the page before choosing — `flex: 1 1 0` left the cells at 43.2 / 36.9 / 49.5,
+unchanged. `grid-auto-columns: 1fr` sizes every column to the widest cell and
+the control grows to 150.5px. That is the mechanism that works on a
+shrink-to-fit box.
+
+**Left alone, deliberately.** The `.chip` rows (None / Browser / Phone at
+50.9 / 65.6 / 55.3px) are pills in a wrapping row, not rows — sizing to the
+label is that idiom, and each is already ≥50px wide.
+
+**Found while measuring, not fixed.** Every `.segmented-cell` is **22px
+tall**. WCAG 2.2 AA 2.5.8 asks for 24×24 CSS px, and adjacent cells touch, so
+the spacing exception does not apply. Raising `.segmented--mini` to 26px
+would fix it and would change the density of the canvas toolbar, the frame
+theme control and the export scale at once — an app-wide look change, so it
+is Rock's call, not a silent edit inside a Background task.

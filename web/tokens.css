@@ -138,7 +138,7 @@
      in the app (TEMPLATES / RATIOS / BACKGROUND / FRAME / FINISH / EXPORT),
      the whole of the empty state's copy (.dropzone, .dropzone-dims,
      .dropzone-sub), the custom-size field labels, .canvas-toolbar-label,
-     .control-hint, "+ Custom size", the template row dimensions (.dim,
+     "+ Custom size", the template row dimensions (.dim,
      "2800x2100") and .export-footnote. It is also the hover border on
      .chip / .select-control / .custom-size-input. All of it is real text at
      10-12px, not decoration, so the informational threshold applies.

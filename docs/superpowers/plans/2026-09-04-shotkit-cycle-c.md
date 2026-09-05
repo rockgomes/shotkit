@@ -586,13 +586,21 @@ Delete `gradientFor` and `renderGroundSwatches` rather than leaving them unused.
 
 **Two carried-forward items from Rock, 2026-09-02.**
 
-- [ ] **Step 1: The click target**
+- [x] **Step 1: The click target**
 
 > *"the color names's clickable area should be the whole row, like we have for templates. short names atm have also a short click target."*
 
 Cycle A Task 2 fixed exactly this for the template and ratio rows: `.template-row` shrink-wrapped to its text, and `width: 100%` fixed it. Apply the same reasoning here, and **check the sampled row and the type cells while you are in there** — the same defect tends to travel.
 
 If Task 5's tile grid has already made this moot for the presets, say so and fix only what remains. Do not invent work to fill the task.
+
+> **Done.** It was moot for the presets, and the sampled row and the type
+> cells were already full-width and equal — all measured, not read off the
+> CSS. The one real instance left was `.segmented--mini`, whose cells sized
+> to their own labels (Mid 36.9px against Light 49.5px). Fixed with
+> `grid-auto-columns: 1fr`; `flex: 1` cannot fix a shrink-wrapped control.
+> Numbers in `docs/verification-2026-09-01.md`. Also carried out the dead
+> `.control-hint` rule, left behind by Task 5's fix round.
 
 - [ ] **Step 2: Decide the preset-angle question, and record the decision**
 
