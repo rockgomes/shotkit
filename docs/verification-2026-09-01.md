@@ -1658,3 +1658,44 @@ the spacing exception does not apply. Raising `.segmented--mini` to 26px
 would fix it and would change the density of the canvas toolbar, the frame
 theme control and the export scale at once — an app-wide look change, so it
 is Rock's call, not a silent edit inside a Background task.
+
+## The rest of the accessibility check, measured
+
+Rock, 2026-09-05: *"is anything else failing accessibility rules?"* Measured
+in Chromium at 1440×900 across every `button`, `input`, `select`, `a` and
+`[tabindex]` that the page renders.
+
+**Target size (WCAG 2.2 AA, 2.5.8).** Seven elements are under 24×24:
+`.zoom-btn` (20×20), the search field's inner `<input>` (17.5px tall), four
+`.slider` tracks (11px tall) and three `.slider-reset` buttons (22×22).
+
+**All seven pass, through the spacing exception**, and that was computed
+rather than assumed: for each one, a 24px circle centred on its bounding box
+was tested against every other target's box and against every other
+undersized target's circle. **Zero intersections.** The sliders are 40px
+apart vertically; a reset button's nearest neighbour is its own slider, whose
+box centre is ~120px away.
+
+The segmented cells were the only genuine failure, because they are the only
+undersized targets that **touch** — a segmented control has no gaps, so the
+exception cannot apply to it. 22px → 24px (control 24px → 26px; the cells sit
+inside its 1px border).
+
+**Everything else checked, and clean.**
+
+- **Accessible names.** No interactive element lacks one.
+- **Focus.** Every interactive class carries its own `:focus-visible` rule.
+  The one apparent gap — the search `<input>`, which sets `outline: none` —
+  is covered by `.sidebar-search:focus-within`, which draws the ring on the
+  wrapper.
+- **Reduced motion.** Five rules declare a transition or animation
+  (`.btn`, `.btn.is-loading::before`, `.canvas-surface`,
+  `.dropzone.is-leaving`, `.render-canvas.is-settling`). All five are
+  cancelled under `prefers-reduced-motion: reduce`.
+- **Horizontal scroll.** None at 320px or at 1440px.
+- **Contrast.** Already enforced by `test/contrast.test.js`, 58 assertions.
+
+**Not covered, and worth saying.** The mesh seed and stops steppers use
+`.zoom-btn` and are hidden while mesh is withheld, so they were not in the
+DOM to measure. If mesh comes back in Task 8, measure them then — two
+`.zoom-btn`s inside one stepper sit closer together than the canvas zoom's do.

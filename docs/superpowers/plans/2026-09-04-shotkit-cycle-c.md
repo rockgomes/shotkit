@@ -602,7 +602,7 @@ If Task 5's tile grid has already made this moot for the presets, say so and fix
 > Numbers in `docs/verification-2026-09-01.md`. Also carried out the dead
 > `.control-hint` rule, left behind by Task 5's fix round.
 
-- [ ] **Step 2: Decide the preset-angle question, and record the decision**
+- [x] **Step 2: Decide the preset-angle question, and record the decision**
 
 > *"selecting a background changes the hue, but not the angle. why?"*
 
@@ -615,7 +615,14 @@ Because nothing wires them together: a preset writes `forceHue` only, and `angle
 
 Recommend one, implement it after Rock answers, and write the answer into the spec. If he chooses the second, a preset must still leave an angle the user set explicitly alone — the same sampled-versus-explicit rule as everything else in this panel.
 
-- [ ] **Step 3: Commit, deploy, and STOP**
+> **Answered 2026-09-05: the first — a preset sets the hue only.** No code
+> change. Recorded in the spec with the reasoning, including why the second
+> option was weaker than it read: with the explicit-value guard in place it
+> would have differed from today only until the user first touched Angle.
+> My own framing hid that, and Rock caught it: *"both options are making the
+> angle 'mine', so what exactly are you asking?"*
+
+- [x] **Step 3: Commit, deploy, and STOP**
 
 ---
 

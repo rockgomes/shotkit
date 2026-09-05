@@ -731,6 +731,17 @@ describe('a segmented cell is never sized by its own label (Task 6)', () => {
     }
   });
 
+  it('and its cells clear the 24px target minimum', () => {
+    // 26px on the control, because the cells sit inside its 1px border.
+    // WCAG 2.2 AA 2.5.8 wants 24x24, and adjacent cells touch, so the
+    // spacing exception does not apply to these. Measured at 24px in
+    // Chromium after the change; every other undersized target in the app
+    // was measured to PASS the spacing exception - see
+    // docs/verification-2026-09-01.md.
+    const block = css.match(/\.segmented--mini\s*\{([^}]*)\}/);
+    expect(block[1]).toMatch(/height:\s*26px/);
+  });
+
   it('the retired .control-hint is gone, not merely unused', () => {
     // Removed with the Luminosity paragraph in Task 5's fix round. A rule
     // with no user is the thing that gets reattached later.

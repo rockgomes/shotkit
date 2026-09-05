@@ -542,6 +542,21 @@ CLI's flags happened to map. Whether a preset should carry its own angle (so
 each named ground has a considered direction) is a real design question for the
 type-first rebuild, where each type gets its own set.
 
+> **DECIDED, 2026-09-05: a preset sets the hue only.** Rock: *"that's because
+> I feel like we have solved it already. now that HAL controls have a reset,
+> and every update on the sliders also update the color block, I feel like
+> this is less confusing now."* The confusion this question came from was
+> fixed by Cycle C Task 5 — the per-slider Resets, and colour tiles that
+> repaint on every background change — not by wiring hue to angle.
+>
+> The alternative was weaker than it first looked, and saying why is the
+> point of writing it down. A preset carrying its own angle still had to
+> leave an angle the user set explicitly alone, by the same
+> sampled-versus-explicit rule as the rest of the panel. So it would have
+> differed from today in exactly one case — before you first touch the Angle
+> slider — and behaved identically ever after. A feature that stops working
+> the first time you use the control next to it is not worth the wiring.
+
 **Background blur belongs here too.** Rock described Screen Studio's control:
 it blurs a *wallpaper* — waves, glass reflections. It is meaningless against a
 flat gradient, so it only becomes real once the Background rebuild has image or

@@ -1185,7 +1185,11 @@ input {
    in Chromium before this rule - Dark 43.2px, Mid 36.9px, Light 49.5px:
    three peers whose targets differ by 34%. After: 49.5px each. */
 .segmented--mini {
-  height: 24px;
+  /* 26px, not 24: the cells sit inside the control's 1px border, so a 24px
+     control gives 22px targets. WCAG 2.2 AA 2.5.8 asks for 24x24, and
+     adjacent cells touch, so the spacing exception does not apply. Rock
+     took this call on 2026-09-05. */
+  height: 26px;
   flex: none;
   display: grid;
   grid-auto-flow: column;
