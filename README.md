@@ -173,8 +173,8 @@ Also exported, so a host never has to hardcode a valid value:
 RATIOS       3:2 1800×1200 · 4:3 2000×1500 · 16:9 1920×1080 · 1:1 1500×1500
 TEMPLATES    dribbble 2800×2100 · twitter-post 1600×900 · twitter-header 1500×500
              app-store 2880×1800 · open-graph 2400×1260 · instagram 2160×2160
-HUES         lavender 268 · paper 34 · mint 158 · ember 24
-             slate 240 · ash 40 · sky 205 · rose 340
+HUES         lavender 268 · paper 46 · mint 158 · ember 24
+             slate 240 · ash 220 (sat 0.12, the grey) · sky 205 · rose 340
 LAYOUTS      web · mobile · web+mobile          LUMINOSITY 0.15–0.975
 FRAME_KINDS  none · browser · phone
 BG_TYPES     linear · solid                     SCALES  1 · 2 · 3

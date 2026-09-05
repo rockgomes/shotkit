@@ -21,7 +21,14 @@ export const RATIOS = {
 // is every other preset and the default behaviour.
 export const GROUNDS = {
   lavender: { hue: 268 },
-  paper:    { hue: 34 },
+  // 46, not the 34 it shipped at. Measured 2026-09-05: paper and ember sat 5
+  // levels apart in their middle stop — the closest pair in the palette by
+  // half, where every other pair managed 11 or more. Searching both hues over
+  // the whole warm arc, the best available separation is 11, and it comes
+  // from moving paper alone: pulling ember redder collides it with rose, and
+  // giving paper its own low saturation collides it with ash. A little more
+  // yellow also reads closer to real paper stock than the old near-orange.
+  paper:    { hue: 46 },
   mint:     { hue: 158 },
   ember:    { hue: 24 },
   slate:    { hue: 240 },
