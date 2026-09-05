@@ -474,3 +474,52 @@ describe('a preset carries its own saturation (Task 3)', () => {
     expect(onVivid).toEqual(onDull);
   });
 });
+
+// ---------------------------------------------------------------------
+// The palette's own separation, asserted rather than eyeballed.
+//
+// Rock, on the first eight: "yeah they are extremely similar." Cycle C
+// Task 3 rewrote them and fixed `ash`, but added no guard — and paper and
+// ember then sat 5 levels apart for two more tasks before anyone measured
+// the whole grid. This is that guard.
+// ---------------------------------------------------------------------
+describe('every preset is visibly different from every other', () => {
+  // A muted UI blue, not the vivid magenta the suite uses elsewhere, and
+  // not a grey. The source matters: saturation is derived from the
+  // screenshot's own chroma, so on a near-grey every preset collapses to
+  // within 3 levels of every other BY DESIGN — "the ground comes from the
+  // product" — and no absolute floor can hold there. Measured on all three,
+  // paper/ember is the closest pair either way; this one is simply where
+  // the numbers are legible, and it is what a real screenshot looks like.
+  function source() {
+    const cv = createCanvas(64, 64);
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#3b4a6b';
+    ctx.fillRect(0, 0, 64, 64);
+    return ctx.getImageData(0, 0, 64, 64);
+  }
+  const midOf = (g) => {
+    const hex = groundFor([source()], g.hue, null, g.sat ?? null).ground[1];
+    return [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+  };
+  const apart = (a, b) => Math.max(...[0, 1, 2].map(i => Math.abs(a[i] - b[i])));
+
+  it('keeps at least 10 levels between the closest pair', () => {
+    // Measured on the shipped palette: the closest pairs are paper/ember and
+    // ember/rose at 11, ash/sky at 11, mint/sky at 12. Ten is the floor, one
+    // below the closest real pair, so this fails on a genuine regression
+    // rather than on a one-level nudge. It goes red with paper back at 34
+    // degrees, where the pair measured 5.
+    const mids = Object.fromEntries(
+      Object.entries(GROUNDS).map(([name, g]) => [name, midOf(g)]),
+    );
+    const names = Object.keys(mids);
+    for (let i = 0; i < names.length; i++) {
+      for (let j = i + 1; j < names.length; j++) {
+        const d = apart(mids[names[i]], mids[names[j]]);
+        expect(d, `${names[i]} and ${names[j]} are ${d} levels apart`)
+          .toBeGreaterThanOrEqual(10);
+      }
+    }
+  });
+});
