@@ -8,6 +8,8 @@ import { state, bindCanvas, render } from '../web/state.js';
 import { selectGround, activeGroundKey } from '../web/sidebar.js';
 import {
   UI_BG_TYPES,
+  TYPE_LABELS,
+  showsAngle,
   activeMeshStops,
   setMeshStops,
   activeMeshSpread,
@@ -639,5 +641,59 @@ describe('Sampled clears every override, not just the hue', () => {
     resetLuminosityToSampled(config);
     expect(config.luminosity).toBeNull();
     expect(forcedHueDeg(config)).toBe(200);   // the hue is untouched
+  });
+});
+
+// --- Cycle C Task 4: the Background panel is type-first ------------------
+//
+// From the spec: type is the top control, and SAMPLED LIVES INSIDE EACH TYPE
+// rather than being a fourth option beside them. The panel now reads
+// top-down - pick the kind of background, then which one, then adjust it.
+describe('the Background panel is type-first (Task 4)', () => {
+  it('offers the types under their user-facing names', () => {
+    // "Gradient", not "Linear": the label changes, the stored value does
+    // not - `bgType` is still 'linear' everywhere in core/ and in every
+    // jobs.json ever written.
+    expect(TYPE_LABELS.linear).toBe('Gradient');
+    expect(TYPE_LABELS.solid).toBe('Solid');
+  });
+
+  it('stores the internal value, not the label', () => {
+    const config = {};
+    setBgType(config, 'linear');
+    expect(config.bgType).toBe('linear');
+    expect(normalise(config).bgType).toBe('linear');
+  });
+
+  it('sampled belongs to the type, so switching type keeps it sampled', () => {
+    const config = {};
+    expect(isAutoGround(config)).toBe(true);
+    setBgType(config, 'solid');
+    expect(isAutoGround(config)).toBe(true);
+  });
+
+  it('and switching type keeps an explicit hue explicit', () => {
+    const config = {};
+    setHue(config, 200);
+    setBgType(config, 'solid');
+    expect(forcedHueDeg(config)).toBe(200);
+  });
+
+  it('and keeps an explicit luminosity too', () => {
+    const config = {};
+    setLuminosity(config, 0.3);
+    setBgType(config, 'solid');
+    expect(config.luminosity).toBeCloseTo(0.3, 12);
+  });
+
+  // Angle is a GRADIENT control. paintSolid fills flat with the middle stop
+  // and never reads it, so on Solid it is a slider that moves and changes
+  // nothing - the defect Cycle B spent eight tasks removing, sitting in
+  // this panel the whole time.
+  it('hides Angle for a type that cannot use it', () => {
+    expect(showsAngle({ bgType: 'linear' })).toBe(true);
+    expect(showsAngle({})).toBe(true);                 // linear is the default
+    expect(showsAngle({ bgType: 'solid' })).toBe(false);
+    expect(showsAngle({ bgType: 'mesh' })).toBe(false);
   });
 });

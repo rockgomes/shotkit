@@ -144,6 +144,21 @@ export function setAngle(config, deg) {
 // Nothing else has to come back, because nothing else went away.
 export const UI_BG_TYPES = BG_TYPES.filter(t => t !== 'mesh');
 
+// The user-facing names. "Gradient", not "Linear": `bgType`'s stored value
+// stays 'linear' everywhere in core/ and in every jobs.json ever written -
+// the label changes, the value does not.
+export const TYPE_LABELS = { linear: 'Gradient', solid: 'Solid', mesh: 'Mesh' };
+
+/** Angle is a GRADIENT control. `paintSolid` fills flat with the middle
+ *  stop and never reads it, and `paintMesh` places its blobs from a seed -
+ *  so on either of those it is a slider that moves and changes nothing,
+ *  which is the defect Cycle B spent eight tasks removing and which was
+ *  sitting in this panel the whole time. */
+export function showsAngle(config) {
+  const type = BG_TYPES.includes(config.bgType) ? config.bgType : DEFAULTS.bgType;
+  return type === 'linear';
+}
+
 // Still validated against core's BG_TYPES, not against UI_BG_TYPES above: a
 // jobs.json or a saved config carrying `mesh` is a legitimate input that
 // core/ renders correctly, and this function's job is to reject nonsense,
@@ -504,7 +519,6 @@ export function initBackgroundInspector() {
   typeSegmented.className = 'segmented';
   typeSegmented.setAttribute('role', 'group');
   typeSegmented.setAttribute('aria-label', 'Background type');
-  const TYPE_LABELS = { linear: 'Linear', solid: 'Solid', mesh: 'Mesh' };
   const typeButtons = UI_BG_TYPES.map((type) => {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -630,6 +644,30 @@ export function initBackgroundInspector() {
     'Sampled by default: a dark screenshot gets a less-pale ground so the shot still separates from it. Move the slider and it becomes yours until you press Sampled.';
   section.appendChild(lumHint);
 
+  // --- THE ORDER IS THE ARGUMENT (Cycle C Task 4) ----------------------
+  //
+  // Everything above was appended in the order it happened to be built.
+  // This re-appends it in the order it should READ, in one place, so the
+  // panel's structure is a statement rather than an accident of
+  // construction. `appendChild` moves an existing node, so this reorders
+  // rather than duplicating.
+  //
+  // Type first, because it decides what every control below it means.
+  // Then the ground itself - sampled, then the presets - because that is
+  // the choice. Then the adjustments to whatever was chosen. Mesh's own
+  // controls sit last, gated on the type.
+  //
+  // SAMPLED LIVES INSIDE THE TYPE and is not a fourth option beside it:
+  // there is a sampled gradient and a sampled solid, and switching type
+  // keeps whichever you had.
+  for (const el of [
+    typeLabelRow, typeSegmented,
+    sampledRow, presetList,
+    hueRow, angleRow,
+    lumRow, lumResetRow, lumHint,
+    seedRow, stopsRow, spreadRow,
+  ]) section.appendChild(el);
+
   // -----------------------------------------------------------------------
   // Sync functions: each updates exactly the DOM this panel's own state
   // affects, and nothing rebuilds the control elements themselves mid-drag
@@ -700,6 +738,8 @@ export function initBackgroundInspector() {
     seedRow.hidden = type !== 'mesh';
     stopsRow.hidden = type !== 'mesh';
     spreadRow.hidden = type !== 'mesh';
+    // Angle only means something for a gradient - see showsAngle.
+    angleRow.hidden = !showsAngle(state.config);
     if (!seedRow.hidden) { syncSeedUI(); syncMeshUI(); }
   }
 

@@ -449,7 +449,7 @@ Render all eight hues, before and after, at the default luminosity, with a shot 
 
 **The restructure, from the spec:** type is the top control, and **sampled lives inside each type** rather than being a fourth option beside them.
 
-- [ ] **Step 1: Write the order down before moving anything**
+- [x] **Step 1: Write the order down before moving anything**
 
 ```
 Background
@@ -464,7 +464,7 @@ Background
 
 Mesh is still withheld from `UI_BG_TYPES` (Cycle A). **Task 8 is where it comes back, or does not** — do not restore it here, and do not build the mesh row's tiles speculatively.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```js
 describe('the Background panel is type-first (Task 4)', () => {
@@ -494,11 +494,17 @@ describe('the Background panel is type-first (Task 4)', () => {
 });
 ```
 
-- [ ] **Step 3: Rebuild the section in that order**
+> **One thing found while doing it.** `Angle` was shown for every background
+> type, but `paintSolid` fills flat with the middle stop and never reads it —
+> a slider that moves and changes nothing, in this panel, the whole time
+> Cycle B was removing exactly that defect elsewhere. It is gated on the
+> gradient type now (`showsAngle`).
+
+- [x] **Step 3: Rebuild the section in that order**
 
 Move the DOM construction, not the logic. Every pure helper in this file already works; what changes is the order the rows are appended and which rows are gated on the type. Gate with the global `[hidden]` rule, never a second mechanism.
 
-- [ ] **Step 4: Commit, deploy, and STOP**
+- [x] **Step 4: Commit, deploy, and STOP**
 
 > Background now reads top-down: pick the type, then the ground, then the adjustments. Check that switching Gradient ↔ Solid keeps whatever you had — if you were on Sampled you should still be on Sampled, and if you had picked a hue it should still be picked.
 
