@@ -27,6 +27,7 @@ import {
   SEED_MAX,
   isSampledLuminosity,
   lightEndLabel,
+  ANGLE_SLIDER_MAX,
   isFullySampled,
   activeLuminosity,
   setLuminosity,
@@ -770,5 +771,30 @@ describe('the angle says which way it points (Task 7)', () => {
   it('and wraps rather than running off either end', () => {
     expect(lightEndLabel(360)).toBe(lightEndLabel(0));
     expect(lightEndLabel(-90)).toBe(lightEndLabel(270));
+  });
+});
+
+describe('the angle slider cannot wrap under the thumb (Task 7, fix round 1)', () => {
+  it('stops one degree short of a full turn', () => {
+    // Rock: "dragging the slider to 360 makes it jump to 0." setAngle wraps
+    // a full turn to zero - right for every caller - and the panel wrote
+    // that zero back into the input, so the thumb jumped to the far left
+    // mid-drag. The slider's maximum must therefore be a value setAngle
+    // leaves alone.
+    const at = {};
+    setAngle(at, ANGLE_SLIDER_MAX);
+    expect(at.angle).toBe(ANGLE_SLIDER_MAX);
+
+    // And the value that caused it, to show the rule has teeth.
+    const wrapped = {};
+    setAngle(wrapped, 360);
+    expect(wrapped.angle).toBe(0);
+  });
+
+  it('and still covers the whole turn between its ends', () => {
+    // 0 and 359 are one degree apart on the dial, not 359 - nothing is out
+    // of reach, which is why capping is the right fix rather than a loss.
+    expect(lightEndLabel(0)).toBe('bottom');
+    expect(lightEndLabel(ANGLE_SLIDER_MAX)).toBe('bottom');
   });
 });

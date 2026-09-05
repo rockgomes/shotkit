@@ -157,6 +157,22 @@ export function isFullySampled(config) {
   return isAutoGround(config) && isSampledLuminosity(config);
 }
 
+/**
+ * The angle slider's maximum, and why it is not 360.
+ *
+ * Rock, 2026-09-05: *"dragging the slider to 360 makes it jump to 0."*
+ * Exactly what it did: `setAngle` wraps a full turn back to zero — correct,
+ * and what every other caller wants — and the panel then wrote that 0 back
+ * into the input, so the thumb snapped to the far LEFT while he was still
+ * holding the far right.
+ *
+ * The fix belongs on the slider, not on the wrap: a full turn is the same
+ * ground as no turn, so 360 was never a distinct position to offer. The
+ * maximum has to be a value `setAngle` leaves alone, which is what
+ * test/inspector-background.test.js asserts.
+ */
+export const ANGLE_SLIDER_MAX = 359;
+
 export function setAngle(config, deg) {
   const n = Number(deg);
   if (!Number.isFinite(n)) return;
@@ -572,7 +588,7 @@ export function initBackgroundInspector() {
   angleInput.type = 'range';
   angleInput.className = 'slider';
   angleInput.min = '0';
-  angleInput.max = '360';
+  angleInput.max = String(ANGLE_SLIDER_MAX);
   angleInput.step = '1';
   angleInput.setAttribute('aria-label', 'Gradient angle, in degrees');
   const angleReset = makeResetButton('Reset angle to the default');
