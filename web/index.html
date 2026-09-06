@@ -313,9 +313,13 @@
           <h2 class="section-label">Frame</h2>
         </section>
 
-        <section class="inspector-section" id="finishSection" inert>
-          <h2 class="section-label">Finish</h2>
-        </section>
+        <!-- NO HEADING. Rock, 2026-09-07: "is this in the design?" It was
+             not. His right panel is Selected -> Frame -> the three sliders
+             -> Stroke -> Export, with the sliders sitting straight under the
+             Frame chips. "Finish" was a name this app invented for a group
+             the design does not label. The SECTION stays: it is the box the
+             sliders live in, and web/inspector-frame.js finds it by id. -->
+        <section class="inspector-section" id="finishSection" inert></section>
 
         <section class="inspector-section inspector-section--export">
           <h2 class="section-label">Export</h2>

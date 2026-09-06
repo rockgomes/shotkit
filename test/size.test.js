@@ -496,6 +496,15 @@ describe('the inspector names its subject once', () => {
     expect((inspector.match(/id="selectedElementName"/g) || []).length).toBe(1);
   });
 
+  it('does not invent a "Finish" heading the design has none of', () => {
+    // Rock's right panel is Selected -> Frame -> sliders -> Stroke ->
+    // Export. There is no heading over the sliders in node 7:130, and the
+    // one this app had was its own.
+    expect(inspector).not.toContain('>Finish<');
+    const src = readFileSync('web/inspector-frame.js', 'utf8');
+    expect(src).not.toContain("section-label\">Finish");
+  });
+
   it('no longer tags each section heading with the element', () => {
     const src = readFileSync('web/inspector-frame.js', 'utf8');
     expect(src).not.toContain('section-subject');

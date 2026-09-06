@@ -551,8 +551,8 @@ export function initFinishInspector() {
   const section = document.getElementById('finishSection');
   if (!section) return null;
 
-  section.innerHTML =
-    '<h2 class="section-label">Finish</h2>';
+  // No heading: the design does not label this group (see web/index.html).
+  section.innerHTML = '';
 
   // --- padding -------------------------------------------------------
   const pad = makeSliderRow({
