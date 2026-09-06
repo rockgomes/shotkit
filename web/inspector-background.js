@@ -537,10 +537,16 @@ export function initBackgroundInspector() {
   section.appendChild(angleRow);
 
   // --- Type -----------------------------------------------------------
-  const typeLabelRow = document.createElement('div');
-  typeLabelRow.className = 'slider-label';
-  typeLabelRow.innerHTML = '<span>Type</span>';
-  section.appendChild(typeLabelRow);
+  //
+  // NO "Type" LABEL ROW. Rock, 2026-09-06: "can't we just get rid of 'Type'?
+  // why is it needed there?" It named what the two cells beneath it already
+  // said - a control captioned with its own category - and it cost about
+  // 30px directly under the section heading, which is what he first saw as
+  // "that huge space between background and type".
+  //
+  // The control keeps its accessible name: the group carries
+  // aria-label="Background type", so nothing was removed for a screen
+  // reader, only for the eye.
 
   const typeSegmented = document.createElement('div');
   typeSegmented.className = 'segmented';
@@ -610,7 +616,7 @@ export function initBackgroundInspector() {
   // there is a sampled gradient and a sampled solid, and switching type
   // keeps whichever you had.
   for (const el of [
-    typeLabelRow, typeSegmented,
+    typeSegmented,
     sampledRow, presetList,
     hueRow, angleRow,
     lumRow,

@@ -1959,3 +1959,35 @@ over from when the presets were rows and once as the grid it has been since
 Cycle C Task 5. Every property in the older rule was already overridden — an
 unused second opinion about a live element, which is the same shape as the
 CSS gradient swatches that lied twice.
+
+### Task 2, fix round 2 — one left edge, no redundant label, no jumping
+
+Rock, with two guide lines drawn down the panel: *"what even is this
+alignment? why that huge space between background and type? can't we just
+get rid of 'Type'? ... everytime I change a tab on size, everything jumps
+around. Size should have a fixed size, and then have a scroll. show 4.5
+items and then scroll to see the rest."*
+
+**Four left edges, measured.** Text and box positions across the panel:
+
+| | before | after |
+|---|---|---|
+| plain labels, preset grid | 66px | 66px |
+| `.section-label` (SIZE, BACKGROUND) | **70px** | 66px |
+| the size tab strip's box | **70px** | 66px |
+| control boxes (search, rows, segmented, sampled) | 66px | 66px |
+
+The section headings carried 4px of horizontal padding and the tab strip a
+4px margin — nothing else did. Text *inside* a control's own fill stays inset
+(75–77px) and is meant to; that is the control, not the panel.
+
+**"Type" is gone.** It captioned a two-cell control whose cells read
+"Gradient" and "Solid" — a control labelled with its own category. It cost
+about 30px directly under the section heading, which is what the "huge space"
+was. The group keeps `aria-label="Background type"`, so nothing was taken
+from a screen reader.
+
+**The size list is pinned at 153px** — four rows and half of a fifth, so a
+longer list never reads as complete. Measured, Background's top is now
+**324.5px on all three tabs**; it moved with every switch before. Templates
+scrolls (202px of content in 153px), Ratios and Custom fit exactly.

@@ -579,9 +579,15 @@ input {
   outline-offset: 1px;
 }
 
+/* No horizontal padding. Rock, 2026-09-06, with two guides drawn down the
+   panel: "what even is this alignment?" Measured, the panel had four
+   different left edges — 66px for plain labels and the preset grid, 70px for
+   these section headings, 75px inside the segmented cells, 77px inside the
+   rows. The last two are text inside a control's own fill and are supposed
+   to be inset; these were not, and were the odd one out. */
 .section-label {
   margin: 0;
-  padding: 6px 4px 4px;
+  padding: 6px 0 4px;
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.12em;
@@ -595,6 +601,22 @@ input {
    rule further down), so every property here was already being overridden —
    an unused second opinion about a live element, which is the shape of
    defect the retired CSS gradient swatches were. */
+/* THE SIZE LIST HAS A FIXED HEIGHT. Rock, 2026-09-06: "everytime I change a
+   tab on size, everything jumps around. Size should have a fixed size, and
+   then have a scroll. show 4.5 items and then scroll to see the rest."
+
+   Templates has seven rows, Ratios four, Custom a form — so switching tabs
+   moved Background, and everything under it, up and down the panel. A fixed
+   height makes the tab strip the only thing that changes.
+
+   153px is four rows and half of a fifth (32px each, 2px apart), which is
+   what stops the list reading as complete when it is not. */
+.size-list {
+  height: 153px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .template-list {
   list-style: none;
   margin: 0;
@@ -1220,7 +1242,9 @@ input {
    already carries — the `--mini` variant below is the shrink-wrapped one
    that needed a grid to equalise. */
 .segmented--tabs {
-  margin: 0 4px 8px;
+  /* No horizontal margin: its box edge lines up with every other control's
+     in the panel, at the section's own content edge. */
+  margin: 0 0 8px;
   /* Equal cells, guaranteed. `flex: 1` alone does not give them: a flex
      item cannot shrink below its own min-content, so "Templates" took 70px
      of a 193px strip and the other two split what was left — 69.9 / 60.6 /
