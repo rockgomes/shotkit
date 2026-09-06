@@ -60,9 +60,17 @@
            arrow, the conventional "undo to default" mark, rather than a
            cross: a cross reads as "clear", and these put a value back to
            what the app chose, which is not the same thing. -->
+      <!-- BROKEN BEFORE, and Rock said so. The old pair was
+           `M3 10a9 9 0 1 1 2.2 5.9` plus `M3 4.5V10h5.5`: a 319-degree arc
+           whose END was at (5.2, 15.9), with the corner bracket sitting on
+           its START at (3, 10). So the bracket's upright hung off the
+           outside of the circle and its arm cut into the middle of it, while
+           the gap in the ring sat somewhere else entirely. This is Lucide's
+           rotate-ccw, where the arc TERMINATES at (3, 8) and the bracket is
+           the tail it ends in. -->
       <symbol id="icon-reset" viewBox="0 0 24 24">
-        <path d="M3 10a9 9 0 1 1 2.2 5.9" />
-        <path d="M3 4.5V10h5.5" />
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+        <path d="M3 3v5h5" />
       </symbol>
       <symbol id="icon-upload" viewBox="0 0 24 24">
         <path d="M12 15V4M7 9l5-5 5 5" />
@@ -220,6 +228,7 @@
              SURROUNDS all still say surround, because that is what the
              config field is called and renaming it would touch core/. -->
         <div class="canvas-toolbar">
+          <span class="canvas-toolbar-label" id="sizeLabel">Size</span>
           <div class="select select--size" id="sizeField">
             <button type="button" id="sizeSelect" class="select-control select-control--size"
                     aria-haspopup="dialog" aria-expanded="false" aria-controls="sizeMenu"

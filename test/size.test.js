@@ -465,6 +465,19 @@ describe('the size control lives in the canvas strip', () => {
     expect(src).toContain("getElementById('sizeHost')");
   });
 
+  it('labels the control Size, the way the design does', () => {
+    // Node 7:660: the word sits OUTSIDE the control, 8px before it, exactly
+    // as "Table" does on the other end of the strip.
+    expect(strip).toContain('>Size<');
+  });
+
+  it('fills its panel with the menu surface, not a panel surface', () => {
+    const style = readFileSync('web/style.css', 'utf8');
+    const at = style.indexOf('.select-menu--panel {');
+    const block = style.slice(at, style.indexOf('}', at));
+    expect(block).toContain('background: var(--surface-menu)');
+  });
+
   it('calls the right-hand control Table, not Surround', () => {
     expect(strip).toContain('>Table<');
     expect(strip).not.toMatch(/>Surround</);

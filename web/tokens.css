@@ -258,6 +258,16 @@
      This is pure CSS on the stage element behind the <canvas> - core/ never
      sees it (see web/state.js). */
   --surround-dark: #131417;
+  /* THE MENU SURFACE. Same value as --surround-dark, which is what Rock's
+     open Size dropdown is filled with (node 7:682), but its own token: a
+     floating panel is not the table under the shot, and the day one moves
+     the other must not follow. */
+  --surface-menu: #131417;
+  /* The 1px edge his menu draws, and the only pure black in the app. It is
+     1.14:1 on --surface-menu, so it is not what separates the panel from
+     what is behind it - the shadow is. Kept because it is what the design
+     draws, and because it darkens the corner where the radius cuts. */
+  --border-black: #000000;
   --surround-mid: #4b4e55;
   --surround-light: #e9eaed;
 
@@ -275,8 +285,9 @@
     narrow-viewport drawer's cast shadow, not in the mockup, invented for
     the <900px collapse (see task-1-report.md) */
   --overlay-backdrop: rgba(4, 5, 8, 0.6); /* our own addition: drawer backdrop scrim */
-  --shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.5); /* the format menu, which
-     floats over the inspector's own surfaces and needs to read as above them */
+  --shadow-menu: 0 4px 2px rgba(0, 0, 0, 0.25); /* Rock's value, from the
+     open Size dropdown in his frame (node 7:682). A menu floats, and this
+     is what he drew under it. */
   --shadow-settle: 0 18px 40px rgba(0, 0, 0, 0.35); /* Task 7: the shot's
     cast shadow at the end of the "settles" beat in the one authored
     arrival moment (style.css's `shot-settle` keyframes), animates in from

@@ -683,9 +683,13 @@ input {
   background: var(--surface-hover);
 }
 
+/* A FILL, NO EDGE (node 7:691). The accent border came from a step that
+   put the accent on every selected thing; the design's selected row is the
+   control fill and nothing else, and the row is the only thing in the panel
+   carrying one. */
 .template-row.is-selected {
   background: var(--surface-control);
-  border-color: var(--accent);
+  border-color: transparent;
   color: var(--text-primary);
   font-weight: 500;
 }
@@ -886,18 +890,24 @@ input {
   container-name: strip;
 }
 
-/* 412px is what the full strip wants: a 200px Size trigger, the word
-   "Table", the three cells, the gaps and the padding. Below that the word
-   goes first - the cells say Dark, Mid and Light on their own. Below 360 the
-   size NAME goes too, and the trigger keeps the pixels, which are the part
-   you cannot guess from looking at the canvas. */
-@container strip (max-width: 419px) {
+/* Measured, not guessed, and measured in the CONTAINER's own units: a
+   container query's width is the CONTENT box, so the strip's 14px padding is
+   already out of these numbers.
+   366px is the full set: "Size" 24, the 153px trigger, "Table" 31, the 128px
+   cells, three 10px gaps. Below that the two words go first - the cells say
+   Dark, Mid and Light on their own, and the chevron says the trigger opens.
+   (A first pass wrote 419/359 against the BORDER box and hid both words at a
+   1000px window, where they fit.) */
+@container strip (max-width: 365px) {
   .canvas-toolbar-label {
     display: none;
   }
 }
 
-@container strip (max-width: 359px) {
+/* 291px is what is left with both words gone: the 153px trigger, one gap,
+   the 128px cells. Below that the size NAME goes too and the trigger keeps
+   the pixels, which are the part you cannot guess from the canvas. */
+@container strip (max-width: 290px) {
   .size-trigger-name {
     display: none;
   }
@@ -909,7 +919,7 @@ input {
    The trigger asks for 200 and gives it back when there is not 200 to give;
    the name ellipsizes, the pixels and the chevron never do. */
 .canvas-toolbar .select--size {
-  flex: 0 1 200px;
+  flex: 0 1 153px;
   min-width: 0;
   margin-right: auto;
 }
@@ -1634,6 +1644,10 @@ input {
 }
 
 .select-control .icon {
+  /* 14px, not the 11px .icon-sm gives: that is the size the design draws in
+     both select controls (nodes 7:653 and 7:283). */
+  width: 14px;
+  height: 14px;
   color: var(--text-primary);
 }
 
@@ -1712,7 +1726,10 @@ input {
   gap: 8px;
   justify-content: flex-start;
   min-width: 0;
-  height: 30px;
+  /* 153x28 at radius 7, from node 7:653. */
+  height: 28px;
+  padding: 0 7px 0 11px;
+  border-radius: var(--radius-sm);
 }
 
 .select-control--size .icon {
@@ -1728,9 +1745,12 @@ input {
   text-overflow: ellipsis;
 }
 
-/* The pixels are the part you cannot guess, so they never shrink. */
+/* The pixels are the part you cannot guess, so they never shrink. They are
+   also SMALLER than the name, 9px against 12px (node 7:661): the name is
+   what you read, the pixels are what you check. */
 .size-trigger-dims {
   flex: none;
+  font-size: 9px;
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -1738,24 +1758,35 @@ input {
 /* A PANEL, not a list of options: it opens below, it is wider than its
    trigger, and it scrolls once the list is longer than the stage can show. */
 .select-menu--panel {
-  top: calc(100% + 6px);
+  /* Node 7:682: 254 wide, 8px of padding, 15px between the three blocks,
+     radius 6, on --surface-menu behind a black hairline. It sits 2px under
+     the trigger. */
+  top: calc(100% + 2px);
   bottom: auto;
   right: auto;
+  background: var(--surface-menu);
+  border-color: var(--border-black);
   /* 100cqw is the STRIP's content width (see container-type above), so the
      panel can never hang past the edge it opens from. Measured at 320px
      before this: a flat 268px panel opening at x=66 ran to 334, 14px past
      the window. `100vw - 28px` was the first fix and got it wrong for the
      same reason the media query was wrong - the strip is not the window. */
-  width: min(268px, 100cqw);
+  width: min(254px, 100cqw);
   max-height: min(60vh, 420px);
   overflow-y: auto;
-  gap: 10px;
-  padding: 10px;
+  gap: 15px;
+  padding: 8px;
 }
 
 .select-menu--panel .sidebar-section {
   padding: 0;
-  gap: 10px;
+  gap: 15px;
+}
+
+/* 26px, not the 28 every other .segmented gets (node 7:686). */
+.select-menu--panel .segmented--tabs {
+  height: 26px;
+  margin: 0;
 }
 
 .select-menu--panel .sidebar-search {
@@ -2028,8 +2059,12 @@ input {
      raised fill says "button" on its own. */
   border: none;
   border-radius: 4px;
-  background: var(--surface-control);
-  color: var(--text-primary);
+  /* INVERTED WHILE IT CAN DO SOMETHING. Rock, 2026-09-07: "in my design it
+     is inverted when it is active." White fill, window-dark glyph, 19.57:1.
+     A reset is only ever shown next to a value that has been moved off the
+     default, so "available" is the state worth shouting. */
+  background: var(--text-primary);
+  color: var(--surface-window);
   cursor: pointer;
 }
 
@@ -2059,8 +2094,8 @@ input {
 }
 
 .slider-reset:hover:not(:disabled) {
-  background: var(--surface-hover);
-  color: var(--text-primary);
+  background: var(--text-secondary);
+  color: var(--surface-window);
 }
 
 .slider-reset:focus-visible {
@@ -2077,6 +2112,21 @@ input {
    Disabled rather than hidden, deliberately: a reset that vanished when
    there was nothing to reset would make the row jump mid-drag and would hide
    the fact that the control has a default at all. */
+/* OFF is the dark box the live one used to be. The shared off-state rule at
+   the top of this file already collapses --text-primary to --text-inert, so
+   an un-overridden off reset would be an INERT-GREY FILLED box, which reads
+   as a live control that has been dimmed rather than as an off one.
+   Verified: with no screenshot loaded, every reset in the Background panel
+   was exactly that.
+   BOTH off states are listed. `[inert]` is not `:disabled` - an inert
+   section's buttons never match the pseudo-class - and the whole panel is
+   inert until a screenshot decodes, which is the state the app opens in. */
+.inspector-section[inert] .slider-reset,
+.slider-reset:disabled {
+  background: var(--surface-control);
+  color: var(--text-inert);
+}
+
 .slider-reset:disabled {
   cursor: default;
 }
