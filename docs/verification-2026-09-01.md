@@ -2330,3 +2330,18 @@ time. They are one rule now.
 scrolls. The stage is unchanged, no horizontal scroll.
 
 515 tests pass, no console errors.
+
+### Step 3, fix round: the chips still had an outline
+
+Rock put his design beside the build: *"wasn't this the step where this would
+look the same?"* It did not. His chips are flat filled boxes with no border.
+Mine kept a `#8e93a2` outline, and that outline cost 2px a chip, which pushed
+"Custom" onto a second row.
+
+Border removed, padding 12px to 10px a side. Measured after: both chip rows
+are **one line**. The Stroke row is 232px of the 237px available.
+
+| row | chips | lines |
+|---|---|---|
+| Frame | None 51, Browser 67, Phone 56 | 1 |
+| Stroke | None 51, Light 48, Glass 51, Custom 64 | 1 |

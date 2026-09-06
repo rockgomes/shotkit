@@ -1482,10 +1482,13 @@ input {
 
 .chip {
   height: 25px;
-  padding: 0 12px;
+  padding: 0 10px;
   display: flex;
   align-items: center;
-  border: 1px solid var(--border-strong);
+  /* NO BORDER. Rock's design draws these as flat filled boxes. The
+     outline also cost 2px a chip, which is what pushed "Custom" onto a
+     second row. */
+  border: none;
   border-radius: var(--radius-control);
   background: var(--surface-control);
   color: var(--text-primary);
@@ -1495,7 +1498,6 @@ input {
 
 .chip.is-selected {
   background: var(--accent);
-  border-color: var(--accent);
   color: var(--text-primary);
   font-weight: 600;
 }
