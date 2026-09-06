@@ -182,7 +182,6 @@ input {
   height: 48px;
   flex: none;
   padding: 0 14px;
-  border-bottom: 1px solid var(--border-hairline);
   min-width: 0;
 }
 
@@ -234,7 +233,7 @@ input {
 }
 
 .file-slot--empty {
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .toolbar-spacer {
@@ -255,9 +254,10 @@ input {
   gap: 6px;
   height: 28px;
   padding: 0 10px;
-  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  color: var(--text-muted);
+  color: var(--text-secondary);
+  background: var(--surface-track);
+  border: none;
 }
 
 .zoom-value {
@@ -316,10 +316,10 @@ input {
 }
 
 .btn-ghost {
-  border: 1px solid var(--border-strong);
-  background: transparent;
+  background: var(--surface-track);
   color: var(--text-secondary);
   padding: 0 10px;
+  border: none;
 }
 
 .btn-ghost:hover:not(:disabled) {
@@ -400,7 +400,7 @@ input {
   flex: none;
   border: none;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
@@ -432,7 +432,6 @@ input {
   flex: none;
   padding: 12px 0;
   gap: 6px;
-  border-right: 1px solid var(--border-hairline);
 }
 
 .rail-mark {
@@ -467,7 +466,7 @@ input {
   border: none;
   background: none;
   border-radius: var(--radius-md);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   cursor: pointer;
 }
 
@@ -485,7 +484,7 @@ input {
 }
 
 .rail-item[aria-disabled='true']:hover {
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .rail-item:focus-visible {
@@ -523,8 +522,7 @@ input {
   flex: none;
   overflow-y: auto;
   overflow-x: hidden;
-  border-right: 1px solid var(--border-hairline);
-  background: var(--surface-window);
+  background: var(--surface-panel);
 }
 
 /* The sidebar's own children, which are not .inspector-section and so have
@@ -532,6 +530,8 @@ input {
    Size list and the Background controls line up down a single edge. */
 .sidebar-search {
   margin: 12px 14px 8px;
+  background: var(--surface-track);
+  border: none;
 }
 
 .sidebar-section {
@@ -540,6 +540,8 @@ input {
 
 .cli-card {
   margin: 0 14px 12px;
+  background: var(--surface-track);
+  border: none;
 }
 
 .sidebar-search {
@@ -548,12 +550,9 @@ input {
   gap: 7px;
   height: 30px;
   padding: 0 10px;
-  /* --border-strong, not --border-subtle: this box holds an <input>, so its
-     edge is an interactive component boundary and owes 3:1 rather than the
-     judgement call the two decorative border tokens get (Task 3b). */
-  border: 1px solid var(--border-strong);
+  background: var(--surface-track);
   border-radius: var(--radius-md);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   flex: none;
 }
 
@@ -568,11 +567,10 @@ input {
 }
 
 .sidebar-search input::placeholder {
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .sidebar-search:focus-within {
-  border-color: var(--border-strong);
   outline: 2px solid var(--text-primary);
   outline-offset: 1px;
 }
@@ -590,7 +588,7 @@ input {
   font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-weight: 400;
 }
 
@@ -642,13 +640,13 @@ input {
   max-width: 100%;
   height: 32px;
   padding: 0 10px;
-  border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: none;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 12.5px;
   cursor: pointer;
   text-align: left;
+  border: none;
 }
 
 /* The name truncates; the dimensions never do — they are the information the
@@ -669,7 +667,7 @@ input {
 
 .template-row .dim {
   font-size: 10.5px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .template-row:hover:not(.is-selected) {
@@ -678,20 +676,19 @@ input {
 
 .template-row.is-selected {
   background: var(--surface-raised-1);
-  border-color: var(--border-strong);
   color: var(--text-primary);
   font-weight: 500;
 }
 
 .template-row.is-selected .dim {
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .template-row--add {
   justify-content: center;
   margin-top: 4px;
   border: 1px dashed var(--border-dashed);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 12px;
 }
 
@@ -728,7 +725,7 @@ input {
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .custom-size-input {
@@ -736,16 +733,16 @@ input {
   min-width: 0;
   height: 28px;
   padding: 0 8px;
-  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  background: none;
+  background: var(--surface-track);
   color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: 12px;
+  border: none;
 }
 
 .custom-size-input:hover {
-  border-color: var(--text-muted);
+  border-color: var(--text-secondary);
 }
 
 .custom-size-input:focus-visible {
@@ -780,12 +777,6 @@ input {
   background: var(--surface-hover);
 }
 
-.preset-row.is-selected {
-  background: var(--surface-raised-1);
-  border-color: var(--border-strong);
-  color: var(--text-primary);
-  font-weight: 500;
-}
 
 .preset-swatch {
   width: 14px;
@@ -809,7 +800,7 @@ input {
 
 .cli-card {
   flex: none;
-  border: 1px solid var(--border-subtle);
+  background: var(--surface-track);
   border-radius: 10px;
   padding: 10px 11px;
   display: flex;
@@ -820,7 +811,7 @@ input {
 .cli-command {
   margin: 0;
   font-size: 10.5px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .cli-status {
@@ -829,7 +820,7 @@ input {
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .status-dot {
@@ -864,14 +855,13 @@ input {
   height: 36px;
   flex: none;
   padding: 0 14px;
-  border-bottom: 1px solid var(--border-hairline);
 }
 
 .canvas-toolbar-label {
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .canvas-surface {
@@ -1028,14 +1018,14 @@ input {
   box-sizing: border-box;
   border: 1px dashed var(--border-dashed);
   border-radius: var(--radius-lg);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   cursor: pointer;
   text-align: center;
 }
 
 .dropzone:hover {
   border-color: var(--border-strong);
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .dropzone:focus-visible {
@@ -1054,7 +1044,7 @@ input {
   margin: 0;
   font-size: 10px;
   letter-spacing: 0.04em;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .dropzone-title {
@@ -1066,7 +1056,7 @@ input {
 .dropzone-sub {
   margin: 0;
   font-size: 11.5px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 /* A full-width strip between the canvas toolbar and the stage, not a toast
@@ -1081,7 +1071,6 @@ input {
   flex: none;
   margin: 0;
   padding: 8px 14px;
-  border-bottom: 1px solid var(--border-hairline);
   background: var(--surface-danger);
   color: var(--color-danger);
   font-size: 11.5px;
@@ -1099,8 +1088,7 @@ input {
   flex: none;
   overflow-y: auto;
   overflow-x: hidden;
-  border-left: 1px solid var(--border-hairline);
-  background: var(--surface-window);
+  background: var(--surface-panel);
 }
 
 .inspector-section {
@@ -1155,7 +1143,7 @@ input {
   justify-content: space-between;
   align-items: center;
   font-size: 11.5px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 /* Task 7's stroke colour picker. A native <input type="color"> so the
@@ -1168,10 +1156,10 @@ input {
   width: 44px;
   height: 24px;
   padding: 0;
-  border: 1px solid var(--border-strong);
   border-radius: 6px;
   background: none;
   cursor: pointer;
+  border: none;
 }
 
 .colour-well:focus-visible {
@@ -1192,9 +1180,10 @@ input {
 .segmented {
   display: flex;
   height: 28px;
-  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   overflow: hidden;
+  background: var(--surface-track);
+  border: none;
 }
 
 .segmented-cell {
@@ -1204,16 +1193,19 @@ input {
   justify-content: center;
   border: none;
   background: none;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 11.5px;
   cursor: pointer;
   padding: 0 8px;
 }
 
 .segmented-cell.is-active {
-  background: var(--surface-control-active);
-  color: var(--color-white);
+  /* A solid pill, not an outline. Rock's brief: "solid dark gray tracks with
+     solid, high-contrast active state pills instead of outlined boxes." */
+  background: var(--surface-raised-1);
+  color: var(--text-primary);
   font-weight: 500;
+  border-radius: calc(var(--radius-md) - 2px);
 }
 
 .segmented-cell:hover:not(.is-active):not(:disabled) {
@@ -1295,7 +1287,7 @@ input {
   display: flex;
   justify-content: space-between;
   font-size: 11.5px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .slider-value {
@@ -1307,51 +1299,51 @@ input {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 11px;
+  height: 18px;
   margin: 0;
   background: transparent;
   cursor: pointer;
 }
 
 .slider::-webkit-slider-runnable-track {
-  height: 3px;
-  border-radius: 2px;
+  height: 6px;
+  border-radius: 3px;
   background: linear-gradient(
     to right,
     var(--text-primary) 0%,
     var(--text-primary) calc(var(--slider-fill, 50%)),
-    var(--border-strong) calc(var(--slider-fill, 50%)),
-    var(--border-strong) 100%
+    var(--surface-track) calc(var(--slider-fill, 50%)),
+    var(--surface-track) 100%
   );
 }
 
 .slider::-moz-range-track {
-  height: 3px;
-  border-radius: 2px;
-  background: var(--border-strong);
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-track);
 }
 
 .slider::-moz-range-progress {
-  height: 3px;
-  border-radius: 2px;
+  height: 6px;
+  border-radius: 3px;
   background: var(--text-primary);
 }
 
 .slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 11px;
-  height: 11px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: var(--color-white);
   box-shadow: var(--shadow-thumb);
-  margin-top: -4px;
+  margin-top: -5px;
   cursor: pointer;
 }
 
 .slider::-moz-range-thumb {
-  width: 11px;
-  height: 11px;
+  width: 16px;
+  height: 16px;
   border: none;
   border-radius: 50%;
   background: var(--color-white);
@@ -1386,7 +1378,6 @@ input {
   gap: 9px;
   height: 36px;
   padding: 0 10px;
-  border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: none;
   /* White, not one rung down. Cycle D Task 5 cut the text ladder to three
@@ -1397,6 +1388,7 @@ input {
   cursor: pointer;
   text-align: left;
   width: 100%;
+  border: none;
 }
 
 .sampled-row:hover {
@@ -1405,7 +1397,6 @@ input {
 
 .sampled-row.is-active {
   background: var(--surface-raised-1);
-  border-color: var(--border-strong);
   color: var(--text-primary);
   font-weight: 500;
 }
@@ -1421,7 +1412,7 @@ input {
    their true colour: they are the row's content, and a sample you have
    dimmed is a sample that lies about what was sampled. */
 .sampled-row:not(.is-active) {
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .sampled-row:focus-visible {
@@ -1450,11 +1441,11 @@ input {
 
 .sampled-hue {
   font-size: 10px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .sampled-row.is-active .sampled-hue {
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 /* `.control-hint` - a small explanatory line under a control - lived here.
@@ -1479,23 +1470,22 @@ input {
   padding: 0 10px;
   display: flex;
   align-items: center;
-  border: 1px solid var(--border-strong);
   border-radius: var(--radius-pill);
-  background: none;
-  color: var(--text-muted);
+  background: var(--surface-track);
+  color: var(--text-secondary);
   font-size: 11.5px;
   cursor: pointer;
+  border: none;
 }
 
 .chip.is-selected {
-  background: var(--surface-inverse);
-  border-color: var(--surface-inverse);
-  color: var(--surface-window);
-  font-weight: 600;
+  background: var(--surface-raised-1);
+  color: var(--text-primary);
+  font-weight: 500;
 }
 
 .chip:hover:not(.is-selected):not(:disabled) {
-  border-color: var(--text-muted);
+  border-color: var(--text-secondary);
   color: var(--text-secondary);
 }
 
@@ -1533,20 +1523,20 @@ input {
   align-items: center;
   justify-content: space-between;
   padding: 0 10px;
-  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  background: none;
+  background: var(--surface-track);
   color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
+  border: none;
 }
 
 .select-control .icon {
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .select-control:hover:not(:disabled) {
-  border-color: var(--text-muted);
+  border-color: var(--text-secondary);
 }
 
 .select-control:disabled {
@@ -1561,7 +1551,7 @@ input {
 .export-footnote {
   margin: 0;
   font-size: 10px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   text-align: center;
 }
 
@@ -1706,7 +1696,7 @@ input {
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 /* The preset grid (Cycle C Task 5). Each tile is a real <canvas> painted by
@@ -1768,7 +1758,8 @@ input {
 }
 
 .preset-tile:hover:not(.is-selected) .preset-tile-canvas {
-  border-color: var(--border-strong);
+  outline: 2px solid var(--surface-raised-1);
+  outline-offset: -2px;
 }
 
 .preset-tile.is-selected .preset-tile-canvas {
@@ -1836,8 +1827,9 @@ input {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  border: 1px solid var(--border-strong);
   box-sizing: border-box;
+  background: var(--surface-track);
+  border: none;
 }
 
 .slider-reset .icon {

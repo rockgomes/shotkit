@@ -13,14 +13,35 @@
 
 :root {
   /* --- Surfaces -------------------------------------------------------- */
-  --surface-window: #0b0c0e;      /* app background (html.dc line 46); also
+  --surface-window: #0b0c10;      /* app background (html.dc line 46); also
                                       doubles as text-on-inverse (line 59) */
   /* `--surface-canvas` was merged into --surface-window in Cycle D Task 5. It
      measured 1.021:1 against it: two names for one colour. */
-  --surface-raised-1: #25292f;    /* selected template row (line 76) */
+
+  /* THE PANEL. Rock's brief, 2026-09-06: "Replace stacked backgrounds with
+     solid, unified dark surface panels (#121318) so controls rest directly
+     on the panel background."
+
+     It is only 1.054:1 above the canvas, BELOW this file's own 1.2 ladder
+     step — deliberately, and test/contrast.test.js exempts this one pair by
+     name. The separation here is not meant to come from the surfaces. It
+     comes from taking the outlines off and letting the controls carry their
+     own fill. */
+  --surface-panel: #121318;
+
+  /* THE CONTROL TRACK, which is what replaced the outlines. Rock: "solid
+     dark gray tracks with solid, high-contrast active state pills instead of
+     outlined boxes", and "use subtle background color shifts and whitespace
+     to group controls instead of wrapping everything in gray wireframe
+     boxes."
+
+     Every input, segmented control, chip and slider track fills with this
+     rather than drawing a 1px border. 1.260:1 above the panel. */
+  --surface-track: #252831;
+  --surface-raised-1: #454b57;    /* selected template row (line 76) */
   /* `--surface-raised-2` was merged into --surface-raised-1 in Cycle D Task 5.
      It measured 1.032:1 against it: two names for one colour. */
-  --surface-control-active: #3e444f; /* active segmented cell (line 116) */
+  --surface-control-active: #454b57; /* active segmented cell (line 116) */
   --surface-inverse: #f2f3f5;     /* primary button fill (line 59) */
 
   /* --- Row hover fill ---------------------------------------------------
@@ -34,7 +55,7 @@
      that. Lifting the hairline to the 1.9:1 below would have dropped the
      ceiling to 9.78:1 and made the ladder impossible. Split, each half is
      free: this one stays exactly where it was, and the hairline moves. */
-  --surface-hover: #333640;
+  --surface-hover: #333844;
 
   /* --- Borders / hairlines ----------------------------------------------
      Three thresholds, from the spec's Contrast section, and every value
@@ -129,8 +150,11 @@
      amplifier on a spread of six 8-bit levels, so it is the wrong
      invariant; the hue and the chroma are what actually survived. */
   --text-primary: #ffffff;        /* body text, slider fill/thumb accents */
-  --text-secondary: #e0e2e5;      /* ghost button label, preset/sampled row label */
-  --text-muted: #c4c8cd;          /* filename, zoom label, slider labels, muted rows */
+  --text-secondary: #c9cdd6;      /* ghost button label, preset/sampled row label */
+  /* `--text-muted` was merged into --text-secondary in Cycle D Task 5's second
+     attempt. Rock's brief: "Upgrade all muted gray text, labels, and subtext
+     to high-legibility crisp silver and pure white." Two rungs is what that
+     sentence leaves: white, and the silver. */
   /* `--text-faint` was merged into --text-muted in Cycle D Task 5. Five text
      rungs plus any real surface separation does not fit in 21:1 — see the
      budget note at the top of the text section — and this rung sat 1.22 from
