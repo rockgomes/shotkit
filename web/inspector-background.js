@@ -211,6 +211,31 @@ export function setBgType(config, type) {
 // stops-and-spread helpers lived here. All of them steered paintMesh and
 // nothing else, and went with it in Cycle C Task 8.
 
+// --- Grain ---------------------------------------------------------------
+//
+// GRAIN IS A BACKGROUND CONTROL. Rock, 2026-09-06: "why not just put grain
+// together with HAL controls?" Because it is one of them: `paintGrain` is
+// clipped to the ground and nothing else — Cycle A Task 4b moved it under
+// the shots for exactly that reason — so it describes the same surface Hue,
+// Angle and Luminosity do.
+//
+// It spent one task in a section of its own called "Canvas". With Padding
+// staying on the right (Rock's call, same day), that section held a single
+// slider: a heading for one row.
+//
+// Percent in the UI, a 0-1 fraction in core/config.js — the same round trip
+// padding and the shadow use.
+export function activeGrainPercent(config) {
+  const grain = Number.isFinite(config.grain) ? config.grain : DEFAULTS.grain;
+  return Math.round(grain * 100);
+}
+
+export function setGrainPercent(config, pct) {
+  const n = Number(pct);
+  if (!Number.isFinite(n)) return;
+  config.grain = Math.min(100, Math.max(0, n)) / 100;
+}
+
 // --- Luminosity (Cycle C Task 1) -----------------------------------------
 //
 // This was `tone`, a three-cell segmented over Auto / Light / Mid. Both of
@@ -590,6 +615,26 @@ export function initBackgroundInspector() {
   const lumValueEl = lumRow.querySelector('.slider-value');
   section.appendChild(lumRow);
 
+  // --- Grain -----------------------------------------------------------
+  const grainRow = document.createElement('div');
+  grainRow.className = 'slider-row';
+  grainRow.innerHTML =
+    '<div class="slider-label"><span>Grain</span><span class="mono slider-value"></span></div>';
+  const grainInput = document.createElement('input');
+  grainInput.type = 'range';
+  grainInput.className = 'slider';
+  grainInput.min = '0';
+  grainInput.max = '100';
+  grainInput.step = '1';
+  grainInput.setAttribute('aria-label', 'Grain strength');
+  const grainReset = makeResetButton('Reset grain to the default');
+  const grainResetTrack = document.createElement('div');
+  grainResetTrack.className = 'slider-track-row';
+  grainResetTrack.append(grainInput, grainReset);
+  grainRow.appendChild(grainResetTrack);
+  const grainValueEl = grainRow.querySelector('.slider-value');
+  section.appendChild(grainRow);
+
   // The old standalone "Sampled"/"Reset" row under Luminosity is gone: every
   // slider carries its own reset now, in the same place, so no one control
   // is special. See makeResetButton.
@@ -619,7 +664,7 @@ export function initBackgroundInspector() {
     typeSegmented,
     sampledRow, presetList,
     hueRow, angleRow,
-    lumRow,
+    lumRow, grainRow,
   ]) section.appendChild(el);
 
   // -----------------------------------------------------------------------
@@ -732,6 +777,7 @@ export function initBackgroundInspector() {
    * that syncs everything removes the whole class instead.
    */
   function afterBackgroundChange() {
+    syncGrainUI();
     syncTypeUI();
     syncGroundUI();
     syncAngleUI();
@@ -762,6 +808,13 @@ export function initBackgroundInspector() {
       markHalo: dialStyle.getPropertyValue('--dial-halo').trim(),
     });
     angleInput.setAttribute('aria-valuetext', `${deg} degrees, light from the ${lightEndLabel(deg)}`);
+  }
+
+  function syncGrainUI() {
+    const pct = activeGrainPercent(state.config);
+    grainInput.value = String(pct);
+    syncSliderFill(grainInput, grainValueEl, `${pct}%`);
+    grainReset.disabled = pct === Math.round(DEFAULTS.grain * 100);
   }
 
   function syncTypeUI() {
@@ -834,6 +887,22 @@ export function initBackgroundInspector() {
     afterBackgroundChange();
   });
 
+  // Grain goes through afterBackgroundChange like everything else in this
+  // panel. It does not actually change the preset tiles — paintGround does
+  // not paint grain, paintGrain is a separate pass in composeWithMeta — so
+  // this repaints eight 88px tiles it did not have to. That is the cheap
+  // tail-only path, and one rule with no exceptions is worth more than the
+  // saving: the exception is what the next person would get wrong.
+  grainInput.addEventListener('input', () => {
+    setGrainPercent(state.config, grainInput.value);
+    afterBackgroundChange();
+  });
+
+  grainReset.addEventListener('click', () => {
+    setGrainPercent(state.config, Math.round(DEFAULTS.grain * 100));
+    afterBackgroundChange();
+  });
+
   lumReset2.addEventListener('click', () => {
     resetLuminosityToSampled(state.config);
     afterBackgroundChange();
@@ -843,6 +912,10 @@ export function initBackgroundInspector() {
   syncAngleUI();
   syncTypeUI();
   syncLuminosityUI();
+  // Grain's Reset is disabled at the default like every other one, and that
+  // state has to be painted before the first interaction — measured in
+  // Chromium, it was enabled on load until something else moved.
+  syncGrainUI();
 
   // Returned so web/main.js can tell this panel to re-derive "Sampled" the
   // moment a screenshot decodes (see web/main.js's `handleFiles`). It also

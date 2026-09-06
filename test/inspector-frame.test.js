@@ -33,9 +33,10 @@ import {
   showsStrokeWidth,
   showsStrokeColor,
 } from '../web/inspector-frame.js';
-// Grain moved to web/inspector-canvas.js in Cycle D Task 3 — the round-trip
-// assertions below are unchanged, only their address is.
-import { activeGrainPercent, setGrainPercent } from '../web/inspector-canvas.js';
+// Grain moved to web/inspector-background.js in Cycle D Task 3 — it is a
+// background control. The round-trip assertions below are unchanged; only
+// their address is.
+import { activeGrainPercent, setGrainPercent } from '../web/inspector-background.js';
 
 const mkCanvas = (w, h) => createCanvas(w, h);
 

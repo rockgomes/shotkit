@@ -1,6 +1,15 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { readFileSync } from 'node:fs';
+
+// Comment-stripped source, so the structural guards below read CODE and not
+// prose — the same helper test/selection.test.js earned by failing on a word
+// inside a comment that explained why that word must never appear.
+function codeOf(path) {
+  return readFileSync(path, 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
 import {
   HUES, normalise, groundFor, BG_TYPES,
   LUMINOSITY_RANGE, LUM_ANCHOR_LIGHT,
@@ -18,6 +27,8 @@ import {
   setAngle,
   setBgType,
   isSampledLuminosity,
+  activeGrainPercent,
+  setGrainPercent,
   lightEndLabel,
   ANGLE_SLIDER_MAX,
   isFullySampled,
@@ -745,5 +756,53 @@ describe('Background belongs to the canvas, so it lives on the left (Cycle D)', 
     // settings" after Background has moved is a label that lies.
     expect(html).toMatch(/id="sidebar"[^>]*aria-label="[^"]*[Bb]ackground/);
     expect(html).not.toMatch(/id="inspector"[^>]*aria-label="[^"]*[Bb]ackground/);
+  });
+});
+
+// ---------------------------------------------------------------------
+// Cycle D Task 3. Grain is a BACKGROUND control: `paintGrain` is clipped to
+// the ground and nothing else (Cycle A Task 4b), so it describes the same
+// surface Hue, Angle and Luminosity do.
+//
+// It spent one task in a section of its own called "Canvas". Rock: "why not
+// just put grain together with HAL controls?" — and with Padding staying on
+// the right, that section held one slider: a heading for one row.
+//
+// Padding is deliberately still in web/inspector-frame.js, on his call:
+// "Padding to me still makes sense on the right, since visually it moves
+// the elements."
+// ---------------------------------------------------------------------
+describe('grain is a background control (Task 3)', () => {
+  it('round-trips through the real normalise(), so the panel agrees with core/', () => {
+    const config = {};
+    setGrainPercent(config, 42);
+    expect(activeGrainPercent(config)).toBe(42);
+    expect(normalise(config).grain).toBeCloseTo(0.42, 6);
+  });
+
+  it('clamps at both ends', () => {
+    const config = {};
+    setGrainPercent(config, -10);
+    expect(activeGrainPercent(config)).toBe(0);
+    setGrainPercent(config, 250);
+    expect(activeGrainPercent(config)).toBe(100);
+  });
+
+  it('and is gone from the element module, not merely re-exported', () => {
+    // A second home for one value is the defect that killed the shadow
+    // slider in Cycle A Task 5b. Moving means moving.
+    const frame = codeOf('web/inspector-frame.js');
+    expect(frame).not.toContain('setGrainPercent');
+    expect(frame).not.toContain('activeGrainPercent');
+  });
+
+  it('while padding stays with the element panel, on purpose', () => {
+    // Not an oversight, and not the spec's original plan either - the spec
+    // put both on the left. Rock reversed it for padding on 2026-09-06.
+    expect(codeOf('web/inspector-frame.js')).toContain('setPadPercent');
+  });
+
+  it('and there is no Canvas section left holding nothing', () => {
+    expect(readFileSync('web/index.html', 'utf8')).not.toContain('canvasSection');
   });
 });

@@ -2017,3 +2017,29 @@ being canvas-level: select a phone, drag Padding, and everything moves. The
 control is not wrong — `config.pad` still has exactly one home — but the
 heading overstates its scope. The fix, if it reads wrong in use, is to lift
 Padding out from under the element subject, not to move it across again.
+
+### Task 3, fix round — grain went into Background, not a section of its own
+
+Rock: *"why not just put grain together with HAL controls?"*
+
+Right, and it is the same argument the move itself rested on: `paintGrain` is
+clipped to the ground and nothing else, so grain describes the same surface
+Hue, Angle and Luminosity do. With Padding staying on the right, the "Canvas"
+section it had briefly been given held **one slider** — a heading for one row.
+
+`web/inspector-canvas.js` and `#canvasSection` are gone; Background reads
+**Hue, Angle, Luminosity, Grain**, and the left panel is **Size, Background**.
+
+Grain also gets a Reset, ahead of Task 4 generalising them, because the row
+was being rebuilt anyway and shipping the one slider in that panel without
+one would have been the arbitrariness Rock objected to in Cycle C.
+
+**A bug the move introduced, caught by measuring rather than by looking.**
+`syncGrainUI` was wired into `afterBackgroundChange` but not into the init
+sequence, so grain's Reset rendered **enabled at the default** until some
+other control moved. Measured `resetDisabledAtDefault: false` on load; after
+the fix, all four of Background's Resets read `true` on load.
+
+Verified after: grain still drives the render — ground luminance spread 165
+at 0%, 181 at 100% — its Reset returns the slider to 34% and disables itself,
+and there are no console errors.

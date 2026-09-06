@@ -11,7 +11,6 @@ import { exportShot } from './export.js';
 import { initSidebar } from './sidebar.js';
 import { initBackgroundInspector } from './inspector-background.js';
 import { initFrameInspector, initFinishInspector } from './inspector-frame.js';
-import { initCanvasPanel } from './inspector-canvas.js';
 import { hitTest, boxFor, placeOutline } from './selection.js';
 // `normalise` only — read-only, to learn the canvas's EFFECTIVE size for the
 // empty-state frame below (Task 7). Never used to decide what to write; see
@@ -96,7 +95,6 @@ const background = initBackgroundInspector();
 // Corner radius slider's BOUNDS depend on which frame is on (Cycle B Task
 // 3 — a browser window and a phone body do not take the same range), so
 // changing the frame has to re-sync a control in the other section.
-const canvasPanel = initCanvasPanel();
 const finishInspector = initFinishInspector();
 const frameInspector = initFrameInspector(() => finishInspector && finishInspector.syncRadiusUI());
 
@@ -295,7 +293,7 @@ const toolbarFileSlot = document.querySelector('#toolbarFile .file-slot');
 const exportFootnote = document.querySelector('.export-footnote');
 const sidebarEl = document.getElementById('sidebar');
 
-// The four sections that describe properties OF a loaded shot — greyed and
+// The three sections that describe properties OF a loaded shot — greyed and
 // `inert` (index.html's static default) until one exists. The Export section
 // is deliberately not in this list; see index.html's and style.css's own
 // comments on why it's handled differently (the button disables, the
@@ -306,7 +304,7 @@ const sidebarEl = document.getElementById('sidebar');
 // would have silently stopped reaching it — the section would have stayed
 // inert forever, greyed with no way to tell why. It was already written this
 // way; that is luck, and this comment is what turns it into a decision.
-const propertySections = ['backgroundSection', 'canvasSection', 'frameSection', 'finishSection'].map((id) =>
+const propertySections = ['backgroundSection', 'frameSection', 'finishSection'].map((id) =>
   document.getElementById(id),
 );
 
