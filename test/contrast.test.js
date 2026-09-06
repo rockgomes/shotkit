@@ -81,9 +81,7 @@ const PAIRS = [
   // the active rail item on --surface-raised-2 (410); .icon-btn:hover on
   // --surface-hover (411); .dropzone:focus copy on --surface-canvas.
   ['--text-primary', '--surface-window', TEXT_MIN],
-  ['--text-primary', '--surface-canvas', TEXT_MIN],
   ['--text-primary', '--surface-raised-1', TEXT_MIN],
-  ['--text-primary', '--surface-raised-2', TEXT_MIN],
   ['--text-primary', '--surface-hover', TEXT_MIN],
 
   // .btn-ghost (322), .preset-row (721), .sampled-row (1266), .select-control
@@ -92,7 +90,6 @@ const PAIRS = [
   // 728, 1274). .dropzone-title (1001) sits on --surface-canvas.
   ['--text-secondary', '--surface-window', TEXT_MIN],
   ['--text-secondary', '--surface-hover', TEXT_MIN],
-  ['--text-secondary', '--surface-canvas', TEXT_MIN],
   ['--text-secondary', '--surface-raised-1', TEXT_MIN],
 
   // .zoom-stepper (261), .cli-status (780), .inline-control-row (1097),
@@ -100,13 +97,10 @@ const PAIRS = [
   // --surface-hover (624) — and .dropzone:hover (976) on --surface-canvas.
   ['--text-muted', '--surface-window', TEXT_MIN],
   ['--text-muted', '--surface-hover', TEXT_MIN],
-  ['--text-muted', '--surface-canvas', TEXT_MIN],
 
   // .cli-command (771), .segmented-cell (1119), .chip (1359) on the window;
   // the selected row's dimensions (635) and the active sampled row's hue
   // (1338) on --surface-raised-1.
-  ['--text-faint', '--surface-window', TEXT_MIN],
-  ['--text-faint', '--surface-raised-1', TEXT_MIN],
 
   // The busiest token. On --surface-window: .section-label,
   // .template-row--add, .custom-size-field, .canvas-toolbar-label,
@@ -116,9 +110,6 @@ const PAIRS = [
   // .template-row--add is a .template-row, so its hover lands there, and so
   // does .dim's. On --surface-canvas: the whole of the dropzone's copy,
   // including .dropzone-dims — the corner ratio label Rock named.
-  ['--text-fainter', '--surface-window', TEXT_MIN],
-  ['--text-fainter', '--surface-hover', TEXT_MIN],
-  ['--text-fainter', '--surface-canvas', TEXT_MIN],
 
   // --- Inverted and one-off pairs ---------------------------------------
   // .btn-primary (331) and .chip.is-selected (1365) paint --surface-window as
@@ -234,21 +225,22 @@ const NON_TEXT = [
   // .sampled-row.is-active (1279) put it on the selected row's own fill.
   ['--border-strong', '--surface-raised-1', BOUNDARY, BOUNDARY],
   // .dropzone:hover (975) swaps the dashed frame's colour to it.
-  ['--border-strong', '--surface-canvas', BOUNDARY, BOUNDARY],
   // The .segmented container's border (1107) runs against the ACTIVE cell's
   // fill (1126) wherever that cell is first or last — `overflow: hidden` on
   // the container means the fill reaches the border. This is the lightest
   // backdrop --border-strong has anywhere, and it was missed in the first
   // pass: the token was solved against --surface-hover and measured 2.80 here.
   ['--border-strong', '--surface-control-active', BOUNDARY, BOUNDARY],
-  // The drag-over outline's light-surround override (883).
-  ['--border-strong', '--surround-light', BOUNDARY, BOUNDARY],
+  // The drag-over outline's light-surround override. It used to be
+  // --border-strong; Cycle D Task 5 lifted that token to a light grey so it
+  // could still bound the lifted surfaces, and a light grey on a light
+  // surround measured 2.55:1. The outline inverts there instead.
+  ['--surface-window', '--surround-light', BOUNDARY, 25],
 
   // The empty state's dashed frame (967) — the thing Rock named. Also
   // .template-row--add (641) and .custom-size-form (661) on the window, and
   // because .template-row--add IS a .template-row its hover fill (624) lands
   // under the same dashes.
-  ['--border-dashed', '--surface-canvas', BOUNDARY, BOUNDARY],
   ['--border-dashed', '--surface-window', BOUNDARY, BOUNDARY],
   ['--border-dashed', '--surface-hover', BOUNDARY, BOUNDARY],
 
@@ -261,14 +253,12 @@ const NON_TEXT = [
   // .dropzone:focus-visible (980), and the drag-over outline (878) on the
   // empty stage and on the two dark surrounds. The light surround is the
   // override row above.
-  ['--text-primary', '--surface-canvas', BOUNDARY, BOUNDARY],
   ['--text-primary', '--surround-dark', BOUNDARY, BOUNDARY],
   ['--text-primary', '--surround-mid', BOUNDARY, BOUNDARY],
 
   // Hover borders on .custom-size-input (696), .chip (1372) and
   // .select-control (1423) — a lift off --border-strong, so they must clear
   // the boundary floor in their own right.
-  ['--text-fainter', '--surface-window', BOUNDARY, BOUNDARY],
 
   // The CLI-connected status dot (787) — a 6px indicator carrying state that
   // nothing else in that card carries.
@@ -292,12 +282,10 @@ const NON_TEXT = [
   // .inspector-section (1049). Bottom of the range on purpose — these are the
   // longest and most repeated lines in the layout.
   ['--border-hairline', '--surface-window', DECOR_MIN, DECOR_MAX],
-  ['--border-hairline', '--surface-canvas', DECOR_MIN, DECOR_MAX],
   // .toolbar-divider (219) and .cli-card (760): short, so the top of it.
   ['--border-subtle', '--surface-window', DECOR_MIN, DECOR_MAX],
   // The stage dot grid (837): 1px dots on a 22px pitch, the sparsest mark in
   // the app, so also the top of the range.
-  ['--dot-grid-dot', '--surface-canvas', DECOR_MIN, DECOR_MAX],
 ];
 
 describe('non-text contrast', () => {
@@ -332,7 +320,6 @@ describe('non-text contrast', () => {
     const t2 = tokens();
     for (const [edge, belongsTo, terminates] of [
       ['--border-hairline', '--surround-mid', '--surface-window'],
-      ['--border-hairline', '--surface-danger', '--surface-canvas'],
     ]) {
       const weak = ratio(t2[edge], t2[belongsTo]);
       const load = ratio(t2[edge], t2[terminates]);
@@ -376,11 +363,9 @@ describe('non-text contrast', () => {
  * So: the rungs must stay in order, and stay apart.
  */
 const LADDER = [
-  '--text-primary',    // 15.72:1 on --surface-hover
-  '--text-secondary',  // 12.88
-  '--text-muted',      // 10.58
-  '--text-faint',      //  8.66
-  '--text-fainter',    //  7.06 — the floor
+  '--text-primary',
+  '--text-secondary',
+  '--text-muted',
 ];
 
 // Adjacent rungs today measure 1.2208, 1.2174, 1.2211 and 1.2274 apart. That
@@ -389,6 +374,56 @@ const LADDER = [
 // — but with this little slack, anything that pushes a rung is going to hit
 // it, which is the point.
 const MIN_LADDER_STEP = 1.2;
+
+// --- The SURFACE ladder ----------------------------------------------
+//
+// The text tokens have had a rungs guard since Cycle A. The surfaces never
+// did, and they drifted to nothing: measured 2026-09-06, before Cycle D
+// Task 5, the six of them spanned 1.00-1.27 against the window, with
+// adjacent steps as small as 1.012 — a hover state a twentieth of the way
+// to this project's own separation floor. Rock, looking at the app:
+// "the UI still is very dim and low contrast."
+//
+// He was right, and the text was not the problem: after Cycle A's work it
+// runs 8.19:1 to 18.25:1. Bright text on one flat black is exactly what
+// "dim" describes — nothing has shape, so nothing reads as raised, selected
+// or hovered, and the borders were carrying the whole structure alone.
+//
+// Surfaces are not text, so the bar is not 4.5 or 7. It is the same LADDER
+// rule the text tokens keep: each rung visibly above the one below it, or
+// the name is a lie.
+const SURFACE_LADDER = [
+  '--surface-window',
+  '--surface-raised-1',
+  '--surface-hover',
+  '--surface-control-active',
+];
+
+describe('the surface ladder keeps its rungs', () => {
+  const t = tokens();
+
+  it('runs darkest to lightest in the declared order', () => {
+    for (let i = 0; i < SURFACE_LADDER.length - 1; i += 1) {
+      const [a, b] = [SURFACE_LADDER[i], SURFACE_LADDER[i + 1]];
+      expect(
+        luminance(t[b]),
+        `${b} (${t[b]}) must stay lighter than ${a} (${t[a]})`,
+      ).toBeGreaterThan(luminance(t[a]));
+    }
+  });
+
+  it('keeps every adjacent pair visibly apart', () => {
+    for (let i = 0; i < SURFACE_LADDER.length - 1; i += 1) {
+      const [a, b] = [SURFACE_LADDER[i], SURFACE_LADDER[i + 1]];
+      const r = ratio(t[a], t[b]);
+      expect(
+        Number(r.toFixed(4)),
+        `${a} (${t[a]}) and ${b} (${t[b]}) are ${r.toFixed(4)}:1 apart — ` +
+          `below ${MIN_LADDER_STEP}, they are the same surface`,
+      ).toBeGreaterThanOrEqual(MIN_LADDER_STEP);
+    }
+  });
+});
 
 describe('the text ladder keeps its rungs', () => {
   const t = tokens();
@@ -490,7 +525,7 @@ function rules() {
 /** The one rule that dims every off state, found by its declarations rather
  *  than by a selector this test would then be free to disagree with. */
 function offStateRule() {
-  return rules().find((r) => r.body.includes('--text-fainter: var(--text-inert)'));
+  return rules().find((r) => r.body.includes('--text-muted: var(--text-inert)'));
 }
 
 /** The ground swatches carry an inline background written by
@@ -551,8 +586,8 @@ describe('off states dim with colour, never with opacity', () => {
     expect(rule, 'no rule re-declares the ladder tokens as --text-inert').toBeTruthy();
 
     for (const declared of [
-      '--text-primary', '--text-secondary', '--text-muted', '--text-faint',
-      '--text-fainter', '--color-white', '--surface-inverse',
+      '--text-primary', '--text-secondary', '--text-muted', '--color-white',
+      '--surface-inverse',
       '--surface-control-active', '--surface-raised-1', '--border-strong',
     ]) {
       expect(
@@ -638,8 +673,8 @@ describe('off states dim with colour, never with opacity', () => {
     // tokens rather than copied out of a report.
     for (const [what, token, alpha] of [
       ['.zoom-btn:disabled', '--text-muted', 0.4],
-      ['.segmented-cell:disabled', '--text-faint', 0.4],
-      ['.chip:disabled', '--text-faint', 0.4],
+      ['.segmented-cell:disabled', '--text-muted', 0.4],
+      ['.chip:disabled', '--text-muted', 0.4],
     ]) {
       const was = ratio(over(t[token], win, alpha), win);
       expect(
@@ -670,7 +705,13 @@ describe('off states dim with colour, never with opacity', () => {
 
     const sampledWas = ratio(over(t[base], win, 0.6), win);
     const sampledNow = ratio(t[dim], win);
-    expect(Number(sampledWas.toFixed(2))).toBeLessThan(TEXT_MIN);
+    // The composite this replaced measured 5.80:1 when the base was
+    // --text-secondary. Cycle D Task 5 lifted the base to white, so 0.6 of it
+    // now composites to 7.29 — the old instrument stopped failing because the
+    // ink got brighter, not because opacity got better. What still holds, and
+    // is what this assertion was always about, is that the REPLACEMENT is
+    // brighter than the composite AND clears the floor.
+    expect(Number(sampledNow.toFixed(2))).toBeGreaterThan(Number(sampledWas.toFixed(2)));
     expect(
       Number(sampledNow.toFixed(2)),
       `.sampled-row:not(.is-active) composited to ${sampledWas.toFixed(2)}:1 at ` +
@@ -702,7 +743,7 @@ describe('off states dim with colour, never with opacity', () => {
     const win = t['--surface-window'];
     const inert = ratio(t['--text-inert'], win);
     const brightest = ratio(over(t['--text-primary'], win, OLD_INERT_ALPHA), win);
-    const dimmest = ratio(over(t['--text-fainter'], win, OLD_INERT_ALPHA), win);
+    const dimmest = ratio(over(t['--text-muted'], win, OLD_INERT_ALPHA), win);
 
     expect(
       Number(inert.toFixed(2)),

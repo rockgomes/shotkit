@@ -71,8 +71,6 @@
   --text-primary: var(--text-inert);
   --text-secondary: var(--text-inert);
   --text-muted: var(--text-inert);
-  --text-faint: var(--text-inert);
-  --text-fainter: var(--text-inert);
   /* the active segmented cell's label, and the slider thumb */
   --color-white: var(--text-inert);
   /* the selected chip's pill and the primary button's fill: both drop from
@@ -236,7 +234,7 @@ input {
 }
 
 .file-slot--empty {
-  color: var(--text-fainter);
+  color: var(--text-muted);
 }
 
 .toolbar-spacer {
@@ -402,7 +400,7 @@ input {
   flex: none;
   border: none;
   background: transparent;
-  color: var(--text-fainter);
+  color: var(--text-muted);
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
@@ -469,12 +467,12 @@ input {
   border: none;
   background: none;
   border-radius: var(--radius-md);
-  color: var(--text-fainter);
+  color: var(--text-muted);
   cursor: pointer;
 }
 
 .rail-item.is-active {
-  background: var(--surface-raised-2);
+  background: var(--surface-raised-1);
   color: var(--text-primary);
 }
 
@@ -487,7 +485,7 @@ input {
 }
 
 .rail-item[aria-disabled='true']:hover {
-  color: var(--text-fainter);
+  color: var(--text-muted);
 }
 
 .rail-item:focus-visible {
@@ -555,7 +553,7 @@ input {
      judgement call the two decorative border tokens get (Task 3b). */
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
-  color: var(--text-fainter);
+  color: var(--text-muted);
   flex: none;
 }
 
@@ -570,7 +568,7 @@ input {
 }
 
 .sidebar-search input::placeholder {
-  color: var(--text-fainter);
+  color: var(--text-muted);
 }
 
 .sidebar-search:focus-within {
@@ -592,7 +590,7 @@ input {
   font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-fainter);
+  color: var(--text-muted);
   font-weight: 400;
 }
 
@@ -671,7 +669,7 @@ input {
 
 .template-row .dim {
   font-size: 10.5px;
-  color: var(--text-fainter);
+  color: var(--text-muted);
 }
 
 .template-row:hover:not(.is-selected) {
@@ -686,14 +684,14 @@ input {
 }
 
 .template-row.is-selected .dim {
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 
 .template-row--add {
   justify-content: center;
   margin-top: 4px;
   border: 1px dashed var(--border-dashed);
-  color: var(--text-fainter);
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -730,7 +728,7 @@ input {
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-fainter);
+  color: var(--text-muted);
 }
 
 .custom-size-input {
@@ -747,7 +745,7 @@ input {
 }
 
 .custom-size-input:hover {
-  border-color: var(--text-fainter);
+  border-color: var(--text-muted);
 }
 
 .custom-size-input:focus-visible {
@@ -822,7 +820,7 @@ input {
 .cli-command {
   margin: 0;
   font-size: 10.5px;
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 
 .cli-status {
@@ -873,7 +871,7 @@ input {
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-fainter);
+  color: var(--text-muted);
 }
 
 .canvas-surface {
@@ -891,7 +889,7 @@ input {
   min-height: 0;
   padding: 28px;
   box-sizing: border-box;
-  background-color: var(--surface-canvas);
+  background-color: var(--surface-window);
   background-image: radial-gradient(circle, var(--dot-grid-dot) 1px, transparent 1px);
   background-size: 22px 22px;
   /* Part of the ONE authored moment (Task 7): when `.has-content`/
@@ -938,7 +936,13 @@ input {
 }
 
 .canvas-surface.has-content[data-surround='light'].is-drag-over {
-  outline-color: var(--border-strong);
+  /* The one place the ink has to INVERT. Cycle D Task 5 took
+     --border-strong from #696e7f to #8e93a2 so it could still clear 3:1
+     against the lifted surfaces — which makes it a light grey, and a light
+     grey outline on a light surround measured 2.55:1. The darkest thing the
+     app owns is the right outline here, for the same reason the light one is
+     right everywhere else. */
+  outline-color: var(--surface-window);
 }
 
 .render-canvas {
@@ -1024,7 +1028,7 @@ input {
   box-sizing: border-box;
   border: 1px dashed var(--border-dashed);
   border-radius: var(--radius-lg);
-  color: var(--text-fainter);
+  color: var(--text-muted);
   cursor: pointer;
   text-align: center;
 }
@@ -1050,7 +1054,7 @@ input {
   margin: 0;
   font-size: 10px;
   letter-spacing: 0.04em;
-  color: var(--text-fainter);
+  color: var(--text-muted);
 }
 
 .dropzone-title {
@@ -1062,7 +1066,7 @@ input {
 .dropzone-sub {
   margin: 0;
   font-size: 11.5px;
-  color: var(--text-fainter);
+  color: var(--text-muted);
 }
 
 /* A full-width strip between the canvas toolbar and the stage, not a toast
@@ -1104,7 +1108,6 @@ input {
   flex-direction: column;
   gap: 12px;
   padding: 14px 14px 16px;
-  border-bottom: 1px solid var(--border-hairline);
 }
 
 .inspector-section--export {
@@ -1201,7 +1204,7 @@ input {
   justify-content: center;
   border: none;
   background: none;
-  color: var(--text-faint);
+  color: var(--text-muted);
   font-size: 11.5px;
   cursor: pointer;
   padding: 0 8px;
@@ -1386,7 +1389,10 @@ input {
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: none;
-  color: var(--text-secondary);
+  /* White, not one rung down. Cycle D Task 5 cut the text ladder to three
+     rungs, and the inactive state below needs a visible drop from this one:
+     secondary -> muted is 1.30x, white -> muted is 1.68x. */
+  color: var(--text-primary);
   font-size: 12.5px;
   cursor: pointer;
   text-align: left;
@@ -1415,7 +1421,7 @@ input {
    their true colour: they are the row's content, and a sample you have
    dimmed is a sample that lies about what was sampled. */
 .sampled-row:not(.is-active) {
-  color: var(--text-fainter);
+  color: var(--text-muted);
 }
 
 .sampled-row:focus-visible {
@@ -1444,11 +1450,11 @@ input {
 
 .sampled-hue {
   font-size: 10px;
-  color: var(--text-fainter);
+  color: var(--text-muted);
 }
 
 .sampled-row.is-active .sampled-hue {
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 
 /* `.control-hint` - a small explanatory line under a control - lived here.
@@ -1476,7 +1482,7 @@ input {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-pill);
   background: none;
-  color: var(--text-faint);
+  color: var(--text-muted);
   font-size: 11.5px;
   cursor: pointer;
 }
@@ -1489,7 +1495,7 @@ input {
 }
 
 .chip:hover:not(.is-selected):not(:disabled) {
-  border-color: var(--text-fainter);
+  border-color: var(--text-muted);
   color: var(--text-secondary);
 }
 
@@ -1536,11 +1542,11 @@ input {
 }
 
 .select-control .icon {
-  color: var(--text-fainter);
+  color: var(--text-muted);
 }
 
 .select-control:hover:not(:disabled) {
-  border-color: var(--text-fainter);
+  border-color: var(--text-muted);
 }
 
 .select-control:disabled {
@@ -1555,7 +1561,7 @@ input {
 .export-footnote {
   margin: 0;
   font-size: 10px;
-  color: var(--text-fainter);
+  color: var(--text-muted);
   text-align: center;
 }
 
@@ -1747,7 +1753,10 @@ input {
   width: 100%;
   aspect-ratio: 1;
   border-radius: 7px;
-  border: 1px solid var(--border-hairline);
+  /* NO BORDER. Eight tiles x four edges was 32 of the app's 148 painted
+     border edges, drawn around pale swatches on a dark panel — they were
+     already the highest-contrast thing in the section and did not need
+     outlining. Rock: "I feel like we have way too many lines in the UI." */
   box-sizing: border-box;
 }
 
@@ -1801,9 +1810,12 @@ input {
   width: 22px;
   height: 22px;
   padding: 0;
-  border: 1px solid var(--border-strong);
+  /* A FILL, NOT AN OUTLINE. Eight of these carried four border edges each —
+     another 32 lines — and now that the surfaces are actually apart, a
+     raised fill says "button" on its own. */
+  border: none;
   border-radius: 6px;
-  background: none;
+  background: var(--surface-raised-1);
   color: var(--text-secondary);
   cursor: pointer;
 }

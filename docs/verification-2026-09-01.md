@@ -2086,3 +2086,89 @@ Fixed with `onRender(syncLuminosityUI)` — `web/state.js` has a subscriber
 list for exactly this, added in Cycle B for the selection outline. This bug
 predates Task 4; the task only made it visible by testing every Reset in a
 loop instead of the one that had been built.
+
+---
+
+# Cycle D Task 5 — real white, and 67 fewer lines
+
+Rock, after three rounds of me nudging greys: *"I told you we need to have
+better contrast, and you keep doing this very small adjustments, when what we
+need it WHITE. just use the fucking white."* And then: *"separators need to be
+really faint. I feel like we have way too many 'lines' in the UI."*
+
+## Why the small adjustments kept happening
+
+I had convinced myself the app was out of room. The measurement that produced
+that conclusion was real — five text rungs plus six surface rungs, all 1.2
+apart, with a 7:1 floor, needs **36:1**, and white on black is 21:1 — but the
+conclusion I drew from it was wrong. The answer was not "we cannot have
+contrast". It was **stop spending 21:1 on distinctions nobody can see.**
+
+The app was carrying five text greys and six surface names. The five greys sat
+1.22 apart. The six surfaces sat 1.012–1.098 apart, which is to say they were
+one colour with six names.
+
+## What changed
+
+**Text: three rungs, and the top one is real white.**
+
+| | before | after |
+|---|---|---|
+| `--text-primary` | `#f5f7fb` 18.25:1 | **`#ffffff` 19.57:1** |
+| `--text-secondary` | `#dfe1e5` 14.95:1 | `#e0e2e5` 15.08:1 |
+| `--text-muted` | `#cacdd2` 12.28:1 | `#c4c8cd` 11.64:1 |
+| `--text-faint` | `#b7babf` 10.05:1 | *merged into muted* |
+| `--text-fainter` | `#a4a8ae` 8.19:1 | *merged into muted* |
+
+`--text-fainter` was the busiest token in the app (21 usages) **and** the
+dimmest. That combination is most of what "dim" meant. Everything it carried
+is now 11.64:1.
+
+**Surfaces: four rungs that are actually apart.**
+
+| adjacent pair | before | after |
+|---|---|---|
+| window → raised-1 | 1.089 (via canvas) | **1.339** |
+| raised-1 → hover | 1.032, 1.012 (via raised-2) | **1.213** |
+| hover → control-active | 1.098 | **1.467** |
+
+`--surface-canvas` (1.021 from the window) and `--surface-raised-2` (1.032
+from raised-1) are gone: two names each for one colour.
+
+**Borders: 148 painted edges → 81.** Counted in Chromium, every element,
+every side.
+
+- the eight preset tiles lost their outlines — 32 edges, drawn around the
+  brightest things in the panel;
+- the eight slider Resets became a raised fill instead of an outline — 32
+  edges;
+- the section separators went — spacing does that job now the surfaces differ.
+
+The separators that remain are faint by measurement, not by intention:
+`--border-hairline` 1.94:1 and `--border-subtle` 2.30:1 on the window, both
+inside the 1.8–2.5 decorative band.
+
+## Two things the change forced, and why
+
+**`--border-strong` had to get lighter, not fainter.** It bounds controls, so
+it owes 3:1 against the lightest surface it touches — and those surfaces just
+rose. `#696e7f` → `#8e93a2`, which now measures 3.19:1 against the active
+segmented cell (the tightest case) and 3.93:1 against hover. It is not a
+separator; the separators are the two above.
+
+**The drag-over outline inverts on a light surround.** It was
+`--border-strong`, and a light grey on `#e9eaed` measured 2.55:1. It uses the
+app's darkest ink there instead.
+
+## The suite moved with it
+
+`test/contrast.test.js` gained a **surface ladder guard** — the text tokens
+have had one since Cycle A, the surfaces never did, which is how they drifted
+to 1.012 without anything complaining. Four assertions had to be repointed at
+surviving tokens, and one had to be rewritten rather than repointed: the
+sampled row's "was this better than opacity 0.6" comparison stopped failing on
+the old instrument once the base ink went white, so it now asserts the thing
+it was always about — the replacement beats the composite and clears the
+floor.
+
+515 tests pass. No console errors.

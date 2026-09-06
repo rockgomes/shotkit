@@ -15,10 +15,12 @@
   /* --- Surfaces -------------------------------------------------------- */
   --surface-window: #0b0c0e;      /* app background (html.dc line 46); also
                                       doubles as text-on-inverse (line 59) */
-  --surface-canvas: #0e0f12;      /* stage background (line 96) */
-  --surface-raised-1: #17191d;    /* selected template row (line 76) */
-  --surface-raised-2: #1a1c20;    /* active rail item (line 65) */
-  --surface-control-active: #22252b; /* active segmented cell (line 116) */
+  /* `--surface-canvas` was merged into --surface-window in Cycle D Task 5. It
+     measured 1.021:1 against it: two names for one colour. */
+  --surface-raised-1: #25292f;    /* selected template row (line 76) */
+  /* `--surface-raised-2` was merged into --surface-raised-1 in Cycle D Task 5.
+     It measured 1.032:1 against it: two names for one colour. */
+  --surface-control-active: #3e444f; /* active segmented cell (line 116) */
   --surface-inverse: #f2f3f5;     /* primary button fill (line 59) */
 
   /* --- Row hover fill ---------------------------------------------------
@@ -32,7 +34,7 @@
      that. Lifting the hairline to the 1.9:1 below would have dropped the
      ceiling to 9.78:1 and made the ladder impossible. Split, each half is
      free: this one stays exactly where it was, and the hairline moves. */
-  --surface-hover: #1b1d22;
+  --surface-hover: #333640;
 
   /* --- Borders / hairlines ----------------------------------------------
      Three thresholds, from the spec's Contrast section, and every value
@@ -44,7 +46,7 @@
 
      Measured in test/contrast.test.js, which derives every pairing from
      web/style.css. Do not lower one of these without moving that test. */
-  --border-hairline: #3c414c;     /* was #1b1d22 (1.16:1, invisible). Pane and
+  --border-hairline: #3c424d;     /* was #1b1d22 (1.16:1, invisible). Pane and
                                      section separators only - the hover fill
                                      that used to share this name is above.
                                      1.91:1 on --surface-window: the BOTTOM of
@@ -54,7 +56,7 @@
                                      inspector section), so they accumulate;
                                      pushed to the top of the range the shell
                                      reads as a wireframe. */
-  --border-subtle: #484d58;       /* was #1f2126 (1.21:1). Toolbar divider and
+  --border-subtle: #474d57;       /* was #1f2126 (1.21:1). Toolbar divider and
                                      the CLI card outline - both decorative,
                                      but SHORT (an 18px rule, one small card),
                                      so they get the top of the range instead:
@@ -62,7 +64,7 @@
                                      token to --border-strong; it holds an
                                      <input>, so it is an interactive boundary
                                      and owes 3:1, not a judgement call. */
-  --border-strong: #696e7f;       /* was #26282e (1.33:1). Every interactive
+  --border-strong: #8e93a2;       /* was #26282e (1.33:1). Every interactive
                                      boundary: control borders, the search
                                      field, the slider track, the selected
                                      template / preset / sampled row. 3.03:1
@@ -74,7 +76,7 @@
                                      --surface-hover (.btn-ghost keeps this
                                      border while its hover fill lands under
                                      it), 3.86:1 on --surface-window. */
-  --border-dashed: #6c7384;       /* was #2c2f36 (1.43:1 on --surface-canvas -
+  --border-dashed: #9499a7;       /* was #2c2f36 (1.43:1 on --surface-canvas -
                                      the empty-state frame Rock could not see).
                                      3.55:1 on --surface-hover, 4.04:1 on
                                      --surface-canvas. Deliberately a step
@@ -126,10 +128,13 @@
      saturation reads 0.150 -> 0.429. At L~0.97 HSL saturation is an
      amplifier on a spread of six 8-bit levels, so it is the wrong
      invariant; the hue and the chroma are what actually survived. */
-  --text-primary: #f5f7fb;        /* body text, slider fill/thumb accents */
-  --text-secondary: #dfe1e5;      /* ghost button label, preset/sampled row label */
-  --text-muted: #cacdd2;          /* filename, zoom label, slider labels, muted rows */
-  --text-faint: #b7babf;          /* secondary meta, inactive segmented text, CLI command */
+  --text-primary: #ffffff;        /* body text, slider fill/thumb accents */
+  --text-secondary: #e0e2e5;      /* ghost button label, preset/sampled row label */
+  --text-muted: #c4c8cd;          /* filename, zoom label, slider labels, muted rows */
+  /* `--text-faint` was merged into --text-muted in Cycle D Task 5. Five text
+     rungs plus any real surface separation does not fit in 21:1 — see the
+     budget note at the top of the text section — and this rung sat 1.22 from
+     its neighbours, which is a distinction nobody was reading. */
   /* DEPARTS FROM THE HANDOFF, AND ABSORBS --text-disabled.
      Do not "restore" this to #6b7078, and do not re-split it into two
      tokens.
@@ -158,7 +163,9 @@
      was deleted and its usages moved here. test/contrast.test.js's "the
      text ladder keeps its rungs" guard fails if anything is merged into
      this value again. */
-  --text-fainter: #a4a8ae;
+  /* `--text-fainter` was merged into --text-muted in Cycle D Task 5, with
+     --text-faint. It was the busiest token in the app and the dimmest, which
+     is the combination that made everything look flat. */
   /* `--text-subtle` (#4b4f58, the handoff's breadcrumb "/" separator, line
      52) was removed in Cycle A Task 3. It was flagged as dead in Task 7 of
      the previous cycle and left in place then; `grep -rn text-subtle web
@@ -192,7 +199,7 @@
      as strong as a live one does not read as unavailable. */
   --text-inert: #5e6570;          /* hue/sat of --text-muted, L 0.640 -> 0.404 */
   --surface-inert: #141519;       /* hue/sat of --surface-control-active */
-  --border-inert: #33353d;        /* hue/sat of --border-strong */
+  --border-inert: #484c57;        /* hue/sat of --border-strong */
 
   --color-white: #ffffff;         /* app-mark glyph, slider thumb, active segmented text (lines 64,116,129) */
 
