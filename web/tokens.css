@@ -150,7 +150,14 @@
      amplifier on a spread of six 8-bit levels, so it is the wrong
      invariant; the hue and the chroma are what actually survived. */
   --text-primary: #ffffff;        /* body text, slider fill/thumb accents */
-  --text-secondary: #c9cdd6;      /* ghost button label, preset/sampled row label */
+  /* `--text-secondary` was retired in Cycle D Task 5's third attempt. It was
+     #c9cdd6, a silver, and it was what almost every label in the app actually
+     used — so the app defined white and did not use it. Rock inspected five
+     elements in dev tools and every one came back #C9CDD6: "is this showing
+     a white element to you?" No.
+
+     ONE TEXT COLOUR NOW: --text-primary, #ffffff. Off states still step down
+     to --text-inert; that is a state, not a rung. */
   /* `--text-muted` was merged into --text-secondary in Cycle D Task 5's second
      attempt. Rock's brief: "Upgrade all muted gray text, labels, and subtext
      to high-legibility crisp silver and pure white." Two rungs is what that
@@ -231,6 +238,11 @@
   --color-status-green: #28c840;  /* CLI-connected dot (line 93) */
 
   /* --- Brand / gradient stops (sidebar presets + inspector swatches) ---- */
+  /* The selected-state outline, sampled from Rock's reference (screen011):
+     the chosen tab carries a soft periwinkle edge rather than a filled
+     highlight. */
+  --accent: #8b8ff0;
+
   --color-brand-start: #5b6cff;   /* app-mark gradient (line 64) */
   --color-brand-end: #a24ff0;     /* app-mark gradient (line 64) */
   /* The handoff's ten fixed swatch hues (blue/pink, cyan/indigo, orange/
