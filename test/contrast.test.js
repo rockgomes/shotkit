@@ -90,10 +90,13 @@ const PAIRS = [
   // 728, 1274). .dropzone-title (1001) sits on --surface-canvas.
   ['--text-secondary', '--surface-window', TEXT_MIN],
   ['--text-secondary', '--surface-hover', TEXT_MIN],
+  ['--text-secondary', '--surface-raised-1', TEXT_MIN],
 
   // .zoom-stepper (261), .cli-status (780), .inline-control-row (1097),
   // .slider-label (1172), .template-row (596) — whose hover lays it on
   // --surface-hover (624) — and .dropzone:hover (976) on --surface-canvas.
+  ['--text-muted', '--surface-window', TEXT_MIN],
+  ['--text-muted', '--surface-hover', TEXT_MIN],
 
   // .cli-command (771), .segmented-cell (1119), .chip (1359) on the window;
   // the selected row's dimensions (635) and the active sampled row's hue
@@ -114,6 +117,7 @@ const PAIRS = [
   ['--surface-window', '--surface-inverse', TEXT_MIN],
 
   // The active segmented cell's label (1127) on --surface-control-active.
+  ['--color-white', '--surface-control-active', TEXT_MIN],
 
   // The drop error strip (1023/1024) — an opaque pair that only ever has to
   // work against itself.
@@ -219,12 +223,14 @@ const NON_TEXT = [
   ['--border-strong', '--surface-hover', BOUNDARY, BOUNDARY],
   // .template-row.is-selected (629), .preset-row.is-selected (733) and
   // .sampled-row.is-active (1279) put it on the selected row's own fill.
+  ['--border-strong', '--surface-raised-1', BOUNDARY, BOUNDARY],
   // .dropzone:hover (975) swaps the dashed frame's colour to it.
   // The .segmented container's border (1107) runs against the ACTIVE cell's
   // fill (1126) wherever that cell is first or last — `overflow: hidden` on
   // the container means the fill reaches the border. This is the lightest
   // backdrop --border-strong has anywhere, and it was missed in the first
   // pass: the token was solved against --surface-hover and measured 2.80 here.
+  ['--border-strong', '--surface-control-active', BOUNDARY, BOUNDARY],
   // The drag-over outline's light-surround override. It used to be
   // --border-strong; Cycle D Task 5 lifted that token to a light grey so it
   // could still bound the lifted surfaces, and a light grey on a light
@@ -359,6 +365,7 @@ describe('non-text contrast', () => {
 const LADDER = [
   '--text-primary',
   '--text-secondary',
+  '--text-muted',
 ];
 
 // Adjacent rungs today measure 1.2208, 1.2174, 1.2211 and 1.2274 apart. That
@@ -385,21 +392,12 @@ const MIN_LADDER_STEP = 1.2;
 // Surfaces are not text, so the bar is not 4.5 or 7. It is the same LADDER
 // rule the text tokens keep: each rung visibly above the one below it, or
 // the name is a lie.
-// The canvas, the panel, the control tracks, hover, and the chosen state.
-//
-// window -> panel is 1.054:1, BELOW the 1.2 step every other pair keeps, and
-// that is Rock's own value: "#0B0C10" for the canvas and "#121318" for the
-// panels. The separation there is not meant to come from the surfaces — it
-// comes from the outlines being gone. Exempted by name below rather than
-// silently, so nobody reads the guard as covering it.
 const SURFACE_LADDER = [
   '--surface-window',
-  '--surface-panel',
-  '--surface-track',
-  '--surface-hover',
   '--surface-raised-1',
+  '--surface-hover',
+  '--surface-control-active',
 ];
-const SURFACE_LADDER_EXEMPT = ['--surface-window -> --surface-panel'];
 
 describe('the surface ladder keeps its rungs', () => {
   const t = tokens();
@@ -417,7 +415,6 @@ describe('the surface ladder keeps its rungs', () => {
   it('keeps every adjacent pair visibly apart', () => {
     for (let i = 0; i < SURFACE_LADDER.length - 1; i += 1) {
       const [a, b] = [SURFACE_LADDER[i], SURFACE_LADDER[i + 1]];
-      if (SURFACE_LADDER_EXEMPT.includes(`${a} -> ${b}`)) continue;
       const r = ratio(t[a], t[b]);
       expect(
         Number(r.toFixed(4)),
@@ -528,7 +525,7 @@ function rules() {
 /** The one rule that dims every off state, found by its declarations rather
  *  than by a selector this test would then be free to disagree with. */
 function offStateRule() {
-  return rules().find((r) => r.body.includes('--text-secondary: var(--text-inert)'));
+  return rules().find((r) => r.body.includes('--text-muted: var(--text-inert)'));
 }
 
 /** The ground swatches carry an inline background written by
@@ -589,8 +586,9 @@ describe('off states dim with colour, never with opacity', () => {
     expect(rule, 'no rule re-declares the ladder tokens as --text-inert').toBeTruthy();
 
     for (const declared of [
-      '--text-primary', '--text-secondary', '--color-white',
+      '--text-primary', '--text-secondary', '--text-muted', '--color-white',
       '--surface-inverse',
+      '--surface-control-active', '--surface-raised-1', '--border-strong',
     ]) {
       expect(
         rule.body.includes(`${declared}:`),
@@ -674,9 +672,9 @@ describe('off states dim with colour, never with opacity', () => {
     // The three that were BELOW 3:1 in the browser, reconstructed from live
     // tokens rather than copied out of a report.
     for (const [what, token, alpha] of [
-      ['.zoom-btn:disabled', '--text-secondary', 0.4],
-      ['.segmented-cell:disabled', '--text-secondary', 0.4],
-      ['.chip:disabled', '--text-secondary', 0.4],
+      ['.zoom-btn:disabled', '--text-muted', 0.4],
+      ['.segmented-cell:disabled', '--text-muted', 0.4],
+      ['.chip:disabled', '--text-muted', 0.4],
     ]) {
       const was = ratio(over(t[token], win, alpha), win);
       expect(
@@ -745,7 +743,7 @@ describe('off states dim with colour, never with opacity', () => {
     const win = t['--surface-window'];
     const inert = ratio(t['--text-inert'], win);
     const brightest = ratio(over(t['--text-primary'], win, OLD_INERT_ALPHA), win);
-    const dimmest = ratio(over(t['--text-secondary'], win, OLD_INERT_ALPHA), win);
+    const dimmest = ratio(over(t['--text-muted'], win, OLD_INERT_ALPHA), win);
 
     expect(
       Number(inert.toFixed(2)),
