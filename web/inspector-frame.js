@@ -17,14 +17,14 @@
 // core/ as well, so there is no config field left for either to write.
 //
 // ONE RENDER PATH: exactly like web/inspector-background.js and
-// web/sidebar.js before it, every handler below mutates `state.config` and
+// web/size.js before it, every handler below mutates `state.config` and
 // calls `scheduleRender()`, nothing here calls `composeWithMeta` directly.
 //
 // core/ IMPORTS: only from core/index.js (FRAME_KINDS, CHROME_THEMES,
 // DEFAULTS, normalise), never a deep import of core/presets.js. Reading
 // `normalise(state.config)` to display an EFFECTIVE value (the corner
 // radius's own default, in particular) is the same read-only pattern
-// web/sidebar.js already established for "+ Custom size"'s prefill, never
+// web/size.js already established for "+ Custom size"'s prefill, never
 // used here to decide what to WRITE, only what to show before the user has
 // touched a control.
 //
@@ -47,7 +47,7 @@ import { state, scheduleRender } from './state.js';
 import { makeSliderRow } from './controls.js';
 
 // ---------------------------------------------------------------------
-// Pure state helpers, no DOM. Same split web/sidebar.js and
+// Pure state helpers, no DOM. Same split web/size.js and
 // web/inspector-background.js already established: these are what
 // test/inspector-frame.test.js drives directly; the DOM-touching init
 // functions are at the bottom of this file.
@@ -284,11 +284,22 @@ export function showsStrokeColor(config, which = 'web') {
 // selected. it either should, or the control should be disabled."
 export const RADIUS_PERCENT_MAX = 6;
 
+/** THE PANEL'S SUBJECT, written in one place.
+ *
+ *  Both sections call this, and both used to write their own copy into their
+ *  own heading. The heading is not where it belongs: it read as part of the
+ *  word "Frame", and it was said twice for one selection. */
+function setInspectorSubject(which) {
+  const el = document.getElementById('selectedElementName');
+  if (el) el.textContent = ELEMENT_LABELS[which];
+}
+
 /**
  * The element the Corner radius control edits, resolved the same way every
  * other reader here resolves one. `which` is a name ('web'/'mobile'), not a
  * block - Task 7 supplies it from the selection; until then it is 'web'.
  */
+
 function elementOf(config, which) {
   return normalise(config).elements[which];
 }
@@ -396,8 +407,7 @@ export function initFrameInspector(onFrameChange = null) {
   if (!section) return null;
 
   section.innerHTML =
-    '<h2 class="section-label">Frame<span class="section-subject" id="frameSubject"></span></h2>';
-  const subject = section.querySelector('#frameSubject');
+    '<h2 class="section-label">Frame</h2>';
 
   // --- frameKind chips -----------------------------------------------
   const chipRow = document.createElement('div');
@@ -463,10 +473,12 @@ export function initFrameInspector(onFrameChange = null) {
 
   function syncFrameUI() {
     const which = editingElement(state);
-    // The subject, said out loud. Two identical panels editing different
-    // objects is a trap, not a feature - and after Task 6 the panel really
-    // can be pointed at either one.
-    subject.textContent = ELEMENT_LABELS[which];
+    // The subject, said out loud, ONCE, at the top of the panel. Two
+    // identical panels editing different objects is a trap, not a feature -
+    // and after Task 6 the panel really can be pointed at either one. It
+    // used to be a "· Desktop" tag on each of the two headings; naming it
+    // twice said nothing the second time.
+    setInspectorSubject(which);
 
     const kind = activeFrameKind(state.config, which);
     chips.forEach((btn) => {
@@ -540,8 +552,7 @@ export function initFinishInspector() {
   if (!section) return null;
 
   section.innerHTML =
-    '<h2 class="section-label">Finish<span class="section-subject" id="finishSubject"></span></h2>';
-  const finishSubject = section.querySelector('#finishSubject');
+    '<h2 class="section-label">Finish</h2>';
 
   // --- padding -------------------------------------------------------
   const pad = makeSliderRow({
@@ -720,7 +731,7 @@ export function initFinishInspector() {
     // Padding is CANVAS-level, not per element - it is the safe area, and
     // there is one of those. It stays here for now; Cycle C's panel split
     // moves it to the left side where the rest of the canvas lives.
-    finishSubject.textContent = ELEMENT_LABELS[editingElement(state)];
+    setInspectorSubject(editingElement(state));
     pad.sync(activePadPercent(state.config));
   }
 

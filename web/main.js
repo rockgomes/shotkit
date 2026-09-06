@@ -8,13 +8,14 @@
 
 import { state, SURROUNDS, bindCanvas, addFiles, hasContent, onRender } from './state.js';
 import { exportShot } from './export.js';
-import { initSidebar } from './sidebar.js';
+import { initSize, sizeLabel } from './size.js';
+import { makePopover } from './controls.js';
 import { initBackgroundInspector } from './inspector-background.js';
 import { initFrameInspector, initFinishInspector } from './inspector-frame.js';
 import { hitTest, boxFor, placeOutline } from './selection.js';
 // `normalise` only, read-only, to learn the canvas's EFFECTIVE size for the
 // empty-state frame below (Task 7). Never used to decide what to write; see
-// updateEmptyFrame()'s own comment. Same read-only pattern web/sidebar.js's
+// updateEmptyFrame()'s own comment. Same read-only pattern web/size.js's
 // "+ Custom size" prefill and web/inspector-frame.js's radius display
 // already established.
 import { normalise } from '../core/index.js';
@@ -52,9 +53,43 @@ document.querySelectorAll('.segmented').forEach((el) => {
 // Templates/Ratios (Task 4) are NOT wired with the generic
 // wireSingleSelectGroup helper above: those rows carry real application
 // state (state.config.template/ratio), not just a CSS toggle, and
-// need to funnel through scheduleRender(), see web/sidebar.js's header
+// need to funnel through scheduleRender(), see web/size.js's header
 // comment for why that file owns its own click handling instead.
-initSidebar();
+/* THE SIZE DROPDOWN, in the strip above the canvas.
+   The trigger says what the canvas is; the panel is the control that used
+   to sit in the left rail, unchanged. `syncSizeTrigger` runs after every
+   size change (web/size.js calls it through onSizeChange) so the trigger and
+   the open list can never disagree. */
+const sizeSelect = document.getElementById('sizeSelect');
+const sizeMenu = document.getElementById('sizeMenu');
+const sizeTriggerName = document.getElementById('sizeTriggerName');
+const sizeTriggerDims = document.getElementById('sizeTriggerDims');
+
+function syncSizeTrigger() {
+  const { name, dims } = sizeLabel(state.config);
+  if (sizeTriggerName) sizeTriggerName.textContent = name;
+  if (sizeTriggerDims) sizeTriggerDims.textContent = dims;
+  sizeSelect?.setAttribute('aria-label', `Canvas size: ${name}, ${dims}`);
+}
+
+const sizePopover = sizeSelect && sizeMenu
+  ? makePopover({
+    trigger: sizeSelect,
+    panel: sizeMenu,
+    // The search box, so typing a size name is the first thing that works.
+    onOpen: (panel) => panel.querySelector('.sidebar-search input')?.focus(),
+  })
+  : null;
+
+initSize({
+  onSizeChange: () => {
+    syncSizeTrigger();
+    // AND CLOSE. The panel covers the canvas, and the whole point of picking
+    // a size is to see what it did.
+    sizePopover?.setOpen(false);
+  },
+});
+syncSizeTrigger();
 
 /** Sliders: keep the mono value label and the track fill in sync with the
  *  input's own value. Angle gets a ° suffix; everything else gets %. */
@@ -375,7 +410,7 @@ function resettleCanvas() {
  *  with whatever ratio/template/custom-size the SIDEBAR currently has
  *  selected, even with nothing loaded yet and render() a no-op (see
  *  web/state.js). `normalise()` (core/index.js) is a read-only lookup of
- *  the canvas's EFFECTIVE size, the exact same pattern web/sidebar.js's
+ *  the canvas's EFFECTIVE size, the exact same pattern web/size.js's
  *  "+ Custom size" prefill and web/inspector-frame.js's radius display
  *  already use, never used here to decide what to write.
  *
@@ -494,7 +529,7 @@ function syncContentUI() {
 
 // The empty frame tracks the sidebar's Templates/Ratios/"+ Custom size"
 // controls even though none of those write through `scheduleRender()`'s
-// normal path in any way this file can hook directly (web/sidebar.js owns
+// normal path in any way this file can hook directly (web/size.js owns
 // that wiring, and Task 7's brief scopes this file to web/index.html,
 // web/style.css and web/main.js only, not a second file to touch for one
 // more call). A `click`/`keydown` listener on `#sidebar` itself, scoped to
@@ -608,7 +643,7 @@ async function handleFiles(fileList) {
   // so state.meta already reflects the new image(s) by this point, this is
   // what tells the Background panel's preset swatches to stop showing the
   // synthetic no-image fallback and start previewing the real thing (see
-  // web/sidebar.js's "Ground swatch gradients" header comment), and what
+  // web/size.js's "Ground swatch gradients" header comment), and what
   // re-derives its "Sampled" row (Task 5), see web/inspector-background.js's
   // "Sampled" header comment for why it keeps an independent cache that only
   // this call invalidates. The rail had a second copy of this handshake
@@ -749,30 +784,22 @@ function updateFormatUI() {
   if (exportBtnPanel && !exporting) exportBtnPanel.textContent = `Export ${label}`;
 }
 
+const formatMenu = makePopover({
+  trigger: exportFormatSelect,
+  panel: exportFormatMenu,
+  // The option that is already chosen, so the arrow keys start from it.
+  onOpen: () => {
+    const opts = formatOptions();
+    (opts.find((o) => o.dataset.format === exportFormat) || opts[0])?.focus();
+  },
+});
+
 function menuIsOpen() {
-  return exportFormatSelect?.getAttribute('aria-expanded') === 'true';
+  return formatMenu.isOpen();
 }
 
-/** @param {boolean} open @param {boolean} [refocus] return focus to the button */
 function setMenuOpen(open, refocus = true) {
-  if (!exportFormatSelect || !exportFormatMenu) return;
-  exportFormatSelect.setAttribute('aria-expanded', String(open));
-  exportFormatSelect.classList.toggle('is-open', open);
-  exportFormatMenu.hidden = !open;
-  if (open) {
-    // READ A LAYOUT PROPERTY FIRST. `hidden` is removed above, but the
-    // global `[hidden] { display: none !important }` rule means the menu is
-    // still display:none until styles recompute, and focus() on a
-    // display:none element silently does nothing. Verified: without this
-    // line the options never took focus, so Escape and the arrow keys went
-    // to the button instead of the menu.
-    void exportFormatMenu.offsetHeight;
-    const current =
-      formatOptions().find((o) => o.dataset.format === exportFormat) || formatOptions()[0];
-    current?.focus();
-  } else if (refocus) {
-    exportFormatSelect.focus();
-  }
+  formatMenu.setOpen(open, refocus);
 }
 
 function chooseFormat(format) {
@@ -781,31 +808,18 @@ function chooseFormat(format) {
   setMenuOpen(false);
 }
 
-exportFormatSelect?.addEventListener('click', () => {
-  if (exportFormatSelect.disabled) return;
-  setMenuOpen(!menuIsOpen());
-});
-
 exportFormatMenu?.addEventListener('click', (event) => {
   const opt = event.target.closest('.select-option');
   if (opt) chooseFormat(opt.dataset.format);
 });
 
-/** Keys are handled on the FIELD, not on the menu, so they work whether
- *  focus sits on the button or on an option. Arrow keys open a closed menu
- *  and walk an open one; Home/End jump to the ends; Escape closes without
- *  changing anything. Enter and Space need no handler: the options are
- *  buttons and already fire click. */
-document.getElementById('exportFormatField')?.addEventListener('keydown', (event) => {
-  const walk = ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key);
-  if (event.key === 'Escape') {
-    if (!menuIsOpen()) return;
-    event.preventDefault();
-    event.stopPropagation();
-    setMenuOpen(false);
-    return;
-  }
-  if (!walk) return;
+/** Roving focus, on the FIELD so it works whether focus sits on the button
+ *  or on an option. Arrow keys open a closed menu and walk an open one;
+ *  Home/End jump to the ends. Escape and the outside click are the
+ *  popover's, not this listener's. Enter and Space need no handler: the
+ *  options are buttons and already fire click. */
+formatMenu.field.addEventListener('keydown', (event) => {
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
   event.preventDefault();
   if (!menuIsOpen()) {
     setMenuOpen(true);
@@ -818,15 +832,6 @@ document.getElementById('exportFormatField')?.addEventListener('keydown', (event
   else if (at < 0) (event.key === 'ArrowDown' ? opts[0] : opts[opts.length - 1])?.focus();
   else if (event.key === 'ArrowDown') opts[(at + 1) % opts.length]?.focus();
   else opts[(at - 1 + opts.length) % opts.length]?.focus();
-});
-
-/** Outside click closes it. `pointerdown` rather than `click` so the menu is
- *  gone before whatever was clicked reacts; the focus does NOT come back to
- *  the button here, because the pointer is already somewhere else. */
-document.addEventListener('pointerdown', (event) => {
-  if (!menuIsOpen()) return;
-  if (event.target.closest('#exportFormatField')) return;
-  setMenuOpen(false, false);
 });
 
 /** The 1x/2x/3x segmented control's `.is-active` toggling is already

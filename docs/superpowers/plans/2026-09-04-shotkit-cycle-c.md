@@ -69,7 +69,7 @@ So, for every assertion added below:
 | `core/index.js` | exports the new vocabulary |
 | `web/inspector-background.js` | rebuilt: type first, sampled inside each type, luminosity, angle |
 | `web/preset-tiles.js` | **new**, renders a preset into a small canvas through the real generator |
-| `web/sidebar.js` | `renderGroundSwatches` retires in favour of the tiles |
+| `web/size.js` | `renderGroundSwatches` retires in favour of the tiles |
 | `web/style.css` | the tile grid, the full-width preset row, the angle readout |
 
 `web/preset-tiles.js` is a new file because it is the one piece here with a hard rule attached, *the tile is drawn by the real generator, never approximated*, and a rule is easier to keep in a file that contains only the thing it governs. That is the same reasoning that gave `web/selection.js` its own file in Cycle B, and the same class of defect: a swatch that lies about what it will produce.
@@ -515,14 +515,14 @@ Move the DOM construction, not the logic. Every pure helper in this file already
 **Files:**
 - Create: `web/preset-tiles.js`
 - Modify: `web/inspector-background.js`
-- Modify: `web/sidebar.js`, `renderGroundSwatches` and `gradientFor` retire
+- Modify: `web/size.js`, `renderGroundSwatches` and `gradientFor` retire
 - Modify: `web/style.css`
 - Test: `test/preset-tiles.test.js` (create)
 
 **Interfaces:**
 - Produces: `renderTile(canvas, hue, config, meta)` paints one preset at tile size through `core/`'s own painters.
 
-**The rule with a file to itself.** `gradientFor` in `web/sidebar.js` builds a CSS `linear-gradient` string that *approximates* what `paintGround` will draw. It is a second implementation of the ground, in a different language, and it has already lied once. A 44px tile drawn by the real generator cannot.
+**The rule with a file to itself.** `gradientFor` in `web/size.js` builds a CSS `linear-gradient` string that *approximates* what `paintGround` will draw. It is a second implementation of the ground, in a different language, and it has already lied once. A 44px tile drawn by the real generator cannot.
 
 - [x] **Step 1: Write the failing test**
 
@@ -548,7 +548,7 @@ describe('preset tiles are the real thing (Task 5)', () => {
   });
 
   it('the retired CSS approximation is gone, not merely unused', () => {
-    expect(codeOf('web/sidebar.js')).not.toContain('linear-gradient');
+    expect(codeOf('web/size.js')).not.toContain('linear-gradient');
   });
 });
 ```
@@ -557,11 +557,11 @@ The tolerance of 4 is for the gradient's own interpolation across two very diffe
 
 - [x] **Step 2: Run and watch it fail**
 
-Expected: the file does not exist, and `web/sidebar.js` still contains `linear-gradient`.
+Expected: the file does not exist, and `web/size.js` still contains `linear-gradient`.
 
 - [x] **Step 3: Write `web/preset-tiles.js`**
 
-It builds a small config (`w`/`h` at tile size, the preset's `forceHue`, the current `bgType`, `luminosity` and `seed`), calls `groundFromMeta` for the stops and `paintGround` for the pixels. `groundFromMeta` is the cheap path that already exists precisely for previewing a different hue against the current image's analysis, see its doc comment, and `web/sidebar.js`'s existing caller for the no-image fallback.
+It builds a small config (`w`/`h` at tile size, the preset's `forceHue`, the current `bgType`, `luminosity` and `seed`), calls `groundFromMeta` for the stops and `paintGround` for the pixels. `groundFromMeta` is the cheap path that already exists precisely for previewing a different hue against the current image's analysis, see its doc comment, and `web/size.js`'s existing caller for the no-image fallback.
 
 Nothing here may re-implement a gradient.
 

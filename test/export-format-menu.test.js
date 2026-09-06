@@ -56,12 +56,20 @@ describe('the export format menu', () => {
   });
 });
 
-describe('the format menu behaviour in web/main.js', () => {
+describe('the format menu behaviour', () => {
   const main = readFileSync(new URL('../web/main.js', import.meta.url), 'utf8');
+  const controls = readFileSync(new URL('../web/controls.js', import.meta.url), 'utf8');
 
+  // Escape and the outside click live in makePopover (web/controls.js) as of
+  // 2026-09-07, because the Size dropdown needs the same six behaviours and
+  // a second copy of them is how the two would drift apart.
   it('closes on Escape and on a click outside', () => {
-    expect(main).toContain("'Escape'");
-    expect(main).toContain("addEventListener('pointerdown'");
+    expect(controls).toContain("'Escape'");
+    expect(controls).toContain("addEventListener('pointerdown'");
+  });
+
+  it('uses the shared popover rather than its own copy', () => {
+    expect(main).toMatch(/makePopover\(\{\s*\n?\s*trigger: exportFormatSelect/);
   });
 
   it('never cycles the format on click again', () => {

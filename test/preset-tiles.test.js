@@ -30,7 +30,7 @@ function at(w, h, name) {
 
 describe('preset tiles are the real thing (Task 5)', () => {
   it('web/preset-tiles.js paints through core/, and never fakes a gradient', () => {
-    // The rule this file exists to hold. `gradientFor` in web/sidebar.js
+    // The rule this file exists to hold. `gradientFor` in web/size.js
     // built a CSS `linear-gradient` string that APPROXIMATED what
     // paintGround would draw - a second implementation of the ground, in a
     // different language, which has already lied once.
@@ -42,8 +42,8 @@ describe('preset tiles are the real thing (Task 5)', () => {
   it('the retired CSS approximation is gone, not merely unused', () => {
     // An unused second implementation of the ground is exactly the thing
     // that lies later.
-    expect(codeOf('web/sidebar.js')).not.toContain('linear-gradient');
-    expect(codeOf('web/sidebar.js')).not.toContain('gradientFor');
+    expect(codeOf('web/size.js')).not.toContain('linear-gradient');
+    expect(codeOf('web/size.js')).not.toContain('gradientFor');
   });
 
   it('a tile matches what the canvas will actually render, not an approximation', () => {

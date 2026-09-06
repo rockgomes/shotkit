@@ -198,7 +198,7 @@ git commit -m "feat(web): export PNG, JPEG and WebP at 1x, 2x and 3x"
 ### Task 4: Sidebar, templates, ratios, presets
 
 **Files:**
-- Create: `web/sidebar.js`
+- Create: `web/size.js`
 - Modify: `web/main.js`, `web/style.css`
 
 - [ ] **Step 1: Templates and ratios, both**

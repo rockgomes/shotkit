@@ -163,42 +163,18 @@
 
       <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
 
-      <aside id="sidebar" aria-label="The shot: size and background">
-        <label class="sidebar-search">
-          <svg class="icon" aria-hidden="true"><use href="#icon-search"></use></svg>
-          <span class="visually-hidden">Search templates</span>
-          <input type="text" placeholder="Search templates…" />
-        </label>
-
-        <section class="sidebar-section">
-          <h2 class="section-label">Templates</h2>
-          <ul class="template-list">
-            <li><button type="button" class="template-row is-selected" aria-pressed="true">
-              <span>Dribbble shot</span><span class="mono dim">2800×2100</span>
-            </button></li>
-            <li><button type="button" class="template-row" aria-pressed="false">
-              <span>Twitter post</span><span class="mono dim">1600×900</span>
-            </button></li>
-            <li><button type="button" class="template-row" aria-pressed="false">
-              <span>Twitter header</span><span class="mono dim">1500×500</span>
-            </button></li>
-            <li><button type="button" class="template-row" aria-pressed="false">
-              <span>App Store</span><span class="mono dim">2880×1800</span>
-            </button></li>
-            <li><button type="button" class="template-row" aria-pressed="false">
-              <span>Open Graph</span><span class="mono dim">2400×1260</span>
-            </button></li>
-            <li><button type="button" class="template-row" aria-pressed="false">
-              <span>Instagram</span><span class="mono dim">2160×2160</span>
-            </button></li>
-            <li><button type="button" class="template-row template-row--add">+ Custom size</button></li>
-          </ul>
-        </section>
+      <aside id="sidebar" aria-label="The canvas: background">
+        <!-- NO SIZE CONTROL HERE as of 2026-09-07. Size moved into the strip
+             above the canvas, as a dropdown, because that is where Rock's own
+             design puts it: the size IS the canvas, so it belongs on the
+             canvas, not in a list of panels beside it. The search box went
+             with it - it searches sizes, and there is nothing else here to
+             search. web/size.js builds the control into #sizeHost now. -->
 
         <!-- NO GROUND SECTION HERE, DELIBERATELY. The rail used to carry a
              second copy of the eight ground presets; the inspector's
              Background panel shows the same eight (rendered by the same
-             renderGroundSwatches helper in web/sidebar.js) and is where the
+             renderGroundSwatches helper in web/size.js) and is where the
              rest of the ground controls live. One list, one place. -->
 
         <!-- web/inspector-background.js owns everything in this section
@@ -219,9 +195,9 @@
              panel does before any document is open, present, greyed, not
              operable. web/main.js's syncContentUI() removes this the moment
              a screenshot decodes and restores it if the app is ever back to
-             zero images. The Size control above is deliberately not covered
-             by it, that configures what a drop will produce and stays live
-             throughout. -->
+             zero images. The Size control is not covered by it - it now
+             lives in the canvas strip, it configures what a drop will
+             produce, and it stays live throughout. -->
         <section class="inspector-section" id="backgroundSection" inert>
           <h2 class="section-label">Background</h2>
         </section>
@@ -236,9 +212,36 @@
       </aside>
 
       <main id="stage" aria-label="Canvas">
+        <!-- THE CANVAS STRIP. What the canvas IS on the left (its size),
+             how it is DISPLAYED on the right (the table it sits on). The
+             right-hand control was called "Surround"; Rock, 2026-09-06:
+             *"Table is better than surround"*. Only the visible word
+             changed - `data-surround`, --surround-*, state.surround and
+             SURROUNDS all still say surround, because that is what the
+             config field is called and renaming it would touch core/. -->
         <div class="canvas-toolbar">
-          <span class="canvas-toolbar-label">Surround</span>
-          <div class="segmented segmented--mini surround-control" role="group" aria-label="Canvas surround">
+          <div class="select select--size" id="sizeField">
+            <button type="button" id="sizeSelect" class="select-control select-control--size"
+                    aria-haspopup="dialog" aria-expanded="false" aria-controls="sizeMenu"
+                    aria-label="Canvas size">
+              <span class="size-trigger-name" id="sizeTriggerName">Dribbble shot</span>
+              <span class="mono size-trigger-dims" id="sizeTriggerDims">2800×2100</span>
+              <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-chevron-down"></use></svg>
+            </button>
+            <div id="sizeMenu" class="select-menu select-menu--panel" role="dialog" aria-label="Canvas size" hidden>
+              <label class="sidebar-search">
+                <svg class="icon" aria-hidden="true"><use href="#icon-search"></use></svg>
+                <span class="visually-hidden">Search sizes</span>
+                <input type="text" placeholder="Search sizes…" />
+              </label>
+              <!-- web/size.js fills this in: the tab strip, the list and
+                   the custom W/H form, exactly as they were in the rail. -->
+              <section class="sidebar-section" id="sizeHost"></section>
+            </div>
+          </div>
+
+          <span class="canvas-toolbar-label">Table</span>
+          <div class="segmented segmented--mini surround-control" role="group" aria-label="Canvas table">
             <button type="button" class="segmented-cell surround-cell" data-surround="dark" aria-pressed="false">Dark</button>
             <button type="button" class="segmented-cell surround-cell is-active" data-surround="mid" aria-pressed="true">Mid</button>
             <button type="button" class="segmented-cell surround-cell" data-surround="light" aria-pressed="false">Light</button>
@@ -277,6 +280,16 @@
       </main>
 
       <aside id="inspector" aria-label="The selected element: frame, finish and export">
+        <!-- ONE SUBJECT LINE, at the top, instead of a "· Desktop" tag on
+             each section heading. Both sections always edit the same thing -
+             whichever element is selected - so naming it twice said nothing
+             the second time, and said it in a place that read as part of the
+             heading. web/inspector-frame.js writes the name. -->
+        <header class="inspector-subject" id="inspectorSubject">
+          <span class="inspector-subject-label">Selected</span>
+          <span class="inspector-subject-name" id="selectedElementName">Desktop</span>
+        </header>
+
         <!-- Task 6 (web/inspector-frame.js) owns everything below the
              heading in both sections below, frameKind chips/chrome theme/
              url in Frame, padding/corner radius/grain/shadow in

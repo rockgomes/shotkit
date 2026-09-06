@@ -376,7 +376,7 @@ reproduce here, consistent with what a reviewer already found.
   `restartAnimation()`/`isReducedMotion()`, the `propertySections` inert
   toggle, and the `#sidebar` click/keydown listeners that keep the empty
   frame in sync with Templates/Ratios/Custom-size without touching
-  `web/sidebar.js`.
+  `web/size.js`.
 - `web/tokens.css`: one new compound token, `--shadow-settle`, for the
   arrival animation's cast shadow, following the file's own existing
   convention that compound shadow values live here, not as a literal in
@@ -1540,7 +1540,7 @@ candidates if the palette is revisited.
 
 ### The test suite caught this one, unprompted
 
-`gradientFor` in `web/sidebar.js` previews a preset in its swatch, and it did
+`gradientFor` in `web/size.js` previews a preset in its swatch, and it did
 not know about `forceSat`, so the `ash` swatch would have previewed as a
 blue tint and then rendered as a grey. **A swatch lying about what selecting
 it produces** is the exact defect that file's own suite exists to catch, and
@@ -1559,7 +1559,7 @@ replace-not-scale.
 
 # Cycle C Task 5, preset tiles
 
-`gradientFor` in `web/sidebar.js` built a CSS `linear-gradient` string that
+`gradientFor` in `web/size.js` built a CSS `linear-gradient` string that
 APPROXIMATED what `paintGround` draws, and `renderGroundSwatches` painted
 eight 14×14 chips with it. A second implementation of the ground, in a
 different language, kept in step by hand.

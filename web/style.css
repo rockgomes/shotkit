@@ -804,7 +804,7 @@ input {
 /* `.preset-swatch--aurora/--slate/--candy` (three fixed gradient chips from
    the design handoff) lived here, removed with the rail's Ground list they
    were the only markup for (Cycle A Task 2). The surviving `.preset-swatch`
-   above is still real: web/sidebar.js's `renderGroundSwatches` builds it and
+   above is still real: web/size.js's `renderGroundSwatches` builds it and
    sets `style.background` from the live hue, so the chip's colour comes from
    the ground itself rather than from three hard-coded modifiers. Their six
    `--color-*` tokens went with them, in tokens.css. */
@@ -868,10 +868,50 @@ input {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 36px;
+  /* 36px was a strip with one control on it. It carries the Size dropdown
+     now, so it gets the height a 28px control plus its breathing room needs. */
+  height: 46px;
   flex: none;
   padding: 0 14px;
   border-bottom: 1px solid var(--border-hairline);
+  /* The Size panel opens over the canvas, so the strip has to stack above it. */
+  position: relative;
+  z-index: 10;
+  /* THE STRIP MEASURES ITSELF, not the window. Its width is the stage's, and
+     the stage is the window minus two 266px panels that only become drawers
+     below 900px - so at a 900px window the strip is 316px wide, and a media
+     query written against the WINDOW gets that backwards every time. This is
+     what the two @container rules below ask. */
+  container-type: inline-size;
+  container-name: strip;
+}
+
+/* 412px is what the full strip wants: a 200px Size trigger, the word
+   "Table", the three cells, the gaps and the padding. Below that the word
+   goes first - the cells say Dark, Mid and Light on their own. Below 360 the
+   size NAME goes too, and the trigger keeps the pixels, which are the part
+   you cannot guess from looking at the canvas. */
+@container strip (max-width: 419px) {
+  .canvas-toolbar-label {
+    display: none;
+  }
+}
+
+@container strip (max-width: 359px) {
+  .size-trigger-name {
+    display: none;
+  }
+}
+
+/* What the canvas IS, on the left; how it is DISPLAYED, on the right.
+   `0 1 200px`, not `none`: at 900px the stage is only ~316px wide and a
+   200px floor put 393px of content in it, which cut the Table control off.
+   The trigger asks for 200 and gives it back when there is not 200 to give;
+   the name ellipsizes, the pixels and the chevron never do. */
+.canvas-toolbar .select--size {
+  flex: 0 1 200px;
+  min-width: 0;
+  margin-right: auto;
 }
 
 .canvas-toolbar-label {
@@ -1107,6 +1147,29 @@ input {
   overflow-x: hidden;
   border-left: 1px solid var(--border-hairline);
   background: var(--surface-window);
+}
+
+/* ONE subject line for the whole panel, in place of a "· Desktop" tag on
+   each heading. It is a line of chrome, not a section, so it gets the
+   hairline under it that a section boundary would otherwise have to imply. */
+.inspector-subject {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: none;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.inspector-subject-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.inspector-subject-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
 }
 
 .inspector-section {
@@ -1633,6 +1696,70 @@ input {
 .select-option:focus-visible {
   outline: 2px solid var(--text-primary);
   outline-offset: -2px;
+}
+
+/* -------------------------------------------------------------------------
+   The Size dropdown, in the canvas strip
+
+   It is the same .select / .select-menu primitive the format menu uses. The
+   difference is what it holds: options there, a whole control here (search,
+   tabs, list, custom form), so the panel gets a width of its own and opens
+   DOWNWARD - it hangs off the top of the stage, where there is nothing but
+   room below.
+   ---------------------------------------------------------------------- */
+
+.select-control--size {
+  gap: 8px;
+  justify-content: flex-start;
+  min-width: 0;
+  height: 30px;
+}
+
+.select-control--size .icon {
+  margin-left: auto;
+}
+
+.size-trigger-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The pixels are the part you cannot guess, so they never shrink. */
+.size-trigger-dims {
+  flex: none;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* A PANEL, not a list of options: it opens below, it is wider than its
+   trigger, and it scrolls once the list is longer than the stage can show. */
+.select-menu--panel {
+  top: calc(100% + 6px);
+  bottom: auto;
+  right: auto;
+  /* 100cqw is the STRIP's content width (see container-type above), so the
+     panel can never hang past the edge it opens from. Measured at 320px
+     before this: a flat 268px panel opening at x=66 ran to 334, 14px past
+     the window. `100vw - 28px` was the first fix and got it wrong for the
+     same reason the media query was wrong - the strip is not the window. */
+  width: min(268px, 100cqw);
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+  gap: 10px;
+  padding: 10px;
+}
+
+.select-menu--panel .sidebar-section {
+  padding: 0;
+  gap: 10px;
+}
+
+.select-menu--panel .sidebar-search {
+  margin: 0;
 }
 
 .select-control:disabled {

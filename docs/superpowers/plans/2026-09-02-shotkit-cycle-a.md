@@ -4,7 +4,7 @@
 
 **Goal:** Make the rendered shot honest, no stroke you didn't ask for, strokes you can ask for, a browser frame that looks like a browser, frames that grow outward instead of shrinking your screenshot, a mesh worth using, and a shadow you can steer, plus the three app fixes that collide with none of it.
 
-**Architecture:** All rendering work lands in `core/`, which reopens deliberately after being closed since Task 5. Frames and strokes become *outsets*: the screenshot's box is computed first from the source ratio, then chrome and stroke grow outward from it, and padding gives way rather than the picture. `paintShadow` gains named parameters whose defaults reproduce today's verified output byte-for-byte, guarded by a golden of the shadow alone. Three app-side fixes (contrast, label spacing, Ground dedup) touch only `web/tokens.css`, `web/style.css` and `web/sidebar.js`, and are sequenced first so daily use improves immediately.
+**Architecture:** All rendering work lands in `core/`, which reopens deliberately after being closed since Task 5. Frames and strokes become *outsets*: the screenshot's box is computed first from the source ratio, then chrome and stroke grow outward from it, and padding gives way rather than the picture. `paintShadow` gains named parameters whose defaults reproduce today's verified output byte-for-byte, guarded by a golden of the shadow alone. Three app-side fixes (contrast, label spacing, Ground dedup) touch only `web/tokens.css`, `web/style.css` and `web/size.js`, and are sequenced first so daily use improves immediately.
 
 **Tech Stack:** Zero-dependency ES modules in `core/`; Vite + vanilla JS in `web/`; vitest with `@napi-rs/canvas` and `pixelmatch` for goldens.
 
@@ -212,13 +212,13 @@ asks for a change, make it, redeploy, and hand the link back before moving on.
 
 **Files:**
 - Modify: `web/style.css:511-524` (`.template-row`)
-- Modify: `web/sidebar.js:455-465` (the rail's Ground section)
+- Modify: `web/size.js:455-465` (the rail's Ground section)
 - Modify: `web/index.html` (the rail's Ground markup)
 - Test: `test/sidebar.test.js`
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `renderGroundSwatches` **stays exported** from `web/sidebar.js`, `web/inspector-background.js:491` still calls it, and Cycle B's Background rebuild depends on it. Only the rail's *caller* and its markup go.
+- Produces: `renderGroundSwatches` **stays exported** from `web/size.js`, `web/inspector-background.js:491` still calls it, and Cycle B's Background rebuild depends on it. Only the rail's *caller* and its markup go.
 
 - [ ] **Step 1: Fix the label run-together**
 
@@ -251,7 +251,7 @@ And immediately after the `.template-row` rule, add:
 
 - [ ] **Step 2: Remove Ground from the left rail**
 
-In `web/sidebar.js`, delete the rail's Ground block, the `renderGroundSwatches(groundList, ...)` call at line ~460 and the `groundList` element lookup that feeds it. Delete the corresponding `GROUND` heading and `<ul>` from `web/index.html`'s rail markup.
+In `web/size.js`, delete the rail's Ground block, the `renderGroundSwatches(groundList, ...)` call at line ~460 and the `groundList` element lookup that feeds it. Delete the corresponding `GROUND` heading and `<ul>` from `web/index.html`'s rail markup.
 
 Do **not** delete the `renderGroundSwatches` function itself (line 228) or its export.
 
@@ -267,7 +267,7 @@ describe('the rail does not duplicate the Background panel', () => {
   });
 
   it('still exports renderGroundSwatches for the inspector', async () => {
-    const mod = await import('../web/sidebar.js');
+    const mod = await import('../web/size.js');
     expect(typeof mod.renderGroundSwatches).toBe('function');
   });
 });
@@ -287,7 +287,7 @@ Start the dev server via `preview_start`, load a screenshot, and confirm: templa
 - [ ] **Step 6: Commit**
 
 ```bash
-git add web/style.css web/sidebar.js web/index.html test/sidebar.test.js
+git add web/style.css web/size.js web/index.html test/sidebar.test.js
 git commit -m "fix(web): space template labels, drop the rail's duplicate Ground list"
 git push origin feat/cycle-a
 ```

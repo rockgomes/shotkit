@@ -5,7 +5,7 @@
 // THE TILE IS DRAWN BY THE REAL GENERATOR, NEVER APPROXIMATED. That is this
 // file's whole reason to exist, and it is not a style preference.
 //
-// What it replaces: `gradientFor` in web/sidebar.js built a CSS
+// What it replaces: `gradientFor` in web/size.js built a CSS
 // `linear-gradient` string that approximated what `paintGround` would draw,
 // a second implementation of the ground, in a different language, kept in
 // step by hand. It had already lied once, and Cycle C caught it lying again
@@ -48,7 +48,7 @@ export function renderTile(canvas, name, config, meta = null, makeCanvas = defau
   const stops = meta
     ? groundFromMeta(meta, preset.hue, eff.luminosity, forceSat).ground
     // No screenshot yet: a synthetic mid-tone source at this preset's own
-    // hue, which is what web/sidebar.js's swatches have always fallen back
+    // hue, which is what web/size.js's swatches have always fallen back
     // to for the empty state.
     : groundFor([syntheticSource(preset.hue, makeCanvas)],
                 preset.hue, eff.luminosity, forceSat).ground;

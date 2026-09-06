@@ -1,4 +1,4 @@
-// web/sidebar.js, Task 4: templates and ratios in the sidebar, plus the
+// web/size.js: the canvas's size - templates, ratios and a custom W/H.
 // ground-swatch rendering the inspector's Background panel reuses (the rail
 // itself no longer shows a Ground group, Cycle A Task 2).
 //
@@ -44,7 +44,7 @@ import { TEMPLATES, RATIOS, HUES, normalise } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
 
 // ---------------------------------------------------------------------
-// Pure state helpers, no DOM. These are what test/sidebar.test.js drives
+// Pure state helpers, no DOM. These are what test/size.test.js drives
 // directly; initSidebar() below is the only DOM-touching part of this file.
 // ---------------------------------------------------------------------
 
@@ -102,6 +102,28 @@ export function applyCustomSize(config, rawW, rawH) {
 /** The size control's three tabs. Templates, ratios and a custom size are
  *  one decision, every one of them writes nothing but `w` and `h`, so
  *  they are three views of a control, not three controls. */
+/**
+ * How the canvas's size reads on the strip above it: a name and its pixels.
+ *
+ * The name comes from the same three readers the list uses, in the same
+ * order of precedence (`isCustomSize` wins, then a template, then a ratio),
+ * so the trigger can never name one thing while the open list has another
+ * row selected. The pixels come from `normalise`, which is what actually
+ * gets rendered.
+ *
+ * @returns {{name: string, dims: string}}
+ */
+export function sizeLabel(config) {
+  const eff = normalise(config);
+  const dims = `${eff.w}\u00d7${eff.h}`;
+  if (isCustomSize(config)) return { name: 'Custom', dims };
+  const tpl = activeTemplateKey(config);
+  if (tpl) return { name: TEMPLATES[tpl].label, dims };
+  const ratio = activeRatioKey(config);
+  if (ratio) return { name: ratio, dims };
+  return { name: 'Custom', dims };
+}
+
 export const SIZE_TABS = ['templates', 'ratios', 'custom'];
 
 /**
@@ -123,7 +145,7 @@ export function selectGround(config, key) {
   if (HUES[key] === undefined) return;
   config.ground = key;
 }
-/** Case-insensitive substring match for the sidebar's search box. An
+/** Case-insensitive substring match for the size dropdown's search box. An
  *  empty query matches everything.
  *
  *  RESTORED, not new. Cycle C Task 5 deleted `gradientFor` and
@@ -163,27 +185,29 @@ function matchesQuery(label, query) {
 // removed it (see the note at the end of initSidebar).
 // ---------------------------------------------------------------------
 
-export function initSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  if (!sidebar) return;
+export function initSize({ onSizeChange } = {}) {
+  // The host is the panel inside the canvas strip's Size dropdown, not the
+  // left rail. It moved there on 2026-09-07 (see the comment in
+  // web/index.html): the size IS the canvas, so it belongs on the canvas.
+  // Nothing else about this control changed - the same tab strip, the same
+  // rows, the same custom form, in the same order.
+  const menu = document.getElementById('sizeMenu');
+  const sizeSection = document.getElementById('sizeHost');
+  if (!menu || !sizeSection) return;
 
-  const searchInput = sidebar.querySelector('.sidebar-search input');
-  const templateList = sidebar.querySelector('.template-list');
-  const templateSection = templateList?.closest('.sidebar-section');
-  if (!templateList || !templateSection) return;
+  const searchInput = menu.querySelector('.sidebar-search input');
 
   // ONE section, not two stacked ones plus a disclosure. Templates, ratios
   // and a custom size all write nothing but `w` and `h`, so they are three
   // views of one control. The tab strip is the same `.segmented` primitive
   // the Background type control uses - no new control vocabulary is
   // invented here.
-  const sizeSection = document.createElement('section');
-  sizeSection.className = 'sidebar-section';
+  // NO "Size" HEADING any more: the dropdown's own trigger says what this
+  // panel is, and repeating it inside would be the "· Desktop" mistake in a
+  // second place.
   sizeSection.innerHTML =
-    '<h2 class="section-label">Size</h2>'
-    + '<div class="segmented segmented--tabs" role="tablist" aria-label="Size"></div>'
+    '<div class="segmented segmented--tabs" role="tablist" aria-label="Size"></div>'
     + '<ul class="template-list size-list"></ul>';
-  templateSection.replaceWith(sizeSection);
   const tabStrip = sizeSection.querySelector('.segmented--tabs');
   const sizeList = sizeSection.querySelector('.size-list');
 
@@ -208,8 +232,6 @@ export function initSidebar() {
     tabStrip.appendChild(btn);
     return btn;
   });
-
-  if (searchInput) searchInput.placeholder = 'Search sizes…';
 
   // The custom size fields' contents, kept outside the render functions so
   // they survive the innerHTML rebuild every re-render does (typing in the
@@ -387,6 +409,7 @@ export function initSidebar() {
    *  because three listeners had been patched and a fourth was still wrong. */
   function afterSizeChange() {
     renderAll();
+    onSizeChange?.();
     scheduleRender();
   }
 

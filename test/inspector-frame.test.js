@@ -41,7 +41,7 @@ import { activeGrainPercent, setGrainPercent } from '../web/inspector-background
 const mkCanvas = (w, h) => createCanvas(w, h);
 
 // ---------------------------------------------------------------------
-// Pure helpers, no DOM. Same split web/sidebar.js and
+// Pure helpers, no DOM. Same split web/size.js and
 // web/inspector-background.js already established.
 // ---------------------------------------------------------------------
 

@@ -27,7 +27,7 @@
 // THE PRESET ROW AND THE HUE SLIDER WRITE THE SAME FIELD: `config.ground`.
 // core/config.js's normalise() already accepts EITHER a named string (a
 // HUES key, e.g. 'lavender') OR a raw numeric degree there, that is not
-// new plumbing this file invents, it is what selectGround() (sidebar.js)
+// new plumbing this file invents, it is what selectGround() (size.js)
 // already relies on, and what setHue() below does too. Because both write
 // the identical field, `activeGroundKey()`/`isAutoGround()` (imported /
 // defined below) can never see the two controls disagree about what is
@@ -39,14 +39,14 @@ import {
   LUMINOSITY_RANGE, LUM_ANCHOR_LIGHT, LUM_ANCHOR_MID,
 } from '../core/index.js';
 import { state, scheduleRender, onRender } from './state.js';
-import { activeGroundKey, selectGround } from './sidebar.js';
+import { activeGroundKey, selectGround } from './size.js';
 import { renderTile, renderGroundDial, lightEndBearing } from './preset-tiles.js';
 import { makeSliderRow } from './controls.js';
 
 // ---------------------------------------------------------------------
 // Pure state helpers, no DOM, no canvas. These are what
 // test/inspector-background.test.js drives directly, exactly the same
-// split web/sidebar.js already established (pure helpers vs. the one
+// split web/size.js already established (pure helpers vs. the one
 // DOM-touching init function at the bottom of this file).
 // ---------------------------------------------------------------------
 
@@ -73,7 +73,7 @@ export function forcedHueDeg(config) {
 }
 
 /** The hue slider's own write: a RAW DEGREE into `config.ground`, the
- *  identical field selectGround() (sidebar.js) writes a NAMED string into.
+ *  identical field selectGround() (size.js) writes a NAMED string into.
  *  This is the whole mechanism behind "the panel reflects reality": there
  *  is exactly one field a reader (`activeGroundKey`, `isAutoGround`,
  *  `forcedHueDeg`) ever has to consult, so a preset pick and a slider drag
@@ -367,7 +367,7 @@ export function computeSampledMeta(images, makeCanvas = defaultMakeCanvas) {
  * `addFiles()`, which calls `render()` SYNCHRONOUSLY, not through
  * `scheduleRender()`'s rAF debounce, so `state.meta` is guaranteed to
  * already reflect `state.config` exactly as it stands at that instant; see
- * web/sidebar.js's "Ground swatch gradients" header comment, which relies
+ * web/size.js's "Ground swatch gradients" header comment, which relies
  * on the same guarantee for the preset swatches). Every OTHER call in this file (a hue drag, a
  * preset click, a tone toggle, Sampled's own click) reads the cache via
  * `createSampledCache().refresh` below WITHOUT invalidating it first, so it
@@ -420,7 +420,7 @@ export function createSampledCache() {
 }
 
 // ---------------------------------------------------------------------
-// DOM wiring. Fully self-contained, like web/sidebar.js: this file wires
+// DOM wiring. Fully self-contained, like web/size.js: this file wires
 // its own click/input handlers directly rather than relying on
 // web/main.js's generic wireSingleSelectGroup/slider-fill loops (those run
 // once, at module load, against whatever static markup index.html shipped

@@ -15,7 +15,7 @@ import {
   LUMINOSITY_RANGE, LUM_ANCHOR_LIGHT,
 } from '../core/index.js';
 import { state, bindCanvas, render } from '../web/state.js';
-import { selectGround, activeGroundKey } from '../web/sidebar.js';
+import { selectGround, activeGroundKey } from '../web/size.js';
 import {
   UI_BG_TYPES,
   TYPE_LABELS,
@@ -43,7 +43,7 @@ import {
 const mkCanvas = (w, h) => createCanvas(w, h);
 
 // ---------------------------------------------------------------------
-// Pure helpers, no DOM. Same split web/sidebar.js already established.
+// Pure helpers, no DOM. Same split web/size.js already established.
 // ---------------------------------------------------------------------
 
 describe('ground auto/forced reading', () => {
@@ -68,7 +68,7 @@ describe('ground auto/forced reading', () => {
 // THE PROPERTY THAT MATTERS MOST IN THIS TASK: the preset row and the hue
 // slider must write the SAME field, or the panel can show one control as
 // selected while the other (or the render itself) disagrees. selectGround
-// is web/sidebar.js's real, unmodified preset-click helper (Task 4); setHue
+// is web/size.js's real, unmodified preset-click helper (Task 4); setHue
 // is this file's real hue-slider helper (Task 5). Both are driven here
 // exactly as their own control would drive them.
 // ---------------------------------------------------------------------
@@ -84,7 +84,7 @@ describe('the preset row and the hue slider agree, because they write the same f
     expect(config.ground).toBe(200); // the SAME field, now holding a raw degree
     expect(forcedHueDeg(config)).toBe(200);
     // No preset is falsely "selected" just because a numeric value happens
-    // to exist, activeGroundKey (web/sidebar.js) keys off the NAME, not
+    // to exist, activeGroundKey (web/size.js) keys off the NAME, not
     // numeric equality, so a slider value never masquerades as a preset.
     expect(activeGroundKey(config)).toBeNull();
   });

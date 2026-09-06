@@ -72,7 +72,7 @@ One more, from Cycle C Task 7: **a hidden preview pane does not run `requestAnim
 | File | Responsibility this cycle |
 |---|---|
 | `web/index.html` | the shell moves: Background's section into the left panel, a new canvas-finish section beside it, panel headings |
-| `web/sidebar.js` | Size becomes a three-tab control (Templates / Ratios / Custom) |
+| `web/size.js` | Size becomes a three-tab control (Templates / Ratios / Custom) |
 | `web/controls.js` | **new**, the shared slider row: label, value, track, Reset |
 | `web/inspector-canvas.js` | **new**, Padding and Grain, which belong to the canvas |
 | `web/inspector-frame.js` | keeps Frame, Corner radius, Stroke, Shadow; loses Padding and Grain |
@@ -129,7 +129,7 @@ Expected: PR #6, and `netlify/shotkit-app/deploy-preview` reporting `https://dep
 ## Task 1: Size becomes one tabbed control
 
 **Files:**
-- Modify: `web/sidebar.js`
+- Modify: `web/size.js`
 - Modify: `web/style.css`
 - Test: `test/sidebar.test.js`
 
@@ -138,15 +138,15 @@ Expected: PR #6, and `netlify/shotkit-app/deploy-preview` reporting `https://dep
 **This task goes first because it pays for Task 2.** Do not start the panel split until the space exists.
 
 **Interfaces:**
-- Consumes: `selectTemplate(config, key)`, `selectRatio(config, key)`, `applyCustomSize(config, w, h)`, `isCustomSize(config)`, `activeTemplateKey(config)`, `activeRatioKey(config)`, all already exported from `web/sidebar.js`.
-- Produces: `SIZE_TABS` (`['templates', 'ratios', 'custom']`) and `activeSizeTab(config)`, both exported from `web/sidebar.js`.
+- Consumes: `selectTemplate(config, key)`, `selectRatio(config, key)`, `applyCustomSize(config, w, h)`, `isCustomSize(config)`, `activeTemplateKey(config)`, `activeRatioKey(config)`, all already exported from `web/size.js`.
+- Produces: `SIZE_TABS` (`['templates', 'ratios', 'custom']`) and `activeSizeTab(config)`, both exported from `web/size.js`.
 
 - [ ] **Step 1: Write the failing test for which tab a config belongs to**
 
 Add to `test/sidebar.test.js`:
 
 ```js
-import { SIZE_TABS, activeSizeTab } from '../web/sidebar.js';
+import { SIZE_TABS, activeSizeTab } from '../web/size.js';
 
 describe('the size control is one decision, shown one tab at a time', () => {
   it('offers exactly three tabs', () => {
@@ -176,11 +176,11 @@ describe('the size control is one decision, shown one tab at a time', () => {
 npx vitest run test/sidebar.test.js
 ```
 
-Expected: FAIL, `SIZE_TABS` is not exported from `web/sidebar.js`.
+Expected: FAIL, `SIZE_TABS` is not exported from `web/size.js`.
 
 - [ ] **Step 3: Add the two exports**
 
-In `web/sidebar.js`, beside the existing pure helpers (above `initSidebar`):
+In `web/size.js`, beside the existing pure helpers (above `initSidebar`):
 
 ```js
 /** The size control's three tabs. Templates, ratios and a custom size are
@@ -214,7 +214,7 @@ Expected: PASS.
 
 - [ ] **Step 5: Build the tab strip in `initSidebar`**
 
-Replace the `ratioSection` block (`web/sidebar.js`, the `const ratioSection = document.createElement('section')` paragraph and its `insertAdjacentElement`) with one section carrying a tab strip and one list:
+Replace the `ratioSection` block (`web/size.js`, the `const ratioSection = document.createElement('section')` paragraph and its `insertAdjacentElement`) with one section carrying a tab strip and one list:
 
 ```js
   // ONE section, not two stacked ones. The tab strip is the same
@@ -351,7 +351,7 @@ In a **fresh tab**, with the console read for errors, record:
 - [ ] **Step 10: Commit, deploy, and STOP**
 
 ```bash
-git add web/sidebar.js web/style.css test/sidebar.test.js docs/verification-2026-09-01.md
+git add web/size.js web/style.css test/sidebar.test.js docs/verification-2026-09-01.md
 git commit -m "feat(web): size is one control with three tabs"
 git push
 ```

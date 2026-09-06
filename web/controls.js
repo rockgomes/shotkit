@@ -90,3 +90,75 @@ export function makeSliderRow({
 
   return { row, input, value: valueEl, reset, sync };
 }
+
+// -------------------------------------------------------------------------
+// THE POPOVER, once.
+//
+// Two controls open a panel from a button: the export format menu and the
+// canvas's Size control. They owe the same six things - aria-expanded on the
+// trigger, the panel hidden when closed, Escape, an outside click, focus put
+// somewhere useful on open and returned to the trigger on close - and the
+// second one is where a second copy would have been written.
+//
+// `void panel.offsetHeight` is not a tic. `[hidden] { display: none }` has
+// not recomputed at the moment the attribute comes off, and focus() on a
+// display:none element silently does nothing: verified on the format menu,
+// where the options never took focus and Escape went to the trigger instead.
+// Reading a layout property forces the recalculation first.
+// -------------------------------------------------------------------------
+
+/**
+ * Wire a button to a panel it opens.
+ *
+ * @param {object} spec
+ * @param {HTMLElement} spec.trigger   the button
+ * @param {HTMLElement} spec.panel     the thing it opens
+ * @param {HTMLElement} [spec.field]   the element both live in; defaults to
+ *                                     the trigger's closest `.select`. This is
+ *                                     what "outside" is measured against.
+ * @param {(panel:HTMLElement)=>void} [spec.onOpen] where to put focus
+ * @returns {{isOpen:()=>boolean, setOpen:(open:boolean, refocus?:boolean)=>void,
+ *            field:HTMLElement}}
+ */
+export function makePopover({ trigger, panel, field, onOpen }) {
+  const host = field || trigger.closest('.select') || panel.parentElement;
+
+  function isOpen() {
+    return trigger.getAttribute('aria-expanded') === 'true';
+  }
+
+  function setOpen(open, refocus = true) {
+    trigger.setAttribute('aria-expanded', String(open));
+    trigger.classList.toggle('is-open', open);
+    panel.hidden = !open;
+    if (open) {
+      void panel.offsetHeight;
+      onOpen?.(panel);
+    } else if (refocus) {
+      trigger.focus();
+    }
+  }
+
+  trigger.addEventListener('click', () => {
+    if (trigger.disabled) return;
+    setOpen(!isOpen());
+  });
+
+  host.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !isOpen()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setOpen(false);
+  });
+
+  /** `pointerdown`, not `click`, so the panel is gone before whatever was
+   *  pressed reacts. Focus does NOT return to the trigger here: the pointer
+   *  is already somewhere else. */
+  document.addEventListener('pointerdown', (event) => {
+    if (!isOpen()) return;
+    if (host.contains(event.target)) return;
+    setOpen(false, false);
+  });
+
+  return { isOpen, setOpen, field: host };
+}

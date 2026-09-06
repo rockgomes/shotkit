@@ -119,6 +119,14 @@ const PAIRS = [
   // The active segmented cell's label (1127) on --surface-control-active.
   ['--color-white', '--surface-control-active', TEXT_MIN],
 
+  // --surface-control is THE control fill (chips, the segmented cells, both
+  // .select-controls, the sampled row). It carried text on every one of them
+  // and appeared nowhere in this table until the Size dropdown, whose trigger
+  // puts a name on it in --text-primary and the pixels in --text-muted.
+  ['--text-primary', '--surface-control', TEXT_MIN],
+  ['--text-secondary', '--surface-control', TEXT_MIN],
+  ['--text-muted', '--surface-control', TEXT_MIN],
+
   // The drop error strip (1023/1024), an opaque pair that only ever has to
   // work against itself.
   ['--color-danger', '--surface-danger', TEXT_MIN],

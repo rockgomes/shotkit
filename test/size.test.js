@@ -15,7 +15,8 @@ import {
   selectGround,
   SIZE_TABS,
   activeSizeTab,
-} from '../web/sidebar.js';
+  sizeLabel,
+} from '../web/size.js';
 
 // ---------------------------------------------------------------------
 // Pure helpers: selection semantics without reimplementing normalise()'s
@@ -140,7 +141,7 @@ describe('sidebar size changes reuse the ground cache; ground changes bust it', 
     const firstMeta = state.meta;
     expect(firstMeta).toBeTruthy();
 
-    // Simulate exactly what web/sidebar.js's template row click does: set
+    // Simulate exactly what web/size.js's template row click does: set
     // `template`, clear any explicit w/h. Ground/tone are untouched.
     selectTemplate(state.config, 'app-store');
     render();
@@ -195,7 +196,7 @@ describe('sidebar size changes reuse the ground cache; ground changes bust it', 
 // could ever preview the mid-tone branch: it rendered the pale-tint
 // preview even for an image whose OWN luminance would force mid-tone once
 // applied. That is a different branch of the algorithm, not sampling
-// noise, see web/sidebar.js's "Ground swatch gradients" header comment
+// noise, see web/size.js's "Ground swatch gradients" header comment
 // for the measured before/after hex values.
 //
 // This drives the REAL app pipeline (decode a real dark image, render it,
@@ -323,7 +324,7 @@ describe('the rail does not duplicate the Background panel', () => {
   });
 
   it('initSidebar no longer renders ground swatches', () => {
-    const src = readFileSync('web/sidebar.js', 'utf8');
+    const src = readFileSync('web/size.js', 'utf8');
     const init = src.slice(src.indexOf('export function initSidebar'));
     expect(init).not.toMatch(/renderGroundSwatches\(/);
   });
@@ -335,7 +336,7 @@ describe('the rail does not duplicate the Background panel', () => {
     // real one, and the panel now paints canvases through core/ instead.
     // Kept, aimed at the current architecture, so nothing quietly grows a
     // second ground implementation here again.
-    const mod = await import('../web/sidebar.js');
+    const mod = await import('../web/size.js');
     expect(mod.renderGroundSwatches).toBeUndefined();
     expect(mod.gradientFor).toBeUndefined();
     expect(readFileSync('web/inspector-background.js', 'utf8')).toMatch(
@@ -379,5 +380,113 @@ describe('the size control is one decision, shown one tab at a time', () => {
     // jobs.json naming a template that no longer exists must not highlight
     // a tab whose list cannot show it.
     expect(activeSizeTab({ template: 'not-a-template' })).toBe('ratios');
+  });
+});
+
+
+// ---------------------------------------------------------------------
+// SIZE LEFT THE LEFT PANEL (2026-09-07)
+//
+// It is a dropdown in the strip above the canvas now, because that is where
+// Rock's own design puts it: the size IS the canvas. The control itself did
+// not change - same tabs, same rows, same custom form - so what is worth
+// asserting is the move, and the one new thing the move needed: a label for
+// the trigger, which must never name a size the open list has not selected.
+// ---------------------------------------------------------------------
+
+describe('sizeLabel, the dropdown trigger', () => {
+  it('names the template when one is selected', () => {
+    const config = {};
+    selectTemplate(config, 'dribbble');
+    const { name, dims } = sizeLabel(config);
+    expect(name).toBe(TEMPLATES.dribbble.label);
+    expect(dims).toBe(`${TEMPLATES.dribbble.w}\u00d7${TEMPLATES.dribbble.h}`);
+  });
+
+  it('names the ratio when one is selected', () => {
+    const config = {};
+    selectRatio(config, '16:9');
+    const { name, dims } = sizeLabel(config);
+    expect(name).toBe('16:9');
+    expect(dims).toBe(`${RATIOS['16:9'][0]}\u00d7${RATIOS['16:9'][1]}`);
+  });
+
+  it('says Custom for an explicit size, and gives its real pixels', () => {
+    const config = {};
+    expect(applyCustomSize(config, '1234', '567')).toBe(true);
+    expect(sizeLabel(config)).toEqual({ name: 'Custom', dims: '1234\u00d7567' });
+  });
+
+  it('agrees with the list: an explicit size wins over a template', () => {
+    // applyCustomSize leaves the template key on the config; isCustomSize is
+    // what breaks the tie for the list, and the trigger must break it the
+    // same way or the strip names one size while a different row is lit.
+    const config = {};
+    selectTemplate(config, 'dribbble');
+    applyCustomSize(config, '800', '600');
+    expect(activeTemplateKey(config)).toBeNull();
+    expect(sizeLabel(config).name).toBe('Custom');
+  });
+
+  it('reports the pixels core/ will actually render', () => {
+    const config = {};
+    selectRatio(config, '1:1');
+    const eff = normalise(config);
+    expect(sizeLabel(config).dims).toBe(`${eff.w}\u00d7${eff.h}`);
+  });
+});
+
+describe('the size control lives in the canvas strip', () => {
+  // Comments stripped first: this reads the MARKUP, and the comment that
+  // records the move names the ids it moved to.
+  const html = readFileSync('web/index.html', 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+  const sidebar = html.slice(html.indexOf('<aside id="sidebar"'), html.indexOf('</aside>'));
+  const strip = html.slice(
+    html.indexOf('<div class="canvas-toolbar">'),
+    html.indexOf('<p id="dropError"'),
+  );
+
+  it('is not in the left panel any more, and neither is its search box', () => {
+    expect(sidebar).not.toContain('sidebar-search');
+    expect(sidebar).not.toContain('template-list');
+    expect(sidebar).not.toContain('sizeHost');
+  });
+
+  it('is in the strip above the canvas, with a host web/size.js can find', () => {
+    expect(strip).toContain('id="sizeField"');
+    expect(strip).toContain('id="sizeSelect"');
+    expect(strip).toContain('id="sizeMenu"');
+    expect(strip).toContain('id="sizeHost"');
+    expect(strip).toContain('sidebar-search');
+    // web/size.js reads exactly these two ids; a rename in one place only
+    // would leave the control silently unbuilt.
+    const src = readFileSync('web/size.js', 'utf8');
+    expect(src).toContain("getElementById('sizeMenu')");
+    expect(src).toContain("getElementById('sizeHost')");
+  });
+
+  it('calls the right-hand control Table, not Surround', () => {
+    expect(strip).toContain('>Table<');
+    expect(strip).not.toMatch(/>Surround</);
+    // Only the WORD changed. The config field, the data attribute and the
+    // tokens still say surround, and renaming those would reach into core/.
+    expect(strip).toContain('data-surround="dark"');
+  });
+});
+
+describe('the inspector names its subject once', () => {
+  const html = readFileSync('web/index.html', 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+  const inspector = html.slice(html.indexOf('<aside id="inspector"'));
+
+  it('has one subject line at the top of the panel', () => {
+    expect(inspector).toContain('id="selectedElementName"');
+    expect((inspector.match(/id="selectedElementName"/g) || []).length).toBe(1);
+  });
+
+  it('no longer tags each section heading with the element', () => {
+    const src = readFileSync('web/inspector-frame.js', 'utf8');
+    expect(src).not.toContain('section-subject');
+    expect(src).not.toContain('frameSubject');
+    expect(src).not.toContain('finishSubject');
   });
 });

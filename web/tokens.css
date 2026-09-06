@@ -231,7 +231,7 @@
      --candy` in style.css, which lost their markup with the rail's Ground
      list in Task 2; the other four (cyan, indigo, green, teal) had no
      reference at all. The Background panel's chips take their colour from
-     the live ground gradient (web/sidebar.js `renderGroundSwatches`), so a
+     the live ground gradient (web/size.js `renderGroundSwatches`), so a
      fixed palette of stops has nothing left to name. */
 
   /* --- Canvas chrome (the editor's own décor, not core/'s rendered output) */

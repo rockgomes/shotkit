@@ -355,7 +355,7 @@ describe('luminosity replaces tone (Task 1)', () => {
 });
 
 
-// Task 4 fix round 1: web/sidebar.js's ground-preset swatches need to preview
+// Task 4 fix round 1: web/size.js's ground-preset swatches need to preview
 // a FORCED hue against the user's own loaded image without paying
 // analyse()'s cost again per swatch (see task-4-report.md's fix-round-1
 // section for the measured cost - ~87ms/call, ~700ms for 8 swatches against
