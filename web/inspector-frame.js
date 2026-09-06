@@ -44,6 +44,7 @@ import {
   BROWSER_RADIUS_RANGE, PHONE_RADIUS_RANGE,
 } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
+import { makeSliderRow } from './controls.js';
 
 // ---------------------------------------------------------------------
 // Pure state helpers — no DOM. Same split web/sidebar.js and
@@ -322,6 +323,14 @@ export function activeRadiusPercent(config, which = 'web', elementW = null) {
   return Math.round((px / eff.w) * 1000) / 10;
 }
 
+/** Give the corner radius back to the frame's own. `null` is what
+ *  core/layout.js's radiusFor reads as "this frame decides", and that is a
+ *  different thing from 0 — a browser frame's own corner is not square. */
+export function clearRadius(config, which = 'web') {
+  const el = config.elements && config.elements[which];
+  config.elements = { ...(config.elements || {}), [which]: { ...(el || {}), radius: null } };
+}
+
 export function setRadiusPercent(config, pct, which = 'web') {
   const n = Number(pct);
   if (!Number.isFinite(n)) return;
@@ -362,13 +371,9 @@ export function radiusRangeFor(config, which = 'web', elementW = null) {
 // controls at all.
 // ---------------------------------------------------------------------
 
-function syncSliderFill(input, valueEl, text) {
-  const min = Number(input.min) || 0;
-  const max = Number(input.max) || 100;
-  const pct = ((Number(input.value) - min) / (max - min)) * 100;
-  input.style.setProperty('--slider-fill', `${pct}%`);
-  if (valueEl) valueEl.textContent = text;
-}
+// `syncSliderFill` lived here, seven lines identical to the copy in
+// web/inspector-background.js. Both are gone: web/controls.js's makeSliderRow
+// owns the fill, the readout and the Reset, once.
 
 const FRAME_LABELS = { none: 'None', browser: 'Browser', phone: 'Phone' };
 
@@ -539,19 +544,20 @@ export function initFinishInspector() {
   const finishSubject = section.querySelector('#finishSubject');
 
   // --- padding -------------------------------------------------------
-  const padRow = document.createElement('div');
-  padRow.className = 'slider-row';
-  padRow.innerHTML = '<div class="slider-label"><span>Padding</span><span class="mono slider-value"></span></div>';
-  const padInput = document.createElement('input');
-  padInput.type = 'range';
-  padInput.className = 'slider';
-  padInput.min = '0';
-  padInput.max = String(PAD_PERCENT_MAX);
-  padInput.step = '0.1';
-  padInput.setAttribute('aria-label', 'Padding, as a percentage of the shorter canvas side');
-  padRow.appendChild(padInput);
-  const padValueEl = padRow.querySelector('.slider-value');
-  section.appendChild(padRow);
+  const pad = makeSliderRow({
+    label: 'Padding',
+    min: 0,
+    max: PAD_PERCENT_MAX,
+    step: 0.1,
+    ariaLabel: 'Padding, as a percentage of the shorter canvas side',
+    resetLabel: 'Reset padding to the default',
+    format: (v) => `${v}%`,
+    isDefault: () => !Number.isFinite(state.config.pad)
+      || Math.abs(state.config.pad - DEFAULTS.pad) < 1e-9,
+    onInput: (raw) => { setPadPercent(state.config, raw); syncPadUI(); scheduleRender(); },
+    onReset: () => { setPadPercent(state.config, DEFAULTS.pad * 100); syncPadUI(); scheduleRender(); },
+  });
+  section.appendChild(pad.row);
 
   // NO HINT UNDER PADDING. Task 6 added a two-sentence note here explaining
   // that a frame grows into this padding, so the visible gap can be smaller
@@ -561,40 +567,63 @@ export function initFinishInspector() {
   // confusing, the fix is the control, not a caption.
 
   // --- corner radius ---------------------------------------------------
-  const radiusRow = document.createElement('div');
-  radiusRow.className = 'slider-row';
-  radiusRow.innerHTML = '<div class="slider-label"><span>Corner radius</span><span class="mono slider-value"></span></div>';
-  const radiusInput = document.createElement('input');
-  radiusInput.type = 'range';
-  radiusInput.className = 'slider';
-  // min/max are re-set on every sync — the bounds follow the frame (see
-  // radiusRangeFor). These are only the pre-sync placeholders.
-  radiusInput.min = '0';
-  radiusInput.max = String(RADIUS_PERCENT_MAX);
-  radiusInput.step = '0.1';
-  radiusInput.setAttribute('aria-label', 'Screenshot corner radius, as a percentage of canvas width');
-  radiusRow.appendChild(radiusInput);
-  const radiusValueEl = radiusRow.querySelector('.slider-value');
-  section.appendChild(radiusRow);
+  // Its min/max are re-set on every sync — the bounds follow the frame (see
+  // radiusRangeFor), because a phone's corner range is nothing like a
+  // browser's. `makeSliderRow`'s own fill reads the live min/max for that
+  // reason rather than the ones passed in here.
+  const radius = makeSliderRow({
+    label: 'Corner radius',
+    min: 0,
+    max: RADIUS_PERCENT_MAX,
+    step: 0.1,
+    ariaLabel: 'Screenshot corner radius, as a percentage of canvas width',
+    resetLabel: "Reset the corner radius to the frame's own",
+    format: (v) => `${v}%`,
+    // `null` is the default, not 0: it means "this frame decides", and a
+    // browser frame's own corner is not square.
+    isDefault: () => {
+      const el = state.config.elements && state.config.elements[editingElement(state)];
+      return !el || el.radius === null || el.radius === undefined;
+    },
+    onInput: (raw) => {
+      setRadiusPercent(state.config, raw, editingElement(state));
+      syncRadiusUI();
+      scheduleRender();
+    },
+    onReset: () => {
+      clearRadius(state.config, editingElement(state));
+      syncRadiusUI();
+      scheduleRender();
+    },
+  });
+  section.appendChild(radius.row);
 
   // --- shadow (Task 6b) --------------------------------------------------
   // A STRENGTH, not a colour — see setShadowPercent's header comment above
   // for why this multiplies core/render.js's already-verified shadow
   // alphas instead of picking a new one. 0–200%, default 100% (== exactly
   // frame.html's own values, unchanged).
-  const shadowRow = document.createElement('div');
-  shadowRow.className = 'slider-row';
-  shadowRow.innerHTML = '<div class="slider-label"><span>Shadow</span><span class="mono slider-value"></span></div>';
-  const shadowInput = document.createElement('input');
-  shadowInput.type = 'range';
-  shadowInput.className = 'slider';
-  shadowInput.min = '0';
-  shadowInput.max = String(SHADOW_SCALE_RANGE[1] * 100);
-  shadowInput.step = '1';
-  shadowInput.setAttribute('aria-label', 'Shadow strength, as a percentage of the default');
-  shadowRow.appendChild(shadowInput);
-  const shadowValueEl = shadowRow.querySelector('.slider-value');
-  section.appendChild(shadowRow);
+  const shadow = makeSliderRow({
+    label: 'Shadow',
+    min: 0,
+    max: SHADOW_SCALE_RANGE[1] * 100,
+    step: 1,
+    ariaLabel: 'Shadow strength, as a percentage of the default',
+    resetLabel: 'Reset the shadow to the verified strength',
+    format: (v) => `${v}%`,
+    isDefault: (v) => v === 100,
+    onInput: (raw) => {
+      setShadowPercent(state.config, raw, editingElement(state));
+      syncShadowUI();
+      scheduleRender();
+    },
+    onReset: () => {
+      setShadowPercent(state.config, 100, editingElement(state));
+      syncShadowUI();
+      scheduleRender();
+    },
+  });
+  section.appendChild(shadow.row);
 
   // --- stroke (Task 7) ---------------------------------------------------
   // Deliberately minimal, and Cycle B replaces it: a render feature with no
@@ -622,18 +651,27 @@ export function initFinishInspector() {
   strokeRow.appendChild(strokeChips);
   section.appendChild(strokeRow);
 
-  const strokeWidthRow = document.createElement('div');
-  strokeWidthRow.className = 'slider-row';
-  strokeWidthRow.innerHTML = '<div class="slider-label"><span>Stroke width</span><span class="mono slider-value"></span></div>';
-  const strokeWidthInput = document.createElement('input');
-  strokeWidthInput.type = 'range';
-  strokeWidthInput.className = 'slider';
-  strokeWidthInput.min = '0';
-  strokeWidthInput.max = String(STROKE_PERCENT_MAX);
-  strokeWidthInput.step = '0.1';
-  strokeWidthInput.setAttribute('aria-label', 'Stroke width, as a percentage of the shorter canvas side');
-  strokeWidthRow.appendChild(strokeWidthInput);
-  const strokeWidthValueEl = strokeWidthRow.querySelector('.slider-value');
+  const strokeWidth = makeSliderRow({
+    label: 'Stroke width',
+    min: 0,
+    max: STROKE_PERCENT_MAX,
+    step: 0.1,
+    ariaLabel: 'Stroke width, as a percentage of the shorter canvas side',
+    resetLabel: 'Reset the stroke width to the default',
+    format: (v) => `${v}%`,
+    isDefault: (v) => Math.abs(v - STROKE_DEFAULTS.width * 100) < 1e-9,
+    onInput: (raw) => {
+      setStrokeWidthPercent(state.config, raw, editingElement(state));
+      syncStrokeUI();
+      scheduleRender();
+    },
+    onReset: () => {
+      setStrokeWidthPercent(state.config, STROKE_DEFAULTS.width * 100, editingElement(state));
+      syncStrokeUI();
+      scheduleRender();
+    },
+  });
+  const strokeWidthRow = strokeWidth.row;
   section.appendChild(strokeWidthRow);
 
   const strokeColorRow = document.createElement('div');
@@ -658,9 +696,7 @@ export function initFinishInspector() {
     strokeWidthRow.hidden = !showsStrokeWidth(state.config, which);
     strokeColorRow.hidden = !showsStrokeColor(state.config, which);
 
-    const pct = activeStrokeWidthPercent(state.config, which);
-    strokeWidthInput.value = String(pct);
-    syncSliderFill(strokeWidthInput, strokeWidthValueEl, `${pct}%`);
+    strokeWidth.sync(activeStrokeWidthPercent(state.config, which));
 
     const colour = activeStrokeColor(state.config, which);
     if (document.activeElement !== strokeColorInput) strokeColorInput.value = colour;
@@ -674,12 +710,6 @@ export function initFinishInspector() {
     });
   });
 
-  strokeWidthInput.addEventListener('input', () => {
-    setStrokeWidthPercent(state.config, strokeWidthInput.value, editingElement(state));
-    syncStrokeUI();
-    scheduleRender();
-  });
-
   strokeColorInput.addEventListener('input', () => {
     setStrokeColor(state.config, strokeColorInput.value, editingElement(state));
     syncStrokeUI();
@@ -691,9 +721,7 @@ export function initFinishInspector() {
     // there is one of those. It stays here for now; Cycle C's panel split
     // moves it to the left side where the rest of the canvas lives.
     finishSubject.textContent = ELEMENT_LABELS[editingElement(state)];
-    const pct = activePadPercent(state.config);
-    padInput.value = String(pct);
-    syncSliderFill(padInput, padValueEl, `${pct}%`);
+    pad.sync(activePadPercent(state.config));
   }
 
   function syncRadiusUI() {
@@ -709,36 +737,14 @@ export function initFinishInspector() {
       : (state.lay && state.lay.web);
     const elementW = box ? box.w : null;
     const [min, max] = radiusRangeFor(state.config, which, elementW);
-    radiusInput.min = String(min);
-    radiusInput.max = String(max);
-    const pct = activeRadiusPercent(state.config, which, elementW);
-    radiusInput.value = String(pct);
-    syncSliderFill(radiusInput, radiusValueEl, `${pct}%`);
+    radius.input.min = String(min);
+    radius.input.max = String(max);
+    radius.sync(activeRadiusPercent(state.config, which, elementW));
   }
 
   function syncShadowUI() {
-    const pct = activeShadowPercent(state.config, editingElement(state));
-    shadowInput.value = String(pct);
-    syncSliderFill(shadowInput, shadowValueEl, `${pct}%`);
+    shadow.sync(activeShadowPercent(state.config, editingElement(state)));
   }
-
-  padInput.addEventListener('input', () => {
-    setPadPercent(state.config, padInput.value);
-    syncPadUI();
-    scheduleRender();
-  });
-
-  radiusInput.addEventListener('input', () => {
-    setRadiusPercent(state.config, radiusInput.value, editingElement(state));
-    syncRadiusUI();
-    scheduleRender();
-  });
-
-  shadowInput.addEventListener('input', () => {
-    setShadowPercent(state.config, shadowInput.value, editingElement(state));
-    syncShadowUI();
-    scheduleRender();
-  });
 
   syncPadUI();
   syncRadiusUI();

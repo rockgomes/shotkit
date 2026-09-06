@@ -38,9 +38,10 @@ import {
   HUES, GROUNDS, BG_TYPES, DEFAULT_ANGLE, DEFAULTS, groundFor, groundFromMeta, normalise,
   LUMINOSITY_RANGE, LUM_ANCHOR_LIGHT, LUM_ANCHOR_MID,
 } from '../core/index.js';
-import { state, scheduleRender } from './state.js';
+import { state, scheduleRender, onRender } from './state.js';
 import { activeGroundKey, selectGround } from './sidebar.js';
 import { renderTile, renderGroundDial, lightEndBearing } from './preset-tiles.js';
+import { makeSliderRow } from './controls.js';
 
 // ---------------------------------------------------------------------
 // Pure state helpers — no DOM, no canvas. These are what
@@ -446,22 +447,9 @@ export function createSampledCache() {
  * default. Disabled says both things at once, and Task 3b's rule makes that
  * an explicit colour rather than an opacity.
  */
-function makeResetButton(label) {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'slider-reset';
-  btn.setAttribute('aria-label', label);
-  btn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-reset"></use></svg>';
-  return btn;
-}
-
-function syncSliderFill(input, valueEl, text) {
-  const min = Number(input.min) || 0;
-  const max = Number(input.max) || 100;
-  const pct = ((Number(input.value) - min) / (max - min)) * 100;
-  input.style.setProperty('--slider-fill', `${pct}%`);
-  if (valueEl) valueEl.textContent = text;
-}
+// `makeResetButton` and `syncSliderFill` lived here. web/controls.js's
+// makeSliderRow owns both now, for every slider in the app rather than the
+// four in this panel — which is the whole point of Cycle D Task 4.
 
 export function initBackgroundInspector() {
   const section = document.getElementById('backgroundSection');
@@ -510,40 +498,35 @@ export function initBackgroundInspector() {
   section.appendChild(presetList);
 
   // --- Hue -----------------------------------------------------------
-  const hueRow = document.createElement('div');
-  hueRow.className = 'slider-row';
-  hueRow.innerHTML = `
-    <div class="slider-label"><span>Hue</span><span class="mono slider-value"></span></div>
-  `;
-  const hueInput = document.createElement('input');
-  hueInput.type = 'range';
-  hueInput.className = 'slider';
-  hueInput.min = '0';
-  hueInput.max = '360';
-  hueInput.step = '1';
-  hueInput.setAttribute('aria-label', 'Ground hue, in degrees — dragging forces a hue and leaves Sampled');
-  const hueReset = makeResetButton('Reset hue to the sampled value');
-  const hueResetTrack = document.createElement('div');
-  hueResetTrack.className = 'slider-track-row';
-  hueResetTrack.append(hueInput, hueReset);
-  hueRow.appendChild(hueResetTrack);
-  const hueValueEl = hueRow.querySelector('.slider-value');
+  const hue = makeSliderRow({
+    label: 'Hue',
+    min: 0,
+    max: 360,
+    step: 1,
+    ariaLabel: 'Ground hue, in degrees — dragging forces a hue and leaves Sampled',
+    resetLabel: 'Reset hue to the sampled value',
+    format: (v) => `${v}°`,
+    isDefault: () => isAutoGround(state.config),
+    onInput: (raw) => { setHue(state.config, raw); afterBackgroundChange(); },
+    onReset: () => { resetHueToSampled(state.config); afterBackgroundChange(); },
+  });
+  const hueRow = hue.row;
   section.appendChild(hueRow);
 
   // --- Angle -----------------------------------------------------------
-  const angleRow = document.createElement('div');
-  angleRow.className = 'slider-row';
-  angleRow.innerHTML = `
-    <div class="slider-label"><span>Angle</span><span class="mono slider-value"></span></div>
-  `;
-  const angleInput = document.createElement('input');
-  angleInput.type = 'range';
-  angleInput.className = 'slider';
-  angleInput.min = '0';
-  angleInput.max = String(ANGLE_SLIDER_MAX);
-  angleInput.step = '1';
-  angleInput.setAttribute('aria-label', 'Gradient angle, in degrees');
-  const angleReset = makeResetButton('Reset angle to the default');
+  const angle = makeSliderRow({
+    label: 'Angle',
+    min: 0,
+    max: ANGLE_SLIDER_MAX,
+    step: 1,
+    ariaLabel: 'Gradient angle, in degrees',
+    resetLabel: 'Reset angle to the default',
+    format: (v) => `${v}°`,
+    isDefault: () => isDefaultAngle(state.config),
+    onInput: (raw) => { setAngle(state.config, raw); afterBackgroundChange(); },
+    onReset: () => { resetAngle(state.config); afterBackgroundChange(); },
+  });
+  const angleRow = angle.row;
   // THE DIAL (Task 7). A number cannot say which way 166° points, and an
   // arrow drawn from that number would only restate it. This is a circle of
   // the REAL ground, painted by paintGround from the stops the canvas itself
@@ -554,11 +537,10 @@ export function initBackgroundInspector() {
   angleDial.height = 44;
   angleDial.className = 'angle-dial';
   angleDial.setAttribute('aria-hidden', 'true');
-  const angleResetTrack = document.createElement('div');
-  angleResetTrack.className = 'slider-track-row';
-  angleResetTrack.append(angleInput, angleDial, angleReset);
-  angleRow.appendChild(angleResetTrack);
-  const angleValueEl = angleRow.querySelector('.slider-value');
+  // The dial rides inside the row's own track, between the slider and its
+  // Reset — makeSliderRow builds that track, so it is inserted rather than
+  // passed in. It is the one row with a third thing in it.
+  angle.input.insertAdjacentElement('afterend', angleDial);
   section.appendChild(angleRow);
 
   // --- Type -----------------------------------------------------------
@@ -596,43 +578,38 @@ export function initBackgroundInspector() {
   // Was a three-cell "Ground tone" segmented, Auto / Light / Mid. Both of
   // those were pale; this reaches a genuinely dark ground, and starts on
   // the sampled value rather than a fixed midpoint.
-  const lumRow = document.createElement('div');
-  lumRow.className = 'slider-row';
-  lumRow.innerHTML =
-    '<div class="slider-label"><span>Luminosity</span><span class="mono slider-value"></span></div>';
-  const lumInput = document.createElement('input');
-  lumInput.type = 'range';
-  lumInput.className = 'slider';
-  lumInput.min = String(LUMINOSITY_RANGE[0]);
-  lumInput.max = String(LUMINOSITY_RANGE[1]);
-  lumInput.step = '0.005';
-  lumInput.setAttribute('aria-label', "Ground luminosity — how light or dark the background is");
-  const lumReset2 = makeResetButton('Reset luminosity to the sampled value');
-  const lumReset2Track = document.createElement('div');
-  lumReset2Track.className = 'slider-track-row';
-  lumReset2Track.append(lumInput, lumReset2);
-  lumRow.appendChild(lumReset2Track);
-  const lumValueEl = lumRow.querySelector('.slider-value');
+  const lum = makeSliderRow({
+    label: 'Luminosity',
+    min: LUMINOSITY_RANGE[0],
+    max: LUMINOSITY_RANGE[1],
+    step: 0.005,
+    ariaLabel: 'Ground luminosity — how light or dark the background is',
+    resetLabel: 'Reset luminosity to the sampled value',
+    format: (v) => `${Math.round(v * 100)}%`,
+    isDefault: () => isSampledLuminosity(state.config),
+    onInput: (raw) => { setLuminosity(state.config, raw); afterBackgroundChange(); },
+    onReset: () => { resetLuminosityToSampled(state.config); afterBackgroundChange(); },
+  });
+  const lumRow = lum.row;
   section.appendChild(lumRow);
 
   // --- Grain -----------------------------------------------------------
-  const grainRow = document.createElement('div');
-  grainRow.className = 'slider-row';
-  grainRow.innerHTML =
-    '<div class="slider-label"><span>Grain</span><span class="mono slider-value"></span></div>';
-  const grainInput = document.createElement('input');
-  grainInput.type = 'range';
-  grainInput.className = 'slider';
-  grainInput.min = '0';
-  grainInput.max = '100';
-  grainInput.step = '1';
-  grainInput.setAttribute('aria-label', 'Grain strength');
-  const grainReset = makeResetButton('Reset grain to the default');
-  const grainResetTrack = document.createElement('div');
-  grainResetTrack.className = 'slider-track-row';
-  grainResetTrack.append(grainInput, grainReset);
-  grainRow.appendChild(grainResetTrack);
-  const grainValueEl = grainRow.querySelector('.slider-value');
+  const grain = makeSliderRow({
+    label: 'Grain',
+    min: 0,
+    max: 100,
+    step: 1,
+    ariaLabel: 'Grain strength',
+    resetLabel: 'Reset grain to the default',
+    format: (v) => `${v}%`,
+    isDefault: (v) => v === Math.round(DEFAULTS.grain * 100),
+    onInput: (raw) => { setGrainPercent(state.config, raw); afterBackgroundChange(); },
+    onReset: () => {
+      setGrainPercent(state.config, Math.round(DEFAULTS.grain * 100));
+      afterBackgroundChange();
+    },
+  });
+  const grainRow = grain.row;
   section.appendChild(grainRow);
 
   // The old standalone "Sampled"/"Reset" row under Luminosity is gone: every
@@ -706,10 +683,7 @@ export function initBackgroundInspector() {
     // else the sampled reading above (never `state.meta`, which already
     // has any override baked in and would make the slider silently snap
     // back to the override the instant Sampled is re-selected).
-    const effective = forcedHueDeg(cfg) ?? Math.round(meta.hue);
-    hueInput.value = String(effective);
-    syncSliderFill(hueInput, hueValueEl, `${effective}°`);
-    hueReset.disabled = isAutoGround(cfg);
+    hue.sync(forcedHueDeg(cfg) ?? Math.round(meta.hue));
 
     renderPresetTiles(meta);
   }
@@ -778,6 +752,20 @@ export function initBackgroundInspector() {
    */
   function afterBackgroundChange() {
     syncGrainUI();
+
+  // RE-SYNC LUMINOSITY AFTER EVERY RENDER, because it is the one slider in
+  // this panel whose displayed value comes from `state.meta` — and state.meta
+  // is only written when render() finishes.
+  //
+  // The symptom, measured: drag Luminosity to 15%, press its Reset. The
+  // override clears (the Reset correctly greys out) but the slider stays at
+  // 15%, because `activeLuminosity` then falls back to `state.meta`, which
+  // still describes the render made WITH the override. It corrected itself
+  // the next time anything else touched the panel, which is the worst kind
+  // of wrong: intermittent and self-healing.
+  //
+  // `onRender` exists for exactly this - see its comment in web/state.js.
+  onRender(syncLuminosityUI);
     syncTypeUI();
     syncGroundUI();
     syncAngleUI();
@@ -787,9 +775,7 @@ export function initBackgroundInspector() {
 
   function syncAngleUI() {
     const deg = Number.isFinite(state.config.angle) ? state.config.angle : DEFAULT_ANGLE;
-    angleInput.value = String(deg);
-    syncSliderFill(angleInput, angleValueEl, `${deg}°`);
-    angleReset.disabled = isDefaultAngle(state.config);
+    angle.sync(deg);
 
     // The dial's stops come from the same call core/index.js makes for the
     // canvas — `groundFromMeta(meta, forceHue, luminosity, forceSat)`, with
@@ -807,14 +793,11 @@ export function initBackgroundInspector() {
       markInk: dialStyle.getPropertyValue('--dial-ink').trim(),
       markHalo: dialStyle.getPropertyValue('--dial-halo').trim(),
     });
-    angleInput.setAttribute('aria-valuetext', `${deg} degrees, light from the ${lightEndLabel(deg)}`);
+    angle.input.setAttribute('aria-valuetext', `${deg} degrees, light from the ${lightEndLabel(deg)}`);
   }
 
   function syncGrainUI() {
-    const pct = activeGrainPercent(state.config);
-    grainInput.value = String(pct);
-    syncSliderFill(grainInput, grainValueEl, `${pct}%`);
-    grainReset.disabled = pct === Math.round(DEFAULTS.grain * 100);
+    grain.sync(activeGrainPercent(state.config));
   }
 
   function syncTypeUI() {
@@ -833,11 +816,7 @@ export function initBackgroundInspector() {
   }
 
   function syncLuminosityUI() {
-    const sampled = isSampledLuminosity(state.config);
-    const l = activeLuminosity(state.config, state.meta);
-    lumInput.value = String(l);
-    syncSliderFill(lumInput, lumValueEl, `${Math.round(l * 100)}%`);
-    lumReset2.disabled = sampled;
+    lum.sync(activeLuminosity(state.config, state.meta));
   }
 
   // --- Event wiring -----------------------------------------------------
@@ -847,31 +826,11 @@ export function initBackgroundInspector() {
     afterBackgroundChange();
   });
 
-  hueInput.addEventListener('input', () => {
-    setHue(state.config, hueInput.value);
-    afterBackgroundChange();
-  });
-
   // Angle NEVER touches `config.ground`/`config.luminosity` — web/state.js's
   // groundKeyFor (its cache key) doesn't read `angle` at all, so this is
   // the one slider in this panel guaranteed to hit the warm cache on every
   // drag tick rather than re-running core/ground.js's analyse() pass. See
   // task-5-report.md for the measured numbers.
-  angleInput.addEventListener('input', () => {
-    setAngle(state.config, angleInput.value);
-    afterBackgroundChange();
-  });
-
-  hueReset.addEventListener('click', () => {
-    resetHueToSampled(state.config);
-    afterBackgroundChange();
-  });
-
-  angleReset.addEventListener('click', () => {
-    resetAngle(state.config);
-    afterBackgroundChange();
-  });
-
   typeButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
       setBgType(state.config, btn.dataset.type);
@@ -882,32 +841,12 @@ export function initBackgroundInspector() {
   // Luminosity changes what every preset AND the Sampled swatch preview to,
   // even though it changes no hue - the presets are rendered at the current
   // luminosity, so both need a refresh here, not just this row.
-  lumInput.addEventListener('input', () => {
-    setLuminosity(state.config, lumInput.value);
-    afterBackgroundChange();
-  });
-
   // Grain goes through afterBackgroundChange like everything else in this
   // panel. It does not actually change the preset tiles — paintGround does
   // not paint grain, paintGrain is a separate pass in composeWithMeta — so
   // this repaints eight 88px tiles it did not have to. That is the cheap
   // tail-only path, and one rule with no exceptions is worth more than the
   // saving: the exception is what the next person would get wrong.
-  grainInput.addEventListener('input', () => {
-    setGrainPercent(state.config, grainInput.value);
-    afterBackgroundChange();
-  });
-
-  grainReset.addEventListener('click', () => {
-    setGrainPercent(state.config, Math.round(DEFAULTS.grain * 100));
-    afterBackgroundChange();
-  });
-
-  lumReset2.addEventListener('click', () => {
-    resetLuminosityToSampled(state.config);
-    afterBackgroundChange();
-  });
-
   syncGroundUI();
   syncAngleUI();
   syncTypeUI();

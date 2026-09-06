@@ -2043,3 +2043,46 @@ the fix, all four of Background's Resets read `true` on load.
 Verified after: grain still drives the render — ground luminance spread 165
 at 0%, 181 at 100% — its Reset returns the slider to 34% and disables itself,
 and there are no console errors.
+
+## Cycle D Task 4 — one slider row, and eight Resets
+
+`web/controls.js`'s `makeSliderRow` now builds every slider in the app. Both
+panels' hand-built range inputs are gone, and so are **two identical copies
+of `syncSliderFill`** — seven lines each in `web/inspector-background.js` and
+`web/inspector-frame.js`.
+
+Measured in Chromium, every slider, with a screenshot loaded and a Light
+stroke selected so the stroke rows are live:
+
+| slider | disabled at default | enables when moved | returns to | disabled again |
+|---|---|---|---|---|
+| Hue | yes | yes | 224° | yes |
+| Angle | yes | yes | 166° | yes |
+| Luminosity | yes | yes | 0.855 | yes |
+| Grain | yes | yes | 34% | yes |
+| Padding | yes | yes | 5.2% | yes |
+| Corner radius | yes | yes | 1.3% | yes |
+| Shadow | yes | yes | 100% | yes |
+| Stroke width | yes | yes | 0.8% | yes |
+
+## Two bugs the measurement caught, and the suite did not
+
+**`clearRadius` was never defined.** The Corner radius Reset called it, so
+clicking that button threw a `ReferenceError` and did nothing. The function
+had been written into a patch whose anchor did not match, and the patch
+failed silently. **528 tests passed while that button was dead** — the same
+lesson as Cycle C's `matchesQuery`, in a new place: a green suite is not
+evidence that a control works.
+
+**Luminosity's Reset cleared the override but left the slider where it was.**
+It is the one slider whose displayed value comes from `state.meta`, and
+`state.meta` is written only when `render()` finishes — so after clearing,
+`activeLuminosity` fell back to a meta that still described the render made
+*with* the override. The Reset correctly greyed out while the thumb stayed at
+15%, and it corrected itself the next time anything else touched the panel:
+intermittent and self-healing, which is the worst kind of wrong.
+
+Fixed with `onRender(syncLuminosityUI)` — `web/state.js` has a subscriber
+list for exactly this, added in Cycle B for the selection outline. This bug
+predates Task 4; the task only made it visible by testing every Reset in a
+loop instead of the one that had been built.
