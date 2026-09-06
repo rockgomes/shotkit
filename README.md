@@ -6,7 +6,7 @@ thumbnails (3:2), but the canvas is a parameter.
 
 It is a web app now. Drop a screenshot into the page, pick a ground, export a
 PNG. It was a Node CLI that drove a headless Chromium and shelled out to Python
-for the colour analysis; that implementation has been retired — the whole
+for the colour analysis; that implementation has been retired, the whole
 renderer was ported to a canvas 2D library (`core/`) that runs unchanged in a
 browser and under Node.
 
@@ -14,7 +14,7 @@ browser and under Node.
 account, and no image ever leaves the machine: files are read with
 `createImageBitmap`, composed on a `<canvas>`, and saved with `canvas.toBlob`
 plus an object URL. The single external request the page makes is to Google
-Fonts, for Geist and Geist Mono — it carries no image data, and nothing else
+Fonts, for Geist and Geist Mono, it carries no image data, and nothing else
 goes out.
 
 ## The three ideas
@@ -52,31 +52,31 @@ Drop a screenshot on the canvas, or press Enter on the drop zone to browse.
 Landscape files become the desktop screenshot; portrait files become phones, up
 to three. Then:
 
-- **Sidebar** — six output templates (Dribbble, Twitter post and header, App
+- **Sidebar**, six output templates (Dribbble, Twitter post and header, App
   Store, Open Graph, Instagram), four ratios, a custom size, and the eight named
   grounds.
-- **Canvas** — the shot, plus a **Surround** control (dark / mid / light). The
+- **Canvas**, the shot, plus a **Surround** control (dark / mid / light). The
   surround is app chrome only: it changes what sits *behind* the canvas so you
   can judge a pale ground honestly, and it can never reach the exported pixels.
-- **Canvas** — click a shot to select it. The Frame and Finish panels then
+- **Canvas**, click a shot to select it. The Frame and Finish panels then
   edit *that* element, and each says which one it is on. Click the ground or
   press Escape to clear. The outline is a DOM overlay and never a painted
   pixel, so it cannot reach the exported PNG.
-- **Inspector** — Background (type first, then the sampled ground, the preset
+- **Inspector**, Background (type first, then the sampled ground, the preset
   tiles, and hue / angle / luminosity overrides), Frame (none, browser chrome,
   or phone; chrome theme and URL pill),
-  Finish (padding, radius, grain, shadow strength, and an opt-in stroke —
+  Finish (padding, radius, grain, shadow strength, and an opt-in stroke,
   light, glass or a custom colour), and Export. Everything in Frame and
   Finish except Padding and Grain belongs to the selected element; those two
   belong to the canvas.
-- **Export** — PNG, JPEG or WebP at 1×, 2× or 3×. Filenames come from the source
+- **Export**, PNG, JPEG or WebP at 1×, 2× or 3×. Filenames come from the source
   file, e.g. `fieldset--web@2x.png`.
 
 **The preview canvas is the export canvas.** It is rendered at full output
 resolution and scaled down with CSS, and `composeWithMeta` is called from exactly
 one place in the app (`web/state.js`). There is no second render path, so what
 gets exported cannot disagree with what was on screen. `scale` is a `core/` config
-field, not a post-process — a 2× export is a fresh composition at twice the pixel
+field, not a post-process, a 2× export is a fresh composition at twice the pixel
 count, not an enlarged copy of a smaller one.
 
 ## Running it
@@ -92,7 +92,7 @@ npm run preview   # serve dist/ locally
 ```
 
 `netlify.toml` builds with `npm run build` and publishes `dist`. The repo is not
-connected to a Netlify site — that is a deliberate, separate step.
+connected to a Netlify site, that is a deliberate, separate step.
 
 ## The `core/` library
 
@@ -121,43 +121,43 @@ const { meta } = composeWithMeta(canvas, { ...DEFAULTS, ratio: '4:3' }, { web: b
 
 Paints a full shot into `target` and returns `{ target, meta, config, layout }`.
 
-- `target` — anything with `width`, `height` and `getContext('2d')`. It is
+- `target`, anything with `width`, `height` and `getContext('2d')`. It is
   resized to the config's output size.
-- `rawConfig` — any subset of the config fields below; unknown and invalid values
+- `rawConfig`, any subset of the config fields below; unknown and invalid values
   fall back to their defaults rather than throwing.
-- `images` — `{ web, mobile }`. `web` is one landscape bitmap or `null`; `mobile`
+- `images`, `{ web, mobile }`. `web` is one landscape bitmap or `null`; `mobile`
   is an array, filtered of falsy entries and capped at 3.
-- `makeCanvas(w, h)` — scratch-canvas factory. `core/` never creates a canvas
+- `makeCanvas(w, h)`, scratch-canvas factory. `core/` never creates a canvas
   itself; this is the whole of its host dependency, and it is what lets the same
   code run under Node.
-- `precomputedMeta` — optional. A `meta` object returned by an earlier call for
+- `precomputedMeta`, optional. A `meta` object returned by an earlier call for
   the same images, `ground` and `luminosity`. Supplying it skips the colour analysis,
   which is roughly 200ms of a ~216ms render; layout, painting and grain together
   are single-digit milliseconds. Omitting it is byte-identical to supplying it.
 
-**`compose(target, rawConfig, images, makeCanvas)`** — the same thing, returning
+**`compose(target, rawConfig, images, makeCanvas)`**, the same thing, returning
 just `target`.
 
-**`normalise(input = {})`** — resolves raw input into a complete config, applying
+**`normalise(input = {})`**, resolves raw input into a complete config, applying
 every default and validity check. Pure, cheap, and safe to call for a filename or
 a label without touching the paint path. Returns `w`, `h`, `layout`, `pad`,
 `radius`, `grain`, `phoneScale`, `phoneBleed`, `insetX`, `insetY`,
 `url`, `forceHue`, `luminosity`, `scale`, `angle`, `template`, `bgType`,
 `frameKind`, `chromeTheme`, `shadowScale`.
 
-**`layout(config, sources)`** — pure geometry, no painting. `sources` is
+**`layout(config, sources)`**, pure geometry, no painting. `sources` is
 `{ web, mobile }` where each entry is an aspect ratio (`width / height`), not an
 image. Returns `{ safe, web, phones }` in canvas pixels.
 
-**`groundFor(samples, forceHue = null, mode = null)`** — the colour analysis.
+**`groundFor(samples, forceHue = null, mode = null)`**, the colour analysis.
 `samples` is an array of `ImageData`-shaped objects. Returns
 `{ ground, lum, hue, chroma, darkUI }`, where `ground` is the three hex stops the
 background is built from and `hue` is in degrees. `mode` is `null` (infer),
 `'light'` or `'mid'`.
 
-**`groundFromMeta(meta, forceHue = null, mode = null)`** — the same output without
+**`groundFromMeta(meta, forceHue = null, mode = null)`**, the same output without
 re-scanning pixels, for previewing a different forced hue against an image already
-analysed. Exact, not approximate — `lum` and `chroma` do not depend on the hue.
+analysed. Exact, not approximate, `lum` and `chroma` do not depend on the hue.
 
 ### Vocabularies
 
@@ -188,7 +188,7 @@ CORNER RANGE browser 0–5% · phone 4–24% of the element's own width
 `elements: { web, mobile }`, each carrying `frameKind`, `chromeTheme`, `url`,
 `radius`, `stroke` and `shadowScale`. A flat key at the top level of the
 input is a default for *every* element; an entry in `elements` overrides it
-for that one — but only when the input actually carried it, never when it
+for that one, but only when the input actually carried it, never when it
 was resolved from a default. `radius` is `null` for "this frame's own
 corner". Canvas, ground, padding and grain stay global: there is one of
 each, and they describe the shot rather than a thing in it.
@@ -201,16 +201,16 @@ shrinking the picture. Only when the composite would cross `MIN_MARGIN_RATIO`
 
 `shadowScale` is a **multiplier** over the renderer's verified shadow alphas, not
 a replacement for them: `1` reproduces the original values exactly, and
-`SHADOW_SCALE_RANGE` is `[0, 2]` only so a slider has somewhere to go — neither
+`SHADOW_SCALE_RANGE` is `[0, 2]` only so a slider has somewhere to go, neither
 bound is itself a verified value.
 
 ## Layout
 
 ```
-core/     the library — config, presets, ground, layout, render, index
-web/      the Vite app — a shell over core/, no compositing logic of its own
+core/     the library, config, presets, ground, layout, render, index
+web/      the Vite app, a shell over core/, no compositing logic of its own
 test/     vitest suite and its frozen goldens
-scripts/  one-shot golden generators — see the warning under Tests
+scripts/  one-shot golden generators, see the warning under Tests
 samples/  the screenshots the goldens are built from
 docs/     the spec, the plans, and the verification records
 
@@ -218,7 +218,7 @@ design_handoff_backdrop_1a/
           the visual reference. Option 1a ("Obsidian") in
           `Backdrop Mockups.dc.html` is the app's chrome, and every device-frame
           constant in `core/presets.js` derives its ratios from measurements of
-          that file — each one carries the mockup pixel value it came from. The
+          that file, each one carries the mockup pixel value it came from. The
           HTML is authoritative; its README summarises. `image-slot.js` in there
           is prototype scaffolding, marked do-not-ship.
 ```
@@ -227,13 +227,13 @@ design_handoff_backdrop_1a/
 
 `npm test` runs 254 tests across 13 files, including 11 golden PNGs and one
 golden JSON of colour values. The goldens are a **regression** baseline rendered
-under `@napi-rs/canvas` — they catch unintended changes to this renderer's own
+under `@napi-rs/canvas`, they catch unintended changes to this renderer's own
 output over time. They are not a fidelity check against a browser: `@napi-rs/canvas`
 renders `shadowBlur` measurably fainter than a real browser does at the alphas
 this code ships, so never compare a golden to a browser screenshot and conclude
 the shadow code is wrong from the difference.
 
-**`web/` is covered too — do not skip the suite when editing the app.** Five test
+**`web/` is covered too, do not skip the suite when editing the app.** Five test
 files import `web/` modules and drive the real `render()`, 67 of the 254 tests:
 
 | file | tests | covers |
@@ -247,14 +247,14 @@ files import `web/` modules and drive the real `render()`, 67 of the 254 tests:
 So a change to `web/sidebar.js` or either inspector module can and does turn the
 suite red, and a failure there is a real failure, not collateral from `core/`.
 What genuinely has no automated coverage is the wiring: `web/main.js`, plus
-`addFiles()` and `scheduleRender()`'s debounce in `web/state.js` — drag-and-drop,
+`addFiles()` and `scheduleRender()`'s debounce in `web/state.js`, drag-and-drop,
 the drawers, the arrival animation, focus and contrast. `render()` itself, in
 that same file, is driven by every test in the table above. That was verified by hand, and the pass is written up in
 `docs/verification-2026-09-01.md`.
 
 ### Two dead references in `scripts/`
 
-Left in place deliberately — they record where the numbers came from — but
+Left in place deliberately, they record where the numbers came from, but
 neither can be followed any more, and one of them bites.
 
 **`scripts/make-goldens.sh` is destructive. Do not run it.** It built
@@ -271,8 +271,8 @@ rm -rf .venv-goldens
 
 **`scripts/make-render-goldens.js` tells you to re-render `frame.html`** to check
 browser fidelity (line 16). That file is gone. The point behind the advice still
-stands — these goldens are a `@napi-rs/canvas` regression baseline and prove
-nothing about browser fidelity — but the specific comparison it suggests is no
+stands, these goldens are a `@napi-rs/canvas` regression baseline and prove
+nothing about browser fidelity, but the specific comparison it suggests is no
 longer available, and there is currently no replacement for it.
 
 ## Not built yet
@@ -280,7 +280,7 @@ longer available, and there is currently no replacement for it.
 Honest list. None of these is half-done; they are simply not there.
 
 - **Light mode for the app chrome.** The editor is dark only. This is planned as
-  its own cycle, designed from scratch — the design handoff's option 1b was a
+  its own cycle, designed from scratch, the design handoff's option 1b was a
   different design that happened to be lighter, not a light variant of this one.
   `web/tokens.css` is the only file in the app containing a raw colour, so a
   second theme is a second token set rather than a hunt through stylesheets.
@@ -288,7 +288,7 @@ Honest list. None of these is half-done; they are simply not there.
   unnamed, because it promises no specific device size. Device presets would
   extend that frame rather than replace it.
 - **Keyboard selection.** Clicking selects; Escape clears. There is no way to
-  select with the keyboard, and the canvas is deliberately *not* focusable —
+  select with the keyboard, and the canvas is deliberately *not* focusable,
   a focus ring on it is visually indistinguishable from the selection
   outline and reads as "the whole shot is selected". It wants Tab plus
   arrows, with the selection outline itself as the focus indicator so there
@@ -296,7 +296,7 @@ Honest list. None of these is half-done; they are simply not there.
 - **Golden coverage at a second canvas size, for most compositions.** Partly
   closed, not open: `square-browser.png` pixel-verifies the web layout with a
   browser frame at 1:1 1500×1500, and `test/export-scale-fidelity.test.js`
-  renders at 4:3 2000×1500 — a size no golden covers — and measures the painted
+  renders at 4:3 2000×1500, a size no golden covers, and measures the painted
   corner radius directly. What is still 3:2-only is everything else: the mobile
   and web+mobile layouts, the phone frame, the
   light chrome theme, the URL pill, the shadow multiplier, each stroke style
@@ -305,12 +305,12 @@ Honest list. None of these is half-done; they are simply not there.
   would still show its face first at another size.
 - **A CLI.** The old one is gone and nothing replaced it. `core/` is a library, so
   a thin Node shell over `composeWithMeta` and `@napi-rs/canvas` would bring back
-  batch rendering without Python or Playwright — it just has not been written.
+  batch rendering without Python or Playwright, it just has not been written.
 - **Saved presets, and the rail's Library / Presets / Integrations / Settings.**
   They render, disabled. Nothing is wired behind them.
 - **Zoom, and copy-to-clipboard.** The toolbar's zoom stepper and its "Copy"
   button both render disabled and are wired to nothing. When zoom is built it
-  must stay a pure view transform and never reach `composeWithMeta` — the
+  must stay a pure view transform and never reach `composeWithMeta`, the
   preview canvas *is* the export canvas, so a zoom that touched the
   composition would ship in the PNG. Confirmed 2026-09-06 as the sense Rock
   wants first; moving or cropping the screenshot *inside* the shot is a

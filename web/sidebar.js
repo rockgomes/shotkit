@@ -1,9 +1,9 @@
-// web/sidebar.js — Task 4: templates and ratios in the sidebar, plus the
+// web/sidebar.js, Task 4: templates and ratios in the sidebar, plus the
 // ground-swatch rendering the inspector's Background panel reuses (the rail
-// itself no longer shows a Ground group — Cycle A Task 2).
+// itself no longer shows a Ground group, Cycle A Task 2).
 //
 // THE RULE THAT MATTERS MOST HERE: every row/button below does exactly one
-// thing when activated — mutate a field on `state.config`, then call
+// thing when activated, mutate a field on `state.config`, then call
 // scheduleRender(). Nothing in this file calls composeWithMeta, and nothing
 // in this file re-normalises a size or a ground itself. web/state.js's
 // render() is the only place composeWithMeta is called (see its header
@@ -11,19 +11,19 @@
 //
 // Precedence between an explicit size, a template and a ratio is entirely
 // core/config.js's normalise() job (explicit w/h beats template beats
-// ratio) — this file never re-implements that check. What it DOES own is
+// ratio), this file never re-implements that check. What it DOES own is
 // making sure only ONE of those three ever *looks* selected in the sidebar
 // at a time, by clearing the fields normalise() would otherwise let a stale
 // earlier choice win through:
 //   - picking a template clears any explicit w/h a "Custom size" entry left
-//     behind (explicit beats template — a lingering w/h would silently keep
+//     behind (explicit beats template, a lingering w/h would silently keep
 //     controlling the canvas while the template row looked selected);
 //   - picking a ratio clears BOTH explicit w/h and `template` (template
-//     beats ratio — a lingering template would do the same thing to a
+//     beats ratio, a lingering template would do the same thing to a
 //     ratio pick).
 // See selectTemplate/selectRatio/applyCustomSize below. Read the field back
 // with normalise() (imported, not reimplemented) only where this file needs
-// to *display* the effective size — the "+ Custom size" prefill — never to
+// to *display* the effective size, the "+ Custom size" prefill, never to
 // decide which field wins.
 //
 // Keyboard semantics: every row is a real <button> with aria-pressed, the
@@ -31,7 +31,7 @@
 // swatches elsewhere in this shell (see web/main.js's wireSingleSelectGroup).
 // That makes every row Tab-reachable and Enter/Space-activatable for free,
 // with a visible :focus-visible ring inherited from .template-row/
-// .preset-row (style.css) — real keyboard semantics, not a pile of
+// .preset-row (style.css), real keyboard semantics, not a pile of
 // clickable <div>s. A roving-tabindex listbox with arrow-key navigation
 // (the brief's other option) was deliberately NOT used: it would be a
 // second, different interaction model living in the same sidebar as the
@@ -44,12 +44,12 @@ import { TEMPLATES, RATIOS, HUES, normalise } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
 
 // ---------------------------------------------------------------------
-// Pure state helpers — no DOM. These are what test/sidebar.test.js drives
+// Pure state helpers, no DOM. These are what test/sidebar.test.js drives
 // directly; initSidebar() below is the only DOM-touching part of this file.
 // ---------------------------------------------------------------------
 
 /** Explicit w/h is only ever present on `config` when a "+ Custom size" pick
- *  put it there (see applyCustomSize) — DEFAULTS has no w/h field at all, and
+ *  put it there (see applyCustomSize), DEFAULTS has no w/h field at all, and
  *  selectTemplate/selectRatio always delete both. So "both are finite
  *  numbers" is a reliable signal that the user's last size pick was custom,
  *  without needing a separate "mode" flag that could disagree with it. */
@@ -87,7 +87,7 @@ export function selectRatio(config, key) {
 }
 
 /** Returns true and mutates `config` iff both values are finite positive
- *  numbers — an invalid pair is silently rejected (the caller, the Apply
+ *  numbers, an invalid pair is silently rejected (the caller, the Apply
  *  button, stays disabled until both fields are valid, so in practice this
  *  guard is a second line of defence, not the primary one). */
 export function applyCustomSize(config, rawW, rawH) {
@@ -100,7 +100,7 @@ export function applyCustomSize(config, rawW, rawH) {
 }
 
 /** The size control's three tabs. Templates, ratios and a custom size are
- *  one decision — every one of them writes nothing but `w` and `h` — so
+ *  one decision, every one of them writes nothing but `w` and `h`, so
  *  they are three views of a control, not three controls. */
 export const SIZE_TABS = ['templates', 'ratios', 'custom'];
 
@@ -141,7 +141,7 @@ function matchesQuery(label, query) {
 // `gradientFor` built a CSS `linear-gradient` string that APPROXIMATED what
 // `paintGround` draws, and `renderGroundSwatches` painted eight 14x14 chips
 // with it. It was a second implementation of the ground, in a different
-// language, kept in step by hand — and it lied twice: once before Cycle A,
+// language, kept in step by hand, and it lied twice: once before Cycle A,
 // and again within an hour of `ash` gaining its own saturation, when it
 // previewed a blue tint for a preset that renders grey.
 //
@@ -153,10 +153,10 @@ function matchesQuery(label, query) {
 // ---------------------------------------------------------------------
 // DOM wiring. Reuses Task 1's existing sidebar markup and CSS classes
 // (.template-list / .template-row / .section-label) rather than inventing
-// new ones — the list this file finds by class (`.template-list` for
+// new ones, the list this file finds by class (`.template-list` for
 // Templates) is exactly the one index.html already ships; nothing about the
 // shell's DOM structure changes. The Ratios group has no placeholder to
-// reuse — the mockup only shows Templates (see task-4-report.md) — so it's
+// reuse, the mockup only shows Templates (see task-4-report.md), so it's
 // built fresh here from the same markup/classes as Templates, inserted as a
 // sibling section right after it. The rail's third group used to be Ground,
 // a second copy of the Background panel's eight presets; Cycle A Task 2
@@ -211,7 +211,7 @@ export function initSidebar() {
 
   if (searchInput) searchInput.placeholder = 'Search sizes…';
 
-  // The custom size fields' contents — kept outside the render functions so
+  // The custom size fields' contents, kept outside the render functions so
   // they survive the innerHTML rebuild every re-render does (typing in the
   // search box, selecting a row, applying a size all call renderAll()).
   //
@@ -247,7 +247,7 @@ export function initSidebar() {
     li.className = 'custom-size-item';
 
     // Prefill with the canvas's CURRENT effective size the first time the
-    // tab is shown. normalise() is read-only here — a display convenience,
+    // tab is shown. normalise() is read-only here, a display convenience,
     // not a precedence decision: applyCustomSize below is what actually
     // sets w/h. Once the user has typed, their value stands.
     if (customW === '' && customH === '') {

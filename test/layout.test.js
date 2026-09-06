@@ -493,7 +493,7 @@ describe('frame: the screenshot is no longer shrunk by its own frame', () => {
 //
 // Two source ratios below, both real screen sizes and both deliberate:
 //
-//   SRC (2880x1720 = 1.67442) — samples/fieldset.png's own ratio, i.e. the
+//   SRC (2880x1720 = 1.67442), samples/fieldset.png's own ratio, i.e. the
 //     exact source every framed golden is rendered from. At 3:2 / default
 //     padding the composite clears the floor for every frame kind, so the
 //     screenshot is EXACTLY unchanged. This is the acceptance case, and the
@@ -503,7 +503,7 @@ describe('frame: the screenshot is no longer shrunk by its own frame', () => {
 //     width-constrained there, and frameRatio's round trip is exact), so it
 //     could not tell the two models apart. 1.67442 is inside the band where
 //     the old model shrank the picture by 4.5% and the new one does not.
-//   FLOORED_SRC (16:10, 1.6) — the same canvas, but the browser bar
+//   FLOORED_SRC (16:10, 1.6), the same canvas, but the browser bar
 //     (BROWSER_BAR_RATIO ~ 7.5% of the screen width, the "comically big" bar
 //     Task 8 rebuilds) pushes the composite past the floor, so the whole
 //     thing scales down ~1.8%. Pinned so the floor's behaviour is asserted
@@ -524,7 +524,7 @@ describe('frames grow outward', () => {
     }
   });
 
-  it('turning on a frame does not shrink the screenshot — none, browser and phone are identical', () => {
+  it('turning on a frame does not shrink the screenshot, none, browser and phone are identical', () => {
     const bare = layout(normalise({ layout: 'web', ratio: '3:2', frameKind: 'none' }),
                         { web: SRC, mobile: [] }).web;
     for (const frameKind of ['browser', 'phone']) {
@@ -539,7 +539,7 @@ describe('frames grow outward', () => {
     }
   });
 
-  it('the composite is allowed past the safe box — the padding is what gives way', () => {
+  it('the composite is allowed past the safe box, the padding is what gives way', () => {
     const safe = layout(normalise({ layout: 'web', ratio: '3:2' }), { web: SRC, mobile: [] }).safe;
     // Phone: a bezel on all four sides, so the composite is wider than the
     // safe box the bare screenshot exactly filled.
@@ -583,7 +583,7 @@ describe('frames grow outward', () => {
     // Uniform: width and height lose the same factor, so the picture is
     // scaled, never squashed.
     expect(screen.w / bare.w).toBeCloseTo(screen.h / bare.h, 12);
-    // And the loss is small — a floor, not the old carve-out. Round one's
+    // And the loss is small, a floor, not the old carve-out. Round one's
     // model lost 8.3% of the screen width here; this must stay under 5%.
     expect(screen.w / bare.w).toBeGreaterThan(0.95);
     expect(screen.w / bare.w).toBeLessThan(1);
@@ -787,7 +787,7 @@ describe('the mobile element takes a frame like the web one (Task 4)', () => {
     expect(p.chrome.frame).toBeGreaterThan(0);
   });
 
-  it('frameKind none gives a bare screenshot — no bezel, no device body', () => {
+  it('frameKind none gives a bare screenshot, no bezel, no device body', () => {
     const p = mob({ elements: { mobile: { frameKind: 'none' } } });
     expect(p.chrome).toBeNull();
   });
@@ -807,7 +807,7 @@ describe('the mobile element takes a frame like the web one (Task 4)', () => {
     }
   });
 
-  it('the frame grows OUTWARD — the screenshot is the same size with or without it', () => {
+  it('the frame grows OUTWARD, the screenshot is the same size with or without it', () => {
     // The same correction Cycle A Task 6 made for the web box. Turning the
     // bezel off must make the picture bigger, not leave a hole where the
     // bezel was.
@@ -888,7 +888,7 @@ describe('padding acts in every layout (Task 8)', () => {
     }
   });
 
-  it('a staggered row still staggers — the lone-phone fix did not flatten it', () => {
+  it('a staggered row still staggers, the lone-phone fix did not flatten it', () => {
     const three = layout(normalise({ layout: 'mobile', ratio: '3:2' }),
                          { web: null, mobile: [0.462, 0.462, 0.462] }).phones;
     expect(three[1].y).toBeLessThan(three[0].y);

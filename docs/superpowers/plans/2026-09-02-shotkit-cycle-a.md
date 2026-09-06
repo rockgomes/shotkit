@@ -1,8 +1,8 @@
-# shotkit Cycle A — Render Implementation Plan
+# shotkit Cycle A, Render Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the rendered shot honest — no stroke you didn't ask for, strokes you can ask for, a browser frame that looks like a browser, frames that grow outward instead of shrinking your screenshot, a mesh worth using, and a shadow you can steer — plus the three app fixes that collide with none of it.
+**Goal:** Make the rendered shot honest, no stroke you didn't ask for, strokes you can ask for, a browser frame that looks like a browser, frames that grow outward instead of shrinking your screenshot, a mesh worth using, and a shadow you can steer, plus the three app fixes that collide with none of it.
 
 **Architecture:** All rendering work lands in `core/`, which reopens deliberately after being closed since Task 5. Frames and strokes become *outsets*: the screenshot's box is computed first from the source ratio, then chrome and stroke grow outward from it, and padding gives way rather than the picture. `paintShadow` gains named parameters whose defaults reproduce today's verified output byte-for-byte, guarded by a golden of the shadow alone. Three app-side fixes (contrast, label spacing, Ground dedup) touch only `web/tokens.css`, `web/style.css` and `web/sidebar.js`, and are sequenced first so daily use improves immediately.
 
@@ -20,21 +20,21 @@ Copied from the spec. Every task's requirements implicitly include these.
 - `core/` has **zero runtime dependencies**. It may import only its own relative files.
 - `web/tokens.css` is the **only** file in `web/` allowed to contain a raw hex colour.
 - `[hidden] { display: none !important; }` stays a **single global rule**. Do not add per-element `hidden` handling.
-- Geometry in `core/` is **proportional to the canvas**, never fixed pixels, except these documented minimums: `lineWidth = 1`, the 240px grain tile, `PHONE_BEZEL_MIN = 3`, `SHADOW_SOURCE_INSET = 2` (added in Task 1's follow-up; like `lineWidth = 1` it exists to cover antialiased coverage, which is a fixed pixel count at every canvas size — see its comment in `core/render.js` for the measurements that set it), and `TILE_BLEED = 1` (Task 4d — how far a shot's own drawing is pushed past the mask that cuts it, inside its offscreen tile; same category, same reason, measurements in its own comment). `SNAP_TO_PIXELS` was Task 4c's version of the same idea and is **gone** — Task 4d removed it along with the clip it was compensating for. `TILE_QUANTUM = 64` is also a raw pixel number but is not geometry at all: it rounds a tile's ALLOCATION up so a pooling `makeCanvas` cannot mint a canvas per frame, and changes nothing that is painted.
+- Geometry in `core/` is **proportional to the canvas**, never fixed pixels, except these documented minimums: `lineWidth = 1`, the 240px grain tile, `PHONE_BEZEL_MIN = 3`, `SHADOW_SOURCE_INSET = 2` (added in Task 1's follow-up; like `lineWidth = 1` it exists to cover antialiased coverage, which is a fixed pixel count at every canvas size, see its comment in `core/render.js` for the measurements that set it), and `TILE_BLEED = 1` (Task 4d, how far a shot's own drawing is pushed past the mask that cuts it, inside its offscreen tile; same category, same reason, measurements in its own comment). `SNAP_TO_PIXELS` was Task 4c's version of the same idea and is **gone**, Task 4d removed it along with the clip it was compensating for. `TILE_QUANTUM = 64` is also a raw pixel number but is not geometry at all: it rounds a tile's ALLOCATION up so a pooling `makeCanvas` cannot mint a canvas per frame, and changes nothing that is painted.
 - **Nothing is painted behind a shot, and nothing is drawn inside a clip** (Task 4d). Each shot is composed in its own offscreen tile through the injected `makeCanvas`, drawn one pixel past its own edge, and cut once with a `destination-in` fill; `paintShadow` clips the box out of itself so there is no caster to cover. `test/render-clip-safety.test.js` enforces both structurally.
-- **Do not retune `paintShadow`'s alphas.** `0.17 / 0.07` for web and browser, `0.22 / 0.10` for phones. These were broken once by tuning against `@napi-rs/canvas` while the browser — the actual product — would have shipped a shadow ~65 RGB levels too dark, with every Node test green. `frame.html` is deleted, so they cannot be re-derived.
+- **Do not retune `paintShadow`'s alphas.** `0.17 / 0.07` for web and browser, `0.22 / 0.10` for phones. These were broken once by tuning against `@napi-rs/canvas` while the browser, the actual product, would have shipped a shadow ~65 RGB levels too dark, with every Node test green. `frame.html` is deleted, so they cannot be re-derived.
 - Run `npx vitest run` before and after every task. Commit only green.
 - After each task, push the branch. Do not merge to `main` mid-cycle.
 
-### THE APPROVAL GATE — read this before starting any task
+### THE APPROVAL GATE, read this before starting any task
 
 **Every task that changes anything Rock can see ends by deploying a preview and
-STOPPING.** Not a screenshot in a report — a URL he can open, click and test
+STOPPING.** Not a screenshot in a report, a URL he can open, click and test
 himself.
 
 Round one shipped seven tasks without a single preview link. Rock saw the app
 for the first time when it was finished and deployed, and nineteen pieces of
-feedback arrived at once — several of them ("frame:none draws a stroke", "the
+feedback arrived at once, several of them ("frame:none draws a stroke", "the
 browser chrome is comically big", "the contrast is bad") things he would have
 caught on day one. That is the cost this gate exists to prevent.
 
@@ -47,7 +47,7 @@ push rebuilds the preview at:
 One URL for the whole cycle, always showing the latest task. Production
 (`shotkit-app`) is untouched until the PR merges.
 
-CI runs on the same push — the full suite, the build, and a check that no
+CI runs on the same push, the full suite, the build, and a check that no
 golden file changed. Both it and the preview must be green before you hand
 over.
 
@@ -57,7 +57,7 @@ preview has not been approved is not finished, no matter how green the tests
 are.
 
 **A feature with no way to reach it in the UI cannot be approved.** That is why
-Tasks 5, 7 and 9 below each ship a minimal control alongside the render work —
+Tasks 5, 7 and 9 below each ship a minimal control alongside the render work,
 see the note on each.
 
 ---
@@ -70,7 +70,7 @@ see the note on each.
 - Regenerate: `test/golden/render/web.png`, `mesh.png`, `shadow-heavy.png`, `web-mobile.png`
 
 **Interfaces:**
-- Consumes: nothing from earlier tasks — this is the first.
+- Consumes: nothing from earlier tasks, this is the first.
 - Produces: `paintWeb` no longer strokes anything when `box.chrome` is null. Task 7 (strokes) adds the *opt-in* stroke in a different place; it must not reinstate this one.
 
 - [ ] **Step 1: Write the failing test**
@@ -81,7 +81,7 @@ Add to `test/render-screen.test.js`:
 describe('frame: none draws no stroke', () => {
   it('leaves no darker ring just inside the screen edge', async () => {
     // A pure white source image. With no stroke, every pixel just inside the
-    // box edge must be white — a hairline would darken the first row/column.
+    // box edge must be white, a hairline would darken the first row/column.
     const img = createCanvas(1440, 900);
     const ictx = img.getContext('2d');
     ictx.fillStyle = '#ffffff';
@@ -137,10 +137,10 @@ Replace it with a comment recording why nothing is there, so a later reader does
   // NO STROKE HERE, DELIBERATELY. frame.html stroked an inset hairline on
   // every unframed screen; it read as an unrequested border and was the
   // first item of round two's feedback. An edge treatment is now opt-in via
-  // `stroke` (see paintStroke) — do not reinstate an unconditional one.
+  // `stroke` (see paintStroke), do not reinstate an unconditional one.
 ```
 
-Do **not** touch the `t.border` strokes in `paintWebChrome` (line ~556) or `paintDeviceHairline` — those belong to frames, which are opt-in already.
+Do **not** touch the `t.border` strokes in `paintWebChrome` (line ~556) or `paintDeviceHairline`, those belong to frames, which are opt-in already.
 
 - [ ] **Step 4: Run the test and watch it pass**
 
@@ -152,19 +152,19 @@ Expected: PASS.
 Run: `node scripts/make-render-goldens.js && npx vitest run`
 
 Five goldens contain an unframed web screen and will change: `web`, `mesh`,
-`shadow-heavy`, `web-mobile` and **`caption`** — `caption` sets no `frameKind`
+`shadow-heavy`, `web-mobile` and **`caption`**, `caption` sets no `frameKind`
 (see `scripts/make-render-goldens.js`), so it renders an unframed screen like
 the rest. The correct invariant is: the **five** cases that set `frameKind`
 (`browser-dark`, `browser-light`, `browser-url`, `square-browser`, `phone`)
-plus the phone-only `mobile` must stay byte-identical — six unchanged, five
+plus the phone-only `mobile` must stay byte-identical, six unchanged, five
 changed, eleven in total. If one of those moves,
-**stop and report** — the deletion reached the framed path.
+**stop and report**, the deletion reached the framed path.
 
 > **Follow-up (after Rock opened the preview): the border was still there.**
 > The hairline was only one of two sources. `paintShadow` filled an **opaque
 > black rounded rect** on `box`'s exact geometry to make canvas cast a blur;
 > the body painted over it is antialiased on that same path, so at the
-> boundary pixel the black showed through at `k(1-k)` — measured 166,166,167
+> boundary pixel the black showed through at `k(1-k)`, measured 166,166,167
 > on a white screen over a 239,234,247 ground, and it survived at
 > `shadowScale: 0`, with the shadow entirely off. That is why deleting the
 > hairline did not remove it, and why the Step 1 test stayed green: that test
@@ -173,7 +173,7 @@ changed, eleven in total. If one of those moves,
 > Fixed by insetting the shadow's opaque source rect (and its radius) by
 > `SHADOW_SOURCE_INSET = 2`, so the fill lands wholly beneath the body. The
 > alphas are untouched. Because `paintShadow` serves all four call sites,
-> **all eleven goldens change** — the six-unchanged invariant above applies
+> **all eleven goldens change**, the six-unchanged invariant above applies
 > only to the original hairline deletion, not to this follow-up.
 
 - [ ] **Step 6: Commit**
@@ -195,9 +195,9 @@ gh pr checks 1
 
 `test` and `netlify/shotkit-app/deploy-preview` must both be green before you
 hand anything over. **A task with red CI is not finished**, however good the
-preview looks — fix it, push, and wait again.
+preview looks, fix it, push, and wait again.
 
-Then give Rock the URL — **https://deploy-preview-1--shotkit-app.netlify.app** —
+Then give Rock the URL, **https://deploy-preview-1--shotkit-app.netlify.app**,
 and tell him what to look at:
 
 > Load a screenshot with Frame set to **None**. There must be no border, edge or hairline of any kind between the ground and the screenshot. Open https://shotkit-app.netlify.app in another tab for the before.
@@ -218,7 +218,7 @@ asks for a change, make it, redeploy, and hand the link back before moving on.
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `renderGroundSwatches` **stays exported** from `web/sidebar.js` — `web/inspector-background.js:491` still calls it, and Cycle B's Background rebuild depends on it. Only the rail's *caller* and its markup go.
+- Produces: `renderGroundSwatches` **stays exported** from `web/sidebar.js`, `web/inspector-background.js:491` still calls it, and Cycle B's Background rebuild depends on it. Only the rail's *caller* and its markup go.
 
 - [ ] **Step 1: Fix the label run-together**
 
@@ -233,7 +233,7 @@ In `web/style.css`, inside `.template-row` (line 511), add:
 And immediately after the `.template-row` rule, add:
 
 ```css
-/* The name truncates; the dimensions never do — they are the information the
+/* The name truncates; the dimensions never do, they are the information the
    row exists to carry. Without `min-width: 0` a flex item refuses to shrink
    below its content and the two spans collide, which is what produced
    "Dribbble shot2800×2100". */
@@ -251,7 +251,7 @@ And immediately after the `.template-row` rule, add:
 
 - [ ] **Step 2: Remove Ground from the left rail**
 
-In `web/sidebar.js`, delete the rail's Ground block — the `renderGroundSwatches(groundList, ...)` call at line ~460 and the `groundList` element lookup that feeds it. Delete the corresponding `GROUND` heading and `<ul>` from `web/index.html`'s rail markup.
+In `web/sidebar.js`, delete the rail's Ground block, the `renderGroundSwatches(groundList, ...)` call at line ~460 and the `groundList` element lookup that feeds it. Delete the corresponding `GROUND` heading and `<ul>` from `web/index.html`'s rail markup.
 
 Do **not** delete the `renderGroundSwatches` function itself (line 228) or its export.
 
@@ -273,12 +273,12 @@ describe('the rail does not duplicate the Background panel', () => {
 });
 ```
 
-If `mountSidebar` is not the helper's actual name in this file, use whatever the existing suite uses to build the sidebar — do not invent a second harness.
+If `mountSidebar` is not the helper's actual name in this file, use whatever the existing suite uses to build the sidebar, do not invent a second harness.
 
 - [ ] **Step 4: Run the tests**
 
 Run: `npx vitest run test/sidebar.test.js`
-Expected: PASS. Then `npx vitest run` — all green, and the count drops by any test that asserted the rail's ground list existed. Update those tests rather than deleting them wholesale; if one asserted the rail and the panel agreed, that assertion is now meaningless and should go with a note in the commit.
+Expected: PASS. Then `npx vitest run`, all green, and the count drops by any test that asserted the rail's ground list existed. Update those tests rather than deleting them wholesale; if one asserted the rail and the panel agreed, that assertion is now meaningless and should go with a note in the commit.
 
 - [ ] **Step 5: Verify in the browser**
 
@@ -303,9 +303,9 @@ gh pr checks 1
 
 `test` and `netlify/shotkit-app/deploy-preview` must both be green before you
 hand anything over. **A task with red CI is not finished**, however good the
-preview looks — fix it, push, and wait again.
+preview looks, fix it, push, and wait again.
 
-Then give Rock the URL — **https://deploy-preview-1--shotkit-app.netlify.app** —
+Then give Rock the URL, **https://deploy-preview-1--shotkit-app.netlify.app**,
 and tell him what to look at:
 
 > Look at the template and ratio lists: name on the left, dimensions on the right, a clear gap between them, long names truncating with an ellipsis rather than colliding. Then confirm the left rail has no Ground section, and the Background panel still does.
@@ -324,23 +324,23 @@ asks for a change, make it, redeploy, and hand the link back before moving on.
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: a reusable `contrastRatio(hexA, hexB)` helper exported from `test/contrast.test.js`'s own module scope is **not** wanted — keep the helper local to the test file. Cycle B recomputes contrast for the generated hues separately.
+- Produces: a reusable `contrastRatio(hexA, hexB)` helper exported from `test/contrast.test.js`'s own module scope is **not** wanted, keep the helper local to the test file. Cycle B recomputes contrast for the generated hues separately.
 
 - [ ] **Step 0: Sweep the dead swatch rules Task 2 left behind**
 
 Task 2 removed the rail's preset markup and flagged, correctly, that it left
-orphans. Verify each with `grep -rn` before touching it — remove only what is
+orphans. Verify each with `grep -rn` before touching it, remove only what is
 genuinely unreferenced, and say in the report what you removed and what you
 found still in use:
 
-- `web/style.css:679-689` — `.preset-swatch--aurora`, `--slate`, `--candy`.
+- `web/style.css:679-689`, `.preset-swatch--aurora`, `--slate`, `--candy`.
   Nothing matches these selectors any more.
-- `web/tokens.css:59-68` — `--color-blue`, `--color-pink`, `--color-slate`,
+- `web/tokens.css:59-68`, `--color-blue`, `--color-pink`, `--color-slate`,
   `--color-charcoal`, `--color-orange`, `--color-magenta`. If the only
   references are the three rules above, they go with them.
 
 `--color-cyan`, `--color-indigo`, `--color-green` and `--color-teal` sit in the
-same block and may already have been dead before Task 2 — check them too, but
+same block and may already have been dead before Task 2, check them too, but
 do not assume. Also re-check `--text-subtle`, flagged as a dead token back in
 Task 7 of the previous cycle and deliberately left then.
 
@@ -382,7 +382,7 @@ function tokens() {
 }
 
 // Every text token, and every surface it actually sits on. Derived by reading
-// web/style.css — if a pairing here is wrong the fix is to correct the
+// web/style.css, if a pairing here is wrong the fix is to correct the
 // pairing, not to loosen the threshold.
 const PAIRS = [
   ['--text-primary',   '--surface-window',   7.0],
@@ -420,11 +420,11 @@ describe('token contrast', () => {
 - [ ] **Step 2: Run it and record every failure**
 
 Run: `npx vitest run test/contrast.test.js`
-Expected: several FAIL. Copy the full list of failing pairs and their measured ratios into the task report — this is the evidence that the complaint was real, and it is what the reviewer will check the fix against.
+Expected: several FAIL. Copy the full list of failing pairs and their measured ratios into the task report, this is the evidence that the complaint was real, and it is what the reviewer will check the fix against.
 
 - [ ] **Step 3: Raise only the failing tokens, minimally**
 
-In `web/tokens.css`, for each failing token, raise **lightness only** — keep hue and saturation, exactly as the existing `--text-disabled` comment did. Change the smallest amount that clears the threshold, then add a comment in the same style as the `--text-disabled` block recording the old value, the measured ratio, the binding background, and why the new value is the minimum.
+In `web/tokens.css`, for each failing token, raise **lightness only**, keep hue and saturation, exactly as the existing `--text-disabled` comment did. Change the smallest amount that clears the threshold, then add a comment in the same style as the `--text-disabled` block recording the old value, the measured ratio, the binding background, and why the new value is the minimum.
 
 Do not touch `--text-subtle` unless it fails its 3:1 row: it is a decorative separator, and the spec sets 3:1 for decorative.
 
@@ -437,7 +437,7 @@ Expected: PASS, all rows.
 
 - [ ] **Step 5: Look at it**
 
-Run the dev server, load a screenshot, and screenshot the full app. Then screenshot the empty state. Confirm the inert/disabled states still read as *inert* — the point of this task is legibility, not flattening the hierarchy. If everything now looks the same weight, the lift went too far on the muted end; pull it back and re-run.
+Run the dev server, load a screenshot, and screenshot the full app. Then screenshot the empty state. Confirm the inert/disabled states still read as *inert*, the point of this task is legibility, not flattening the hierarchy. If everything now looks the same weight, the lift went too far on the muted end; pull it back and re-run.
 
 - [ ] **Step 6: Run everything and commit**
 
@@ -459,12 +459,12 @@ gh pr checks 1
 
 `test` and `netlify/shotkit-app/deploy-preview` must both be green before you
 hand anything over. **A task with red CI is not finished**, however good the
-preview looks — fix it, push, and wait again.
+preview looks, fix it, push, and wait again.
 
-Then give Rock the URL — **https://deploy-preview-1--shotkit-app.netlify.app** —
+Then give Rock the URL, **https://deploy-preview-1--shotkit-app.netlify.app**,
 and tell him what to look at:
 
-> Read every label in the app — rail, toolbar, template rows, section headings, inspector labels, the export dimensions, the empty state. Nothing should require effort to read. Check the empty state too: inert controls must still look inert, not merely dim. If everything now reads at the same weight, say so — the lift went too far.
+> Read every label in the app, rail, toolbar, template rows, section headings, inspector labels, the export dimensions, the empty state. Nothing should require effort to read. Check the empty state too: inert controls must still look inert, not merely dim. If everything now reads at the same weight, say so, the lift went too far.
 
 **Then stop.** Do not begin the next task. Silence is not approval. If Rock
 asks for a change, make it, redeploy, and hand the link back before moving on.
@@ -479,7 +479,7 @@ greys need to get closer to white. I feel like we using 'pass' as the floor...
 even the placeholder 'square' on the center of the page is so dim that I can
 barely see the dashed lines and the ratio on the corner."*
 
-Two failures, not one. **The floor was the target** — Task 3 solved each token
+Two failures, not one. **The floor was the target**, Task 3 solved each token
 to the minimum that cleared 4.5:1 and stopped there. And **the audit measured
 text only**: every border, dashed affordance and the dot grid went unchecked,
 and all of them failed badly (1.15:1 to 1.46:1), including the empty state's
@@ -497,13 +497,13 @@ token doing two jobs with opposite requirements: as a hairline it is decoration
 and wants to be bright, and as the row hover fill it is the lightest surface any
 LADDER token is painted on, and so the ceiling on the entire text ladder.
 Lifting it would have dropped that ceiling from 16.86:1 to 9.78:1 and made a
-7:1 floor with five rungs impossible. It was split — the hover fill keeps the
+7:1 floor with five rungs impossible. It was split, the hover fill keeps the
 old value as `--surface-hover`, the hairline moved. No surface token changed
 value.
 
 **What the review found, and why it matters to later tasks.** The first pass
 converted `.inspector-section[inert]` off `opacity` and left nine other rules
-on it. Three sat below 3:1, and most of them were on the empty state — its
+on it. Three sat below 3:1, and most of them were on the empty state, its
 toolbar buttons and all four rail items rendered *dimmer than the inert panels
 beside them*. The suite could not see any of it, because it read values out of
 `tokens.css` and a composited colour exists only in the browser. So:
@@ -520,7 +520,7 @@ beside them*. The suite could not see any of it, because it read values out of
 Two further traps this task walked into, recorded so a later one does not:
 
 - **Dimming is not always an off state.** `.sampled-row:not(.is-active)` means
-  "true, but not currently in effect" on a live, clickable row — informational
+  "true, but not currently in effect" on a live, clickable row, informational
   text that owes 7:1, not an exempt inactive component. It steps down the
   ladder instead of into the inert tone.
 - **A "dim" assertion must read the rule, not the tokens.** The first version
@@ -578,13 +578,13 @@ describe('retired vocabulary', () => {
 - [ ] **Step 2: Run and watch it fail**
 
 Run: `npx vitest run test/config.test.js -t 'retired vocabulary'`
-Expected: FAIL — `c.fit` is `'cover'`, `c.caption` is `'hello'`.
+Expected: FAIL, `c.fit` is `'cover'`, `c.caption` is `'hello'`.
 
 - [ ] **Step 3: Remove them**
 
 `core/presets.js`: delete `export const FITS = [...]`, `fit:` from `DEFAULTS`, `caption:` from `DEFAULTS`.
 
-`core/config.js`: delete the `FITS` and `caption` imports and the `fit:` and `caption:` lines from the returned object. Leave `url:` alone — the comment above it references `caption`'s coercion, so rewrite that comment to stand on its own rather than pointing at a deleted field.
+`core/config.js`: delete the `FITS` and `caption` imports and the `fit:` and `caption:` lines from the returned object. Leave `url:` alone, the comment above it references `caption`'s coercion, so rewrite that comment to stand on its own rather than pointing at a deleted field.
 
 `core/layout.js`: in `webBox`, delete the `c.fit === 'contain'` branches. The box always takes the ratio and is always fitted:
 
@@ -606,7 +606,7 @@ function webBox(c, box, ratio) {
 
 Delete the `if (c.caption) { out.caption = ... }` block and change `out`'s initialiser from `{ safe, web: null, phones: [], caption: null }` to `{ safe, web: null, phones: [] }`.
 
-`core/render.js`: in `paintWeb`, change `drawFitted(ctx, box, image, c.fit)` to `drawFitted(ctx, box, image, 'contain')`. Delete `paintCaption` entirely. Keep `drawFitted` — `paintPhone` still uses it with `'cover'`.
+`core/render.js`: in `paintWeb`, change `drawFitted(ctx, box, image, c.fit)` to `drawFitted(ctx, box, image, 'contain')`. Delete `paintCaption` entirely. Keep `drawFitted`, `paintPhone` still uses it with `'cover'`.
 
 `core/index.js`: remove `FITS` from the export list, and remove the `paintCaption` call from `composeWithMeta`.
 
@@ -627,7 +627,7 @@ node scripts/make-render-goldens.js
 npx vitest run
 ```
 
-Every remaining golden must be **byte-identical** — `git status` should show no modifications under `test/golden/render/`. Removing `fit` cannot change output because `contain` was the default and the only non-cropping option. If any golden moved, **stop and report**: something else changed with it.
+Every remaining golden must be **byte-identical**, `git status` should show no modifications under `test/golden/render/`. Removing `fit` cannot change output because `contain` was the default and the only non-cropping option. If any golden moved, **stop and report**: something else changed with it.
 
 - [ ] **Step 6: Commit**
 
@@ -648,9 +648,9 @@ gh pr checks 1
 
 `test` and `netlify/shotkit-app/deploy-preview` must both be green before you
 hand anything over. **A task with red CI is not finished**, however good the
-preview looks — fix it, push, and wait again.
+preview looks, fix it, push, and wait again.
 
-Then give Rock the URL — **https://deploy-preview-1--shotkit-app.netlify.app** —
+Then give Rock the URL, **https://deploy-preview-1--shotkit-app.netlify.app**,
 and tell him what to look at:
 
 > Confirm the **Fit** control and the **Caption** field are gone from the inspector, and that nothing else moved or broke in their place.
@@ -686,7 +686,7 @@ On a flat `#808080` source at `grain: 1` the screenshot's interior came back as
 
 Not clipped around the shots, and the reason is written at the call site: an
 even-odd clip would modulate the grain along its own antialiased boundary and
-draw a 1px ring at the shot's edge — the exact artefact Task 1 spent two rounds
+draw a 1px ring at the shot's edge, the exact artefact Task 1 spent two rounds
 removing. The trade is that grain no longer sits over the shadow; the shadow is
 a low-alpha wash over an already-grained ground, so the grain still shows
 through it, just unmodulated by it.
@@ -697,12 +697,12 @@ rounded rect and filled the body with a `fillRect` covering that whole clip.
 > **In Chromium, a `fillRect` that COVERS its clip is rasterised against the
 > clip mask's rounded-out device bounds, not its own rectangle.** For an
 > antialiased non-rectangular clip those bounds overshoot the path by a
-> constant **+4px on the right and bottom** — independent of the radius, absent
+> constant **+4px on the right and bottom**, independent of the radius, absent
 > on the left and top, and absent at radius 0. Only a covering fill triggers
 > it: a rect inside the clip is exact, `fill()` of a path is exact, `drawImage`
 > is exact, and intersecting an exact `rect()` clip does not help.
 
-That painted the body colour — `#ffffff` — as a 4px band down the right edge
+That painted the body colour, `#ffffff`, as a 4px band down the right edge
 and 6px along the bottom, with a bottom-right corner whose leaked curve no
 longer matched the shot's radius. Invisible on a pale screenshot; glaring on a
 dark one. Both of Rock's sentences describe it. Before/after at 10x:
@@ -720,8 +720,8 @@ establish the +4 are in that helper's doc comment and in the verification doc.
   values is blind to `opacity`", and the same shape as the shadow alphas that
   were once retuned against Node while the browser would have shipped something
   65 levels off. `test/render-clip-safety.test.js` therefore asserts the
-  *structure* that makes the bug unreachable — no `fillRect` inside a
-  `ctx.clip()` block, and all five painters routed through `fillRoundRect` — and
+  *structure* that makes the bug unreachable, no `fillRect` inside a
+  `ctx.clip()` block, and all five painters routed through `fillRoundRect`, and
   states its own limit: the scan is lexical, so a covering `fillRect` reached
   only at runtime across a call boundary would slip past it.
 - **Filling the path fixed a light halo in Node too.** The body's boundary
@@ -731,7 +731,7 @@ establish the +4 are in that helper's doc comment and in the verification doc.
   shot has carried a light 1px halo on all four edges until now.
 
 Goldens: all ten regenerated. The change was attributed before regenerating by
-composing each case against the pre-fix and post-fix cores — the clip fix is
+composing each case against the pre-fix and post-fix cores, the clip fix is
 ~5,100 pixels per case (the shot's perimeter), everything else is the grain
 move. `test/compose.test.js`'s url-discrimination measurement moved from
 0.00201 to 0.000816 (still ~80x its pass threshold) because grain over the URL
@@ -761,8 +761,8 @@ inside: 30   boundary pixel: 159   ground: 179     an honest blend is ~104
 ```
 
 **Two causes, and the smaller one is the one that had a name.** The white
-fill — `paintWeb` filling the box with `--screen-bg` before drawing the
-picture — was worth about **7 of those 55 levels**. Deleting it and putting
+fill, `paintWeb` filling the box with `--screen-bg` before drawing the
+picture, was worth about **7 of those 55 levels**. Deleting it and putting
 the ground behind instead moved the boundary from 168 to 162 and left the
 line exactly where it was. The other 49 levels are this:
 
@@ -775,14 +775,14 @@ line exactly where it was. The other 49 levels are this:
 > additionally inconsistent about which edges it antialiases at all: a dest
 > rect at `y = 60.5` painted **nothing** into row 60, and one ending at
 > `x = 150.4` nothing into column 150, while the opposite two edges blended
-> correctly. That is why the top edge measured 249 against a ground of 243 —
+> correctly. That is why the top edge measured 249 against a ground of 243,
 > pure fill, no screenshot in that row whatsoever.
 
 Both halves had to go, because each is enough on its own. The fix is not to
 model the rasteriser but to stop asking it the question: the screenshot's
 destination rect is **snapped outward onto the device pixel grid**
 (`SNAP_TO_PIXELS`, `drawFitted`), so it has no partial coverage of its own
-and the clip is the only mask on the boundary pixel — in any engine, with no
+and the clip is the only mask on the boundary pixel, in any engine, with no
 engine detection. Before and after, per edge, against an ideal computed from
 the rasteriser's own coverage and a transparent-source render of the same
 scene:
@@ -804,7 +804,7 @@ same bug in a new colour:
   over the shadow's caster inside the shot's own path. `paintGround` gained
   an optional `area`; `paintWeb`/`paintWebChrome` gained a `stops` argument
   (`composeWithMeta` passes `meta.ground`). The browser frame's `fBodyBg`
-  went with the white — it was white in the light theme and `#101114` in the
+  went with the white, it was white in the light theme and `#101114` in the
   dark one, and since the bar covers its whole strip and the screenshot
   covers everything below, the *only* thing it ever did was leak at the edge.
 - **`paintPhoneChrome` and `paintPhone` are backed by the device**, and
@@ -818,14 +818,14 @@ Three things worth carrying forward.
   plus a covering `fillRect` is exactly Task 4b's Chromium overshoot, and
   `paintGround`'s own fills cover the canvas. `fillArea` fills the rounded
   path instead. The elliptical corner radials still work because **a path is
-  transformed as it is traced and a gradient when it is painted** — trace the
+  transformed as it is traced and a gradient when it is painted**, trace the
   area under the identity CTM, then scale, then fill.
 - **The bar is painted after the screenshot now.** Their edges are the same
   line; painting the bar last puts an exact `fillRect` edge on that boundary
   instead of `drawImage`'s unreliable one.
 - **The goldens did NOT change only at the edges, and that is expected.**
   Snapping redraws the picture on a rect up to one pixel larger per axis, so
-  a detailed screenshot is resampled at up to 0.05% off its previous scale —
+  a detailed screenshot is resampled at up to 0.05% off its previous scale,
   7-12% of pixels moved, mean 21 levels, entirely at glyph boundaries. The
   edge fix itself was isolated by re-rendering every case with a **flat**
   source, where resampling cannot change anything: 0.21-0.31% of the canvas,
@@ -840,20 +840,20 @@ for all three frame kinds, with **both terms measured rather than assumed**:
 where the geometry says 0.600, and a test that trusted the ruler would report
 a defect that is not there), `backdrop` from re-rendering the identical scene
 with a fully transparent source. The browser frame is measured by coverage
-instead — its own 1px hairline is painted over the edge pixel and breaks the
-blend identity — using two flat sources so everything that is not the
+instead, its own 1px hairline is painted over the edge pixel and breaks the
+blend identity, using two flat sources so everything that is not the
 screenshot cancels. A `windowCaptureSource` case (transparent rounded
 corners, alpha shadow) asserts the margin reads as ground, neither near-white
 nor near-black. **All 18 were run against the pre-fix core and all 18 went
 red**, reporting the leaked values above; six tests in this cycle had turned
 out incapable of failing, and one draft of the transparency case here made
-seven — it sampled 6px inside the corner, which falls *outside* the r=24 arc,
+seven, it sampled 6px inside the corner, which falls *outside* the r=24 arc,
 and passed against the very white fill it was written to catch.
 
 `test/render-clip-safety.test.js`'s per-painter list changed shape: the
 phone painters no longer fill a backing at all, and the two web painters
 reach theirs through `paintGround(ctx, c, stops, area)`. It also gained
-Task 4c's structural half — nothing draws an image except `drawFitted`, and
+Task 4c's structural half, nothing draws an image except `drawFitted`, and
 every call asks for `SNAP_TO_PIXELS`. `test/export-scale-fidelity.test.js`
 was leaning on the white fill to find the corner arc and now asserts the
 fixture premise it actually depends on.
@@ -868,15 +868,15 @@ fixture premise it actually depends on.
 
 ### Task 4d: the clip, and why nothing goes behind a shot
 
-Written after Task 4c shipped. The edge numbers were right — within a level
-of ideal on every edge and corner — and Rock opened the preview and found two
+Written after Task 4c shipped. The edge numbers were right, within a level
+of ideal on every edge and corner, and Rock opened the preview and found two
 new things the same day, plus the question that turned out to be the whole
 task:
 
-> "1px is cut from the top and left of the screenshot" — as soon as the
+> "1px is cut from the top and left of the screenshot", as soon as the
 > corner radius is above zero. At radius 0 the image is intact.
 
-> "a visible spike where the straight edge meets the corner arc" — without
+> "a visible spike where the straight edge meets the corner arc", without
 > zooming.
 
 > "I don't understand why we are rendering anything behind it at all."
@@ -896,35 +896,35 @@ things came out of that, and they are worth keeping separate:
 > **The overshoot and the spike are Chromium's, and are Task 4b's finding
 > reaching `drawImage`: a non-rectangular clip is rasterised against
 > rounded-out device bounds, not against its path.** On the right and bottom
-> the shot covers the boundary pixel completely — 1.000 where the path says
-> 0.596 — while the arc still follows the path. Walking the bottom-right
+> the shot covers the boundary pixel completely, 1.000 where the path says
+> 0.596, while the arc still follows the path. Walking the bottom-right
 > corner row by row, the shot tracks the arc to within 0.03px for eleven rows
 > and then steps **14.0px** off it in one. A straight edge that overshoots by
 > a pixel meeting a curve that does not: that is the spike. Skia reproduces
 > none of it.
 
-Why Rock saw the cut appear only above radius 0 was not established — a
+Why Rock saw the cut appear only above radius 0 was not established, a
 rectangular clip is the one shape Task 4b measured as exact, which is a
 plausible reason and not a demonstrated one.
 
 And the backing existed for exactly one reason. `paintShadow` casts from an
 **opaque black rounded rect**, which sits between the ground and the shot and
-shows through wherever the shot does not fully cover — the corners and the
+shows through wherever the shot does not fully cover, the corners and the
 antialiased edge. frame.html covered it with a white `--screen-bg` card;
 Task 4c covered it with a second pass of the ground. Both leaked, because a
 backing can only ever be seen through partial coverage.
 
 **The fix is one rule.** *A shot gets exactly one antialiased edge, and it is
 the mask's.* Each shot is composed in its own offscreen canvas
-(`placeShot`, through the injected `makeCanvas` — `core/` still creates
+(`placeShot`, through the injected `makeCanvas`, `core/` still creates
 nothing), everything in it is drawn **one pixel past** where the shot ends,
 the shape is cut once with a `destination-in` fill of the rounded path, and
 the finished tile is stamped down at integer coordinates. No clip, no
 snapping, no backing:
 
 - `SNAP_TO_PIXELS` is gone and the picture is drawn at its true rect again.
-- The bleed is an **edge clamp** — the source's own outermost row and column
-  stretched outward under `destination-over` — not a scaled-up second copy.
+- The bleed is an **edge clamp**, the source's own outermost row and column
+  stretched outward under `destination-over`, not a scaled-up second copy.
   Both fix the coverage; only the clamp keeps the boundary pixel's colour,
   because it extends edge pixels instead of resampling the picture off its
   grid (Chromium: 218,90,218 clamped, 172,136,172 scaled, against a row that
@@ -939,7 +939,7 @@ snapping, no backing:
   are all deleted.
 - `SHADOW_SOURCE_INSET` **stays**, for a new reason: at inset 0 the caster's
   path and the clip's boundary would be the same rounded rect, both
-  antialiased, and the boundary pixel would get black at `k(1-k)` — a dark
+  antialiased, and the boundary pixel would get black at `k(1-k)`, a dark
   ring instead of a light one.
 - The phone keeps its device body. That is drawn content, not a backing
   hiding a caster: what is behind a phone's screen is the phone, and Task 4c
@@ -950,29 +950,29 @@ Before and after, measured in Chrome on the app's own `frame: none` geometry:
 
 | | left | right | top | bottom | corner (worst step) |
 |---|---|---|---|---|---|
-| path coverage | 0.600 | 0.596 | 0.502 | 0.502 | — |
+| path coverage | 0.600 | 0.596 | 0.502 | 0.502 |, |
 | Task 4c | 0.600 | **1.000** | 0.500 | **1.000** | **1.234px** |
 | Task 4d | 0.600 | 0.594 | 0.500 | 0.500 | 0.012px |
-| source row/column kept | 70% | — | 61% | — | (4c) |
-| source row/column kept | 98% | — | 98% | — | (4d) |
+| source row/column kept | 70% |, | 61% |, | (4c) |
+| source row/column kept | 98% |, | 98% |, | (4d) |
 
 **Four things worth carrying forward.**
 
 - **A `destination-in` fill under a `translate` is culled against the
   UNTRANSFORMED canvas bounds in `@napi-rs/canvas`, and a culled
   `destination-in` clears the whole surface.** The obvious way to write
-  `placeShot` — translate the tile and let painters keep working in canvas
-  coordinates — therefore rendered phones with no screenshot in them at all
+  `placeShot`, translate the tile and let painters keep working in canvas
+  coordinates, therefore rendered phones with no screenshot in them at all
   whenever the phone sat past x = 512. The goldens caught it. The tile
   carries no transform; painters get an `at(rect)` shifter instead.
 - **Tile bitmaps are allocated on a 64px grid (`TILE_QUANTUM`).** Nothing
-  about the render changes — the extra strip is transparent and the mask
-  clears it — but `makeCanvas` implementations are entitled to pool by size,
+  about the render changes, the extra strip is transparent and the mask
+  clears it, but `makeCanvas` implementations are entitled to pool by size,
   and `web/state.js` does. Sized to the exact box, a padding drag would mint
   and keep a new multi-megabyte canvas every frame; quantised, the whole
   sweep asks for eight sizes.
 - **The cost is a browser number and a Node number and they disagree.**
-  Chromium: 74.8ms → 71.1ms for the standard web case — slightly *faster*,
+  Chromium: 74.8ms → 71.1ms for the standard web case, slightly *faster*,
   because both are dominated by the shadow blurs and the shadow now has the
   box clipped out of it. `@napi-rs/canvas`: 3.7ms → 26.3ms, almost all of it
   the tile blit (an empty 1728x1088 tile costs 4.7ms to draw there). That is
@@ -982,12 +982,12 @@ Before and after, measured in Chrome on the app's own `frame: none` geometry:
   suite anyway.** Same shape as Task 4b: skia reads 0.031px worst error on
   the pre-fix core where Chromium reads 2.939px against a 0.35px tolerance.
   It was confirmed red the one way it can be, in Chrome, and the structural
-  guard — *nothing is drawn inside a clip* — is what actually holds the line.
+  guard, *nothing is drawn inside a clip*, is what actually holds the line.
   The content-preservation assertions are not like that: all six went red in
   Node, reporting 0.714 of 1.163 destination pixels at the top edge.
 
 **Goldens: all ten regenerated, and the point of the number is which way it
-moved.** Against the Task 4c goldens, 2.8-11.7% of pixels change — that is
+moved.** Against the Task 4c goldens, 2.8-11.7% of pixels change, that is
 4c's resampling churn being *undone*. Against the goldens from **before** 4c,
 which is where the picture's own grid came from, 0.22-0.35% change, 75-97% of
 them on a shot's edge or corner arc, and the rest is 1 level of rounding over
@@ -1003,7 +1003,7 @@ moved.
 
 ---
 
-### REVERTED — Tasks 5, 5b and 5c (shadow controls)
+### REVERTED, Tasks 5, 5b and 5c (shadow controls)
 
 **Reverted in full on 2026-09-02, at Rock's instruction: "no. you can't do this.
 revert the shadow as we had it originally."**
@@ -1012,7 +1012,7 @@ revert the shadow as we had it originally."**
 (`3c9a33b`). `paintShadow` is back to its positional signature; `SHADOW_DEFAULTS`,
 `phoneShadow`, the four advanced controls, the Advanced disclosure, the softness
 floor and the isolated shadow golden are all gone. The Finish section is Padding,
-Corner radius, Grain, Shadow — one strength slider, as before.
+Corner radius, Grain, Shadow, one strength slider, as before.
 
 **Why, honestly.** The rendering work was sound and the default output never
 moved. What went wrong was everything around it:
@@ -1025,7 +1025,7 @@ moved. What went wrong was everything around it:
    number.
 2. **The tests could not have caught it.** They scanned source text for the
    controls' existence rather than driving the setters and asserting the render
-   config followed. No DOM was needed to catch this — it was a pure-function bug —
+   config followed. No DOM was needed to catch this, it was a pure-function bug,
    so the structural approach was a choice, and the wrong one.
 3. **Task 5c fixed it properly, and by then the feature had cost more trust than
    it was worth.** Rock had said the shadow was already good; three tasks of churn
@@ -1033,8 +1033,8 @@ moved. What went wrong was everything around it:
 
 **If this is ever picked up again**, the useful residue is: the isolated
 shadow golden (capture before touching, prove the default is byte-identical),
-the finding that the softness floor must be measured in Chromium — Node gives a
-floor six times too low, the same trap that broke the alphas — and the rule that
+the finding that the softness floor must be measured in Chromium, Node gives a
+floor six times too low, the same trap that broke the alphas, and the rule that
 a control test must follow the value to what is actually drawn, not to the field
 the setter happens to write.
 
@@ -1044,7 +1044,7 @@ Angle it governs.
 
 ---
 
-### Task 5 (REVERTED — see above): Parameterised shadow, guarded by an isolated golden
+### Task 5 (REVERTED, see above): Parameterised shadow, guarded by an isolated golden
 
 **Files:**
 - Modify: `core/presets.js` (add `SHADOW_DEFAULTS`)
@@ -1056,7 +1056,7 @@ Angle it governs.
 
 **Interfaces:**
 - Consumes: Task 4's `normalise` without `fit`/`caption`.
-- Produces: `normalise()` returns `shadow: { scale, distance, angle, blur, directional }`. `paintShadow(ctx, box, shadow, a1, a2, canvasH)` — the old positional `spreadY`/`blur`/`scale` are gone. `shadowScale` remains accepted as **input** and folds into `shadow.scale`.
+- Produces: `normalise()` returns `shadow: { scale, distance, angle, blur, directional }`. `paintShadow(ctx, box, shadow, a1, a2, canvasH)`, the old positional `spreadY`/`blur`/`scale` are gone. `shadowScale` remains accepted as **input** and folds into `shadow.scale`.
 
 - [ ] **Step 1: Capture today's shadow BEFORE touching anything**
 
@@ -1130,7 +1130,7 @@ describe('shadow defaults are frozen', () => {
     expect(diffAgainstGolden(render(c.shadow))).toBe(0);
   });
 
-  it('the golden actually discriminates — a nudged distance fails it', () => {
+  it('the golden actually discriminates, a nudged distance fails it', () => {
     const c = normalise({});
     const nudged = { ...c.shadow, distance: c.shadow.distance * 1.1 };
     expect(diffAgainstGolden(render(nudged))).toBeGreaterThan(0);
@@ -1150,7 +1150,7 @@ describe('shadow defaults are frozen', () => {
 **Do not add a dependency.** `core/` has zero runtime dependencies and this
 round adds none to the test side either. Before writing the test, open
 `test/compose.test.js` and use the exact golden-comparison technique already
-there — read the PNG, get its pixels, and `pixelmatch` against the live
+there, read the PNG, get its pixels, and `pixelmatch` against the live
 render. Replace the `pngjs` import above with that technique; it is written
 here only to show the shape of the three assertions, which are the part that
 matters.
@@ -1158,7 +1158,7 @@ matters.
 - [ ] **Step 3: Run it and watch it fail**
 
 Run: `npx vitest run test/render-shadow.test.js`
-Expected: FAIL — `normalise({}).shadow` is undefined and `paintShadow`'s signature does not accept it yet.
+Expected: FAIL, `normalise({}).shadow` is undefined and `paintShadow`'s signature does not accept it yet.
 
 - [ ] **Step 4: Add the config block**
 
@@ -1166,7 +1166,7 @@ In `core/presets.js`:
 
 ```js
 // Shadow parameters. `distance` and `blur` are fractions of the canvas
-// HEIGHT — they are exactly the `c.h * 0.040` and `c.h * 0.105` that were
+// HEIGHT, they are exactly the `c.h * 0.040` and `c.h * 0.105` that were
 // hard-coded at paintShadow's four call sites, moved into config without
 // changing value. `angle` is degrees clockwise from the positive x-axis, so
 // 90 is straight down, which is what a non-directional shadow already did.
@@ -1219,7 +1219,7 @@ In `core/config.js`, replace the `shadowScale:` field with:
 /**
  * DO NOT RETUNE THE ALPHAS PASSED IN HERE. 0.17/0.07 for web and browser,
  * 0.22/0.10 for phones. A prior pass retuned them to 0.40/0.30 against
- * @napi-rs/canvas — every Node test stayed green while the browser, the
+ * @napi-rs/canvas, every Node test stayed green while the browser, the
  * actual product, would have shipped a shadow ~65 RGB levels too dark.
  * frame.html is deleted; these cannot be re-derived. test/render-shadow.test.js
  * freezes the default output against test/golden/shadow/default.png.
@@ -1252,14 +1252,14 @@ export function paintShadow(ctx, box, shadow, a1, a2, canvasH) {
 }
 ```
 
-Note `ctx.shadowOffsetX` must be set explicitly on both branches — canvas state is saved/restored per layer, but leaving it unset relies on the default being 0, which is true but silent. Setting it is what makes the directional case work at all.
+Note `ctx.shadowOffsetX` must be set explicitly on both branches, canvas state is saved/restored per layer, but leaving it unset relies on the default being 0, which is true but silent. Setting it is what makes the directional case work at all.
 
 Update the four call sites to `paintShadow(ctx, box, c.shadow, 0.17, 0.07, c.h)` (web and browser) and `paintShadow(ctx, box, c.shadow, 0.22, 0.10, c.h)` (both phone sites), deleting the now-duplicated `c.h * 0.040` / `c.h * 0.105` arguments.
 
 - [ ] **Step 6: Run the guard**
 
 Run: `npx vitest run test/render-shadow.test.js`
-Expected: PASS, all three — including both discrimination checks. If "the golden actually discriminates" passes but "reproduces exactly" fails, the refactor changed the default output: fix the refactor, **never** regenerate the golden.
+Expected: PASS, all three, including both discrimination checks. If "the golden actually discriminates" passes but "reproduces exactly" fails, the refactor changed the default output: fix the refactor, **never** regenerate the golden.
 
 - [ ] **Step 7: Full suite, goldens must not move**
 
@@ -1272,25 +1272,25 @@ Every whole-shot golden must stay byte-identical: the defaults are unchanged, so
 In the Finish section of the inspector, add four controls bound to
 `state.config.shadow`:
 
-- **Distance** — slider over `SHADOW_DISTANCE_RANGE`
-- **Angle** — slider 0–360, degrees
-- **Blur** — slider over `SHADOW_BLUR_RANGE`
-- **Directional** — a toggle bound to `shadow.directional`
+- **Distance**, slider over `SHADOW_DISTANCE_RANGE`
+- **Angle**, slider 0–360, degrees
+- **Blur**, slider over `SHADOW_BLUR_RANGE`
+- **Directional**, a toggle bound to `shadow.directional`
 
 Angle only has a visible effect when Directional is on. Leave it enabled and
-let that be discoverable — do not disable it, and do not hide it; a control
+let that be discoverable, do not disable it, and do not hide it; a control
 that vanishes is more confusing than one that waits.
 
 **These controls are deliberately minimal, and Cycle B will replace them.**
 That is not wasted work: a render feature with no way to invoke it cannot be
 previewed, and a feature Rock cannot test is a feature he cannot approve. Wire
 them into the existing inspector following the pattern already in
-`web/inspector-frame.js` — a labelled row with a slider or segmented control,
+`web/inspector-frame.js`, a labelled row with a slider or segmented control,
 writing to `state.config`, then `scheduleRender()`. Do not invent a new control
 idiom; do not restyle anything around them.
 
 Add matching tests to the existing inspector test file, in the style already
-there — assert the control writes the value, clamps at both ends, and that
+there, assert the control writes the value, clamps at both ends, and that
 `render()` is scheduled.
 
 - [ ] **Step 9: Commit**
@@ -1312,12 +1312,12 @@ gh pr checks 1
 
 `test` and `netlify/shotkit-app/deploy-preview` must both be green before you
 hand anything over. **A task with red CI is not finished**, however good the
-preview looks — fix it, push, and wait again.
+preview looks, fix it, push, and wait again.
 
-Then give Rock the URL — **https://deploy-preview-1--shotkit-app.netlify.app** —
+Then give Rock the URL, **https://deploy-preview-1--shotkit-app.netlify.app**,
 and tell him what to look at:
 
-> Drag each shadow control and watch the shot: **Distance**, **Angle**, **Blur**, and the **Directional** toggle. With Directional off, Angle should do nothing — that is correct, not a bug. Reset should return the shot to exactly the shadow it has today.
+> Drag each shadow control and watch the shot: **Distance**, **Angle**, **Blur**, and the **Directional** toggle. With Directional off, Angle should do nothing, that is correct, not a bug. Reset should return the shot to exactly the shadow it has today.
 
 **Then stop.** Do not begin the next task. Silence is not approval. If Rock
 asks for a change, make it, redeploy, and hand the link back before moving on.
@@ -1347,25 +1347,25 @@ and, clarifying:
 draws a broad soft layer and a tighter contact layer, inherited from
 `frame.html`; that pairing is what makes a shot look seated rather than pasted,
 and at every normal softness the two fuse into one shadow. They read as two in
-exactly one place — at softness 0, where both collapse into hard-edged
+exactly one place, at softness 0, where both collapse into hard-edged
 rectangles offset by `distance` and `0.28 * distance`. Putting a floor under
 softness closes the "two shadows" report as a side effect of closing the
 "sharp" one. The offsets, the alphas and the layer relationship are untouched.
 
-**One slider by default.** Finish shows **Shadow** — the existing strength
-slider — and nothing else. Below it sits a collapsed **Advanced shadow
+**One slider by default.** Finish shows **Shadow**, the existing strength
+slider, and nothing else. Below it sits a collapsed **Advanced shadow
 settings** disclosure holding the rest, mirroring the Screen Studio panel Rock
 supplied as reference. The toggle is a `button` carrying `aria-expanded` and
 `aria-controls`, and the group it names is hidden with the global `[hidden]`
-rule — the same disclosure shape the sidebar's "+ Custom size" already uses,
+rule, the same disclosure shape the sidebar's "+ Custom size" already uses,
 and no second hiding mechanism.
 
 **Directional first, Angle subordinate to it.** Inside Advanced the order is
 **Directional**, **Angle**, **Distance**, **Softness**. Angle is indented under
 Directional and is **disabled while Directional is off**. Task 5 deliberately
 left it enabled, reasoning that a control which vanishes confuses more than one
-that waits; Rock's reading is the opposite — a control that moves and does
-nothing reads as broken — and he is the user. It stays visible, and its off
+that waits; Rock's reading is the opposite, a control that moves and does
+nothing reads as broken, and he is the user. It stays visible, and its off
 state is Task 3b's: `disabled` on the input, which is already one of the
 selectors in `style.css`'s single off-state rule, plus that rule extended to the
 row so the label dims with it. **No static `opacity` outside `@keyframes`**, as
@@ -1385,12 +1385,12 @@ things were still wrong with ours.
   config field stays `shadow.blur`: it is `ctx.shadowBlur`, one for one, and
   renaming a core config key changes `normalise()`'s contract and every
   jobs.json written against it for no gain in what is drawn.
-- **Zero gives hard-edged rectangles** — two of them. `SHADOW_BLUR_RANGE`'s
+- **Zero gives hard-edged rectangles**, two of them. `SHADOW_BLUR_RANGE`'s
   lower bound goes up.
 
-**How the floor was chosen — measured, not picked.** The artefact is a visible
+**How the floor was chosen, measured, not picked.** The artefact is a visible
 *edge*: a luminance step big enough to read as a line. The threshold used is
-the classic Weber one, **1% of the background — 2.55 of 255 levels per pixel**,
+the classic Weber one, **1% of the background, 2.55 of 255 levels per pixel**,
 measured on the worst-case white ground, and it coincides with the render's own
 8-bit banding (a smooth gradient here steps by 1-2 levels), so "below 2.55" is
 also "no sharper than the gradient it sits in".
@@ -1412,11 +1412,11 @@ bisecting for the smallest softness whose worst per-pixel step clears 2.55:
   dribbble       2800x2100     0.0200                42.0
 ```
 
-The requirement is **a roughly constant number of PIXELS — ~23-42px of
-`shadowBlur`, worst case 42.0** — not a constant fraction, because edge
+The requirement is **a roughly constant number of PIXELS, ~23-42px of
+`shadowBlur`, worst case 42.0**, not a constant fraction, because edge
 sharpness is a per-pixel property while the parameter is a fraction of the
 canvas. The worst case is at *small* Distance (0.01-0.04), where the two layers
-still overlap and their slopes add — which is the same fact as the "two
+still overlap and their slopes add, which is the same fact as the "two
 shadows" report, seen from the other side.
 
 No single fraction can therefore hold at every canvas height. The floor is
@@ -1428,22 +1428,22 @@ pinned to the height the shipped default and the frozen golden both live at,
 At 1200 and above the floor over-delivers (2800x2100 gets 73px where 42 is
 needed). Below it the same fraction buys fewer pixels: at 1600x900 the measured
 requirement is 0.043 and the floor gives 31.5px, so the worst step there is 3
-levels (1.2%) rather than 2 — marginal, and nothing like the 40-level step at
+levels (1.2%) rather than 2, marginal, and nothing like the 40-level step at
 softness 0. That residual is a canvas-size policy question, not a rendering
 one.
 
 **Do the two layers stay fused at the floor?** Yes, measured. The averaged
 bottom-edge profile's derivative at softness 0, 1800x1200, Distance 0.04, has
-two clean bumps — **13.67 levels/px at the direct layer's edge and 5.00 at the
+two clean bumps, **13.67 levels/px at the direct layer's edge and 5.00 at the
 contact layer's, 34 rows apart**. At 0.035 the largest bump anywhere in that
 profile is 1.67 levels/px, inside the 8-bit banding, with no pair standing above
-it — at every Distance from 0.01 to 0.20, at both 1800x1200 and 2800x2100. The
+it, at every Distance from 0.01 to 0.20, at both 1800x1200 and 2800x2100. The
 contact layer is what binds the floor, incidentally: it carries 41% of the
 direct layer's alpha through 30% of its blur, so it is the sharper of the two.
 
 **MEASURE THIS IN CHROMIUM OR DO NOT MEASURE IT.** `@napi-rs/canvas` renders
 the same `shadowBlur` far fainter, and the same probe run under Node clears the
-threshold at **softness 0.005** — a floor six times too low. At softness 0 the
+threshold at **softness 0.005**, a floor six times too low. At softness 0 the
 two engines agree exactly (21 levels), because there is no blur to disagree
 about. This is the third instance of the pattern already recorded against Task
 3b ("a guard that reads token values is blind to `opacity`") and Task 4b ("a
@@ -1463,12 +1463,12 @@ the disclosure (exists, collapsed by default, contains all four advanced
 controls, in the Directional/Angle/Distance/Softness order) and the Angle gate
 (`shadowAngleDisabled` false only while Directional is on, and the sync function
 actually applies it). Every new assertion was run against the pre-change code
-first and confirmed red — eight tests in this cycle have turned out incapable of
+first and confirmed red, eight tests in this cycle have turned out incapable of
 failing, and the source-scanning ones in this file are exactly the shape that
 happens to.
 
 **Files:** `core/presets.js`, `web/inspector-frame.js`, `web/style.css`,
-`web/index.html` (no change — the section is built in JS), `test/config.test.js`,
+`web/index.html` (no change, the section is built in JS), `test/config.test.js`,
 `test/inspector-frame.test.js`, `test/contrast.test.js`, and the spec's shadow
 section.
 
@@ -1484,7 +1484,7 @@ A **regression**, reported by Rock the moment Task 5b's preview went up:
 
 and, on what he expects instead:
 
-> "shadow controls the shadow amount, which I suppose is what we had before — a
+> "shadow controls the shadow amount, which I suppose is what we had before, a
 > pre baked combination of distance, angle and softness, PLUS the strength (or
 > opacity maybe?)" ... "now when the other options appear, the main shadow
 > slider STILL controls strength/opacity"
@@ -1495,7 +1495,7 @@ Nothing in `core/render.js` is touched either. This task fixes one thing: the
 strength had **two writable homes**, and opening Advanced moved the render onto
 the wrong one.
 
-**The reproduction — pure functions, no DOM.** `{ ...DEFAULTS }` is exactly
+**The reproduction, pure functions, no DOM.** `{ ...DEFAULTS }` is exactly
 what `web/state.js` seeds `state.config` with:
 
 ```
@@ -1516,7 +1516,7 @@ D. after Shadow=0%    -> config.shadowScale = 0
   with `config.shadow = { ...SHADOW_DEFAULTS }`.
 - `SHADOW_DEFAULTS` (`core/presets.js`) includes **`scale: 1`**.
 - `normalise` resolves the strength as
-  `s.scale !== undefined ? s.scale : input.shadowScale` — "an explicit
+  `s.scale !== undefined ? s.scale : input.shadowScale`, "an explicit
   `shadow.scale` wins over it, the specific beats the legacy".
 - The main Shadow slider wrote `config.shadowScale` (`setShadowPercent`).
 
@@ -1532,38 +1532,38 @@ specific value, not that the rule is wrong.
 **The fix: the panel writes `shadow.scale`, and reads through `normalise()`.**
 
 - `setShadowPercent` writes `writableShadow(config).scale`. `shadowScale`
-  survives only as a legacy **input** to `normalise` — accepted from a
+  survives only as a legacy **input** to `normalise`, accepted from a
   jobs.json or the shipped CLI, folded into `shadow.scale`, never written by
   the app again.
-- `readShadow(config)` becomes `normalise(config || {}).shadow` — the same
-  function `core/render.js`'s config goes through — so a displayed value
+- `readShadow(config)` becomes `normalise(config || {}).shadow`, the same
+  function `core/render.js`'s config goes through, so a displayed value
   cannot disagree with a drawn one. This also closes two smaller read/write
   disagreements the spread had: it ignored a legacy `shadowScale` (a jobs.json
   carrying one read back as 100%), and it displayed unclamped/unwrapped values
   `normalise` would then move (distance 50% shown, 20% drawn).
 - `writableShadow` seeds from that **resolved** block rather than from
   `SHADOW_DEFAULTS`, which buys a property worth stating: **seeding is
-  render-neutral** — `normalise(config)` is identical either side of the seed,
+  render-neutral**, `normalise(config)` is identical either side of the seed,
   for every field, because the block written is by definition the one
   `normalise` would have produced. That is the general form of this bug, closed
   for all five controls rather than just for `scale`.
 - `core/config.js`'s top-level `shadowScale` **output** becomes
-  `shadow.scale` — one resolution, one clamp, mirrored — instead of a second,
+  `shadow.scale`, one resolution, one clamp, mirrored, instead of a second,
   independent resolution that could report a different number from the one
   drawn. Every legacy input still lands where it did.
 
 **Why this over "stop seeding `scale`".** Not seeding `scale` also fixes the
 reported symptom, but leaves the strength with two writable homes and the class
-of bug intact: any later code that writes a whole `shadow` block — a preset, a
-reset, a jobs.json round trip — reinstates it, and a reader who notices the
+of bug intact: any later code that writes a whole `shadow` block, a preset, a
+reset, a jobs.json round trip, reinstates it, and a reader who notices the
 deliberately-missing key is likely to "fix" it back. Writing one field leaves
 the smaller surface.
 
-**Tests — behavioural, and this is the part that matters.** Task 5b's tests for
+**Tests, behavioural, and this is the part that matters.** Task 5b's tests for
 this panel were **structural**: they scanned `web/inspector-frame.js`'s own
 source text for the controls' existence. They prove a slider is built, never
 that moving it changes what is drawn, and they could not have caught this.
-There is no excuse for a structural test here — every setter is a pure function
+There is no excuse for a structural test here, every setter is a pure function
 over a config object and `normalise` is pure, so **no DOM is required**.
 
 `test/inspector-frame.test.js` gains a Task 5c suite that drives the setters as
@@ -1571,16 +1571,16 @@ a user drives the panel, asserting both the value the renderer will use
 (`normalise(config).shadow`, literally what `core/render.js` reads) and the
 value the slider will show:
 
-- the regression sequence itself — set strength, touch Distance, set strength
+- the regression sequence itself, set strength, touch Distance, set strength
   again, assert the render followed;
 - strength still reaching 0 after Advanced has been opened;
 - touching any one control changes **only** that control's field in the
   normalised block (the seeding-neutrality property, asserted directly);
-- the general round trip **for every control** — set it, touch every sibling,
+- the general round trip **for every control**, set it, touch every sibling,
   set it again, assert the render follows and the readback agrees;
 - a legacy top-level `shadowScale` surviving the first Advanced touch;
 - `normalise()` reporting the same strength in both of its shadow fields, with
-  Advanced open — where they diverged.
+  Advanced open, where they diverged.
 
 The four Task 6b tests that asserted `config.shadowScale` after
 `setShadowPercent` are rewritten to assert through `normalise()`. That they
@@ -1589,18 +1589,18 @@ slider happened to write, not that the write reached the canvas.
 
 **Run them against the broken code first.** Six of the ten new assertions fail
 before the fix; the four that pass are the sibling round trips for Distance,
-Softness, Angle and Directional — those controls did not have the bug, and the
+Softness, Angle and Directional, those controls did not have the bug, and the
 tests are still worth having because they are what makes the guarantee general.
 A control that silently stops responding is the exact failure mode this cycle
 has now shipped once.
 
-**Verify it in the browser, by driving it.** Not "it looks fine" — load the
+**Verify it in the browser, by driving it.** Not "it looks fine", load the
 preview, drop an image, move Shadow and read the canvas pixels; open Advanced;
 move Shadow again and confirm the pixels **still** move; move each Advanced
 control and confirm each does something; close Advanced and move Shadow again.
 
 **Nothing may move.** `test/golden/shadow/default.png` and all ten render
-goldens stay **byte-identical** — the defaults are unchanged and no painter is
+goldens stay **byte-identical**, the defaults are unchanged and no painter is
 touched.
 
 **Files:** `core/config.js`, `web/inspector-frame.js`,
@@ -1620,12 +1620,12 @@ not the alphas, not `web/style.css`, not the panel's layout.
 
 **Interfaces:**
 - Consumes: Task 4's `webBox` with no fit branch.
-- Produces: `webBox` returns the **outer composite** box with `chrome.screen` as the interior. `layout().web.w/h` is now the composite, not the screenshot. `frameRatio` no longer exists. `frameInsets(c, screenW)` is introduced here — **Task 7 extends it to `frameInsets(c, screenW, shorterSide)`** and adds a `stroke` field to its return value, so write it as a small function that is cheap to extend rather than inlining it. Task 8 changes `BROWSER_BAR_RATIO`, which must flow through this with no further layout edits.
+- Produces: `webBox` returns the **outer composite** box with `chrome.screen` as the interior. `layout().web.w/h` is now the composite, not the screenshot. `frameRatio` no longer exists. `frameInsets(c, screenW)` is introduced here, **Task 7 extends it to `frameInsets(c, screenW, shorterSide)`** and adds a `stroke` field to its return value, so write it as a small function that is cheap to extend rather than inlining it. Task 8 changes `BROWSER_BAR_RATIO`, which must flow through this with no further layout edits.
 
 - [ ] **Step 1: Write the failing tests**
 
 Add to `test/layout.test.js`. Add `MIN_MARGIN_RATIO` to the file's existing
-import from `../core/presets.js` — the last test below reads it directly
+import from `../core/presets.js`, the last test below reads it directly
 rather than restating `0.02`, so a change to the constant cannot silently
 invalidate the guard:
 
@@ -1651,7 +1651,7 @@ describe('frames grow outward', () => {
     expect(b.h).toBeCloseTo(a.h, 6);
   });
 
-  it('the composite grows outward instead — it is taller than the bare screen', () => {
+  it('the composite grows outward instead, it is taller than the bare screen', () => {
     const framed = normalise({ layout: 'web', ratio: '3:2', frameKind: 'browser' });
     const lay = layout(framed, { web: SRC, mobile: [] });
     expect(lay.web.h).toBeGreaterThan(lay.web.chrome.screen.h);
@@ -1675,7 +1675,7 @@ describe('frames grow outward', () => {
 - [ ] **Step 2: Run and watch them fail**
 
 Run: `npx vitest run test/layout.test.js -t 'frames grow outward'`
-Expected: the first test PASSES (the old `frameRatio` maths already guaranteed it — that is the property being preserved, not introduced), and the other three FAIL.
+Expected: the first test PASSES (the old `frameRatio` maths already guaranteed it, that is the property being preserved, not introduced), and the other three FAIL.
 
 If the first test fails too, stop: `frameRatio` is not doing what the comments claim and that must be understood before it is deleted.
 
@@ -1685,7 +1685,7 @@ In `core/presets.js`:
 
 ```js
 // The composite (screenshot + chrome + stroke) grows OUTWARD from the
-// screenshot and is allowed to consume the safe area's padding — that is
+// screenshot and is allowed to consume the safe area's padding, that is
 // what makes turning on a frame leave the screenshot's size alone. This is
 // the floor it may not cross: a fraction of the shorter canvas side, kept
 // as breathing room at the canvas edge.
@@ -1710,14 +1710,14 @@ function frameInsets(c, screenW) {
 
 function webBox(c, box, ratio) {
   // 1. The screenshot's own box: its ratio is the SOURCE ratio, fitted to the
-  //    safe area. This is the size the screenshot keeps — nothing below
+  //    safe area. This is the size the screenshot keeps, nothing below
   //    changes it.
   let sw, sh;
   if (ratio > box.w / box.h) { sw = box.w; sh = box.w / ratio; }
   else                       { sh = box.h; sw = box.h * ratio; }
 
   // 2. Grow outward. The composite eats into the padding rather than into
-  //    the picture — see the spec's "frames and strokes are outsets".
+  //    the picture, see the spec's "frames and strokes are outsets".
   const ins = frameInsets(c, sw);
   let ow = sw + ins.left + ins.right;
   let oh = sh + ins.top + ins.bottom;
@@ -1774,7 +1774,7 @@ function chromeFor(c, web, ins, screenW, screenH) {
 - [ ] **Step 5: Run and watch them pass**
 
 Run: `npx vitest run test/layout.test.js`
-Expected: all four PASS. Then `npx vitest run` — expect failures in `render-frames.test.js` and the golden diff, both legitimate: the framed geometry has genuinely changed. Fix any test that asserted the *old* derivation; do not weaken a test that asserts the interior ratio.
+Expected: all four PASS. Then `npx vitest run`, expect failures in `render-frames.test.js` and the golden diff, both legitimate: the framed geometry has genuinely changed. Fix any test that asserted the *old* derivation; do not weaken a test that asserts the interior ratio.
 
 - [ ] **Step 6: Regenerate goldens and look at the result**
 
@@ -1783,9 +1783,9 @@ node scripts/make-render-goldens.js
 npx vitest run
 ```
 
-`browser-dark`, `browser-light`, `browser-url`, `square-browser` and `phone` will change. `web`, `mobile`, `mesh`, `shadow-heavy` must **not** — they set no frame. If they moved, the outset path is leaking into `frameKind: 'none'`.
+`browser-dark`, `browser-light`, `browser-url`, `square-browser` and `phone` will change. `web`, `mobile`, `mesh`, `shadow-heavy` must **not**, they set no frame. If they moved, the outset path is leaking into `frameKind: 'none'`.
 
-Then open the dev server, load a screenshot, and toggle Frame between none and browser. The screenshot must stay the same size; the padding around it must visibly shrink. Screenshot both states side by side for the report — this is the item the user asked for and the report should show it, not assert it.
+Then open the dev server, load a screenshot, and toggle Frame between none and browser. The screenshot must stay the same size; the padding around it must visibly shrink. Screenshot both states side by side for the report, this is the item the user asked for and the report should show it, not assert it.
 
 - [ ] **Step 7: Commit**
 
@@ -1806,12 +1806,12 @@ gh pr checks 1
 
 `test` and `netlify/shotkit-app/deploy-preview` must both be green before you
 hand anything over. **A task with red CI is not finished**, however good the
-preview looks — fix it, push, and wait again.
+preview looks, fix it, push, and wait again.
 
-Then give Rock the URL — **https://deploy-preview-1--shotkit-app.netlify.app** —
+Then give Rock the URL, **https://deploy-preview-1--shotkit-app.netlify.app**,
 and tell him what to look at:
 
-> Load a screenshot and toggle Frame between **None** and **Browser**, then **Phone**. The screenshot itself must stay the same size in all three; the padding around it should visibly shrink to make room. This is the item that motivated the whole cycle — if the screenshot changes size, the task is not done.
+> Load a screenshot and toggle Frame between **None** and **Browser**, then **Phone**. The screenshot itself must stay the same size in all three; the padding around it should visibly shrink to make room. This is the item that motivated the whole cycle, if the screenshot changes size, the task is not done.
 
 **Then stop.** Do not begin the next task. Silence is not approval. If Rock
 asks for a change, make it, redeploy, and hand the link back before moving on.
@@ -1832,7 +1832,7 @@ asks for a change, make it, redeploy, and hand the link back before moving on.
 
 **Interfaces:**
 - Consumes: Task 6's `frameInsets(c, screenW)` and outset accumulation.
-- Produces: `normalise()` returns `stroke: { style, width, color }`. `paintStroke(ctx, box, stroke, width)` — `width` is the already-resolved stroke thickness in canvas pixels (`layout()` computed it, including any `shrink`), NOT a ratio and NOT the shorter canvas side. It paints the ring **behind** the composite. Cycle B's inspector reads `STROKE_STYLES`.
+- Produces: `normalise()` returns `stroke: { style, width, color }`. `paintStroke(ctx, box, stroke, width)`, `width` is the already-resolved stroke thickness in canvas pixels (`layout()` computed it, including any `shrink`), NOT a ratio and NOT the shorter canvas side. It paints the ring **behind** the composite. Cycle B's inspector reads `STROKE_STYLES`.
 
 - [x] **Step 1: Write the failing tests**
 
@@ -1841,7 +1841,7 @@ asks for a change, make it, redeploy, and hand the link back before moving on.
 `box.x + 0.5` straddles the boundary and only reaches the boundary pixel and
 the first fully-interior one. `box.x` is fractional (62.4 at 3:2), so
 `Math.round(box.x) + 2` lands on clean fill and the test passed with the border
-still present. The tests below sample edges the same way — use the first fully
+still present. The tests below sample edges the same way, use the first fully
 interior pixel (`Math.ceil(b.x)`, `Math.floor(b.x + b.w) - 1`, and likewise for
 y), and after writing each one, **run it against the unfixed code and confirm
 it actually goes red**. A green "failing test" is worse than no test.
@@ -1879,7 +1879,7 @@ function scene(overrides) {
 }
 
 describe('strokes', () => {
-  it('style none paints nothing — output matches a config with no stroke key', () => {
+  it('style none paints nothing, output matches a config with no stroke key', () => {
     const a = scene({ stroke: { style: 'none' } });
     const b = scene({});
     const mid = Math.round(a.lay.web.y + a.lay.web.h / 2);
@@ -1932,8 +1932,8 @@ Task 1's reviewer surfaced this and it lands here. `paintPhone`
 (`core/render.js:656`) calls `paintDeviceHairline` (`:580`,
 `rgba(255,255,255,0.10)`) **unconditionally**, so every phone mockup carries an
 inset white highlight regardless of any stroke setting. That was correctly out
-of Task 1's scope — it is the device body's own highlight, not a border on a
-bare screenshot — but the spec's `stroke` block is per-element, with `web` and
+of Task 1's scope, it is the device body's own highlight, not a border on a
+bare screenshot, but the spec's `stroke` block is per-element, with `web` and
 `mobile` each getting one, so this task cannot ignore it.
 
 Take one of these positions and record it in the task report:
@@ -1945,7 +1945,7 @@ Take one of these positions and record it in the task report:
 - **Make it opt-in** the way the web hairline just became opt-in, so a phone
   with `stroke.style: 'none'` is genuinely bare.
 
-Do not decide silently, and do not change it without saying so — an unexplained
+Do not decide silently, and do not change it without saying so, an unexplained
 change to the phone's appearance is exactly the class of surprise this cycle
 exists to remove.
 
@@ -2023,7 +2023,7 @@ In `core/render.js`:
 
 ```js
 /**
- * The stroke is a ring painted BEHIND the composite, never inside the clip —
+ * The stroke is a ring painted BEHIND the composite, never inside the clip,
  * so it can grow the shot but can never cover the screenshot. Outer radius is
  * the inner radius plus the width, which keeps the corner concentric.
  */
@@ -2074,41 +2074,41 @@ Add to `scripts/make-render-goldens.js`'s `CASES`, with a comment matching the f
 
 Run: `node scripts/make-render-goldens.js && npx vitest run`
 
-Only the three new files may appear. Every pre-existing golden must be byte-identical — `STROKE_DEFAULTS.style` is `'none'`, so nothing else can move. If one did, the stroke is being applied when it should not be.
+Only the three new files may appear. Every pre-existing golden must be byte-identical, `STROKE_DEFAULTS.style` is `'none'`, so nothing else can move. If one did, the stroke is being applied when it should not be.
 
 - [x] **Step 9: Add the stroke control so this can be previewed**
 
 In the Finish section of the inspector, add:
 
-- **Stroke** — a segmented control over `STROKE_STYLES` (None / Light / Glass /
+- **Stroke**, a segmented control over `STROKE_STYLES` (None / Light / Glass /
   Custom)
-- **Width** — a slider over `STROKE_WIDTH_RANGE`, shown only when the style is
+- **Width**, a slider over `STROKE_WIDTH_RANGE`, shown only when the style is
   not None
-- **Colour** — an `<input type="color">` bound to `stroke.color`, shown only
+- **Colour**, an `<input type="color">` bound to `stroke.color`, shown only
   when the style is Custom
 
 Use the same show/hide mechanism `web/inspector-frame.js` already uses for the
 browser-only rows (`showsBrowserOnlyControls`), and remember the global rule:
-`[hidden]` is a single global `display: none !important` — do not add a second
+`[hidden]` is a single global `display: none !important`, do not add a second
 hiding mechanism.
 
 **These controls are deliberately minimal, and Cycle B will replace them.**
 That is not wasted work: a render feature with no way to invoke it cannot be
 previewed, and a feature Rock cannot test is a feature he cannot approve. Wire
 them into the existing inspector following the pattern already in
-`web/inspector-frame.js` — a labelled row with a slider or segmented control,
+`web/inspector-frame.js`, a labelled row with a slider or segmented control,
 writing to `state.config`, then `scheduleRender()`. Do not invent a new control
 idiom; do not restyle anything around them.
 
 Add matching tests to the existing inspector test file, in the style already
-there — assert the control writes the value, clamps at both ends, and that
+there, assert the control writes the value, clamps at both ends, and that
 `render()` is scheduled.
 
 - [x] **Step 10: Commit**
 
 ```bash
 git add core web test scripts
-git commit -m "feat(core): opt-in strokes — light, glass, custom — as outsets"
+git commit -m "feat(core): opt-in strokes, light, glass, custom, as outsets"
 git push origin feat/cycle-a
 ```
 
@@ -2123,12 +2123,12 @@ gh pr checks 1
 
 `test` and `netlify/shotkit-app/deploy-preview` must both be green before you
 hand anything over. **A task with red CI is not finished**, however good the
-preview looks — fix it, push, and wait again.
+preview looks, fix it, push, and wait again.
 
-Then give Rock the URL — **https://deploy-preview-1--shotkit-app.netlify.app** —
+Then give Rock the URL, **https://deploy-preview-1--shotkit-app.netlify.app**,
 and tell him what to look at:
 
-> Set Stroke to **Light**, then **Glass**, then **Custom** with a colour, dragging the width slider through its range on each. The mat must grow outward — the screenshot must never get smaller or be covered. Take the width to its maximum and confirm nothing inverts.
+> Set Stroke to **Light**, then **Glass**, then **Custom** with a colour, dragging the width slider through its range on each. The mat must grow outward, the screenshot must never get smaller or be covered. Take the width to its maximum and confirm nothing inverts.
 
 **Then stop.** Do not begin the next task. Silence is not approval. If Rock
 asks for a change, make it, redeploy, and hand the link back before moving on.
@@ -2145,12 +2145,12 @@ asks for a change, make it, redeploy, and hand the link back before moving on.
 - Regenerate: the browser goldens
 
 **Interfaces:**
-- Consumes: Task 6's outset layout — changing `BROWSER_BAR_RATIO` must flow through `frameInsets` with no further layout edits. Task 7's stroke wraps the frame.
+- Consumes: Task 6's outset layout, changing `BROWSER_BAR_RATIO` must flow through `frameInsets` with no further layout edits. Task 7's stroke wraps the frame.
 - Produces: no signature change. `paintChrome(ctx, c, box, theme)` keeps its shape; only what it draws and the ratios change.
 
-- [x] **Step 1: Take the measurements as given — they are already made**
+- [x] **Step 1: Take the measurements as given, they are already made**
 
-These were measured from the Figma community file *Apple iOS Browser Mockup —
+These were measured from the Figma community file *Apple iOS Browser Mockup,
 Safari & Chrome*, file key `ashXeowHsiwznytlLbuvuS`, symbol
 `Desktop / Safari / Light`, node `1:3179`, via the Figma MCP layer tree. They
 are exact layer geometry, not pixel-counted from a raster, so there is nothing
@@ -2171,7 +2171,7 @@ Raw layer geometry, window width 1280:
 | `URL Form` (4008:386) | **484** × **28**, at x=**398**, y=12 |
 | `Body` (1:3180) | 1280 × 731, at y=53 |
 
-Derived, as fractions of the frame width — use these values verbatim:
+Derived, as fractions of the frame width, use these values verbatim:
 
 ```
 BROWSER_BAR_RATIO     = 53  / 1280 = 0.04140625   // was 10/133 = 0.0752
@@ -2195,14 +2195,14 @@ Two facts that are not ratios and matter as much:
 
 1. **The window corner radius.** `Body` is a rounded rectangle but the layer
    tree does not expose its radius. `BROWSER_RADIUS_RATIO` is currently
-   `25/1064 = 0.0235`, which at 1280 would be 30px — visibly larger than the
+   `25/1064 = 0.0235`, which at 1280 would be 30px, visibly larger than the
    reference. Obtain the real value with `get_design_context` on node
    `1:3180` (load the `figma-design-to-code` guidance first, as that tool
    requires), or from any equivalent source, and record where you got it.
 2. **The light and dark bar colours.** The existing `CHROME_THEME` table in
    `core/render.js` came from the Backdrop handoff, not from this reference.
    Compare them against the Figma file and report whether they agree. Change
-   them only if they visibly disagree — and say so if you do.
+   them only if they visibly disagree, and say so if you do.
 
 If you cannot obtain the corner radius, **stop and report** rather than
 guessing or keeping the old value silently. Everything else in this task can
@@ -2276,15 +2276,15 @@ export const TRAFFIC_GAP_RATIO = /* measured */;
 export const TRAFFIC_INSET_RATIO = /* measured */;
 ```
 
-Replace those `/* measured */` placeholders with the actual numbers from Step 1 — a literal `/* measured */` left in the source is a task failure.
+Replace those `/* measured */` placeholders with the actual numbers from Step 1, a literal `/* measured */` left in the source is a task failure.
 
-In `paintChrome`, draw: the bar fill and its bottom hairline (both already there), then three dots at `TRAFFIC_INSET_RATIO` from the left at the bar's vertical centre, then the centred URL pill (existing code). Use the traffic lights' real colours in both themes — they are the same on macOS regardless of appearance:
+In `paintChrome`, draw: the bar fill and its bottom hairline (both already there), then three dots at `TRAFFIC_INSET_RATIO` from the left at the bar's vertical centre, then the centred URL pill (existing code). Use the traffic lights' real colours in both themes, they are the same on macOS regardless of appearance:
 
 ```js
 const TRAFFIC_COLOURS = ['#ff5f57', '#febc2e', '#28c840'];
 ```
 
-Keep the pill empty when `c.url` is null. Do not invent placeholder text — that rule has held since Task 6.
+Keep the pill empty when `c.url` is null. Do not invent placeholder text, that rule has held since Task 6.
 
 - [x] **Step 5: Run and watch them pass**
 
@@ -2299,7 +2299,7 @@ node scripts/make-render-goldens.js && npx vitest run
 
 `browser-dark`, `browser-light`, `browser-url`, `square-browser` and `stroke-browser` change. `phone`, `web`, `mobile`, `web-mobile`, `mesh`, `shadow-heavy`, `stroke-light`, `stroke-glass` must not.
 
-Then put the new `browser-dark` golden next to the reference screenshot and say in the report whether the proportions match. If the bar still reads as too tall, the measurement was wrong — re-measure, do not nudge.
+Then put the new `browser-dark` golden next to the reference screenshot and say in the report whether the proportions match. If the bar still reads as too tall, the measurement was wrong, re-measure, do not nudge.
 
 - [x] **Step 7: Commit**
 
@@ -2320,9 +2320,9 @@ gh pr checks 1
 
 `test` and `netlify/shotkit-app/deploy-preview` must both be green before you
 hand anything over. **A task with red CI is not finished**, however good the
-preview looks — fix it, push, and wait again.
+preview looks, fix it, push, and wait again.
 
-Then give Rock the URL — **https://deploy-preview-1--shotkit-app.netlify.app** —
+Then give Rock the URL, **https://deploy-preview-1--shotkit-app.netlify.app**,
 and tell him what to look at:
 
 > Turn on the Browser frame in both **Dark** and **Light**. The bar should read as a browser at a glance: three small traffic lights at the left, a centred URL pill, and a bar roughly half the height of the one at https://shotkit-app.netlify.app. Set a URL and confirm the pill fills; clear it and confirm the pill stays empty rather than showing invented text.
@@ -2345,7 +2345,7 @@ asks for a change, make it, redeploy, and hand the link back before moving on.
 
 **Interfaces:**
 - Consumes: nothing from Tasks 5–8.
-- Produces: `normalise()` returns `mesh: { stops, spread, seed }`. `paintMesh(ctx, c, stops)` keeps its signature — `stops` is still the three-entry ground array; the extra hues are derived inside from `c.mesh` and the ground's own hue. Cycle B's Background panel reads `MESH_STOPS_RANGE` and `MESH_SPREAD_RANGE`.
+- Produces: `normalise()` returns `mesh: { stops, spread, seed }`. `paintMesh(ctx, c, stops)` keeps its signature, `stops` is still the three-entry ground array; the extra hues are derived inside from `c.mesh` and the ground's own hue. Cycle B's Background panel reads `MESH_STOPS_RANGE` and `MESH_SPREAD_RANGE`.
 
 - [x] **Step 1: Write the failing tests**
 
@@ -2414,7 +2414,7 @@ describe('mesh has real colour variety', () => {
 - [x] **Step 2: Run and watch them fail**
 
 Run: `npx vitest run test/render-mesh.test.js`
-Expected: the variety and stop-count tests FAIL — today's mesh uses two tints of one hue and ignores any stop count.
+Expected: the variety and stop-count tests FAIL, today's mesh uses two tints of one hue and ignores any stop count.
 
 - [x] **Step 3: Add the vocabulary**
 
@@ -2424,7 +2424,7 @@ In `core/presets.js`:
 // Mesh was two tints of ONE hue with a reroll button, which is why it could
 // only ever look like a blotchier linear gradient. `stops` is how many
 // distinct hues are placed; `spread` is the total hue arc in degrees they
-// are distributed across, centred on the ground's own hue — so a sampled
+// are distributed across, centred on the ground's own hue, so a sampled
 // mesh still belongs to the screenshot it came from.
 export const MESH_STOPS_RANGE = [3, 5];
 export const MESH_SPREAD_RANGE = [0, 180];
@@ -2457,7 +2457,7 @@ export function paintMesh(ctx, c, stops) {
   const margin = short * 0.12;
 
   // One blob per stop, plus a second pass so a 3-stop mesh still fills the
-  // field — each blob takes a DISTINCT stop rather than alternating between
+  // field, each blob takes a DISTINCT stop rather than alternating between
   // two, which is what made the old mesh two-tone.
   for (let i = 0; i < n * 2; i++) {
     const cx = margin + rnd() * (c.w - margin * 2);
@@ -2475,7 +2475,7 @@ export function paintMesh(ctx, c, stops) {
 }
 ```
 
-`hueOf(hex)` and `hslString(h, s, l)` are small local helpers — add them next to the existing `rgba` helper in `core/render.js`. `rgba()` must accept whatever `hslString` produces; if it only parses hex, have `hslString` return hex so `rgba` is untouched.
+`hueOf(hex)` and `hslString(h, s, l)` are small local helpers, add them next to the existing `rgba` helper in `core/render.js`. `rgba()` must accept whatever `hslString` produces; if it only parses hex, have `hslString` return hex so `rgba` is untouched.
 
 - [x] **Step 5: Run and watch them pass**
 
@@ -2492,7 +2492,7 @@ Add a second mesh case so spread is exercised, with a comment in the file's styl
 
 Run: `node scripts/make-render-goldens.js && npx vitest run`
 
-`mesh` changes (expected — that is the point of the task) and `mesh-wide` is new. Nothing else may move.
+`mesh` changes (expected, that is the point of the task) and `mesh-wide` is new. Nothing else may move.
 
 - [x] **Step 7: Hold it to the three gates**
 
@@ -2500,11 +2500,11 @@ Run: `node scripts/make-render-goldens.js && npx vitest run`
 something a linear gradient cannot, which is three specific things. All three
 are already tested above except the third, which is added in Step 8.
 
-1. **Distinguishable** — spans more hue buckets than a linear ground of the
+1. **Distinguishable**, spans more hue buckets than a linear ground of the
    same base. (`a spread mesh spans more hue buckets than a linear ground`)
-2. **Steerable** — spread, stop count and seed each visibly change the output.
+2. **Steerable**, spread, stop count and seed each visibly change the output.
    (the four determinism and variation tests)
-3. **Not muddy** — wide spread must not wash the colour out. This is the real
+3. **Not muddy**, wide spread must not wash the colour out. This is the real
    failure mode of multi-hue blending: overlapping hues average toward grey,
    and a mesh that technically contains five hues but renders as sludge is
    worse than the linear gradient it replaced.
@@ -2512,7 +2512,7 @@ are already tested above except the third, which is added in Step 8.
 Render mesh in the browser at several seeds and spreads, screenshot four, and
 put them in the report next to a linear ground of the same hue.
 
-If all three gates pass, the task is done — report it as done even if you
+If all three gates pass, the task is done, report it as done even if you
 personally find the look unexciting; that is a design conversation, not a
 gate. If a gate **fails** and you cannot make it pass, say so plainly and
 stop: the spec keeps deleting mesh on the table, and taking that option is
@@ -2554,8 +2554,8 @@ it('a wide spread does not wash the colour out', () => {
 
 Run: `npx vitest run test/render-mesh.test.js`
 
-If this fails, the fix is in `paintMesh` — lower the per-blob alpha, reduce
-overlap, or narrow the default spread — **not** in the threshold. Moving the
+If this fails, the fix is in `paintMesh`, lower the per-blob alpha, reduce
+overlap, or narrow the default spread, **not** in the threshold. Moving the
 0.75 to make a muddy mesh pass is exactly the failure this gate exists to
 catch.
 
@@ -2565,10 +2565,10 @@ The Background panel already shows a **Seed** stepper when the type is Mesh
 (`#backgroundSeedRow`). Add two more alongside it, on the same show-when-mesh
 condition:
 
-- **Stops** — a stepper over `MESH_STOPS_RANGE` (3–5)
-- **Spread** — a slider over `MESH_SPREAD_RANGE` (0–180 degrees)
+- **Stops**, a stepper over `MESH_STOPS_RANGE` (3–5)
+- **Spread**, a slider over `MESH_SPREAD_RANGE` (0–180 degrees)
 
-Without these, Step 7's three gates cannot be judged by a human at all — spread
+Without these, Step 7's three gates cannot be judged by a human at all, spread
 and stop count would be unreachable, which is precisely the state that made
 mesh useless in the first place.
 
@@ -2576,12 +2576,12 @@ mesh useless in the first place.
 That is not wasted work: a render feature with no way to invoke it cannot be
 previewed, and a feature Rock cannot test is a feature he cannot approve. Wire
 them into the existing inspector following the pattern already in
-`web/inspector-frame.js` — a labelled row with a slider or segmented control,
+`web/inspector-frame.js`, a labelled row with a slider or segmented control,
 writing to `state.config`, then `scheduleRender()`. Do not invent a new control
 idiom; do not restyle anything around them.
 
 Add matching tests to the existing inspector test file, in the style already
-there — assert the control writes the value, clamps at both ends, and that
+there, assert the control writes the value, clamps at both ends, and that
 `render()` is scheduled.
 
 - [x] **Step 10: Commit**
@@ -2603,12 +2603,12 @@ gh pr checks 1
 
 `test` and `netlify/shotkit-app/deploy-preview` must both be green before you
 hand anything over. **A task with red CI is not finished**, however good the
-preview looks — fix it, push, and wait again.
+preview looks, fix it, push, and wait again.
 
-Then give Rock the URL — **https://deploy-preview-1--shotkit-app.netlify.app** —
+Then give Rock the URL, **https://deploy-preview-1--shotkit-app.netlify.app**,
 and tell him what to look at:
 
-> Switch Background type to **Mesh** and work the **Stops**, **Spread** and **Seed** controls. Rock's complaint was that mesh had no use: check that spread visibly changes the colour range, that seed gives genuinely different fields rather than noise, and — most importantly — that a wide spread still looks *coloured* rather than grey-brown.
+> Switch Background type to **Mesh** and work the **Stops**, **Spread** and **Seed** controls. Rock's complaint was that mesh had no use: check that spread visibly changes the colour range, that seed gives genuinely different fields rather than noise, and, most importantly, that a wide spread still looks *coloured* rather than grey-brown.
 
 **Then stop.** Do not begin the next task. Silence is not approval. If Rock
 asks for a change, make it, redeploy, and hand the link back before moving on.

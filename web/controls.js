@@ -1,4 +1,4 @@
-// web/controls.js — the slider row, once.
+// web/controls.js, the slider row, once.
 //
 // EVERY SLIDER IN THIS APP HAS THE SAME SHAPE AND THE SAME RESET. That is
 // this file's whole reason to exist, and it is not a style preference.
@@ -6,7 +6,7 @@
 // Cycle C built a Reset for the Background panel's sliders inside that
 // panel's own init closure, so Padding, Corner radius, Shadow and Stroke
 // width did not get one. Rock: *"I'm not sure I follow the logic of that
-// reset button that only activates for luminosity."* He was right — one
+// reset button that only activates for luminosity."* He was right, one
 // slider having a reset and the others not is arbitrary, and it was
 // arbitrary because of where the code lived, not because anyone decided it.
 //
@@ -72,7 +72,7 @@ export function makeSliderRow({
    *
    * `--slider-fill` is the CSS custom property the track's gradient reads.
    * It is computed from the CURRENT min/max rather than the ones passed in,
-   * because one slider — Corner radius — rewrites its own maximum when the
+   * because one slider, Corner radius, rewrites its own maximum when the
    * selected element changes (a phone's corner range is not a browser's).
    */
   function sync(current) {

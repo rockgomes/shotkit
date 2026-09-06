@@ -4,7 +4,7 @@
 
 **Goal:** Turn shotkit from a Python + Playwright CLI into a dependency-free JS core plus a static web app that composes Dribbble shots in the browser.
 
-**Architecture:** All logic moves into `core/` — pure ES modules with zero runtime dependencies, no DOM types, no Node built-ins. `core/` is handed a canvas-like target and paints into it, so the same code runs in a browser and under `@napi-rs/canvas` in Node. `web/` is a thin Vite shell that decodes dropped files, calls `core/`, and downloads the result. The preview canvas *is* the export canvas, rendered at full output resolution and scaled with CSS, so export can never disagree with the preview.
+**Architecture:** All logic moves into `core/`, pure ES modules with zero runtime dependencies, no DOM types, no Node built-ins. `core/` is handed a canvas-like target and paints into it, so the same code runs in a browser and under `@napi-rs/canvas` in Node. `web/` is a thin Vite shell that decodes dropped files, calls `core/`, and downloads the result. The preview canvas *is* the export canvas, rendered at full output resolution and scaled with CSS, so export can never disagree with the preview.
 
 **Tech Stack:** Vanilla JS (ES modules), Vite, Vitest, `@napi-rs/canvas` (test + future CLI only), `pixelmatch` (test only), Netlify static hosting.
 
@@ -31,7 +31,7 @@ Every task's requirements implicitly include this section.
 Sets up the repo and captures the reference numbers **before** anything is ported. Python is used once here and never again.
 
 **Files:**
-- Create: `package.json`, `vitest.config.js`, `.gitignore` (already exists — modify), `scripts/make-goldens.sh`
+- Create: `package.json`, `vitest.config.js`, `.gitignore` (already exists, modify), `scripts/make-goldens.sh`
 - Create: `test/golden/ground.json` (generated)
 - Move: `src/*.png` → `samples/*.png`
 
@@ -123,12 +123,12 @@ echo "wrote test/golden/ground.json"
 Run: `chmod +x scripts/make-goldens.sh && ./scripts/make-goldens.sh`
 Expected: prints `wrote test/golden/ground.json`. The file contains six entries.
 
-If `python3 -m venv` fails, the machine has no usable Python. In that case **stop and report it** — do not invent reference numbers. The whole point of this file is that it was produced by the original implementation.
+If `python3 -m venv` fails, the machine has no usable Python. In that case **stop and report it**, do not invent reference numbers. The whole point of this file is that it was produced by the original implementation.
 
 - [ ] **Step 7: Sanity-check the goldens**
 
 Run: `cat test/golden/ground.json`
-Expected: each entry has `lum`, `hue`, `chroma`, `darkUI`, and a `ground` array of three `#rrggbb` strings. Confirm at least one sample has `darkUI: true` and one has `darkUI: false`. If all six are the same, the sample set does not exercise the tone rule — note it in the commit message so Task 3 knows coverage is thin.
+Expected: each entry has `lum`, `hue`, `chroma`, `darkUI`, and a `ground` array of three `#rrggbb` strings. Confirm at least one sample has `darkUI: true` and one has `darkUI: false`. If all six are the same, the sample set does not exercise the tone rule, note it in the commit message so Task 3 knows coverage is thin.
 
 - [ ] **Step 8: Update `.gitignore`**
 
@@ -230,7 +230,7 @@ describe('normalise', () => {
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run test/config.test.js`
-Expected: FAIL — cannot resolve `../core/config.js`.
+Expected: FAIL, cannot resolve `../core/config.js`.
 
 - [ ] **Step 3: Write `core/presets.js`**
 
@@ -334,7 +334,7 @@ git commit -m "feat(core): add presets and config normalisation"
 
 ---
 
-### Task 3: `core/ground.js` — port the colour analysis
+### Task 3: `core/ground.js`, port the colour analysis
 
 The faithfulness test. Every threshold below is copied from `ground.py` and must not change.
 
@@ -419,7 +419,7 @@ describe('groundFor overrides', () => {
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run test/ground.test.js`
-Expected: FAIL — cannot resolve `../core/ground.js`.
+Expected: FAIL, cannot resolve `../core/ground.js`.
 
 - [ ] **Step 3: Write `core/ground.js`**
 
@@ -595,7 +595,7 @@ export function groundFor(samples, forceHue = null, mode = null) {
 Run: `npx vitest run test/ground.test.js`
 Expected: PASS.
 
-If hue is off by more than 1.5° on a sample, the cause is almost always **resampling**, not the algorithm: Pillow's `thumbnail` and canvas `drawImage` use different filters, so the downscaled pixels differ slightly. Before touching the maths, confirm by widening the tolerance to 5° — if it then passes on every sample, the port is faithful and the difference is resampling. Record the real tolerance in the test with a comment saying why. Do **not** silently loosen it without checking.
+If hue is off by more than 1.5° on a sample, the cause is almost always **resampling**, not the algorithm: Pillow's `thumbnail` and canvas `drawImage` use different filters, so the downscaled pixels differ slightly. Before touching the maths, confirm by widening the tolerance to 5°, if it then passes on every sample, the port is faithful and the difference is resampling. Record the real tolerance in the test with a comment saying why. Do **not** silently loosen it without checking.
 
 - [ ] **Step 5: Commit**
 
@@ -606,9 +606,9 @@ git commit -m "feat(core): port ground.py colour analysis to JS"
 
 ---
 
-### Task 4: `core/layout.js` — port the geometry
+### Task 4: `core/layout.js`, port the geometry
 
-Pure numbers in, pure numbers out. No canvas, no images — it takes source aspect ratios, which is what makes the geometry testable.
+Pure numbers in, pure numbers out. No canvas, no images, it takes source aspect ratios, which is what makes the geometry testable.
 
 **Files:**
 - Create: `core/layout.js`, `test/layout.test.js`
@@ -616,10 +616,10 @@ Pure numbers in, pure numbers out. No canvas, no images — it takes source aspe
 **Interfaces:**
 - Consumes: `normalise` output from Task 2, `PHONE_FALLBACK_RATIO` from `core/presets.js`.
 - Produces: `layout(config, sources) -> { safe, web, phones, caption }`
-  - `sources` is `{ web: number|null, mobile: number[] }` — aspect ratios (`width / height`), not pixels.
+  - `sources` is `{ web: number|null, mobile: number[] }`, aspect ratios (`width / height`), not pixels.
   - `safe` is `{ x, y, w, h }`.
   - `web` is `{ x, y, w, h, radius }` or `null`.
-  - `phones` is an array of `{ x, y, w, h, radius, frame, innerRadius }` — `x`/`y` are the **top-left** corner.
+  - `phones` is an array of `{ x, y, w, h, radius, frame, innerRadius }`, `x`/`y` are the **top-left** corner.
   - `caption` is `{ x, y, fontSize }` or `null`. `y` is the **baseline-anchoring bottom** offset from the canvas top, i.e. already resolved from the CSS `bottom` value.
 
 - [ ] **Step 1: Write the failing test**
@@ -763,7 +763,7 @@ describe('caption', () => {
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run test/layout.test.js`
-Expected: FAIL — cannot resolve `../core/layout.js`.
+Expected: FAIL, cannot resolve `../core/layout.js`.
 
 - [ ] **Step 3: Write `core/layout.js`**
 
@@ -886,7 +886,7 @@ git commit -m "feat(core): port frame.html geometry to a pure layout module"
 
 ---
 
-### Task 5: `core/render.js` — ground and grain
+### Task 5: `core/render.js`, ground and grain
 
 First half of the painter: the background and the noise overlay. Split from the screen and phone so each half gets its own visual check.
 
@@ -896,9 +896,9 @@ First half of the painter: the background and the noise overlay. Split from the 
 **Interfaces:**
 - Consumes: `layout()` output from Task 4, `groundFor()` output from Task 3.
 - Produces:
-  - `paintGround(ctx, c, stops)` — `stops` is the 3-hex array.
-  - `paintGrain(ctx, c)` — uses `c.grain` as alpha; no-op when `c.grain <= 0`.
-  - `noiseTile(size)` — returns an `ImageData`-shaped `{ width, height, data }` of deterministic greyscale noise.
+  - `paintGround(ctx, c, stops)`, `stops` is the 3-hex array.
+  - `paintGrain(ctx, c)`, uses `c.grain` as alpha; no-op when `c.grain <= 0`.
+  - `noiseTile(size)`, returns an `ImageData`-shaped `{ width, height, data }` of deterministic greyscale noise.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -987,7 +987,7 @@ describe('paintGrain', () => {
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run test/render-ground.test.js`
-Expected: FAIL — cannot resolve `../core/render.js`.
+Expected: FAIL, cannot resolve `../core/render.js`.
 
 - [ ] **Step 3: Write the ground and grain half of `core/render.js`**
 
@@ -1187,7 +1187,7 @@ export function paintGrain(ctx, c, makeCanvas) {
 }
 ```
 
-`makeCanvas(w, h)` is a factory the caller supplies. `core/` still never creates a canvas itself — this keeps the zero-DOM rule intact. Update the test's `paintGrain` calls to pass `(w, h) => createCanvas(w, h)`, and record the signature here:
+`makeCanvas(w, h)` is a factory the caller supplies. `core/` still never creates a canvas itself, this keeps the zero-DOM rule intact. Update the test's `paintGrain` calls to pass `(w, h) => createCanvas(w, h)`, and record the signature here:
 
 - `paintGrain(ctx, c, makeCanvas)` where `makeCanvas: (w, h) => CanvasLike`.
 
@@ -1226,7 +1226,7 @@ git commit -m "feat(core): paint the ground gradient and deterministic grain"
 
 ---
 
-### Task 6: `core/render.js` — the web screen and its shadow
+### Task 6: `core/render.js`, the web screen and its shadow
 
 **Files:**
 - Modify: `core/render.js`
@@ -1235,9 +1235,9 @@ git commit -m "feat(core): paint the ground gradient and deterministic grain"
 **Interfaces:**
 - Consumes: `layout()` output, `paintGround` from Task 5.
 - Produces:
-  - `roundRect(ctx, x, y, w, h, r)` — path helper.
-  - `paintShadow(ctx, box, spreadY, blur, a1, a2)` — the two-pass shadow.
-  - `paintWeb(ctx, c, box, image)` — screen body, image, hairline.
+  - `roundRect(ctx, x, y, w, h, r)`, path helper.
+  - `paintShadow(ctx, box, spreadY, blur, a1, a2)`, the two-pass shadow.
+  - `paintWeb(ctx, c, box, image)`, screen body, image, hairline.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1307,7 +1307,7 @@ describe('paintWeb', () => {
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run test/render-screen.test.js`
-Expected: FAIL — `paintWeb` is not exported.
+Expected: FAIL, `paintWeb` is not exported.
 
 - [ ] **Step 3: Add the screen painter to `core/render.js`**
 
@@ -1417,7 +1417,7 @@ import('@napi-rs/canvas').then(async ({createCanvas, loadImage}) => {
 "
 ```
 
-If the shadow reads heavier or lighter than the original, tune the two alpha values in `paintWeb` and leave a comment recording the original CSS values (`0.17` / `0.07`) next to the tuned ones. Do not change `spreadY` or `blur` — those are proportional and correct.
+If the shadow reads heavier or lighter than the original, tune the two alpha values in `paintWeb` and leave a comment recording the original CSS values (`0.17` / `0.07`) next to the tuned ones. Do not change `spreadY` or `blur`, those are proportional and correct.
 
 - [ ] **Step 6: Commit**
 
@@ -1428,7 +1428,7 @@ git commit -m "feat(core): paint the web screen with its two-pass shadow"
 
 ---
 
-### Task 7: `core/render.js` — the phone, the caption, and `compose()`
+### Task 7: `core/render.js`, the phone, the caption, and `compose()`
 
 Completes the painter and wires the whole pipeline into one entry point.
 
@@ -1506,7 +1506,7 @@ describe('composeWithMeta', () => {
 
   it('draws a caption without throwing', async () => {
     const { target } = await run(
-      { ratio: '3:2', caption: 'Fieldset — 2026' },
+      { ratio: '3:2', caption: 'Fieldset, 2026' },
       { web: 'samples/fieldset.png' },
     );
     expect(target.width).toBe(1800);
@@ -1517,7 +1517,7 @@ describe('composeWithMeta', () => {
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run test/compose.test.js`
-Expected: FAIL — cannot resolve `../core/index.js`.
+Expected: FAIL, cannot resolve `../core/index.js`.
 
 - [ ] **Step 3: Add the phone and caption painters to `core/render.js`**
 
@@ -1733,7 +1733,7 @@ theme, and shotkit's original feature set. All three assumptions are now wrong.
 
 See **Amendment 1** in the spec, and the follow-on plans:
 
-- `2026-08-31-shotkit-core-extensions.md` — templates, export scale, angle, mesh
+- `2026-08-31-shotkit-core-extensions.md`, templates, export scale, angle, mesh
   gradients and device frames. Runs first.
 - The app plan (Obsidian shell, inspector, verification, deploy) is written after
   the core extensions land, so it can be built once against a finished library.
@@ -1749,13 +1749,13 @@ Tasks 1–7 above are complete and stand as written.
 | `core/presets.js`, `core/config.js` | 2 |
 | `core/ground.js` | 3 |
 | `core/layout.js` | 4 |
-| `core/render.js` — ground, grain | 5 |
-| `core/render.js` — screen, shadow | 6 |
-| `core/render.js` — phone, caption; `core/index.js` | 7 |
+| `core/render.js`, ground, grain | 5 |
+| `core/render.js`, screen, shadow | 6 |
+| `core/render.js`, phone, caption; `core/index.js` | 7 |
 | `web/` wiring, preview-is-export, debounced re-render | 8, 9 |
-| App design — chrome tinting, one authored moment | 10 |
+| App design, chrome tinting, one authored moment | 10 |
 | Errors table | 8 (`addFiles`), 9 (phone group hidden), 11 (disabled/busy) |
-| Testing — goldens, layout, pixel-diff | 1, 3, 4, 7 |
+| Testing, goldens, layout, pixel-diff | 1, 3, 4, 7 |
 | Verification | 11 |
 | Netlify, README | 12 |
 
@@ -1764,7 +1764,7 @@ Tasks 1–7 above are complete and stand as written.
 - The spec's error table lists "`web+mobile` chosen with no phone image → fall back to `web`". `core/layout.js` handles this by returning an empty `phones` array (Task 4 tests it), but nothing told the user. Task 9's `syncPanel()` hides the Phone group when no phone image is loaded, which makes the state visible rather than silent.
 - The spec's error table lists "canvas larger than the browser allows". No task implements a cap. **This is a known gap.** All four shipped ratios are far below every browser's limit, so it cannot trigger from the panel; it becomes reachable only when the CLI cycle exposes arbitrary `--w`/`--h`. Left out deliberately rather than forgotten.
 
-**Placeholder scan.** No "TBD", no "add appropriate error handling", no "similar to Task N". Two tasks (5 and 4) contain a deliberate draft slip followed by an explicit fix step — that is real content showing the correct end state, not a placeholder.
+**Placeholder scan.** No "TBD", no "add appropriate error handling", no "similar to Task N". Two tasks (5 and 4) contain a deliberate draft slip followed by an explicit fix step, that is real content showing the correct end state, not a placeholder.
 
 **Type consistency.** Checked across tasks: `normalise` (2) → consumed by 4, 7, 8. `groundFor(samples, forceHue, mode)` (3) → called with exactly that signature in 7. `layout(config, sources)` returning `{ safe, web, phones, caption }` (4) → destructured identically in 6, 7. `paintGrain(ctx, c, makeCanvas)` (5) → called with three arguments in 7's `composeWithMeta`. `composeWithMeta(target, rawConfig, images, makeCanvas)` (7) → called with four arguments in 8's `state.js`. `applyChrome(meta)` (10) consumes the `meta` that `render()` returns in 8.
 

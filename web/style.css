@@ -1,7 +1,7 @@
 /*
- * shotkit editor shell — "Obsidian" chrome.
+ * shotkit editor shell, "Obsidian" chrome.
  * Every color here is a var(--token) from tokens.css. No raw hex belongs in
- * this file — if you need a new color, add a named token there first.
+ * this file, if you need a new color, add a named token there first.
  */
 
 *,
@@ -10,37 +10,37 @@
   box-sizing: border-box;
 }
 
-/* `[hidden]` means hidden, full stop — no exceptions, no per-element
+/* `[hidden]` means hidden, full stop, no exceptions, no per-element
    one-offs. Without this, any author rule that gives an element `display`
    of its own (`.dropzone { display: flex }`, `.inline-control-row {
    display: flex }`, a future flex/grid row) ties the UA stylesheet's own
    `[hidden] { display: none }` on specificity (one class, one attribute
-   selector), and an author rule wins a tie regardless of source order — so
+   selector), and an author rule wins a tie regardless of source order, so
    `el.hidden = true` silently does nothing and the element stays visible.
    This hit `#dropzone` (Task 2) and `#backgroundSeedRow` (Task 5)
    independently, each fixed with its own id+attribute override; a Node
    test suite structurally can't see a CSS specificity tie, so both cost a
    real browser session to catch. One global, `!important` rule closes the
-   whole bug CLASS instead of the two instances found so far — every future
+   whole bug CLASS instead of the two instances found so far, every future
    `[hidden]` toggle in this file is covered for free, with nothing to
    remember. */
 [hidden] {
   display: none !important;
 }
 
-/* EVERY OFF STATE IN THE APP, IN ONE RULE — the second global after
+/* EVERY OFF STATE IN THE APP, IN ONE RULE, the second global after
    `[hidden]`, and here for the same reason: one rule closes a whole bug
    class instead of the instances found so far.
 
    Task 3b's spec item 5 says inert and disabled states dim with explicit
    colours at full alpha, never with `opacity`. `opacity` composites toward
-   whatever is BEHIND the element — on this app the darkest surface on
-   screen — so it spends lightness on the ground instead of on the thing you
+   whatever is BEHIND the element, on this app the darkest surface on
+   screen, so it spends lightness on the ground instead of on the thing you
    are trying to dim, and collapses contrast far faster than it reduces
    apparent brightness. Nine rules were still doing it after the first pass,
    and three of them landed below 3:1: the toolbar's disabled buttons and all
-   four rail items on the EMPTY STATE — the exact screen Rock complained
-   about — were dimmer (2.50-3.51:1) than the inert inspector panels beside
+   four rail items on the EMPTY STATE, the exact screen Rock complained
+   about, were dimmer (2.50-3.51:1) than the inert inspector panels beside
    them (3.33:1), by the very mechanism this rule exists to retire. The
    disabled Export button's border composited to 1.50:1, below the 1.60 given
    to --border-inert and below the 1.3 floor test/contrast.test.js asserts so
@@ -234,7 +234,7 @@ input {
 }
 
 .file-slot--empty {
-  color: var(--text-muted);
+  color: var(--text-primary);
 }
 
 .toolbar-spacer {
@@ -257,7 +257,8 @@ input {
   padding: 0 10px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  color: var(--text-muted);
+  color: var(--text-primary);
+  background: var(--surface-control);
 }
 
 .zoom-value {
@@ -287,7 +288,7 @@ input {
 
 /* `color: inherit` from .zoom-stepper takes the parent's COMPUTED colour,
    so the global off-state rule's token re-declaration cannot reach this
-   one — it needs the colour named outright. */
+   one, it needs the colour named outright. */
 .zoom-btn:disabled {
   color: var(--text-inert);
   cursor: not-allowed;
@@ -317,8 +318,8 @@ input {
 
 .btn-ghost {
   border: 1px solid var(--border-strong);
-  background: transparent;
-  color: var(--text-secondary);
+  background: var(--surface-control);
+  color: var(--text-primary);
   padding: 0 10px;
 }
 
@@ -327,8 +328,8 @@ input {
 }
 
 .btn-primary {
-  background: var(--surface-inverse);
-  color: var(--surface-window);
+  background: var(--accent);
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -374,7 +375,7 @@ input {
   border: 2px solid currentColor;
   border-top-color: transparent;
   /* No opacity. At 0.75 over a disabled primary's fill the ring measured
-     2.71:1; at full currentColor it is 3.33:1 — the same tone as the
+     2.71:1; at full currentColor it is 3.33:1, the same tone as the
      "Exporting…" label beside it, which is what it should have been. */
   animation: btn-spin 700ms linear infinite;
 }
@@ -400,7 +401,7 @@ input {
   flex: none;
   border: none;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--text-primary);
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
@@ -477,7 +478,7 @@ input {
 }
 
 .rail-item:hover:not(.is-active) {
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .rail-item[aria-disabled='true'] {
@@ -510,7 +511,7 @@ input {
    He was reading two faults at once, and both were real. Measured: this
    panel was 226px against #inspector's 266px, AND its own 12px padding
    nested inside .inspector-section's 14px, so a section that got 237px of
-   content on the right got 173px here — 64px narrower, for a panel only
+   content on the right got 173px here, 64px narrower, for a panel only
    40px narrower.
 
    So the width matches now, and the padding lives in ONE place: the
@@ -532,6 +533,7 @@ input {
    Size list and the Background controls line up down a single edge. */
 .sidebar-search {
   margin: 12px 14px 8px;
+  background: var(--surface-control);
 }
 
 .sidebar-section {
@@ -540,6 +542,7 @@ input {
 
 .cli-card {
   margin: 0 14px 12px;
+  background: var(--surface-control);
 }
 
 .sidebar-search {
@@ -553,7 +556,7 @@ input {
      judgement call the two decorative border tokens get (Task 3b). */
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
-  color: var(--text-muted);
+  color: var(--text-primary);
   flex: none;
 }
 
@@ -579,7 +582,7 @@ input {
 
 /* No horizontal padding. Rock, 2026-09-06, with two guides drawn down the
    panel: "what even is this alignment?" Measured, the panel had four
-   different left edges — 66px for plain labels and the preset grid, 70px for
+   different left edges, 66px for plain labels and the preset grid, 70px for
    these section headings, 75px inside the segmented cells, 77px inside the
    rows. The last two are text inside a control's own fill and are supposed
    to be inset; these were not, and were the odd one out. */
@@ -590,20 +593,20 @@ input {
   font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-primary);
   font-weight: 400;
 }
 
 /* `.preset-list` was in this rule too, from when the presets were a column
    of rows. It has been a grid since Cycle C Task 5 (see the .preset-list
-   rule further down), so every property here was already being overridden —
+   rule further down), so every property here was already being overridden,
    an unused second opinion about a live element, which is the shape of
    defect the retired CSS gradient swatches were. */
 /* THE SIZE LIST HAS A FIXED HEIGHT. Rock, 2026-09-06: "everytime I change a
    tab on size, everything jumps around. Size should have a fixed size, and
    then have a scroll. show 4.5 items and then scroll to see the rest."
 
-   Templates has seven rows, Ratios four, Custom a form — so switching tabs
+   Templates has seven rows, Ratios four, Custom a form, so switching tabs
    moved Background, and everything under it, up and down the panel. A fixed
    height makes the tab strip the only thing that changes.
 
@@ -633,7 +636,7 @@ input {
      the mechanism behind "Dribbble shot2800×2100": with the box collapsed onto
      its two spans, `justify-content: space-between` above has no free space to
      distribute, so the labels sit flush at every rail width and every row ends
-     at a different x. `width: 100%` is the fix — it gives space-between
+     at a different x. `width: 100%` is the fix, it gives space-between
      something to distribute, which puts the dimensions in a real right-hand
      column, fills the hover/selected background across the row, and makes the
      whole 201px a click target. `max-width` then caps a row whose content
@@ -645,13 +648,13 @@ input {
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: none;
-  color: var(--text-muted);
+  color: var(--text-primary);
   font-size: 12.5px;
   cursor: pointer;
   text-align: left;
 }
 
-/* The name truncates; the dimensions never do — they are the information the
+/* The name truncates; the dimensions never do, they are the information the
    row exists to carry, and the column they line up in. `min-width: 0` is what
    lets the name shrink at all: a flex item's automatic minimum size is its
    content, so without it a long name would push the row past the cap above and
@@ -677,8 +680,8 @@ input {
 }
 
 .template-row.is-selected {
-  background: var(--surface-raised-1);
-  border-color: var(--border-strong);
+  background: var(--surface-control);
+  border-color: var(--accent);
   color: var(--text-primary);
   font-weight: 500;
 }
@@ -691,7 +694,7 @@ input {
   justify-content: center;
   margin-top: 4px;
   border: 1px dashed var(--border-dashed);
-  color: var(--text-muted);
+  color: var(--text-primary);
   font-size: 12px;
 }
 
@@ -728,7 +731,7 @@ input {
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-primary);
 }
 
 .custom-size-input {
@@ -738,14 +741,14 @@ input {
   padding: 0 8px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  background: none;
+  background: var(--surface-control);
   color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: 12px;
 }
 
 .custom-size-input:hover {
-  border-color: var(--text-muted);
+  border-color: var(--text-primary);
 }
 
 .custom-size-input:focus-visible {
@@ -764,13 +767,13 @@ input {
   height: 30px;
   padding: 0 10px;
   /* transparent 1px border (not `border: none`) so .is-selected below only
-     ever changes border-color, never border-WIDTH — that's what keeps
+     ever changes border-color, never border-WIDTH, that's what keeps
      selecting a row from nudging its own content by a pixel, the same
      convention .template-row already uses. */
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: none;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-size: 12.5px;
   cursor: pointer;
   text-align: left;
@@ -795,7 +798,7 @@ input {
 }
 
 /* `.preset-swatch--aurora/--slate/--candy` (three fixed gradient chips from
-   the design handoff) lived here — removed with the rail's Ground list they
+   the design handoff) lived here, removed with the rail's Ground list they
    were the only markup for (Cycle A Task 2). The surviving `.preset-swatch`
    above is still real: web/sidebar.js's `renderGroundSwatches` builds it and
    sets `style.background` from the live hue, so the chip's colour comes from
@@ -820,7 +823,7 @@ input {
 .cli-command {
   margin: 0;
   font-size: 10.5px;
-  color: var(--text-muted);
+  color: var(--text-primary);
 }
 
 .cli-status {
@@ -871,7 +874,7 @@ input {
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-primary);
 }
 
 .canvas-surface {
@@ -925,11 +928,11 @@ input {
 /* The drop target's own outline, and the one graphic in the app drawn over
    four different backdrops: the empty-state canvas and all three surrounds
    (`is-drag-over` is added on dragenter regardless of whether a shot is
-   already loaded — web/main.js:517). No single colour clears 3:1 on both
+   already loaded, web/main.js:517). No single colour clears 3:1 on both
    --surround-light and --surround-mid: white reaches only 1.21 on the light
    one, and black only 2.50 on the mid one. So it is bright
-   by default — --text-primary, the same token every focus ring in this file
-   already uses — and flips dark on the light surround only. Task 3b. */
+   by default, --text-primary, the same token every focus ring in this file
+   already uses, and flips dark on the light surround only. Task 3b. */
 .canvas-surface.is-drag-over {
   outline: 2px dashed var(--text-primary);
   outline-offset: -10px;
@@ -938,7 +941,7 @@ input {
 .canvas-surface.has-content[data-surround='light'].is-drag-over {
   /* The one place the ink has to INVERT. Cycle D Task 5 took
      --border-strong from #696e7f to #8e93a2 so it could still clear 3:1
-     against the lifted surfaces — which makes it a light grey, and a light
+     against the lifted surfaces, which makes it a light grey, and a light
      grey outline on a light surround measured 2.55:1. The darkest thing the
      app owns is the right outline here, for the same reason the light one is
      right everywhere else. */
@@ -964,7 +967,7 @@ input {
    web/main.js's `playArrival()` is the only place these classes are ever
    added, and only across a genuine empty -> loaded transition (never a
    replace-while-already-loaded drop, and never at all under
-   prefers-reduced-motion — see that function's own comment and the
+   prefers-reduced-motion, see that function's own comment and the
    reduced-motion block at the end of this file, which is the belt to this
    JS branch's suspenders: even if a class slipped through, the animations
    themselves are neutralised there too).
@@ -1003,16 +1006,16 @@ input {
   animation: shot-settle 420ms 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* The dropzone IS the empty frame — an outlined box at the canvas's own
+/* The dropzone IS the empty frame, an outlined box at the canvas's own
    current ratio, sized in pixels by web/main.js's `updateEmptyFrame()`
    (read from core/index.js's `normalise()`, the exact same effective
    width/height a real render would use) rather than a fixed CSS size. This
    is what makes the empty state read as "a document at this size, not yet
-   filled" instead of a floating call-to-action card — see task-7-brief.md.
+   filled" instead of a floating call-to-action card, see task-7-brief.md.
    `min-width`/`min-height` are a legibility floor for the icon/copy inside,
    not a design target; `updateEmptyFrame()` always clamps its own output to
    the stage's available space first, so this floor is never the thing that
-   causes the box to overflow the stage — see that function's comment. */
+   causes the box to overflow the stage, see that function's comment. */
 .dropzone {
   position: relative;
   display: flex;
@@ -1028,7 +1031,7 @@ input {
   box-sizing: border-box;
   border: 1px dashed var(--border-dashed);
   border-radius: var(--radius-lg);
-  color: var(--text-muted);
+  color: var(--text-primary);
   cursor: pointer;
   text-align: center;
 }
@@ -1043,8 +1046,8 @@ input {
   outline-offset: 3px;
 }
 
-/* The dimension label a photo editor prints on an empty canvas — "1800 ×
-   1200" — kept to the frame's own top-left corner so it reads as a
+/* The dimension label a photo editor prints on an empty canvas, "1800 ×
+   1200", kept to the frame's own top-left corner so it reads as a
    property OF the frame, not more dropzone copy. web/main.js fills its
    text and keeps the box's own aria-label in sync with the same numbers. */
 .dropzone-dims {
@@ -1060,7 +1063,7 @@ input {
 .dropzone-title {
   margin: 4px 0 0;
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .dropzone-sub {
@@ -1123,7 +1126,7 @@ input {
    `[inert]` already removes these from the tab order and the accessibility
    tree (main.js toggles the attribute itself); the colour only supplies the
    missing VISUAL cue, since inert alone leaves an element at full opacity.
-   The Export section is deliberately not in that list — the format/scale
+   The Export section is deliberately not in that list, the format/scale
    pickers stay live and only the Export button itself disables.
 
    The dimming itself now lives in the global off-state rule at the top of
@@ -1133,7 +1136,7 @@ input {
 /* The one thing in an inert section that a token re-declaration cannot
    reach. The ground swatches take their fill from the live gradient through
    an INLINE style (web/inspector-background.js's renderGroundSwatches and
-   the sampled stops), and those grounds are pale — left alone they are the
+   the sampled stops), and those grounds are pale, left alone they are the
    brightest elements on a panel that is supposed to read as off, which is
    exactly how the panel looked the first time this rule replaced `opacity`.
 
@@ -1155,7 +1158,7 @@ input {
   justify-content: space-between;
   align-items: center;
   font-size: 11.5px;
-  color: var(--text-muted);
+  color: var(--text-primary);
 }
 
 /* Task 7's stroke colour picker. A native <input type="color"> so the
@@ -1195,6 +1198,7 @@ input {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   overflow: hidden;
+  background: var(--surface-control);
 }
 
 .segmented-cell {
@@ -1204,20 +1208,20 @@ input {
   justify-content: center;
   border: none;
   background: none;
-  color: var(--text-muted);
+  color: var(--text-primary);
   font-size: 11.5px;
   cursor: pointer;
   padding: 0 8px;
 }
 
 .segmented-cell.is-active {
-  background: var(--surface-control-active);
-  color: var(--color-white);
+  background: var(--accent);
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .segmented-cell:hover:not(.is-active):not(:disabled) {
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .segmented-cell:disabled {
@@ -1242,7 +1246,7 @@ input {
    three peers whose targets differ by 34%. After: 49.5px each. */
 /* The size control's tabs (Cycle D Task 1). A full-width segmented control,
    so its three cells get an equal share from the `flex: 1` .segmented-cell
-   already carries — the `--mini` variant below is the shrink-wrapped one
+   already carries, the `--mini` variant below is the shrink-wrapped one
    that needed a grid to equalise. */
 .segmented--tabs {
   /* No horizontal margin: its box edge lines up with every other control's
@@ -1250,7 +1254,7 @@ input {
   margin: 0 0 8px;
   /* Equal cells, guaranteed. `flex: 1` alone does not give them: a flex
      item cannot shrink below its own min-content, so "Templates" took 70px
-     of a 193px strip and the other two split what was left — 69.9 / 60.6 /
+     of a 193px strip and the other two split what was left, 69.9 / 60.6 /
      60.6, measured. `minmax(0, 1fr)` has no such floor, so the three stay
      equal whatever the labels say, and the smaller padding is what keeps
      today's longest label from clipping inside its share. */
@@ -1295,7 +1299,7 @@ input {
   display: flex;
   justify-content: space-between;
   font-size: 11.5px;
-  color: var(--text-muted);
+  color: var(--text-primary);
 }
 
 .slider-value {
@@ -1373,8 +1377,8 @@ input {
 
    Same shape/tokens as .preset-row (a real <button>, transparent 1px
    border so selecting it never nudges layout by a pixel) but three small
-   stop chips instead of one gradient chip, and — the one genuinely new
-   rule — a DIMMED-not-hidden state for "this is true, but not what's
+   stop chips instead of one gradient chip, and, the one genuinely new
+   rule, a DIMMED-not-hidden state for "this is true, but not what's
    currently in effect" (an override is forcing a different hue). Opacity
    is the whole mechanism: nothing about the row's structure or colours
    changes, so it stays fully legible while reading as inactive.
@@ -1388,7 +1392,7 @@ input {
   padding: 0 10px;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  background: none;
+  background: var(--surface-control);
   /* White, not one rung down. Cycle D Task 5 cut the text ladder to three
      rungs, and the inactive state below needs a visible drop from this one:
      secondary -> muted is 1.30x, white -> muted is 1.68x. */
@@ -1405,23 +1409,27 @@ input {
 
 .sampled-row.is-active {
   background: var(--surface-raised-1);
-  border-color: var(--border-strong);
+  border-color: var(--accent);
   color: var(--text-primary);
   font-weight: 500;
 }
 
-/* "This is true, but not what's currently in effect" — an override is
+/* "This is true, but not what's currently in effect", an override is
    forcing a different hue. This was `opacity: 0.6`, and it was the worst of
    the composited states precisely because it is NOT one: the row is live,
    clickable, in a live panel, carrying informational text that owes 7:1.
    Composited it measured 5.80:1 for the label and 3.60:1 for the hue.
 
-   The dim is now a step DOWN THE LADDER instead — a real 1.82x drop from
+   The dim is now a step DOWN THE LADDER instead, a real 1.82x drop from
    --text-secondary, and 8.19:1 rather than 5.80:1. The colour stops keep
    their true colour: they are the row's content, and a sample you have
    dimmed is a sample that lies about what was sampled. */
+/* NO INK CHANGE HERE. The active row is marked by its accent border and its
+   raised fill, which is how Rock's frame draws it. Dimming the label as well
+   said the same thing twice, and it dropped a live, clickable, informational
+   row below the 7:1 it owes. */
 .sampled-row:not(.is-active) {
-  color: var(--text-muted);
+  border-color: transparent;
 }
 
 .sampled-row:focus-visible {
@@ -1481,22 +1489,22 @@ input {
   align-items: center;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-pill);
-  background: none;
-  color: var(--text-muted);
+  background: var(--surface-control);
+  color: var(--text-primary);
   font-size: 11.5px;
   cursor: pointer;
 }
 
 .chip.is-selected {
-  background: var(--surface-inverse);
-  border-color: var(--surface-inverse);
-  color: var(--surface-window);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 .chip:hover:not(.is-selected):not(:disabled) {
-  border-color: var(--text-muted);
-  color: var(--text-secondary);
+  border-color: var(--text-primary);
+  color: var(--text-primary);
 }
 
 .chip:disabled {
@@ -1509,7 +1517,7 @@ input {
 }
 
 /* `.swatch-row`/`.swatch`/`.swatch--*` (the design handoff's gradient-colour
-   picker, "built on the same selectable-cell idea as chips") lived here —
+   picker, "built on the same selectable-cell idea as chips") lived here,
    removed with the markup that used it (Task 5 replaced the whole
    Background section, see web/inspector-background.js and
    web/index.html's #backgroundSection); nothing in index.html references
@@ -1535,18 +1543,18 @@ input {
   padding: 0 10px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  background: none;
-  color: var(--text-secondary);
+  background: var(--surface-control);
+  color: var(--text-primary);
   font-size: 12px;
   cursor: pointer;
 }
 
 .select-control .icon {
-  color: var(--text-muted);
+  color: var(--text-primary);
 }
 
 .select-control:hover:not(:disabled) {
-  border-color: var(--text-muted);
+  border-color: var(--text-primary);
 }
 
 .select-control:disabled {
@@ -1561,7 +1569,7 @@ input {
 .export-footnote {
   margin: 0;
   font-size: 10px;
-  color: var(--text-muted);
+  color: var(--text-inert);
   text-align: center;
 }
 
@@ -1628,7 +1636,7 @@ input {
   }
 
   /* The one authored moment (Task 7), fully neutralised: no drop-zone
-     exit, no ground-bloom colour transition, no shot-settle — a drop just
+     exit, no ground-bloom colour transition, no shot-settle, a drop just
      snaps straight to its end state. web/main.js already avoids adding
      `.is-leaving`/`.is-settling` under this same media query, so these
      rules are the belt-and-suspenders guarantee this file's own comment
@@ -1649,7 +1657,7 @@ input {
 
 /* The selection outline (Cycle B Task 6). Absolutely positioned over the
    canvas and sized by web/selection.js from the layout core/ just used.
-   It is NEVER painted into the canvas — that would ship it in every
+   It is NEVER painted into the canvas, that would ship it in every
    exported PNG.
 
    `outline` rather than `border` so it cannot change the box it marks, and
@@ -1660,7 +1668,7 @@ input {
    the app ships as its default and the palest thing this outline ever has
    to sit on. That clears Cycle A Task 3b's 3:1 floor for a graphic
    boundary. Every other ground is darker, so every other ground has more
-   contrast, not less. Re-measure when Cycle C adds a near-black ground —
+   contrast, not less. Re-measure when Cycle C adds a near-black ground,
    the outline will then need checking at the OTHER end of the range.
 
    No `opacity` anywhere: a state is an explicit colour. */
@@ -1676,14 +1684,14 @@ input {
    Both existed here for about an hour. Rock found what they did: press
    Escape and a 2px ring appears around the WHOLE SHOT, which reads as
    selecting the entire composition; click an element afterwards and you
-   appear to have two selections at once. Confirmed in Chromium — Escape
+   appear to have two selections at once. Confirmed in Chromium, Escape
    flips the browser to keyboard modality, `:focus-visible` starts matching
    the canvas, and its ring is visually indistinguishable from
    `.selection-outline`.
 
    It was added on the argument that "a selection you can only make with a
    mouse is not finished". That argument stands, but this was never a
-   keyboard SELECTION path — only a focus ring on a canvas you could not
+   keyboard SELECTION path, only a focus ring on a canvas you could not
    select anything with. Escape clears the selection from a document-level
    listener (web/main.js) and still does, so removing this loses no
    behaviour, only a misleading mark.
@@ -1710,7 +1718,7 @@ input {
 }
 
 /* The preset grid (Cycle C Task 5). Each tile is a real <canvas> painted by
-   core/'s own paintGround — see web/preset-tiles.js — replacing eight 14x14
+   core/'s own paintGround, see web/preset-tiles.js, replacing eight 14x14
    CSS chips that approximated it. Two of the eight were indistinguishable at
    that size; the approximation also lied about `ash` the moment that preset
    gained its own saturation.
@@ -1720,7 +1728,7 @@ input {
 .preset-list {
   display: grid;
   /* minmax(0, 1fr), not 1fr. A `1fr` track cannot shrink below its own
-     min-content, and "Lavender" is the widest of the eight labels — so the
+     min-content, and "Lavender" is the widest of the eight labels, so the
      first column took 44.6px while the other three got 36.8px, which is
      what Rock saw as "the color boxes are uneven". Third time this
      cycle-family that an implicit min-content floor has broken an equal
@@ -1743,10 +1751,10 @@ input {
   background: none;
   cursor: pointer;
   font: inherit;
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
-/* The whole tile is the target, label included — the full-width click area
+/* The whole tile is the target, label included, the full-width click area
    Rock asked for on the old rows, which a grid gets for free. */
 .preset-tile-canvas {
   display: block;
@@ -1754,7 +1762,7 @@ input {
   aspect-ratio: 1;
   border-radius: 7px;
   /* NO BORDER. Eight tiles x four edges was 32 of the app's 148 painted
-     border edges, drawn around pale swatches on a dark panel — they were
+     border edges, drawn around pale swatches on a dark panel, they were
      already the highest-contrast thing in the section and did not need
      outlining. Rock: "I feel like we have way too many lines in the UI." */
   box-sizing: border-box;
@@ -1764,7 +1772,7 @@ input {
   font-size: 10.5px;
   line-height: 1.2;
   text-align: center;
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .preset-tile:hover:not(.is-selected) .preset-tile-canvas {
@@ -1810,19 +1818,19 @@ input {
   width: 22px;
   height: 22px;
   padding: 0;
-  /* A FILL, NOT AN OUTLINE. Eight of these carried four border edges each —
-     another 32 lines — and now that the surfaces are actually apart, a
+  /* A FILL, NOT AN OUTLINE. Eight of these carried four border edges each,
+     another 32 lines, and now that the surfaces are actually apart, a
      raised fill says "button" on its own. */
   border: none;
   border-radius: 6px;
-  background: var(--surface-raised-1);
-  color: var(--text-secondary);
+  background: var(--surface-control);
+  color: var(--text-primary);
   cursor: pointer;
 }
 
 /* The Angle dial (Cycle C Task 7). A circle of the REAL ground at the
-   current settings, painted by core/'s own paintGround — see
-   web/preset-tiles.js — with a tick on the gradient's light end.
+   current settings, painted by core/'s own paintGround, see
+   web/preset-tiles.js, with a tick on the gradient's light end.
 
    It is decorative, not a control: `aria-hidden`, no pointer handler, and
    the same sentence it draws is given to everyone else through the slider's

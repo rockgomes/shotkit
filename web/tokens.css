@@ -1,14 +1,14 @@
 /*
- * Design tokens for the shotkit editor shell ("Obsidian" — option 1a of the
+ * Design tokens for the shotkit editor shell ("Obsidian", option 1a of the
  * Backdrop handoff, design_handoff_backdrop_1a/Backdrop Mockups.dc.html).
  *
  * THIS IS THE ONLY FILE IN web/ ALLOWED TO CONTAIN A RAW HEX CODE.
  * Every other stylesheet references these custom properties. One name per
- * value — a color that appears twice in the mockup gets ONE token, reused.
+ * value, a color that appears twice in the mockup gets ONE token, reused.
  *
  * Values are taken directly from the mockup's inline styles (id="1a"),
  * cross-checked against the README's "Design Tokens" section. Where the two
- * disagreed, the HTML won — see task-1-report.md for the specific cases.
+ * disagreed, the HTML won, see task-1-report.md for the specific cases.
  */
 
 :root {
@@ -21,6 +21,13 @@
   /* `--surface-raised-2` was merged into --surface-raised-1 in Cycle D Task 5.
      It measured 1.032:1 against it: two names for one colour. */
   --surface-control-active: #3e444f; /* active segmented cell (line 116) */
+  /* THE ONE CONTROL FILL. From Rock's own frame in the Figma file: the zoom
+     stepper, the type toggle, the sampled row, the search field, the size
+     tabs, chips at rest, the reset buttons, the format select and the scale
+     control are all this single neutral grey. 1.279:1 over the window, and
+     white reads 15.30:1 on it. */
+  --surface-control: #252527;
+
   --surface-inverse: #f2f3f5;     /* primary button fill (line 59) */
 
   /* --- Row hover fill ---------------------------------------------------
@@ -92,7 +99,7 @@
      THE LADDER. Five rungs, and the policy they answer to changed in Task
      3b: informational text clears 7:1, not the AA 4.5:1 floor Task 3 used.
      "still dim. I think our greys need to get closer to white. I feel like
-     we using 'pass' as the floor" — he was right, and 4.5 was the floor.
+     we using 'pass' as the floor", he was right, and 4.5 was the floor.
 
      Every rung's ratio is measured on --surface-hover (#1b1d22), the
      lightest surface any LADDER TOKEN is ever painted on (the row/button
@@ -101,8 +108,8 @@
 
      "Any ladder token", not "any text": --surface-control-active (#22252b)
      is lighter still, and white on it is 15.36:1 rather than 16.86:1. No
-     rung lands there — the only text it carries is --color-white, on the
-     active segmented cell — so the ceiling arithmetic below is unaffected.
+     rung lands there, the only text it carries is --color-white, on the
+     active segmented cell, so the ceiling arithmetic below is unaffected.
      Putting a rung on it would change that.
 
        --text-primary    15.72:1   was 14.00
@@ -118,7 +125,7 @@
      --surface-hover is only 16.86:1. The whole ladder has to fit in the
      1.16x of headroom between those two numbers, so the steps are near-
      uniform by necessity, not by choice. If a sixth rung is ever wanted it
-     cannot come from a plain colour — 7 x 1.2^5 = 17.4:1 is above white.
+     cannot come from a plain colour, 7 x 1.2^5 = 17.4:1 is above white.
 
      Hue and saturation are held from the handoff values; only lightness
      moved. The four lower rungs hold hue to within 1.5 degrees. --text-
@@ -132,8 +139,8 @@
   --text-secondary: #e0e2e5;      /* ghost button label, preset/sampled row label */
   --text-muted: #c4c8cd;          /* filename, zoom label, slider labels, muted rows */
   /* `--text-faint` was merged into --text-muted in Cycle D Task 5. Five text
-     rungs plus any real surface separation does not fit in 21:1 — see the
-     budget note at the top of the text section — and this rung sat 1.22 from
+     rungs plus any real surface separation does not fit in 21:1, see the
+     budget note at the top of the text section, and this rung sat 1.22 from
      its neighbours, which is a distinction nobody was reading. */
   /* DEPARTS FROM THE HANDOFF, AND ABSORBS --text-disabled.
      Do not "restore" this to #6b7078, and do not re-split it into two
@@ -150,7 +157,7 @@
 
      THE LIFT, TWICE. The handoff's #6b7078 measured 3.38:1 on the hover
      fill and failed AA. Task 3 raised it to #7f858d, the minimum that
-     cleared 4.5:1 — 4.53:1, i.e. tuned to the floor, which is the habit
+     cleared 4.5:1, 4.53:1, i.e. tuned to the floor, which is the habit
      Task 3b exists to break. It is now #a4a8ae: 7.06:1 on the hover fill,
      8.19:1 on --surface-window, 8.02:1 on --surface-canvas. Same hue
      (216 degrees) and saturation (0.058) as #7f858d; lightness 0.525 ->
@@ -159,7 +166,7 @@
      THE MERGE (Task 3, still true). This token used to have a twin,
      --text-disabled, on the template dimensions and .export-footnote. Both
      tokens bound on the same surface, so both were driven to the same 4.5
-     floor and landed 1.0005:1 apart — two names for one colour. The twin
+     floor and landed 1.0005:1 apart, two names for one colour. The twin
      was deleted and its usages moved here. test/contrast.test.js's "the
      text ladder keeps its rungs" guard fails if anything is merged into
      this value again. */
@@ -175,14 +182,14 @@
   /* --- Inert -------------------------------------------------------------
      Task 3b. `.inspector-section[inert]` used to be `opacity: 0.42`, and
      opacity was the wrong instrument: it composites toward whatever is
-     BEHIND the element — here the darkest surface in the app — so it
+     BEHIND the element, here the darkest surface in the app, so it
      destroys contrast faster than it reduces apparent brightness. At 0.42
      the section ran from 3.56:1 at the top down to 1.85:1 at the bottom,
      and the bottom rung carried every section label in the panel.
 
      These three replace it, at full alpha, as local re-definitions of the
      live tokens inside the inert rule (see web/style.css). An inert section
-     is deliberately FLAT — one text tone, not a dimmed copy of the ladder —
+     is deliberately FLAT, one text tone, not a dimmed copy of the ladder,
      because "unavailable" is one state, not five.
 
        --text-inert     3.33:1 on --surface-window, 3.10:1 on --surface-inert
@@ -191,8 +198,8 @@
 
      More off than 0.42, not less: the section's brightest element drops
      from 3.56:1 to 3.33:1, while its dimmest RISES from 1.85:1 to 3.33:1.
-     And measured against what it is dimming — the live tokens, which Task
-     3b lifted — the gap widened from 16.25/3.56 = 4.6x to 18.0/3.33 = 5.4x.
+     And measured against what it is dimming, the live tokens, which Task
+     3b lifted, the gap widened from 16.25/3.56 = 4.6x to 18.0/3.33 = 5.4x.
 
      --border-inert is deliberately BELOW the 3:1 that --border-strong owes.
      WCAG 1.4.11 exempts inactive components, and a control whose border is
@@ -207,6 +214,15 @@
   --color-status-green: #28c840;  /* CLI-connected dot (line 93) */
 
   /* --- Brand / gradient stops (sidebar presets + inspector swatches) ---- */
+  /* THE ACCENT, used as a FILL: the Export buttons, the active scale cell,
+     a selected chip, the active tab; and as a STROKE on the selected size
+     row. Rock drew #5b6cff. White measures 4.17:1 on that, under the 4.5
+     WCAG AA floor for text, and at this hue 7:1 is unreachable without
+     wrecking the colour (#1d35ff clears white but drops to 2.80:1 against
+     the window). #5364ff is the same blue eight units darker: white 4.53:1,
+     4.32:1 against the window. */
+  --accent: #5364ff;
+
   --color-brand-start: #5b6cff;   /* app-mark gradient (line 64) */
   --color-brand-end: #a24ff0;     /* app-mark gradient (line 64) */
   /* The handoff's ten fixed swatch hues (blue/pink, cyan/indigo, orange/
@@ -256,12 +272,12 @@
   /* --- Shadows (compound values; kept here so no other file holds a color) */
   --shadow-thumb: 0 1px 3px rgba(0, 0, 0, 0.6); /* slider thumb (line 129) */
   --shadow-drawer: -8px 0 32px rgba(0, 0, 0, 0.5); /* our own addition: the
-    narrow-viewport drawer's cast shadow — not in the mockup, invented for
+    narrow-viewport drawer's cast shadow, not in the mockup, invented for
     the <900px collapse (see task-1-report.md) */
   --overlay-backdrop: rgba(4, 5, 8, 0.6); /* our own addition: drawer backdrop scrim */
   --shadow-settle: 0 18px 40px rgba(0, 0, 0, 0.35); /* Task 7: the shot's
     cast shadow at the end of the "settles" beat in the one authored
-    arrival moment (style.css's `shot-settle` keyframes) — animates in from
+    arrival moment (style.css's `shot-settle` keyframes), animates in from
     `box-shadow: none` at the animation's start. */
 
   /* --- Radii -------------------------------------------------------------- */
@@ -271,6 +287,8 @@
   --radius-pill: 12px; /* chips (line 140) */
 
   /* --- Fonts -------------------------------------------------------------- */
-  --font-ui: 'Geist', system-ui, -apple-system, sans-serif;
-  --font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', monospace;
+  /* Inter, not Geist. Rock designs in Inter and the app was loading Geist,
+     which nobody had checked. */
+  --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
 }

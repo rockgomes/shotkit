@@ -3,7 +3,7 @@ import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { readFileSync } from 'node:fs';
 
 // Comment-stripped source, so the structural guards below read CODE and not
-// prose — the same helper test/selection.test.js earned by failing on a word
+// prose, the same helper test/selection.test.js earned by failing on a word
 // inside a comment that explained why that word must never appear.
 function codeOf(path) {
   return readFileSync(path, 'utf8')
@@ -43,7 +43,7 @@ import {
 const mkCanvas = (w, h) => createCanvas(w, h);
 
 // ---------------------------------------------------------------------
-// Pure helpers — no DOM. Same split web/sidebar.js already established.
+// Pure helpers, no DOM. Same split web/sidebar.js already established.
 // ---------------------------------------------------------------------
 
 describe('ground auto/forced reading', () => {
@@ -84,7 +84,7 @@ describe('the preset row and the hue slider agree, because they write the same f
     expect(config.ground).toBe(200); // the SAME field, now holding a raw degree
     expect(forcedHueDeg(config)).toBe(200);
     // No preset is falsely "selected" just because a numeric value happens
-    // to exist — activeGroundKey (web/sidebar.js) keys off the NAME, not
+    // to exist, activeGroundKey (web/sidebar.js) keys off the NAME, not
     // numeric equality, so a slider value never masquerades as a preset.
     expect(activeGroundKey(config)).toBeNull();
   });
@@ -96,7 +96,7 @@ describe('the preset row and the hue slider agree, because they write the same f
     expect(forcedHueDeg(config)).toBeNull();
     expect(activeGroundKey(config)).toBeNull();
     // And normalise() (core/config.js, real and unmodified) resolves this
-    // exactly the same way — not just this file's own bookkeeping.
+    // exactly the same way, not just this file's own bookkeeping.
     expect(normalise(config).forceHue).toBeNull();
   });
 
@@ -119,7 +119,7 @@ describe('the preset row and the hue slider agree, because they write the same f
     expect(forcedHueDeg(config)).toBeNull();
     expect(isAutoGround(config)).toBe(true);
     // ...and neither does the real core/config.js normalise() that
-    // actually drives the render — the slider would visibly show 200°
+    // actually drives the render, the slider would visibly show 200°
     // while the canvas kept rendering the sampled hue, exactly the "panel
     // lies about its own state" failure this task explicitly warns about.
     expect(normalise(config).forceHue).toBeNull();
@@ -143,7 +143,7 @@ describe('angle, background type, seed and luminosity helpers', () => {
     setBgType(config, 'solid');
     expect(config.bgType).toBe('solid');
     // Rejects a value that looks plausible but was never a member of
-    // BG_TYPES, and does not clobber the last good value while doing so —
+    // BG_TYPES, and does not clobber the last good value while doing so,
     // this exercises setBgType's own guard, not BG_TYPES' own contents.
     setBgType(config, 'gradient');
     expect(config.bgType).toBe('solid');
@@ -214,7 +214,7 @@ describe('angle, background type, seed and luminosity helpers', () => {
 // the REAL render() pipeline (web/state.js) exactly like
 // test/sidebar.test.js's own cache tests, plus this file's
 // computeSampledMeta() called directly against the same real, decoded
-// image — proving the two stay independent.
+// image, proving the two stay independent.
 // ---------------------------------------------------------------------
 
 describe('computeSampledMeta reproduces the real unforced reading, independent of any override', () => {
@@ -260,13 +260,13 @@ describe('computeSampledMeta reproduces the real unforced reading, independent o
     selectGround(state.config, 'rose');
     render();
     expect(state.meta.hue).toBeCloseTo(HUES.rose, 0);
-    // The override is really in the real meta now, not just requested —
+    // The override is really in the real meta now, not just requested,
     // sanity that this test is actually exercising the override path.
     expect(state.meta.hue).not.toBeCloseTo(sampledBefore.hue, 0);
 
     const sampledAfter = computeSampledMeta(state.images, mkCanvas);
 
-    // The measured reading is EXACTLY the same as before the override —
+    // The measured reading is EXACTLY the same as before the override,
     // this is the "must not lie" property. If Sampled were reading off
     // `state.meta` instead of its own independent computation, it would
     // have silently become 'rose' here instead of staying the screenshot's
@@ -306,18 +306,18 @@ describe('computeSampledMeta reproduces the real unforced reading, independent o
 // FIX ROUND 1: the first version of this file ran computeSampledMeta (a
 // real analyse() pass, ~90-300ms) unconditionally on every image load,
 // duplicating work render() (web/state.js) had just finished doing for the
-// SAME image whenever the ground was auto — the common case. sampledMetaFor
+// SAME image whenever the ground was auto, the common case. sampledMetaFor
 // is the fix: reuse `state.meta` when auto (an already-known, exact
 // answer), only pay for an independent analysis once a hue is actually
-// forced. These tests were absent from the original 18 — the caching
+// forced. These tests were absent from the original 18, the caching
 // wrapper (createSampledCache) was unexported and untested, which is
 // exactly how the redundant analysis slipped through review.
 // ---------------------------------------------------------------------
 
 describe('sampledMetaFor: reuse state.meta when auto, analyse independently only when forced', () => {
-  it('auto + a currentMeta present: returns that EXACT object — proven by a canvas factory that throws if an analysis is attempted', () => {
+  it('auto + a currentMeta present: returns that EXACT object, proven by a canvas factory that throws if an analysis is attempted', () => {
     const explodingCanvas = () => {
-      throw new Error('computeSampledMeta ran even though the ground is auto — the whole point of this fix is that it must not');
+      throw new Error('computeSampledMeta ran even though the ground is auto, the whole point of this fix is that it must not');
     };
     const currentMeta = { lum: 0.5, hue: 123, chroma: 0.4, ground: ['#111', '#222', '#333'], darkUI: false };
     const result = sampledMetaFor({ web: null, mobile: [] }, { ground: null }, currentMeta, explodingCanvas);
@@ -344,19 +344,19 @@ describe('sampledMetaFor: reuse state.meta when auto, analyse independently only
     const web = await loadImage('samples/karaoke-web.png');
     const trueHue = computeSampledMeta({ web, mobile: [] }, mkCanvas).hue;
     // Simulate what `state.meta` looks like right after a forced-hue
-    // render — this is a REAL shape (hue overwritten by tail()), not a
+    // render, this is a REAL shape (hue overwritten by tail()), not a
     // fabricated one.
     const forcedMeta = { lum: 0.097, hue: HUES.rose, chroma: 1, ground: ['#e1d4d8', '#d0bdc4', '#c3a8b1'], darkUI: true };
     // The bug: `sampledMetaFor` that trusted `currentMeta` unconditionally.
     const buggyResult = forcedMeta;
     expect(buggyResult.hue).not.toBeCloseTo(trueHue, 0); // this IS the leak, if it happened
-    // The real function does not do this — it recognises `ground: 'rose'`
+    // The real function does not do this, it recognises `ground: 'rose'`
     // as forced and analyses independently instead:
     const correctResult = sampledMetaFor({ web, mobile: [] }, { ground: 'rose' }, forcedMeta, mkCanvas);
     expect(correctResult.hue).toBeCloseTo(trueHue, 0);
   });
 
-  it('in the real render pipeline, reusing state.meta while auto costs nothing extra — proven by object identity', async () => {
+  it('in the real render pipeline, reusing state.meta while auto costs nothing extra, proven by object identity', async () => {
     const web = await loadImage('samples/fieldset.png');
     web.__id = 'fix-round-1-fieldset';
     const target = createCanvas(10, 10);
@@ -366,10 +366,10 @@ describe('sampledMetaFor: reuse state.meta when auto, analyse independently only
     state.meta = null;
     state.surround = 'mid';
 
-    render(); // auto — state.meta IS the unforced reading already
+    render(); // auto, state.meta IS the unforced reading already
     const cache = createSampledCache();
     const sampled = cache.refresh(state.images, state.config, state.meta, mkCanvas);
-    expect(sampled).toBe(state.meta); // the literal object render() produced — zero extra analysis
+    expect(sampled).toBe(state.meta); // the literal object render() produced, zero extra analysis
   });
 });
 
@@ -381,9 +381,9 @@ describe('createSampledCache: only recomputes when the loaded image SET changes'
     const first = cache.refresh({ web, mobile: [] }, { ground: null }, autoMeta);
     expect(first).toBe(autoMeta);
 
-    // Same image, but now forced — a currentMeta with the override baked
+    // Same image, but now forced, a currentMeta with the override baked
     // in. Because the image identity hasn't changed, the cache must NOT
-    // re-derive anything from this (untrustworthy, once forced) meta — it
+    // re-derive anything from this (untrustworthy, once forced) meta, it
     // returns the value it already cached while auto.
     const forcedMeta = { lum: 0.5, hue: 340, chroma: 0.3 };
     const second = cache.refresh({ web, mobile: [] }, { ground: 'rose' }, forcedMeta);
@@ -402,7 +402,7 @@ describe('createSampledCache: only recomputes when the loaded image SET changes'
     const second = cache.refresh({ web: webB, mobile: [] }, {}, metaB);
 
     expect(first).toBe(metaA);
-    expect(second).toBe(metaB); // a genuinely new image, auto — reuses the NEW currentMeta
+    expect(second).toBe(metaB); // a genuinely new image, auto, reuses the NEW currentMeta
     expect(second).not.toBe(first);
   });
 
@@ -423,7 +423,7 @@ describe('createSampledCache: only recomputes when the loaded image SET changes'
 
   it('BREAK IT: a cache that recomputed on every call would re-run the expensive path needlessly', async () => {
     // Forced ground + a real image: computeSampledMeta's sampleOf() step
-    // calls `makeCanvas` for its 800px thumbnail — counting those calls is
+    // calls `makeCanvas` for its 800px thumbnail, counting those calls is
     // a direct measure of how many times the expensive path actually ran.
     const web = await loadImage('samples/fieldset.png');
     let calls = 0;
@@ -432,7 +432,7 @@ describe('createSampledCache: only recomputes when the loaded image SET changes'
       return mkCanvas(w, h);
     };
     const cache = createSampledCache();
-    const config = { ground: 'rose' }; // forced — every refresh() would hit computeSampledMeta if uncached
+    const config = { ground: 'rose' }; // forced, every refresh() would hit computeSampledMeta if uncached
     const first = cache.refresh({ web, mobile: [] }, config, null, countingCanvas);
     const second = cache.refresh({ web, mobile: [] }, config, null, countingCanvas);
     expect(first).toEqual(second);
@@ -443,7 +443,7 @@ describe('createSampledCache: only recomputes when the loaded image SET changes'
 // ---------------------------------------------------------------------
 // Angle must hit the warm ground cache; hue and tone must bust it. Same
 // reference-identity technique as test/sidebar.test.js (not a timing
-// threshold — see that file's header comment for why).
+// threshold, see that file's header comment for why).
 // ---------------------------------------------------------------------
 
 describe('angle hits the warm ground cache; hue and luminosity bust it', () => {
@@ -510,7 +510,7 @@ describe('angle hits the warm ground cache; hue and luminosity bust it', () => {
 // `mesh is withheld from the Background panel, not removed` stood here, and
 // its own name is why it is gone: the type was deleted in Cycle C Task 8
 // rather than hidden a second time. What is left of it is the assertion
-// below — the panel offers exactly what core/ can render, with nothing held
+// below, the panel offers exactly what core/ can render, with nothing held
 // back.
 describe('the panel offers exactly what core/ renders', () => {
   it('UI_BG_TYPES and BG_TYPES say the same thing', () => {
@@ -723,8 +723,8 @@ describe('the angle slider cannot wrap under the thumb (Task 7, fix round 1)', (
 });
 
 // ---------------------------------------------------------------------
-// Cycle D Task 2. Background describes the CANVAS — the ground the whole
-// composition sits on — so it belongs in the panel that owns the canvas,
+// Cycle D Task 2. Background describes the CANVAS, the ground the whole
+// composition sits on, so it belongs in the panel that owns the canvas,
 // not beside Frame, which edits whichever element you clicked.
 //
 // STRUCTURAL GUARDS over web/index.html, in the same family as the
@@ -765,7 +765,7 @@ describe('Background belongs to the canvas, so it lives on the left (Cycle D)', 
 // surface Hue, Angle and Luminosity do.
 //
 // It spent one task in a section of its own called "Canvas". Rock: "why not
-// just put grain together with HAL controls?" — and with Padding staying on
+// just put grain together with HAL controls?", and with Padding staying on
 // the right, that section held one slider: a heading for one row.
 //
 // Padding is deliberately still in web/inspector-frame.js, on his call:

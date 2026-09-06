@@ -1,37 +1,37 @@
-// web/inspector-background.js — Task 5: the inspector's Background section.
+// web/inspector-background.js, Task 5: the inspector's Background section.
 //
 // THE ORDER IS THE PRODUCT'S ARGUMENT, NOT A LAYOUT CHOICE: shotkit's whole
 // premise is that the ground comes from the SCREENSHOT'S OWN accent colour
-// (core/ground.js) — manual control is an override on top of that, never a
+// (core/ground.js), manual control is an override on top of that, never a
 // peer sitting next to it. So this panel reads, top to bottom:
 //
 //   Sampled (the default, no interaction needed)
 //     -> Presets (the eight named HUES)
 //       -> Hue slider (any degree, not just the eight)
-//         -> Angle slider (gradient direction — layout, not colour)
+//         -> Angle slider (gradient direction, layout, not colour)
 //           -> Type (linear / solid)
-//               -> Tone (auto / light / mid — a CORRECTNESS override, not a
+//               -> Tone (auto / light / mid, a CORRECTNESS override, not a
 //                  mood setting; see its own section below)
 //
 // ONE RENDER PATH: every handler below mutates `state.config` and then
-// calls `scheduleRender()` (web/state.js) — nothing here calls
+// calls `scheduleRender()` (web/state.js), nothing here calls
 // `composeWithMeta` directly. That is what keeps this panel's preview
 // canvas from ever disagreeing with what export.js later exports; four
 // prior review rounds have confirmed composeWithMeta is called from
 // exactly one place, and this file does not become a second one.
 //
-// core/ IMPORTS: only from core/index.js, per Ruling 2 — HUES/TONES/
+// core/ IMPORTS: only from core/index.js, per Ruling 2, HUES/TONES/
 // BG_TYPES/DEFAULT_ANGLE/DEFAULTS/groundFor/groundFromMeta, nothing deep-
 // imported from core/presets.js or core/ground.js.
 //
 // THE PRESET ROW AND THE HUE SLIDER WRITE THE SAME FIELD: `config.ground`.
 // core/config.js's normalise() already accepts EITHER a named string (a
-// HUES key, e.g. 'lavender') OR a raw numeric degree there — that is not
+// HUES key, e.g. 'lavender') OR a raw numeric degree there, that is not
 // new plumbing this file invents, it is what selectGround() (sidebar.js)
 // already relies on, and what setHue() below does too. Because both write
 // the identical field, `activeGroundKey()`/`isAutoGround()` (imported /
 // defined below) can never see the two controls disagree about what is
-// currently selected — there is only one value to read, not two that
+// currently selected, there is only one value to read, not two that
 // could drift apart. See "syncGroundUI" below for how that single value
 // drives every visual in this panel at once.
 import {
@@ -44,14 +44,14 @@ import { renderTile, renderGroundDial, lightEndBearing } from './preset-tiles.js
 import { makeSliderRow } from './controls.js';
 
 // ---------------------------------------------------------------------
-// Pure state helpers — no DOM, no canvas. These are what
+// Pure state helpers, no DOM, no canvas. These are what
 // test/inspector-background.test.js drives directly, exactly the same
 // split web/sidebar.js already established (pure helpers vs. the one
 // DOM-touching init function at the bottom of this file).
 // ---------------------------------------------------------------------
 
 /** `config.ground` unset/null/'auto' means "let core/ground.js sample the
- *  screenshot" — the exact same sentinel core/config.js's normalise()
+ *  screenshot", the exact same sentinel core/config.js's normalise()
  *  already treats as "no override" (see its `input.ground !== 'auto'`
  *  check). Nothing here reimplements that precedence; this only NAMES the
  *  same condition so the panel can ask it in one place. */
@@ -59,9 +59,9 @@ export function isAutoGround(config) {
   return config.ground === undefined || config.ground === null || config.ground === 'auto';
 }
 
-/** The forced hue, in degrees, or null if the ground is currently auto —
+/** The forced hue, in degrees, or null if the ground is currently auto,
  *  the read-side twin of normalise()'s own forceHue derivation
- *  (core/config.js), duplicated here (not imported — core/config.js exports
+ *  (core/config.js), duplicated here (not imported, core/config.js exports
  *  the whole `normalise()` function, not this one fragment of it) purely so
  *  the panel can ask "what hue does this config force, if any?" without
  *  running the entire normalise() pipeline just to read one field back. */
@@ -72,7 +72,7 @@ export function forcedHueDeg(config) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-/** The hue slider's own write: a RAW DEGREE into `config.ground` — the
+/** The hue slider's own write: a RAW DEGREE into `config.ground`, the
  *  identical field selectGround() (sidebar.js) writes a NAMED string into.
  *  This is the whole mechanism behind "the panel reflects reality": there
  *  is exactly one field a reader (`activeGroundKey`, `isAutoGround`,
@@ -80,7 +80,7 @@ export function forcedHueDeg(config) {
  *  can never leave two different fields disagreeing about which is active.
  *  See the "BREAK IT" test in test/inspector-background.test.js for what
  *  goes wrong if a future change routes this through a DIFFERENT field
- *  instead (e.g. a hypothetical `config.hue`) — normalise() would silently
+ *  instead (e.g. a hypothetical `config.hue`), normalise() would silently
  *  never see it, and the slider would visibly move while nothing rendered.
  */
 export function setHue(config, deg) {
@@ -89,7 +89,7 @@ export function setHue(config, deg) {
   config.ground = ((Math.round(n) % 360) + 360) % 360;
 }
 
-/** Clears the override — "Sampled" is a real control, not just a label:
+/** Clears the override, "Sampled" is a real control, not just a label:
  *  clicking it hands the ground back to core/ground.js's own analysis. */
 /**
  * Back to a fully sampled ground.
@@ -132,8 +132,8 @@ export function isDefaultAngle(config) {
 /**
  * The gradient's light end, in words. Cycle C Task 7.
  *
- * `angle` is the direction the gradient TRAVELS, light to dark — 0 points
- * up, rising numbers turn clockwise — so the light end is half a turn away.
+ * `angle` is the direction the gradient TRAVELS, light to dark, 0 points
+ * up, rising numbers turn clockwise, so the light end is half a turn away.
  * Measured rather than read off the source: at 0° the light sits at the
  * BOTTOM, at 90° at the LEFT, at 180° at the top. See
  * docs/verification-2026-09-01.md.
@@ -160,8 +160,8 @@ export function isFullySampled(config) {
  * The angle slider's maximum, and why it is not 360.
  *
  * Rock, 2026-09-05: *"dragging the slider to 360 makes it jump to 0."*
- * Exactly what it did: `setAngle` wraps a full turn back to zero — correct,
- * and what every other caller wants — and the panel then wrote that 0 back
+ * Exactly what it did: `setAngle` wraps a full turn back to zero, correct,
+ * and what every other caller wants, and the panel then wrote that 0 back
  * into the input, so the thumb snapped to the far LEFT while he was still
  * holding the far right.
  *
@@ -179,7 +179,7 @@ export function setAngle(config, deg) {
 }
 
 // WHAT THE PANEL OFFERS. Mesh was the one type BG_TYPES carried and this
-// list withheld — deleted outright in Cycle C Task 8 rather than hidden a
+// list withheld, deleted outright in Cycle C Task 8 rather than hidden a
 // second time, so the two lists are the same list again. Kept as its own
 // export because the panel asking core/ "what may I offer?" is the right
 // shape the moment a type is added that the app cannot yet drive.
@@ -216,15 +216,15 @@ export function setBgType(config, type) {
 //
 // GRAIN IS A BACKGROUND CONTROL. Rock, 2026-09-06: "why not just put grain
 // together with HAL controls?" Because it is one of them: `paintGrain` is
-// clipped to the ground and nothing else — Cycle A Task 4b moved it under
-// the shots for exactly that reason — so it describes the same surface Hue,
+// clipped to the ground and nothing else, Cycle A Task 4b moved it under
+// the shots for exactly that reason, so it describes the same surface Hue,
 // Angle and Luminosity do.
 //
 // It spent one task in a section of its own called "Canvas". With Padding
 // staying on the right (Rock's call, same day), that section held a single
 // slider: a heading for one row.
 //
-// Percent in the UI, a 0-1 fraction in core/config.js — the same round trip
+// Percent in the UI, a 0-1 fraction in core/config.js, the same round trip
 // padding and the shadow use.
 export function activeGrainPercent(config) {
   const grain = Number.isFinite(config.grain) ? config.grain : DEFAULTS.grain;
@@ -279,27 +279,27 @@ export function resetLuminosityToSampled(config) {
 }
 
 // ---------------------------------------------------------------------
-// "Sampled": the TRUE, unforced ground reading for the loaded image(s) —
+// "Sampled": the TRUE, unforced ground reading for the loaded image(s),
 // independent of whatever override (if any) is currently active.
 //
 // Why this can't just ALWAYS read `state.meta`: state.meta is
 // composeWithMeta's (core/index.js) own return value, and once a hue is
-// forced, `meta.hue` IS the forced value — core/ground.js's tail()
+// forced, `meta.hue` IS the forced value, core/ground.js's tail()
 // overwrites it before returning (see that function's own comment). There
 // is nowhere else in the running app that remembers what the screenshot's
 // OWN accent hue was once an override has been applied.
 //
-// But `state.meta` is not USELESS here either — when the ground is auto
+// But `state.meta` is not USELESS here either, when the ground is auto
 // (no override), it already holds exactly this reading, for free. So this
 // is a two-tier read, not a second independent analysis on principle:
-//   - auto: reuse `state.meta` — zero extra cost (`sampledMetaFor` below).
+//   - auto: reuse `state.meta`, zero extra cost (`sampledMetaFor` below).
 //   - forced: fall back to `computeSampledMeta`, a genuine from-scratch
 //     analyse() pass, computed the exact same way core/index.js's
 //     composeWithMeta computes its own UNFORCED meta (same 800px thumbnail
 //     step, same groundFor call with forceHue=null/mode=null).
 // `createSampledCache` (below) wraps whichever path applies in a cache
 // keyed on image identity ONLY (never on config.ground/config.luminosity), so
-// neither path re-runs on every hue/tone/type/angle tick — only when the
+// neither path re-runs on every hue/tone/type/angle tick, only when the
 // loaded image SET actually changes.
 //
 // `computeSampledMeta`/`sampledMetaFor` take an injectable `makeCanvas`
@@ -326,12 +326,12 @@ function defaultMakeCanvas(w, h) {
   return cv;
 }
 
-/** The unforced ground reading for `images` — forceHue and mode both null,
+/** The unforced ground reading for `images`, forceHue and mode both null,
  *  exactly core/index.js's own no-override path (including its "nothing
  *  loaded yet" neutral-grey fallback, reproduced verbatim below so the
  *  Sampled swatch shows exactly what an empty canvas would, not an
  *  invented placeholder colour). This is a REAL analyse() pass
- *  (core/ground.js) — the same ~90-300ms a cold render pays — so it is the
+ *  (core/ground.js), the same ~90-300ms a cold render pays, so it is the
  *  expensive fallback, not the common path; see `sampledMetaFor` below for
  *  the cheap path that avoids calling this at all whenever it can. Exported
  *  so tests can call it directly with a real image and a Node canvas
@@ -347,24 +347,24 @@ export function computeSampledMeta(images, makeCanvas = defaultMakeCanvas) {
 /**
  * FIX ROUND 1: the first version of this file called `computeSampledMeta`
  * (a full, independent analyse() pass) unconditionally on every image load
- * — ~90-300ms of work duplicating what `render()` (web/state.js) had, in
+ *, ~90-300ms of work duplicating what `render()` (web/state.js) had, in
  * the common case, JUST finished computing moments earlier for the SAME
  * image, at the moment the user is already waiting on a load.
  *
- * The insight: when the ground is auto (the default — `isAutoGround`,
+ * The insight: when the ground is auto (the default, `isAutoGround`,
  * above), `render()`'s own `currentMeta` (`state.meta`) already IS the
- * unforced reading — core/index.js ran `groundFor` with `forceHue: null`
+ * unforced reading, core/index.js ran `groundFor` with `forceHue: null`
  * to produce it, because there is no override to apply. There is nothing
  * left to compute; the two readings are not merely similar, they are the
  * SAME arithmetic result. Only once a hue is actually forced does
  * `currentMeta.hue` disagree with the truth (core/ground.js's `tail()`
- * overwrites it with the forced value — see this file's "Sampled" header
- * comment above) — and ONLY THEN is an independent, from-scratch analysis
+ * overwrites it with the forced value, see this file's "Sampled" header
+ * comment above), and ONLY THEN is an independent, from-scratch analysis
  * genuinely necessary.
  *
  * `currentMeta` is trusted here ONLY at the one call site that invalidates
  * this cache (`refreshSampled()`, called by web/main.js right after
- * `addFiles()` — which calls `render()` SYNCHRONOUSLY, not through
+ * `addFiles()`, which calls `render()` SYNCHRONOUSLY, not through
  * `scheduleRender()`'s rAF debounce, so `state.meta` is guaranteed to
  * already reflect `state.config` exactly as it stands at that instant; see
  * web/sidebar.js's "Ground swatch gradients" header comment, which relies
@@ -372,7 +372,7 @@ export function computeSampledMeta(images, makeCanvas = defaultMakeCanvas) {
  * preset click, a tone toggle, Sampled's own click) reads the cache via
  * `createSampledCache().refresh` below WITHOUT invalidating it first, so it
  * never re-evaluates this trust at a moment `state.meta` could be
- * momentarily stale — it just returns whatever was cached at the last
+ * momentarily stale, it just returns whatever was cached at the last
  * image load, cheaply, every time.
  */
 export function sampledMetaFor(images, config, currentMeta, makeCanvas = defaultMakeCanvas) {
@@ -387,7 +387,7 @@ function sampledKeyFor(images) {
 
 /**
  * A tiny factory for the "only recompute when the loaded image SET
- * changed" cache around `sampledMetaFor` — a factory, not one shared
+ * changed" cache around `sampledMetaFor`, a factory, not one shared
  * module-level cache, so `test/inspector-background.test.js` can create an
  * independent instance per test case (no cross-test pollution from shared
  * mutable state) and so a future second inspector instance wouldn't have
@@ -399,7 +399,7 @@ export function createSampledCache() {
   let key = null;
   return {
     /** Returns the current sampled meta, recomputing (via `sampledMetaFor`)
-     *  only when `images` identifies a different image set than last time —
+     *  only when `images` identifies a different image set than last time,
      *  a hue/tone/type/angle change alone never gets here at all. */
     refresh(images, config, currentMeta, makeCanvas = defaultMakeCanvas) {
       const k = sampledKeyFor(images);
@@ -410,7 +410,7 @@ export function createSampledCache() {
       return meta;
     },
     /** Forces the NEXT `refresh()` call to recompute, regardless of
-     *  whether the image key actually changed — used when the caller
+     *  whether the image key actually changed, used when the caller
      *  already knows there's a new image (web/main.js's `refreshSampled`
      *  handshake) rather than waiting for the key comparison to notice. */
     invalidate() {
@@ -424,14 +424,14 @@ export function createSampledCache() {
 // its own click/input handlers directly rather than relying on
 // web/main.js's generic wireSingleSelectGroup/slider-fill loops (those run
 // once, at module load, against whatever static markup index.html shipped
-// — this panel's entire content is built fresh by initBackgroundInspector()
+//, this panel's entire content is built fresh by initBackgroundInspector()
 // below, so there is nothing for that one-time generic pass to find here
 // even if it ran first; main.js calls this AFTER its generic loops for
 // exactly that reason, so there is no ambiguity about it).
 // ---------------------------------------------------------------------
 
 /**
- * A slider's own Reset — Cycle C Task 5, fix round 1.
+ * A slider's own Reset, Cycle C Task 5, fix round 1.
  *
  * Rock: *"I'm not sure I follow the logic of that reset button that only
  * activates for luminosity. I think we could have just a reset button in
@@ -449,7 +449,7 @@ export function createSampledCache() {
  */
 // `makeResetButton` and `syncSliderFill` lived here. web/controls.js's
 // makeSliderRow owns both now, for every slider in the app rather than the
-// four in this panel — which is the whole point of Cycle D Task 4.
+// four in this panel, which is the whole point of Cycle D Task 4.
 
 export function initBackgroundInspector() {
   const section = document.getElementById('backgroundSection');
@@ -486,7 +486,7 @@ export function initBackgroundInspector() {
   sampledRow.append(sampledStopsEl, sampledLabel);
   sampledRow.setAttribute(
     'aria-label',
-    'Sampled ground, derived automatically from the screenshot. Click to clear every manual override — hue and luminosity.',
+    'Sampled ground, derived automatically from the screenshot. Click to clear every manual override, hue and luminosity.',
   );
   section.appendChild(sampledRow);
 
@@ -503,7 +503,7 @@ export function initBackgroundInspector() {
     min: 0,
     max: 360,
     step: 1,
-    ariaLabel: 'Ground hue, in degrees — dragging forces a hue and leaves Sampled',
+    ariaLabel: 'Ground hue, in degrees, dragging forces a hue and leaves Sampled',
     resetLabel: 'Reset hue to the sampled value',
     format: (v) => `${v}°`,
     isDefault: () => isAutoGround(state.config),
@@ -530,7 +530,7 @@ export function initBackgroundInspector() {
   // THE DIAL (Task 7). A number cannot say which way 166° points, and an
   // arrow drawn from that number would only restate it. This is a circle of
   // the REAL ground, painted by paintGround from the stops the canvas itself
-  // used, with a tick on the light end — so it cannot disagree with what it
+  // used, with a tick on the light end, so it cannot disagree with what it
   // is describing.
   const angleDial = document.createElement('canvas');
   angleDial.width = 44;
@@ -538,7 +538,7 @@ export function initBackgroundInspector() {
   angleDial.className = 'angle-dial';
   angleDial.setAttribute('aria-hidden', 'true');
   // The dial rides inside the row's own track, between the slider and its
-  // Reset — makeSliderRow builds that track, so it is inserted rather than
+  // Reset, makeSliderRow builds that track, so it is inserted rather than
   // passed in. It is the one row with a third thing in it.
   angle.input.insertAdjacentElement('afterend', angleDial);
   section.appendChild(angleRow);
@@ -583,7 +583,7 @@ export function initBackgroundInspector() {
     min: LUMINOSITY_RANGE[0],
     max: LUMINOSITY_RANGE[1],
     step: 0.005,
-    ariaLabel: 'Ground luminosity — how light or dark the background is',
+    ariaLabel: 'Ground luminosity, how light or dark the background is',
     resetLabel: 'Reset luminosity to the sampled value',
     format: (v) => `${Math.round(v * 100)}%`,
     isDefault: () => isSampledLuminosity(state.config),
@@ -647,12 +647,12 @@ export function initBackgroundInspector() {
   // -----------------------------------------------------------------------
   // Sync functions: each updates exactly the DOM this panel's own state
   // affects, and nothing rebuilds the control elements themselves mid-drag
-  // (only their value/label/fill/class) — a slider that got torn down and
+  // (only their value/label/fill/class), a slider that got torn down and
   // recreated on its own 'input' event would abort the user's own drag
   // gesture. Rebuilding the (small, un-focused) preset <ul> on every hue
   // tick is fine: renderTile -> groundFromMeta is the CHEAP tail-only path
   // (a handful of hslToHex calls plus a 88px paintGround), never the
-  // expensive analyse() pass — see the perf note further down.
+  // expensive analyse() pass, see the perf note further down.
   // -----------------------------------------------------------------------
 
   function syncGroundUI() {
@@ -663,7 +663,7 @@ export function initBackgroundInspector() {
     // Sampled swatches: tone-aware (groundFromMeta with the CURRENT tone,
     // so the preview matches what clicking "Sampled" would actually
     // produce), but hue-locked to the true measured value (forceHue=null
-    // keeps `meta.hue` — never the override) — see this file's header
+    // keeps `meta.hue`, never the override), see this file's header
     // comment on why `meta` here is NEVER `state.meta`.
     // `null` luminosity as well as `null` hue: this row previews what
     // clicking it would ACTUALLY produce, and clicking it now clears both.
@@ -679,7 +679,7 @@ export function initBackgroundInspector() {
     sampledRow.classList.toggle('is-active', fully);
     sampledRow.setAttribute('aria-pressed', String(fully));
 
-    // Hue slider: the CURRENTLY EFFECTIVE hue — forced value if one is set,
+    // Hue slider: the CURRENTLY EFFECTIVE hue, forced value if one is set,
     // else the sampled reading above (never `state.meta`, which already
     // has any override baked in and would make the slider silently snap
     // back to the override the instant Sampled is re-selected).
@@ -689,7 +689,7 @@ export function initBackgroundInspector() {
   }
 
   /**
-   * The preset grid — Cycle C Task 5.
+   * The preset grid, Cycle C Task 5.
    *
    * Each tile is a real <canvas> painted by web/preset-tiles.js through
    * core/'s own `paintGround`, at the current type, angle and luminosity.
@@ -737,12 +737,12 @@ export function initBackgroundInspector() {
   }
 
   /**
-   * EVERY BACKGROUND CHANGE GOES THROUGH HERE — Cycle C Task 5, fix round 1.
+   * EVERY BACKGROUND CHANGE GOES THROUGH HERE, Cycle C Task 5, fix round 1.
    *
    * Rock: *"HAL changes CT, and that's cool. but, A only updates CT after
    * you change H."* Exactly right. The preset tiles are painted at the
    * CURRENT type, angle and luminosity, so they go stale whenever one of
-   * those changes — and only Hue and Luminosity happened to call
+   * those changes, and only Hue and Luminosity happened to call
    * `syncGroundUI`. Angle, type and the mesh controls did not, so a tile
    * kept showing the angle you had before.
    *
@@ -754,7 +754,7 @@ export function initBackgroundInspector() {
     syncGrainUI();
 
   // RE-SYNC LUMINOSITY AFTER EVERY RENDER, because it is the one slider in
-  // this panel whose displayed value comes from `state.meta` — and state.meta
+  // this panel whose displayed value comes from `state.meta`, and state.meta
   // is only written when render() finishes.
   //
   // The symptom, measured: drag Luminosity to 15%, press its Reset. The
@@ -778,7 +778,7 @@ export function initBackgroundInspector() {
     angle.sync(deg);
 
     // The dial's stops come from the same call core/index.js makes for the
-    // canvas — `groundFromMeta(meta, forceHue, luminosity, forceSat)`, with
+    // canvas, `groundFromMeta(meta, forceHue, luminosity, forceSat)`, with
     // every argument taken from `normalise()` rather than re-read by hand.
     // `state.meta.ground` would have been the same triple but one frame
     // stale, since it is only written after a render; this is the tiles'
@@ -826,7 +826,7 @@ export function initBackgroundInspector() {
     afterBackgroundChange();
   });
 
-  // Angle NEVER touches `config.ground`/`config.luminosity` — web/state.js's
+  // Angle NEVER touches `config.ground`/`config.luminosity`, web/state.js's
   // groundKeyFor (its cache key) doesn't read `angle` at all, so this is
   // the one slider in this panel guaranteed to hit the warm cache on every
   // drag tick rather than re-running core/ground.js's analyse() pass. See
@@ -842,8 +842,8 @@ export function initBackgroundInspector() {
   // even though it changes no hue - the presets are rendered at the current
   // luminosity, so both need a refresh here, not just this row.
   // Grain goes through afterBackgroundChange like everything else in this
-  // panel. It does not actually change the preset tiles — paintGround does
-  // not paint grain, paintGrain is a separate pass in composeWithMeta — so
+  // panel. It does not actually change the preset tiles, paintGround does
+  // not paint grain, paintGrain is a separate pass in composeWithMeta, so
   // this repaints eight 88px tiles it did not have to. That is the cheap
   // tail-only path, and one rule with no exceptions is worth more than the
   // saving: the exception is what the next person would get wrong.
@@ -852,7 +852,7 @@ export function initBackgroundInspector() {
   syncTypeUI();
   syncLuminosityUI();
   // Grain's Reset is disabled at the default like every other one, and that
-  // state has to be painted before the first interaction — measured in
+  // state has to be painted before the first interaction, measured in
   // Chromium, it was enabled on load until something else moved.
   syncGrainUI();
 

@@ -1,4 +1,4 @@
-# shotkit web — design
+# shotkit web, design
 
 Date: 2026-08-31
 Status: approved, ready for implementation planning
@@ -27,7 +27,7 @@ These were settled during brainstorming and are not open in this cycle.
 | v1 feature scope | Full single-shot parity. No batch. |
 | Stack | Vanilla JS + Vite. No framework. |
 | Repo | New public GitHub repo |
-| Design register | Push it — distinctive, authored motion, a point of view |
+| Design register | Push it, distinctive, authored motion, a point of view |
 | Later surfaces | CLI, npm publish, Claude Code skill, Tauri desktop |
 
 ### Why canvas and not DOM-snapshot
@@ -41,7 +41,7 @@ and desktop app.
 
 ### Why the Python and Playwright dependencies go away
 
-In a browser there is nothing for Playwright to do — the browser is the
+In a browser there is nothing for Playwright to do, the browser is the
 renderer. And `ground.py` is pixel arithmetic that runs the same on a canvas
 `ImageData` buffer. Removing both is what makes the app static, free to host,
 offline-capable, and privacy-preserving: screenshots are often unreleased
@@ -72,7 +72,7 @@ shotkit/
 ```
 
 `core/` is the keystone. It knows nothing about where images came from or where
-the PNG is going. Every other surface — web app now, CLI and desktop later — is
+the PNG is going. Every other surface, web app now, CLI and desktop later, is
 a thin shell around it.
 
 `compose()` is **handed** a target to draw into, rather than creating one. The
@@ -121,7 +121,7 @@ over unchanged:
 - Hue is a 36-bin histogram weighted by saturation squared, ignoring pixels
   with `s < 0.22`, `v < 0.16`, or `v > 0.98`. Take the **peak** bin, scored
   with its two neighbours at half weight. Refine inside the winning bin with a
-  saturation-weighted circular mean. Peak, never mean — a brand colour piles
+  saturation-weighted circular mean. Peak, never mean, a brand colour piles
   into one bin, photos smear across many.
 - `chroma` = share of total weight in the three winning bins, ×1.25, capped
   at 1.
@@ -132,7 +132,7 @@ over unchanged:
   saturated.
 - **Lightness is set for separation, not mood.** A light UI gets a pale tint at
   L 0.975 / 0.925 / 0.868. A dark UI gets a **mid-tone** ground at L 0.855 /
-  0.780 / 0.712 — never a dark one. Dark-on-dark is the most common way these
+  0.780 / 0.712, never a dark one. Dark-on-dark is the most common way these
   shots fail.
 
 Needs an HSV→RGB and RGB→HSV pair, and an HSL→hex. Written inline; they are a
@@ -141,7 +141,7 @@ rule for `core/`.
 
 ### `core/layout.js`
 
-Pure functions over numbers. No canvas, no images — it takes source aspect
+Pure functions over numbers. No canvas, no images, it takes source aspect
 ratios, not pixels. This is what makes the geometry unit-testable.
 
 ```js
@@ -215,7 +215,7 @@ so the export cannot disagree with what was on screen. Export is
 
 Re-render is debounced to one animation frame while a slider is dragging.
 `ground.js` is the slow step, so its result is cached per image and only
-recomputed when the image, `forceHue`, or `mode` changes — not when `pad` moves.
+recomputed when the image, `forceHue`, or `mode` changes, not when `pad` moves.
 
 ## The app's own design
 
@@ -224,7 +224,7 @@ subject is making things look good. A default-looking control panel would
 undercut its own pitch.
 
 **The organising idea: the app wears the shot's colour.** `ground.js` already
-extracts the product's accent. That same value tints the app chrome — panel
+extracts the product's accent. That same value tints the app chrome, panel
 surfaces, focus rings, the drop zone, the export button. Drop a different
 screenshot and the whole interface shifts with it. The tool demonstrates its
 thesis rather than describing it.
@@ -235,7 +235,7 @@ scattered hover effects. It is canvas-native and costs nothing.
 
 Controls are grouped by what they change, not by flag name: **Canvas** (ratio,
 size), **Ground** (auto / hue / preset, tone), **Frame** (fit, pad, radius),
-**Finish** (grain, caption), and **Phone** (scale, bleed — only shown when a
+**Finish** (grain, caption), and **Phone** (scale, bleed, only shown when a
 phone layout is active).
 
 ## Errors
@@ -278,7 +278,7 @@ Runner: Vitest, browser mode for the canvas tests.
 
 Per the standing UI rules:
 
-- Contrast checked, including the accent-tinted chrome at every hue — the
+- Contrast checked, including the accent-tinted chrome at every hue, the
   tint is generated, so it must be clamped to stay legible.
 - No horizontal scroll between 320px and 1920px.
 - `:focus-visible`, disabled, and loading states on every control.
@@ -295,7 +295,7 @@ Each gets its own brainstorm → spec → plan cycle later:
 - **npm publish**, so `shotkit` is a global command in any folder.
 - **Claude Code skill** wrapping the CLI.
 - **Tauri desktop app**, wrapping `web/`.
-- **Bleed layout** — letting the UI run off one canvas edge.
+- **Bleed layout**, letting the UI run off one canvas edge.
 - **MP4 export.**
 
 ## Open risk
@@ -308,7 +308,7 @@ the first numbers match.
 
 ---
 
-# Amendment 1 — Backdrop handoff, expanded scope
+# Amendment 1, Backdrop handoff, expanded scope
 
 Date: 2026-08-31, after Task 7. Tasks 1–7 are complete and unaffected; `core/` as
 built stands. This amendment supersedes the original "Out of scope" list and the
@@ -319,8 +319,8 @@ plan's Tasks 8–12, which were written before the visual direction existed.
 Two things arrived after the original spec was approved.
 
 1. A **visual direction** was chosen from six candidates: the three-column editor
-   layout, judged on the requirement that the app read as *software* — a photo
-   editor, Figma, pen.dev — not a marketing page.
+   layout, judged on the requirement that the app read as *software*, a photo
+   editor, Figma, pen.dev, not a marketing page.
 2. A **high-fidelity design handoff** (`design_handoff_backdrop_1a/`) landed,
    specifying that direction properly: a four-pane dark editor called "Obsidian",
    with a complete token system, control patterns, and a feature set larger than
@@ -356,30 +356,30 @@ pill chips (h24, selected inverse).
 - **Desktop window chrome.** No frameless 1180×764 window, no traffic lights in
   the app's own toolbar. Painting macOS chrome inside a browser tab is fake
   chrome. (Traffic lights inside the *rendered mockup's* browser frame are a
-  different thing and are in scope — see Device frames.)
-- **`image-slot.js`** — prototype scaffolding, explicitly do-not-ship. The app has
+  different thing and are in scope, see Device frames.)
+- **`image-slot.js`**, prototype scaffolding, explicitly do-not-ship. The app has
   its own decode path.
 - **CLI watch-folder card, Library / Integrations nav, saved user presets.**
   Deferred. The nav rail renders the items; only Canvas is live.
 
 ## New feature scope
 
-### Background panel — auto first, manual after
+### Background panel, auto first, manual after
 
 The handoff's BACKGROUND section lets the user pick a gradient. shotkit's thesis
 is the opposite: **the ground is sampled from the product's own accent**, which is
 what `core/ground.js` exists for. Both survive, in this order:
 
-1. **Sampled** — the default. Its three stops shown as swatches with the measured
+1. **Sampled**, the default. Its three stops shown as swatches with the measured
    hue. This is the top of the panel, not one option among many.
-2. **Presets** — the eight named hues already in `core/presets.js`.
-3. **Manual** — hue slider, and now an **angle** slider (`frame.html` hardcodes
+2. **Presets**, the eight named hues already in `core/presets.js`.
+3. **Manual**, hue slider, and now an **angle** slider (`frame.html` hardcodes
    166°; it becomes a parameter).
-4. **Mesh** — a new background type. New painter in `core/render.js`.
+4. **Mesh**, a new background type. New painter in `core/render.js`.
 
 `tone` (auto / light / mid) stays, since the dark-UI mid-tone rule is load-bearing.
 
-### Export — templates AND ratios
+### Export, templates AND ratios
 
 Both, not one. Named templates carry real pixel sizes (Dribbble shot 2800×2100,
 Twitter post 1600×900, Twitter header 1500×500, App Store 2880×1800, Open Graph
@@ -396,7 +396,7 @@ The largest addition, and the most invasive. **None / Browser / iPhone**, each
 with a **chrome theme**
 
 > **Amended 2026-09-01: macOS dropped from v1.** The handoff specifies macOS as a
-> feature but contains no macOS frame anywhere — all three of its image slots sit
+> feature but contains no macOS frame anywhere, all three of its image slots sit
 > inside the same browser chrome, and "macOS" appears only as an inert inspector
 > chip. Rather than ship an invented bar height, v1 offers three frames. macOS
 > returns when it is designed. (dark: chrome `#1b1d22`, body `#101114`; light:
@@ -406,7 +406,7 @@ chrome `#f6f7f9`, body `#fff`, borders `#e3e5ea`).
 above the screenshot *inside* the frame, so the screen box shrinks by the bar
 height, the corner radius applies to the frame rather than the screenshot, and the
 shadow attaches to the frame. That reaches into `core/layout.js`, which is
-currently closed and fully tested — its existing behaviour must remain exactly
+currently closed and fully tested, its existing behaviour must remain exactly
 correct when `frame: 'none'`, which is the current behaviour and stays the default
 for every existing test.
 
@@ -417,7 +417,7 @@ steps (dark, mid, light) behind the shot, so a pale ground can be judged honestl
 
 **Hard constraint: the surround is chrome, never pixels.** It must not reach the
 exported PNG. Because the preview canvas *is* the export canvas, the surround must
-be a separate element behind that canvas — `core/render.js` never learns it
+be a separate element behind that canvas, `core/render.js` never learns it
 exists. Proven by test: exporting at two surround settings yields byte-identical
 PNGs.
 
@@ -438,26 +438,26 @@ the cost of building the inspector twice.
 
 ---
 
-# Amendment 2 — chrome tinting is not part of this product
+# Amendment 2, chrome tinting is not part of this product
 
 Date: 2026-09-01, confirmed by the user during Task 7's verification pass.
 
 The original spec described an organising idea for the app's own chrome: **"the app wears the shot's
-colour"** — the accent extracted by `core/ground.js` tinting the panels, focus rings and drop zone, so
+colour"**, the accent extracted by `core/ground.js` tinting the panels, focus rings and drop zone, so
 dropping a different screenshot shifted the whole interface.
 
 **That is not this product.** It was the concept behind Direction C ("Chroma"), one of six candidates
 explored. Direction D ("Console") was chosen instead, and the Backdrop handoff that specifies it carries a
-**fixed** token palette. Chrome tinting was therefore superseded twice over, but never explicitly retired —
+**fixed** token palette. Chrome tinting was therefore superseded twice over, but never explicitly retired,
 so it survived in briefs and instructions describing an app that had stopped working that way.
 
 **The app chrome is fixed.** Every colour comes from `web/tokens.css` and none is derived at runtime from
 the sampled meta.
 
 What *does* vary with the screenshot's hue: the small decorative preview swatches in the sidebar and the
-Background panel. They are `aria-hidden`, and their job is to show what a preset will produce — the honesty
+Background panel. They are `aria-hidden`, and their job is to show what a preset will produce, the honesty
 requirement fixed in the app plan's Task 4.
 
 **Consequence for a future light theme.** The contrast surface is the *fixed* token set, not a generated
-accent at every hue. That makes a second theme a second token set with a finite, checkable set of pairs —
+accent at every hue. That makes a second theme a second token set with a finite, checkable set of pairs,
 substantially smaller work than sweeping a runtime-derived accent across 360 degrees.

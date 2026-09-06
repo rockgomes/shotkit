@@ -1,14 +1,14 @@
-# shotkit Cycle D — How the App Is Organised Implementation Plan
+# shotkit Cycle D, How the App Is Organised Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the two panels say what the data says — left is the shot, right is the thing you clicked — stop the app reading as one flat black, and give it a colour that means "active".
+**Goal:** Make the two panels say what the data says, left is the shot, right is the thing you clicked, stop the app reading as one flat black, and give it a colour that means "active".
 
 **Architecture:** No new rendering. This cycle is entirely `web/`: Size becomes one tabbed control so the left panel has room; Background, Padding and Grain move to the left panel because they are canvas properties; Frame, Corner radius, Stroke and Shadow stay on the right because they belong to the selected element; the per-slider Reset that Cycle C built for Background is extracted into a shared control and applied to every slider; and an accent colour replaces "active means lighter" everywhere it currently says that.
 
 **Tech Stack:** Zero-dependency ES modules in `core/` (untouched this cycle); Vite + vanilla JS in `web/`; vitest with `@napi-rs/canvas` and `pixelmatch` for goldens.
 
-**Spec:** `docs/superpowers/specs/2026-09-02-shotkit-round-two-design.md` — "Carried forward — the accent colour", "The organising rule: left is the shot, right is the thing you clicked", "Templates and ratios become one tabbed control", and the two DECIDED notes on Resets and on explanatory paragraphs.
+**Spec:** `docs/superpowers/specs/2026-09-02-shotkit-round-two-design.md`, "Carried forward, the accent colour", "The organising rule: left is the shot, right is the thing you clicked", "Templates and ratios become one tabbed control", and the two DECIDED notes on Resets and on explanatory paragraphs.
 
 ## Global Constraints
 
@@ -21,16 +21,16 @@ Carried forward from Cycles A, B and C. Every task's requirements implicitly inc
 - `[hidden] { display: none !important; }` stays a **single global rule**.
 - **A disabled state is an explicit colour, never `opacity`.** `opacity` outside `@keyframes` is not permitted, and every off state must be registered in the one shared selector list at the top of `web/style.css` (`test/contrast.test.js` enforces both).
 - Contrast floors: informational text ≥ 7:1, ladder separation ≥ 1.2, interactive or graphic boundaries ≥ 3:1, decorative 1.8–2.5.
-- **Target size:** any two interactive targets that touch must each be at least 24×24 CSS px. Targets with clear space around them may be smaller — but only if a 24px circle centred on each intersects nothing. Measured, not assumed; see `docs/verification-2026-09-01.md`.
+- **Target size:** any two interactive targets that touch must each be at least 24×24 CSS px. Targets with clear space around them may be smaller, but only if a 24px circle centred on each intersects nothing. Measured, not assumed; see `docs/verification-2026-09-01.md`.
 - **One value, one home.** A control writes to exactly one place; readers may accept every input shape.
 - **No explanatory paragraphs under controls.** Cut twice already (Padding in Cycle A, Luminosity in Cycle C). If a control is confusing, fix the control.
-- **Every slider carries its own Reset**, in the same place, **disabled** — never hidden — when its value is already the app's own choice.
+- **Every slider carries its own Reset**, in the same place, **disabled**, never hidden, when its value is already the app's own choice.
 - Run `npx vitest run` before and after every task. Commit only green.
 - After each task, push the branch. Do not merge to `main` mid-cycle.
 
 ### The rule this cycle exists to defend
 
-**The UI must say the same thing the data says.** `c` is the canvas; `elements` is the things in the shot. Cycle B made that split real in the config and Cycle C made the ground worth choosing. Today the panels still contradict it: Background sits on the right with Frame, and Padding — the canvas's own safe area — sits under a heading that changes subject when you click a phone. A user who cannot predict which panel a control lives in has to hunt, and hunting is the defect this whole round exists to remove.
+**The UI must say the same thing the data says.** `c` is the canvas; `elements` is the things in the shot. Cycle B made that split real in the config and Cycle C made the ground worth choosing. Today the panels still contradict it: Background sits on the right with Frame, and Padding, the canvas's own safe area, sits under a heading that changes subject when you click a phone. A user who cannot predict which panel a control lives in has to hunt, and hunting is the defect this whole round exists to remove.
 
 ### THE APPROVAL GATE
 
@@ -56,12 +56,12 @@ Cycles A, B and C produced eighteen between them. The named patterns:
 So, for every assertion added below:
 
 1. Run it against the **unchanged** code first and record that it goes red.
-2. If it goes green, it is not a test. Fix it or delete it — do not tune it.
+2. If it goes green, it is not a test. Fix it or delete it, do not tune it.
 3. Say in the task report which assertions are structural guards or regression guards that pass on arrival. Do not count those as evidence.
 
 ### And the lesson Cycle C added twice
 
-**A green suite is not evidence that the page loads.** `web/` has no DOM in the suite. Cycle C shipped a `ReferenceError` on load with 518 tests passing, and separately shipped a slider sitting at the wrong position. **Every task ends with the app opened in Chromium and its console read**, on a tab that has not been used for anything else — a tab's console buffer survives navigation, so a stale error from an earlier edit will look like a live one.
+**A green suite is not evidence that the page loads.** `web/` has no DOM in the suite. Cycle C shipped a `ReferenceError` on load with 518 tests passing, and separately shipped a slider sitting at the wrong position. **Every task ends with the app opened in Chromium and its console read**, on a tab that has not been used for anything else, a tab's console buffer survives navigation, so a stale error from an earlier edit will look like a live one.
 
 One more, from Cycle C Task 7: **a hidden preview pane does not run `requestAnimationFrame`.** `scheduleRender`'s `rafHandle` then stays non-null and every later render is silently suppressed, which looks exactly like a broken control. If a canvas appears frozen, change something known to work (the hue) before believing it.
 
@@ -73,15 +73,15 @@ One more, from Cycle C Task 7: **a hidden preview pane does not run `requestAnim
 |---|---|
 | `web/index.html` | the shell moves: Background's section into the left panel, a new canvas-finish section beside it, panel headings |
 | `web/sidebar.js` | Size becomes a three-tab control (Templates / Ratios / Custom) |
-| `web/controls.js` | **new** — the shared slider row: label, value, track, Reset |
-| `web/inspector-canvas.js` | **new** — Padding and Grain, which belong to the canvas |
+| `web/controls.js` | **new**, the shared slider row: label, value, track, Reset |
+| `web/inspector-canvas.js` | **new**, Padding and Grain, which belong to the canvas |
 | `web/inspector-frame.js` | keeps Frame, Corner radius, Stroke, Shadow; loses Padding and Grain |
 | `web/inspector-background.js` | unchanged behaviour; its Reset button moves to `web/controls.js` |
 | `web/main.js` | `inert` and drawer wiring follow the moved sections |
 | `web/tokens.css` | the surface ladder, then the accent tokens |
 | `web/style.css` | the tab strip, the two panels' headings, accent application |
 
-**`web/controls.js` is a new file for the same reason `web/selection.js` and `web/preset-tiles.js` were.** It carries a rule — *every slider row looks the same and every one has a Reset* — and a rule is easier to keep in a file that contains only the thing it governs. Today `makeResetButton` lives inside `web/inspector-background.js`'s init closure, which is precisely why Padding, Radius, Grain, Shadow and Stroke do not have one.
+**`web/controls.js` is a new file for the same reason `web/selection.js` and `web/preset-tiles.js` were.** It carries a rule, *every slider row looks the same and every one has a Reset*, and a rule is easier to keep in a file that contains only the thing it governs. Today `makeResetButton` lives inside `web/inspector-background.js`'s init closure, which is precisely why Padding, Radius, Grain, Shadow and Stroke do not have one.
 
 **`web/inspector-canvas.js` is a new file rather than an export from `inspector-frame.js`** because the split is the point of the cycle. A module named "frame" that also owns the canvas's padding is the same contradiction the panels have.
 
@@ -106,9 +106,9 @@ git checkout -b feat/cycle-d
 - [ ] **Step 2: Open the pull request with an empty commit**
 
 ```bash
-git commit --allow-empty -m "Plan: Cycle D — how the app is organised"
+git commit --allow-empty -m "Plan: Cycle D, how the app is organised"
 git push -u origin feat/cycle-d
-gh pr create --title "Cycle D — how the app is organised" --body "Left is the shot, right is the thing you clicked. Plus one tabbed size control, a Reset on every slider, and an accent colour.
+gh pr create --title "Cycle D, how the app is organised" --body "Left is the shot, right is the thing you clicked. Plus one tabbed size control, a Reset on every slider, and an accent colour.
 
 Plan: docs/superpowers/plans/2026-09-06-shotkit-cycle-d.md
 
@@ -133,12 +133,12 @@ Expected: PR #6, and `netlify/shotkit-app/deploy-preview` reporting `https://dep
 - Modify: `web/style.css`
 - Test: `test/sidebar.test.js`
 
-> *"They are already one decision — both write nothing but `w` and `h` — and today they read as two independent lists stacked on top of each other. Tabs make that truth visible, and showing one at a time is where most of the left panel's new space comes from."*
+> *"They are already one decision, both write nothing but `w` and `h`, and today they read as two independent lists stacked on top of each other. Tabs make that truth visible, and showing one at a time is where most of the left panel's new space comes from."*
 
 **This task goes first because it pays for Task 2.** Do not start the panel split until the space exists.
 
 **Interfaces:**
-- Consumes: `selectTemplate(config, key)`, `selectRatio(config, key)`, `applyCustomSize(config, w, h)`, `isCustomSize(config)`, `activeTemplateKey(config)`, `activeRatioKey(config)` — all already exported from `web/sidebar.js`.
+- Consumes: `selectTemplate(config, key)`, `selectRatio(config, key)`, `applyCustomSize(config, w, h)`, `isCustomSize(config)`, `activeTemplateKey(config)`, `activeRatioKey(config)`, all already exported from `web/sidebar.js`.
 - Produces: `SIZE_TABS` (`['templates', 'ratios', 'custom']`) and `activeSizeTab(config)`, both exported from `web/sidebar.js`.
 
 - [ ] **Step 1: Write the failing test for which tab a config belongs to**
@@ -176,7 +176,7 @@ describe('the size control is one decision, shown one tab at a time', () => {
 npx vitest run test/sidebar.test.js
 ```
 
-Expected: FAIL — `SIZE_TABS` is not exported from `web/sidebar.js`.
+Expected: FAIL, `SIZE_TABS` is not exported from `web/sidebar.js`.
 
 - [ ] **Step 3: Add the two exports**
 
@@ -184,7 +184,7 @@ In `web/sidebar.js`, beside the existing pure helpers (above `initSidebar`):
 
 ```js
 /** The size control's three tabs. Templates, ratios and a custom size are
- *  one decision — every one of them writes nothing but `w` and `h` — so
+ *  one decision, every one of them writes nothing but `w` and `h`, so
  *  they are three views of a control, not three controls. */
 export const SIZE_TABS = ['templates', 'ratios', 'custom'];
 
@@ -218,7 +218,7 @@ Replace the `ratioSection` block (`web/sidebar.js`, the `const ratioSection = do
 
 ```js
   // ONE section, not two stacked ones. The tab strip is the same
-  // `.segmented` primitive the Background type control uses — no new control
+  // `.segmented` primitive the Background type control uses, no new control
   // vocabulary is invented here, which is the same rule Task 9 of Cycle A
   // followed when it added the mesh steppers.
   const sizeSection = document.createElement('section');
@@ -233,7 +233,7 @@ Replace the `ratioSection` block (`web/sidebar.js`, the `const ratioSection = do
   const sizeList = sizeSection.querySelector('.size-list');
 
   // Which tab is SHOWING. Seeded from the config so the panel opens on the
-  // list the current size came from, then owned by the user's clicks — a tab
+  // list the current size came from, then owned by the user's clicks, a tab
   // that snapped back to the config's tab on every render would fight anyone
   // browsing templates while a ratio is applied.
   let openTab = activeSizeTab(state.config);
@@ -256,7 +256,7 @@ Replace the `ratioSection` block (`web/sidebar.js`, the `const ratioSection = do
 
 - [ ] **Step 6: Render one list at a time**
 
-Replace `renderTemplates`, `renderRatios` and the `renderAll` that calls both. `customSizeItem()` keeps its existing body verbatim — only its call site moves:
+Replace `renderTemplates`, `renderRatios` and the `renderAll` that calls both. `customSizeItem()` keeps its existing body verbatim, only its call site moves:
 
 ```js
   function renderAll(query) {
@@ -295,8 +295,8 @@ Replace `renderTemplates`, `renderRatios` and the `renderAll` that calls both. `
       return;
     }
 
-    // Custom. The disclosure toggle is gone with the tab — the tab IS the
-    // disclosure — so the form is always open on this tab.
+    // Custom. The disclosure toggle is gone with the tab, the tab IS the
+    // disclosure, so the form is always open on this tab.
     customOpen = true;
     sizeList.appendChild(customSizeItem());
   }
@@ -311,7 +311,7 @@ Replace `renderTemplates`, `renderRatios` and the `renderAll` that calls both. `
   }
 ```
 
-Delete the now-unused `+ Custom size` toggle button from `customSizeItem()` — the `toggle` element and its listener — keeping the form, its inputs and `applyCustomSize` wiring exactly as they are.
+Delete the now-unused `+ Custom size` toggle button from `customSizeItem()`, the `toggle` element and its listener, keeping the form, its inputs and `applyCustomSize` wiring exactly as they are.
 
 - [ ] **Step 7: Style the tab strip**
 
@@ -320,7 +320,7 @@ In `web/style.css`, beside the other `.segmented` modifiers:
 ```css
 /* The size control's tabs. A full-width segmented control, so its three
    cells get an equal share by the flex rule .segmented-cell already carries
-   — the `--mini` variant is the shrink-wrapped one that needed a grid. */
+  , the `--mini` variant is the shrink-wrapped one that needed a grid. */
 .segmented--tabs {
   margin: 0 4px 8px;
 }
@@ -332,7 +332,7 @@ In `web/style.css`, beside the other `.segmented` modifiers:
 npx vitest run
 ```
 
-Expected: PASS. If a test in `test/sidebar.test.js` queried `.ratio-list`, update it to `.size-list` — the class is renamed because the list is no longer per-kind.
+Expected: PASS. If a test in `test/sidebar.test.js` queried `.ratio-list`, update it to `.size-list`, the class is renamed because the list is no longer per-kind.
 
 - [ ] **Step 9: Open the app and measure what the tabs bought**
 
@@ -345,7 +345,7 @@ In a **fresh tab**, with the console read for errors, record:
 - the three tabs are equal width, and switching them shows one list;
 - searching filters within the open tab;
 - the height of `#sidebar`'s content before and after this task, via
-  `document.getElementById('sidebar').scrollHeight` — write both numbers into
+  `document.getElementById('sidebar').scrollHeight`, write both numbers into
   `docs/verification-2026-09-01.md`. That number is the space budget Task 2 spends.
 
 - [ ] **Step 10: Commit, deploy, and STOP**
@@ -368,7 +368,7 @@ git push
 - Modify: `web/style.css`
 - Test: `test/inspector-background.test.js`
 
-> *"Left — the shot as a whole: Size; Background; Padding; Grain."*
+> *"Left, the shot as a whole: Size; Background; Padding; Grain."*
 
 **Interfaces:**
 - Consumes: `initBackground()` from `web/inspector-background.js`, which finds its host with `document.getElementById('backgroundSection')` and does not care where that element lives.
@@ -384,8 +384,8 @@ import { readFileSync } from 'node:fs';
 describe('Background belongs to the canvas, so it lives on the left (Cycle D)', () => {
   // A STRUCTURAL GUARD over web/index.html, in the same family as the
   // `linear-gradient` guard in test/preset-tiles.test.js. It cannot show
-  // that the panel WORKS — the browser check in this task's steps does that
-  // — only that the section did not drift back to the right-hand panel.
+  // that the panel WORKS, the browser check in this task's steps does that
+  //, only that the section did not drift back to the right-hand panel.
   const html = readFileSync('web/index.html', 'utf8');
   const between = (startId, endId) => {
     const a = html.indexOf(`id="${startId}"`);
@@ -419,7 +419,7 @@ describe('Background belongs to the canvas, so it lives on the left (Cycle D)', 
 npx vitest run test/inspector-background.test.js
 ```
 
-Expected: FAIL on the first assertion — `backgroundSection` currently sits after `#stage`, inside `#inspector`.
+Expected: FAIL on the first assertion, `backgroundSection` currently sits after `#stage`, inside `#inspector`.
 
 - [ ] **Step 3: Move the section in the shell**
 
@@ -440,7 +440,7 @@ In `web/index.html`, cut the whole `<section class="inspector-section" id="backg
 ```js
 // Addressed by id, not by `#inspector .inspector-section`: Cycle D moved
 // Background into the left panel, and a selector rooted at the inspector
-// silently stopped reaching it — the section would have stayed inert
+// silently stopped reaching it, the section would have stayed inert
 // forever, greyed out with no way to tell why.
 const CONTENT_SECTIONS = ['backgroundSection', 'frameSection', 'finishSection'];
 ```
@@ -468,7 +468,7 @@ Expected: PASS.
 
 In a **fresh tab**, with a screenshot loaded:
 
-- Background's controls are on the left, below Size, and all of them still work — change the hue and confirm the canvas follows;
+- Background's controls are on the left, below Size, and all of them still work, change the hue and confirm the canvas follows;
 - the section is greyed before a screenshot loads and live after (this is the `inert` path Step 4 touched);
 - the left panel scrolls without clipping the CLI card;
 - at 320px and at 1440px there is no horizontal scroll;
@@ -498,10 +498,10 @@ git push
 
 > *"Two of these are on the side they are, against first instinct. Padding is the canvas's safe area and grain paints on the ground only (Cycle A Task 4b), so both are canvas properties however much they feel like finishing touches."*
 
-> **NARROWED, 2026-09-06.** Rock: *"let's move only grain. Padding to me still makes sense on the right, since visually it moves the elements."* So this task moves Grain alone; `activePadPercent` / `setPadPercent` and the Padding row stay in `web/inspector-frame.js`. The spec records the reversal and the one edge it leaves open — the right-hand panel's heading names the selected element, and padding is not one.
+> **NARROWED, 2026-09-06.** Rock: *"let's move only grain. Padding to me still makes sense on the right, since visually it moves the elements."* So this task moves Grain alone; `activePadPercent` / `setPadPercent` and the Padding row stay in `web/inspector-frame.js`. The spec records the reversal and the one edge it leaves open, the right-hand panel's heading names the selected element, and padding is not one.
 
 **Interfaces:**
-- Consumes: `activePadPercent(config)`, `setPadPercent(config, pct)`, `activeGrainPercent(config)`, `setGrainPercent(config, pct)` — today exported from `web/inspector-frame.js`.
+- Consumes: `activePadPercent(config)`, `setPadPercent(config, pct)`, `activeGrainPercent(config)`, `setGrainPercent(config, pct)`, today exported from `web/inspector-frame.js`.
 - Produces: those four functions **move to** `web/inspector-canvas.js` and are exported from there, plus `initCanvasPanel()`.
 
 - [ ] **Step 1: Write the failing test that the canvas module owns them**
@@ -550,20 +550,20 @@ describe('padding and grain belong to the canvas (Cycle D Task 3)', () => {
 npx vitest run test/inspector-canvas.test.js
 ```
 
-Expected: FAIL — `web/inspector-canvas.js` does not exist.
+Expected: FAIL, `web/inspector-canvas.js` does not exist.
 
 - [ ] **Step 3: Create the module and move the four helpers**
 
-Create `web/inspector-canvas.js` with this header, then **cut** `activePadPercent`, `setPadPercent`, `activeGrainPercent`, `setGrainPercent` out of `web/inspector-frame.js` verbatim — comments included — and paste them in:
+Create `web/inspector-canvas.js` with this header, then **cut** `activePadPercent`, `setPadPercent`, `activeGrainPercent`, `setGrainPercent` out of `web/inspector-frame.js` verbatim, comments included, and paste them in:
 
 ```js
-// web/inspector-canvas.js — the controls that belong to the CANVAS rather
+// web/inspector-canvas.js, the controls that belong to the CANVAS rather
 // than to anything in it: padding and grain.
 //
 // They were in the Finish panel beside corner radius, stroke and shadow,
 // under a heading that changes subject when you select a phone. That was
 // wrong twice over. Padding is the safe area the whole composition is laid
-// out inside (core/layout.js), and grain paints on the ground ONLY — Cycle
+// out inside (core/layout.js), and grain paints on the ground ONLY, Cycle
 // A Task 4b moved it under the shots for exactly that reason. Neither one
 // has anything to do with the element you clicked.
 //
@@ -585,7 +585,7 @@ Expected: PASS on the round-trip; the second assertion passes once the cut is co
 
 - [ ] **Step 5: Move the two rows out of `initFinish`**
 
-Cut the Padding row and the Grain row — element creation, `syncPadUI`, `syncGrainUI`, and their `input` listeners — out of `initFinish` in `web/inspector-frame.js`, and rebuild them inside a new `initCanvasPanel()` in `web/inspector-canvas.js` mounted on a new section:
+Cut the Padding row and the Grain row, element creation, `syncPadUI`, `syncGrainUI`, and their `input` listeners, out of `initFinish` in `web/inspector-frame.js`, and rebuild them inside a new `initCanvasPanel()` in `web/inspector-canvas.js` mounted on a new section:
 
 ```js
 export function initCanvasPanel() {
@@ -609,7 +609,7 @@ Add `'canvasSection'` to `CONTENT_SECTIONS` in `web/main.js` and call `initCanva
 
 - [ ] **Step 6: Update the Finish tests that referenced the moved rows**
 
-In `test/inspector-frame.test.js`, change the import of the four helpers to `../web/inspector-canvas.js`. Do not delete those assertions — they are the round-trip proofs, and they are still true; only their address changed.
+In `test/inspector-frame.test.js`, change the import of the four helpers to `../web/inspector-canvas.js`. Do not delete those assertions, they are the round-trip proofs, and they are still true; only their address changed.
 
 - [ ] **Step 7: Run the whole suite**
 
@@ -670,9 +670,9 @@ function codeOf(path) {
 }
 
 describe('every slider is built by the same function (Cycle D Task 4)', () => {
-  // STRUCTURAL GUARDS. The behaviour they stand for — a Reset in the same
+  // STRUCTURAL GUARDS. The behaviour they stand for, a Reset in the same
   // place on every slider, disabled when the value is already the app's own
-  // — is checked in the browser, in this task's own steps. What these buy is
+  //, is checked in the browser, in this task's own steps. What these buy is
   // that the next slider someone adds cannot quietly skip it.
   const panels = [
     'web/inspector-background.js',
@@ -712,12 +712,12 @@ describe('every slider is built by the same function (Cycle D Task 4)', () => {
 npx vitest run test/controls.test.js
 ```
 
-Expected: FAIL — `web/controls.js` does not exist and every panel builds its own range input.
+Expected: FAIL, `web/controls.js` does not exist and every panel builds its own range input.
 
 - [ ] **Step 3: Write `web/controls.js`**
 
 ```js
-// web/controls.js — the slider row, once.
+// web/controls.js, the slider row, once.
 //
 // EVERY SLIDER IN THIS APP HAS THE SAME SHAPE AND THE SAME RESET. That is
 // this file's whole reason to exist, and it is not a style preference.
@@ -725,7 +725,7 @@ Expected: FAIL — `web/controls.js` does not exist and every panel builds its o
 // Cycle C built a Reset for Background's three sliders inside that panel's
 // own init closure, so Padding, Corner radius, Grain, Shadow and Stroke
 // width did not get one. Rock: "I'm not sure I follow the logic of that
-// reset button that only activates for luminosity." He was right — one
+// reset button that only activates for luminosity." He was right, one
 // slider having a reset and the others not is arbitrary, and it was
 // arbitrary because of where the code lived.
 //
@@ -763,7 +763,7 @@ export function makeSliderRow({
   const valueEl = row.querySelector('.slider-value');
 
   /** Paint the row from a value: position, readout, fill and reset state.
-   *  The fill is a CSS custom property the track's gradient reads — the
+   *  The fill is a CSS custom property the track's gradient reads, the
    *  same mechanism syncSliderFill used before this file existed. */
   function sync(current) {
     input.value = String(current);
@@ -803,7 +803,7 @@ Replace each hand-built row with a `makeSliderRow` call. The sliders and their d
 | Shadow | frame | the value equals `100` (the verified alphas, unscaled) |
 | Stroke width | frame | the value equals `STROKE_DEFAULTS.width * 100` |
 
-Delete `makeResetButton` and `syncSliderFill` from `web/inspector-background.js`, and the **second copy** of `syncSliderFill` from `web/inspector-frame.js:372` — the two files carry the same seven-line function today, which is the duplication this task removes as much as the missing Resets. `makeSliderRow` replaces all three.
+Delete `makeResetButton` and `syncSliderFill` from `web/inspector-background.js`, and the **second copy** of `syncSliderFill` from `web/inspector-frame.js:372`, the two files carry the same seven-line function today, which is the duplication this task removes as much as the missing Resets. `makeSliderRow` replaces all three.
 
 - [ ] **Step 6: Register the row in the shared off-state rule**
 
@@ -878,12 +878,12 @@ The borders are carrying the whole structure alone, and two of the four are fain
 
 - [ ] **Step 1: Write the failing test the surfaces have never had**
 
-The text ladder has a "keeps its rungs" guard. The surfaces have none — which is why they drifted to within 1% of each other without anything complaining. Add to `test/contrast.test.js`:
+The text ladder has a "keeps its rungs" guard. The surfaces have none, which is why they drifted to within 1% of each other without anything complaining. Add to `test/contrast.test.js`:
 
 ```js
 // The SURFACE ladder, which never had a guard and drifted to nothing.
 // Measured 2026-09-06, before Cycle D Task 5: the six surfaces spanned
-// 1.00-1.27 against the window, with adjacent steps as small as 1.012 —
+// 1.00-1.27 against the window, with adjacent steps as small as 1.012,
 // a hover state a twentieth of the way to the app's own 1.2 floor.
 //
 // Surfaces are not text, so the bar is not 4.5. It is the same LADDER rule
@@ -916,11 +916,11 @@ Reuse that file's existing `ratio` and token-reading helpers rather than adding 
 npx vitest run test/contrast.test.js
 ```
 
-Expected: FAIL, naming `--surface-window -> --surface-canvas is 1.021, flat`. Record every reported ratio in `docs/verification-2026-09-01.md` — that table is the before state, and it is the argument for the change.
+Expected: FAIL, naming `--surface-window -> --surface-canvas is 1.021, flat`. Record every reported ratio in `docs/verification-2026-09-01.md`, that table is the before state, and it is the argument for the change.
 
 - [ ] **Step 3: Raise the surfaces, keeping hue and saturation**
 
-Each token keeps its own hue and saturation and moves only in lightness, the same discipline Cycle A used on the text ladder. Work up from `--surface-window`, which stays where it is — it is the floor everything else is measured from, and moving it would move every text ratio too.
+Each token keeps its own hue and saturation and moves only in lightness, the same discipline Cycle A used on the text ladder. Work up from `--surface-window`, which stays where it is, it is the floor everything else is measured from, and moving it would move every text ratio too.
 
 After each edit, re-run the test and record the achieved ratio beside the value. **Do not tune to the floor.** Cycle A hit 4.53:1 against a 4.5 bar once and its own token comment records that as a habit to avoid; aim past 1.2, not at it.
 
@@ -930,7 +930,7 @@ After each edit, re-run the test and record the achieved ratio beside the value.
 npx vitest run test/contrast.test.js
 ```
 
-Raising `--surface-raised-1` and `--surface-control-active` lowers every text ratio measured against them, and those pairs are already asserted in that file. Expected: PASS. If one fails, the surface moved too far — lower the surface rather than raising the text, which has least room left at the top of its own ladder.
+Raising `--surface-raised-1` and `--surface-control-active` lowers every text ratio measured against them, and those pairs are already asserted in that file. Expected: PASS. If one fails, the surface moved too far, lower the surface rather than raising the text, which has least room left at the top of its own ladder.
 
 - [ ] **Step 5: Look at it, with a shot loaded**
 
@@ -939,7 +939,7 @@ In a **fresh tab**, at 1440px:
 - do the panels read as panels, distinct from the stage;
 - is a hovered template row visibly different from an unhovered one;
 - is a selected row visibly different from a hovered one;
-- does the canvas still read as the brightest thing on screen, which it must — the shot is the subject and the chrome is not.
+- does the canvas still read as the brightest thing on screen, which it must, the shot is the subject and the chrome is not.
 
 **If it now reads as grey rather than black, say so.** Going too far is a real outcome and the numbers alone cannot tell you.
 
@@ -964,7 +964,7 @@ git push
 
 > Rock, 2026-09-02: *"I think we are too BW and not using our main accent color (which seems to be purple maybe?). just hold this suggestion for later."*
 
-The brand gradient `#5b6cff → #a24ff0` appears on exactly one thing — the app-mark glyph, and now the favicon. Everything else says "active" with lightness alone.
+The brand gradient `#5b6cff → #a24ff0` appears on exactly one thing, the app-mark glyph, and now the favicon. Everything else says "active" with lightness alone.
 
 **This comes after Task 5 deliberately.** An accent laid over surfaces that are all the same black would be doing the surfaces' job as well as its own, and the two changes would be impossible to judge apart.
 
@@ -999,7 +999,7 @@ In `web/tokens.css`, beside `--color-brand-start` / `--color-brand-end`:
   --accent-quiet: #2a2f52;   /* the accent as a FILL behind ink, not as ink */
 ```
 
-The exact values are a starting point, not a result — Step 3 measures them and Step 4 is where they are tuned to clear the bars.
+The exact values are a starting point, not a result, Step 3 measures them and Step 4 is where they are tuned to clear the bars.
 
 - [ ] **Step 3: Add the contrast assertions before applying the colour**
 
@@ -1026,13 +1026,13 @@ If a pair fails, **change the token, not the threshold**.
 
 In `web/style.css`, and nowhere else:
 
-- `.rail-item.is-active` — the icon and its left edge
-- `.template-row.is-selected` — the left edge, keeping the raised fill
-- `.segmented-cell.is-active` — the fill, with `--accent-ink` as its label
-- `.chip.is-selected` — the pill
-- `.preset-tile.is-selected` — the ring (it currently uses `--text-primary`)
-- `.sampled-row.is-active` — the border
-- `.slider::-webkit-slider-runnable-track` and `::-moz-range-progress` — the filled part
+- `.rail-item.is-active`, the icon and its left edge
+- `.template-row.is-selected`, the left edge, keeping the raised fill
+- `.segmented-cell.is-active`, the fill, with `--accent-ink` as its label
+- `.chip.is-selected`, the pill
+- `.preset-tile.is-selected`, the ring (it currently uses `--text-primary`)
+- `.sampled-row.is-active`, the border
+- `.slider::-webkit-slider-runnable-track` and `::-moz-range-progress`, the filled part
 - every `:focus-visible` outline
 
 Do **not** apply it to: body text, the section labels, the canvas surround, or any disabled state. A disabled control that keeps an accent reads as active.
@@ -1068,7 +1068,7 @@ git push
 - Modify: `README.md`
 - Modify: `docs/superpowers/specs/2026-09-02-shotkit-round-two-design.md`
 
-The sidebar's footer shows `$ shotkit watch ./shots` above a green dot and the words **CLI connected**. There is no CLI — the README's own "Not built yet" list says so — so it is a status indicator asserting something untrue.
+The sidebar's footer shows `$ shotkit watch ./shots` above a green dot and the words **CLI connected**. There is no CLI, the README's own "Not built yet" list says so, so it is a status indicator asserting something untrue.
 
 **DECIDED, Rock 2026-09-06:** *"but we are supposed to have CLI at some point, no? either way, you can hide it for now. but let's circle back on this later."*
 
@@ -1079,12 +1079,12 @@ So it is **hidden, not deleted**: the CLI is still planned, and deleting the car
 In `web/index.html`, add `hidden` to the `.cli-card` element and put the reason above it:
 
 ```html
-        <!-- HIDDEN, NOT DELETED — Cycle D Task 7, Rock's call 2026-09-06:
+        <!-- HIDDEN, NOT DELETED, Cycle D Task 7, Rock's call 2026-09-06:
              "we are supposed to have CLI at some point... you can hide it
              for now. but let's circle back on this later."
 
              The card showed a green dot and the words "CLI connected" while
-             no CLI existed — see the README's "Not built yet". A status
+             no CLI existed, see the README's "Not built yet". A status
              indicator asserting something untrue is the one thing this
              project's rules never allow. It stays in the markup because the
              CLI is still planned and this is its design. -->
@@ -1098,7 +1098,7 @@ In `web/index.html`, add `hidden` to the `.cli-card` element and put the reason 
 In the spec's "Out of scope" section:
 
 ```markdown
-- The CLI, and with it the sidebar's CLI card — hidden 2026-09-06, not
+- The CLI, and with it the sidebar's CLI card, hidden 2026-09-06, not
   deleted, because the CLI is still planned. The card asserted "CLI
   connected" with a green dot while no CLI existed. Rock: "let's circle back
   on this later."
@@ -1149,7 +1149,7 @@ Below 900px the two panels are off-canvas drawers with `inert` applied when clos
 
 - [ ] **Step 4: Confirm the canvas did not shrink**
 
-The spec names this as the risk of the split: *"The visible risk is that both sides get heavier and squeeze the canvas."* Measure `#stage`'s width at 1440px and compare with the number recorded before Task 1. If the canvas lost room, say so with the number — that is a real cost, not a rounding error.
+The spec names this as the risk of the split: *"The visible risk is that both sides get heavier and squeeze the canvas."* Measure `#stage`'s width at 1440px and compare with the number recorded before Task 1. If the canvas lost room, say so with the number, that is a real cost, not a rounding error.
 
 - [ ] **Step 5: Commit and STOP**
 
@@ -1165,8 +1165,8 @@ git push
 
 After Task 8 is approved:
 
-1. `npx vitest run` — green.
-2. `git status --short test/golden` — clean. **No golden may move this cycle**: nothing in `core/` is touched, so a moved golden means something reached the renderer that should not have.
+1. `npx vitest run`, green.
+2. `git status --short test/golden`, clean. **No golden may move this cycle**: nothing in `core/` is touched, so a moved golden means something reached the renderer that should not have.
 3. Update the README: the panel split in the "Inspector" bullet, the accent colour if it lands, and the CLI card's entry per Task 6.
 4. Merge the PR to `main` with `--merge` (not squash), delete the branch, confirm CI on `main` and the production deploy.
 5. **Verify the live site**, not just the preview.
@@ -1176,12 +1176,12 @@ After Task 8 is approved:
 
 ## Self-review
 
-**Spec coverage.** "Carried forward — the accent colour" → Task 6, including its 3:1 / 7:1 requirement. "The organising rule: left is the shot, right is the thing you clicked" → Tasks 2 and 3. "Templates and ratios become one tabbed control" → Task 1. "DECIDED — every slider carries its own Reset ... Cycle D generalises it to the rest" → Task 4. The spec's stated risk — the panels squeezing the canvas — is measured in Task 1 Step 9 and again in Task 7 Step 4.
+**Spec coverage.** "Carried forward, the accent colour" → Task 6, including its 3:1 / 7:1 requirement. "The organising rule: left is the shot, right is the thing you clicked" → Tasks 2 and 3. "Templates and ratios become one tabbed control" → Task 1. "DECIDED, every slider carries its own Reset ... Cycle D generalises it to the rest" → Task 4. The spec's stated risk, the panels squeezing the canvas, is measured in Task 1 Step 9 and again in Task 7 Step 4.
 
 **Not covered here, deliberately:** the light theme, which the spec keeps as its own cycle designed from scratch; keyboard selection on the canvas, still unbuilt since Cycle B; named device frames; saved projects and presets. Background images and wallpapers remain out of scope entirely.
 
-**Raised by this plan, not by the spec:** two things. The CLI card (Task 7) is a fabricated status in shipped UI, found while mapping the sidebar for the panel split; Rock's answer on 2026-09-06 was to hide rather than delete it, since the CLI is still planned. And Task 5 exists because of his verdict the same day — *"the UI still is very dim and low contrast"* — which measurement traced to the surface ladder rather than to the text the earlier contrast work had already lifted.
+**Raised by this plan, not by the spec:** two things. The CLI card (Task 7) is a fabricated status in shipped UI, found while mapping the sidebar for the panel split; Rock's answer on 2026-09-06 was to hide rather than delete it, since the CLI is still planned. And Task 5 exists because of his verdict the same day, *"the UI still is very dim and low contrast"*, which measurement traced to the surface ladder rather than to the text the earlier contrast work had already lifted.
 
-**Where this plan is weakest, said plainly.** Task 6 is a visual identity decision with almost no test cover — contrast assertions prove an accent is *legible*, never that it is *good*, and the honest acceptance test is Rock looking at it. Task 4 converts eight sliders in one task, which is larger than this plan's own right-sizing rule likes; it is one task because a half-converted `web/controls.js` leaves two ways to build a slider, which is the exact condition it exists to remove. Its risk is mitigated by the browser check in Step 8 listing all eight by name.
+**Where this plan is weakest, said plainly.** Task 6 is a visual identity decision with almost no test cover, contrast assertions prove an accent is *legible*, never that it is *good*, and the honest acceptance test is Rock looking at it. Task 4 converts eight sliders in one task, which is larger than this plan's own right-sizing rule likes; it is one task because a half-converted `web/controls.js` leaves two ways to build a slider, which is the exact condition it exists to remove. Its risk is mitigated by the browser check in Step 8 listing all eight by name.
 
 **Type consistency.** `SIZE_TABS` / `activeSizeTab(config)` are Task 1's exports and used nowhere else. `makeSliderRow({ label, min, max, step, ariaLabel, format, isDefault, onInput, onReset, resetLabel })` returns `{ row, input, value, reset, sync }` and is the only slider constructor from Task 4 onward. `initCanvasPanel()` mounts on `#canvasSection`, matching `CONTENT_SECTIONS` in Task 2 Step 4. `activePadPercent` / `setPadPercent` / `activeGrainPercent` / `setGrainPercent` keep their exact names across the move in Task 3; only their module changes.

@@ -1,9 +1,9 @@
-// web/selection.js — which element the pointer is over, and the DOM outline
+// web/selection.js, which element the pointer is over, and the DOM outline
 // that says so.
 //
 // THIS FILE MUST NEVER TOUCH A CANVAS. The preview canvas is the export
 // canvas (see web/state.js's header comment), so anything painted into it
-// ships inside every exported PNG — a selection outline included. The
+// ships inside every exported PNG, a selection outline included. The
 // outline is therefore an absolutely-positioned DOM element over the canvas,
 // scaled by the same factor the browser is already using to display it.
 //
@@ -45,7 +45,7 @@ function within(box, x, y) {
 /**
  * The box for one element name, or null. Kept here rather than inlined at
  * the call site so `hitTest` and the outline can never disagree about what
- * 'mobile' refers to — it is the FIRST phone, which is also the one a
+ * 'mobile' refers to, it is the FIRST phone, which is also the one a
  * mobile-layout click is most likely to have meant.
  *
  * A `mobile` selection means the phones as a class (see ELEMENT_KINDS in
@@ -62,8 +62,8 @@ export function boxFor(lay, which) {
 /**
  * Place the outline over one box.
  *
- * `scale` is the canvas's CSS width divided by its pixel width — the same
- * number the browser is already using to display it — so the outline tracks
+ * `scale` is the canvas's CSS width divided by its pixel width, the same
+ * number the browser is already using to display it, so the outline tracks
  * the shot at any display size without anyone recomputing the layout.
  *
  * `originX`/`originY` are the canvas's own offset inside whatever the

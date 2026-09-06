@@ -33,7 +33,7 @@ import {
   showsStrokeWidth,
   showsStrokeColor,
 } from '../web/inspector-frame.js';
-// Grain moved to web/inspector-background.js in Cycle D Task 3 — it is a
+// Grain moved to web/inspector-background.js in Cycle D Task 3, it is a
 // background control. The round-trip assertions below are unchanged; only
 // their address is.
 import { activeGrainPercent, setGrainPercent } from '../web/inspector-background.js';
@@ -41,7 +41,7 @@ import { activeGrainPercent, setGrainPercent } from '../web/inspector-background
 const mkCanvas = (w, h) => createCanvas(w, h);
 
 // ---------------------------------------------------------------------
-// Pure helpers — no DOM. Same split web/sidebar.js and
+// Pure helpers, no DOM. Same split web/sidebar.js and
 // web/inspector-background.js already established.
 // ---------------------------------------------------------------------
 

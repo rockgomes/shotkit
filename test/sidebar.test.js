@@ -20,7 +20,7 @@ import {
 // ---------------------------------------------------------------------
 // Pure helpers: selection semantics without reimplementing normalise()'s
 // precedence (explicit w/h > template > ratio). These prove the CLEARING
-// behaviour that keeps the sidebar's own "selected" highlight honest —
+// behaviour that keeps the sidebar's own "selected" highlight honest,
 // not the precedence rule itself, which belongs to core/config.js and is
 // already covered by test/config.test.js.
 // ---------------------------------------------------------------------
@@ -46,7 +46,7 @@ describe('sidebar selection helpers', () => {
     expect(normalise(config)).toMatchObject({ w: TEMPLATES.dribbble.w, h: TEMPLATES.dribbble.h, template: 'dribbble' });
   });
 
-  it('selectRatio clears BOTH explicit w/h and a lingering template — template beats ratio otherwise', () => {
+  it('selectRatio clears BOTH explicit w/h and a lingering template, template beats ratio otherwise', () => {
     const config = { ratio: '3:2' };
     selectTemplate(config, 'app-store');
     selectRatio(config, '1:1');
@@ -70,7 +70,7 @@ describe('sidebar selection helpers', () => {
     // Simulate the broken version: set template WITHOUT clearing w/h.
     config.template = 'dribbble';
     // With the bug, isCustomSize is still true (w/h never cleared), so the
-    // template can never be "active" — exactly the mismatch the real
+    // template can never be "active", exactly the mismatch the real
     // selectTemplate() exists to prevent.
     expect(activeTemplateKey(config)).toBeNull();
     // The real function fixes this:
@@ -111,7 +111,7 @@ describe('sidebar selection helpers', () => {
 // identity of the returned `meta` object, not a byte/visual diff or a timing
 // threshold: composeWithMeta's own code is
 // `const meta = precomputedMeta || (() => { ...fresh groundFor()... })();`
-// — if the cache were hit, `meta` IS the literal cached object; if it were
+//, if the cache were hit, `meta` IS the literal cached object; if it were
 // missed, a brand new object is always built. Two renders returning the
 // identical reference is only possible if groundFor was never called the
 // second time, which is a stronger and less flaky guarantee than measuring
@@ -188,22 +188,22 @@ describe('sidebar size changes reuse the ground cache; ground changes bust it', 
 
 // ---------------------------------------------------------------------
 // FIX ROUND 1: a ground preset swatch must tell the truth about what
-// clicking it will actually produce — including on a DARK screenshot,
+// clicking it will actually produce, including on a DARK screenshot,
 // where core/ground.js's mid-tone branch applies. The first version of
 // gradientFor() always fed groundFor() a synthetic, always-pale sample
-// (HSL(hue, 50%, 70%) — luminance ~0.85-0.97 for every hue), so no swatch
+// (HSL(hue, 50%, 70%), luminance ~0.85-0.97 for every hue), so no swatch
 // could ever preview the mid-tone branch: it rendered the pale-tint
 // preview even for an image whose OWN luminance would force mid-tone once
 // applied. That is a different branch of the algorithm, not sampling
-// noise — see web/sidebar.js's "Ground swatch gradients" header comment
+// noise, see web/sidebar.js's "Ground swatch gradients" header comment
 // for the measured before/after hex values.
 //
 // This drives the REAL app pipeline (decode a real dark image, render it,
 // ask gradientFor() for a swatch, then actually select that preset and
 // re-render) and asserts the swatch's own colours are the exact ones
-// render() then produces — not merely "a" plausible gradient. Confirmed
+// render() then produces, not merely "a" plausible gradient. Confirmed
 // failing against the pre-fix implementation before the fix landed (see
-// task-4-report.md's fix-round-1 section for the run log) — it must fail
+// task-4-report.md's fix-round-1 section for the run log), it must fail
 // there, since demonstrating the bug is the entire point of this test.
 // ---------------------------------------------------------------------
 
@@ -304,8 +304,8 @@ describe('preset tiles tell the truth about a loaded (dark) image', () => {
 // environment (vitest.config.js) and this file's own split is explicit
 // about it: "Pure helpers: ... no DOM". There is no jsdom, no mount
 // helper, and adding one for two assertions would be a second harness
-// nobody else uses. So the removal is asserted where it actually lives —
-// the shipped markup, and the module's exports — rather than by
+// nobody else uses. So the removal is asserted where it actually lives,
+// the shipped markup, and the module's exports, rather than by
 // simulating a browser.
 // ---------------------------------------------------------------------
 
@@ -328,7 +328,7 @@ describe('the rail does not duplicate the Background panel', () => {
     expect(init).not.toMatch(/renderGroundSwatches\(/);
   });
 
-  it('no longer renders the presets at all — the panel does, with real tiles', async () => {
+  it('no longer renders the presets at all, the panel does, with real tiles', async () => {
     // Cycle A Task 2 removed the rail's duplicate Ground group and this
     // asserted the shared renderer survived for the inspector. Cycle C Task
     // 5 retired that renderer: it built a CSS gradient approximating the
@@ -345,8 +345,8 @@ describe('the rail does not duplicate the Background panel', () => {
 });
 
 // ---------------------------------------------------------------------
-// Cycle D Task 1. Templates, ratios and a custom size are ONE decision —
-// every one of them writes nothing but `w` and `h` — and they read as two
+// Cycle D Task 1. Templates, ratios and a custom size are ONE decision,
+// every one of them writes nothing but `w` and `h`, and they read as two
 // stacked lists plus a disclosure. Tabs make the truth visible, and
 // showing one at a time is where the left panel's new space comes from.
 // ---------------------------------------------------------------------

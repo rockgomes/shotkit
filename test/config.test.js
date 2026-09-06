@@ -345,7 +345,7 @@ describe('per-element settings (Cycle B Task 1)', () => {
     expect(before.radius).toBeGreaterThan(0);
   });
 
-  it('radius starts null in the block — "whatever this frame\'s own corner is"', () => {
+  it('radius starts null in the block, "whatever this frame\'s own corner is"', () => {
     expect(normalise({}).elements.web.radius).toBeNull();
     expect(normalise({ elements: { web: { radius: 40 } } }).elements.web.radius).toBe(40);
   });

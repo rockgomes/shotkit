@@ -177,7 +177,7 @@ function rgba(hex, a) {
 }
 
 // `hexToHsl` and `hslToHex` lived here, for paintMesh's hue rotation only.
-// Gone with it — core/ground.js has its own pair and never used these.
+// Gone with it, core/ground.js has its own pair and never used these.
 
 /**
  * An elliptical radial gradient, faded to transparent at `stop`.
@@ -289,7 +289,7 @@ export function paintSolid(ctx, c, stops) {
   ctx.fillRect(0, 0, c.w, c.h);
 }
 
-// paintMesh lived here. DELETED 2026-09-05 — Cycle C Task 8, its second
+// paintMesh lived here. DELETED 2026-09-05, Cycle C Task 8, its second
 // hearing, and not hidden a second time.
 //
 // It worked. Every slider moved something, and its tests passed. What it
@@ -311,7 +311,7 @@ export function paintSolid(ctx, c, stops) {
 
 /**
  * mulberry32: tiny, seeded, no dependency. Its one caller is noiseTile,
- * always seeded from the fixed constant 0x9e3779b9 — do not change that
+ * always seeded from the fixed constant 0x9e3779b9, do not change that
  * default, the grain it produces is baked into every frozen golden PNG.
  * (paintMesh was the second caller, until Cycle C Task 8 deleted it.)
  */

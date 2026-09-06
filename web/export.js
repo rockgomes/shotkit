@@ -1,4 +1,4 @@
-// web/export.js — turn the current shot into a downloaded file.
+// web/export.js, turn the current shot into a downloaded file.
 //
 // This module owns exactly two things core/ deliberately does NOT:
 //   - `format`: core/ only ever paints pixels into a canvas; it has no idea

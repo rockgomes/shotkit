@@ -217,7 +217,7 @@ function lum([r, g, b]) {
 }
 
 describe('paintGround angle', () => {
-  it('defaults to 166 degrees — byte-identical to the hardcoded original', () => {
+  it('defaults to 166 degrees, byte-identical to the hardcoded original', () => {
     const a = renderGround({ angle: 166 });
     const b = renderGround({});                 // angle omitted
     expect(Buffer.compare(a, b)).toBe(0);
@@ -243,7 +243,7 @@ describe('paintGround angle', () => {
 });
 
 // ---------------------------------------------------------------------
-// Cycle C Task 7 — the angle steers the WHOLE ground, not a third of it.
+// Cycle C Task 7, the angle steers the WHOLE ground, not a third of it.
 //
 // paintGround draws three layers: one linear gradient that turns with
 // `angle`, and two radial washes that used to be pinned to 22%/6% and
@@ -287,7 +287,7 @@ describe('the angle steers the whole ground (Task 7)', () => {
     // `angle` is the direction the gradient TRAVELS, light to dark, so the
     // light end is half a turn away. Worst case measured after the fix: 17°,
     // the washes' authored offsets not sitting exactly on the axis. Before
-    // it, this same loop peaked at 178° — the light dead opposite the number.
+    // it, this same loop peaked at 178°, the light dead opposite the number.
     for (let a = 0; a < 360; a += 15) {
       const { bearing } = lightBearing(a);
       expect(apart(bearing, (a + 180) % 360),
@@ -310,7 +310,7 @@ describe('the angle steers the whole ground (Task 7)', () => {
 
   it('and keeps the two ends of the gradient apart at every angle', () => {
     // The other half of the old defect. Sampled at the two ends of the
-    // gradient's OWN axis — not the whole canvas, which stayed contrasty
+    // gradient's OWN axis, not the whole canvas, which stayed contrasty
     // because the pinned wash was itself bright. At 0° the axis ends
     // measured 149 (top) against 145 (bottom): four levels, a gradient with
     // nothing left of it.

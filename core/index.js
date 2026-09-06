@@ -19,7 +19,7 @@ function sampleOf(image, makeCanvas) {
  * Paint a full shot into `target`, and return the colour analysis alongside it.
  * `target` is anything with width, height, and getContext('2d').
  * `makeCanvas(w, h)` supplies scratch canvases; core never creates one itself.
- * `precomputedMeta` is optional (default null) — see the comment above where
+ * `precomputedMeta` is optional (default null), see the comment above where
  * it's used, just below. Omitting it is byte-identical to every call this
  * function has ever accepted.
  *
@@ -38,7 +38,7 @@ export function composeWithMeta(target, rawConfig, images, makeCanvas, precomput
   const c = normalise({ ...rawConfig, hasWeb: !!web, mobileCount: mobile.length });
 
   // `precomputedMeta` is optional and additive: every existing caller omits
-  // it and gets exactly the behaviour above always had — samples built from
+  // it and gets exactly the behaviour above always had, samples built from
   // the live images, fed to groundFor. A caller that already knows the
   // images, forceHue and luminosity are unchanged since it last got a `meta` back
   // from this function (the app's job to track, not core's) can hand that

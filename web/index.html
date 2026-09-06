@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
     rel="stylesheet"
-    href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@400;500;600&display=swap"
   />
   <!-- SVG only, deliberately: with this present the browser stops asking for
        /favicon.ico, which was the one 404 on the live site. -->
@@ -202,25 +202,25 @@
              rest of the ground controls live. One list, one place. -->
 
         <!-- web/inspector-background.js owns everything in this section
-             below the heading — Sampled, the preset tiles, Hue, Angle, Type
+             below the heading, Sampled, the preset tiles, Hue, Angle, Type
              and Luminosity, in that order (the product's argument, not a
              layout preference; see that file's header comment). The design
              handoff's own markup here put a gradient-swatch picker first;
-             that is deliberately NOT reproduced — the screenshot's own
+             that is deliberately NOT reproduced, the screenshot's own
              sampled ground leads, manual hue is an override.
 
              IT LIVES IN THE LEFT PANEL as of Cycle D: the ground describes
              the CANVAS, and the right-hand panel edits whichever element you
              clicked. `c` is the canvas and `elements` is the things in the
-             shot — the panels now say what the config already says.
+             shot, the panels now say what the config already says.
 
              `inert` by default: these are properties OF a loaded shot, so
              with none loaded they read the way a photo editor's properties
-             panel does before any document is open — present, greyed, not
+             panel does before any document is open, present, greyed, not
              operable. web/main.js's syncContentUI() removes this the moment
              a screenshot decodes and restores it if the app is ever back to
              zero images. The Size control above is deliberately not covered
-             by it — that configures what a drop will produce and stays live
+             by it, that configures what a drop will produce and stays live
              throughout. -->
         <section class="inspector-section" id="backgroundSection" inert>
           <h2 class="section-label">Background</h2>
@@ -257,7 +257,7 @@
                test/web-export.test.js. -->
           <div id="selectionOutline" class="selection-outline" hidden></div>
 
-          <!-- The empty state IS the app with no file open — an empty frame
+          <!-- The empty state IS the app with no file open, an empty frame
                at the current ratio, not a marketing panel (see task-7-brief.md:
                that reading was rejected twice during direction exploration).
                web/main.js sizes this box to the canvas's own effective
@@ -278,14 +278,14 @@
 
       <aside id="inspector" aria-label="The selected element: frame, finish and export">
         <!-- Task 6 (web/inspector-frame.js) owns everything below the
-             heading in both sections below — frameKind chips/chrome theme/
+             heading in both sections below, frameKind chips/chrome theme/
              url in Frame, padding/corner radius/grain/shadow in
-             Finish — built fresh the same way Task 5 built Background, not
+             Finish, built fresh the same way Task 5 built Background, not
              wired from static markup here. The design handoff's own Frame
              chips ("None / Browser / macOS / iPhone") are deliberately NOT
              reproduced: macOS has no design in this project (see
              FRAME_KINDS, core/presets.js) and "iPhone" was Task 5b's
-             `phone` rename — reproducing either literal label here would
+             `phone` rename, reproducing either literal label here would
              just reintroduce what those two decisions already closed. -->
         <section class="inspector-section" id="frameSection" inert>
           <h2 class="section-label">Frame</h2>

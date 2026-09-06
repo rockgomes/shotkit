@@ -4,11 +4,11 @@
 
 **Goal:** Extend the finished `core/` library with named export templates, export scale, a gradient angle, mesh backgrounds, and device frames (browser / iPhone), so the app can later be built once against a complete library.
 
-**Architecture:** `core/` is a zero-dependency ES-module library that paints Dribbble shots onto a canvas 2D context, running in both the browser (the product) and `@napi-rs/canvas` (tests, future CLI). It is complete for shotkit's original feature set: `presets.js`, `config.js`, `ground.js`, `layout.js`, `render.js`, `index.js`, 80 passing tests. This plan adds to it without disturbing what exists — every new capability defaults OFF, so all 80 existing tests must stay green unmodified.
+**Architecture:** `core/` is a zero-dependency ES-module library that paints Dribbble shots onto a canvas 2D context, running in both the browser (the product) and `@napi-rs/canvas` (tests, future CLI). It is complete for shotkit's original feature set: `presets.js`, `config.js`, `ground.js`, `layout.js`, `render.js`, `index.js`, 80 passing tests. This plan adds to it without disturbing what exists, every new capability defaults OFF, so all 80 existing tests must stay green unmodified.
 
 **Tech Stack:** Vanilla JS (ES modules), Vitest, `@napi-rs/canvas` and `pixelmatch` (test-only).
 
-**Spec:** `docs/superpowers/specs/2026-08-31-shotkit-web-design.md` — read **Amendment 1**, which governs this plan. The original spec body describes what Tasks 1–7 already built.
+**Spec:** `docs/superpowers/specs/2026-08-31-shotkit-web-design.md`, read **Amendment 1**, which governs this plan. The original spec body describes what Tasks 1–7 already built.
 
 **Predecessor:** `2026-08-31-shotkit-web.md` Tasks 1–7 (complete). Its Tasks 8–12 are superseded.
 
@@ -19,12 +19,12 @@ Every task's requirements implicitly include this section.
 - **`core/` has zero runtime dependencies.** No npm packages, no DOM types (`HTMLCanvasElement`, `Image`, `document`, `window`), no Node built-ins (`fs`, `path`, `process`). Test-only dependencies are fine.
 - **`core/` never creates a canvas.** Scratch canvases come from the injected `makeCanvas(w, h)` factory.
 - **No engine detection, ever.** No `process`, `navigator`, `isNode`, or capability sniffing in `core/`. This is load-bearing: a previous task tuned shadow alphas against `@napi-rs/canvas` and shipped values that were 65 RGB levels too dark in the browser. The browser is the product; napi-rs is a harness that renders shadows ~5.4× fainter. Read the doc comment above `paintShadow` in `core/render.js` before touching any shadow.
-- **Every new feature defaults to OFF.** `frame: 'none'`, `background type: linear`, `scale: 1`, existing ratios unchanged. All 80 existing tests must pass **without modification**. If an existing test needs changing to accommodate new work, that is a design error — stop and report it.
+- **Every new feature defaults to OFF.** `frame: 'none'`, `background type: linear`, `scale: 1`, existing ratios unchanged. All 80 existing tests must pass **without modification**. If an existing test needs changing to accommodate new work, that is a design error, stop and report it.
 - **The handoff is the visual reference, the way `frame.html` was the behavioural one.** `design_handoff_backdrop_1a/Backdrop Mockups.dc.html`, the section with `id="1a"`. Read real values out of it; do not invent them and do not round them to a 4/8px grid. Its README summarises but the HTML is authoritative.
 - **Values from the handoff are given at mockup scale** (a 560×420 artboard, frame at 76% width). shotkit sizes everything as a proportion of the canvas. Every extracted constant must be converted to a fraction and the derivation recorded in a comment.
 - ES modules. Node 20+. Commit after every task.
 - Golden PNGs are generated under `@napi-rs/canvas` and are a napi-rs-vs-napi-rs regression baseline only. They encode a fainter shadow than the browser produces and must never be compared against a browser screenshot.
-- Pixel-diff tests use `pixelmatch({threshold: 0})` with a ratio budget of `1e-5`. Do not loosen either. A previous baseline at `threshold: 0.1` / `1e-3` failed to detect a doubled shadow alpha — zero differing pixels.
+- Pixel-diff tests use `pixelmatch({threshold: 0})` with a ratio budget of `1e-5`. Do not loosen either. A previous baseline at `threshold: 0.1` / `1e-3` failed to detect a doubled shadow alpha, zero differing pixels.
 
 ---
 
@@ -39,8 +39,8 @@ Config-level only. No painting changes. This is the cheap groundwork every later
 **Interfaces:**
 - Consumes: nothing new.
 - Produces:
-  - `TEMPLATES: Record<string, {w, h, label}>` in `presets.js` — `dribbble` 2800×2100, `twitter-post` 1600×900, `twitter-header` 1500×500, `app-store` 2880×1800, `open-graph` 2400×1260, `instagram` 2160×2160.
-  - `normalise()` gains: `template` (resolves to `w`/`h`), `scale` (1 | 2 | 3, default 1), `format` (`'png'` | `'jpeg'` | `'webp'`, default `'png'`), `angle` (degrees, default **166** — the value hardcoded in `frame.html`'s linear gradient).
+  - `TEMPLATES: Record<string, {w, h, label}>` in `presets.js`, `dribbble` 2800×2100, `twitter-post` 1600×900, `twitter-header` 1500×500, `app-store` 2880×1800, `open-graph` 2400×1260, `instagram` 2160×2160.
+  - `normalise()` gains: `template` (resolves to `w`/`h`), `scale` (1 | 2 | 3, default 1), `format` (`'png'` | `'jpeg'` | `'webp'`, default `'png'`), `angle` (degrees, default **166**, the value hardcoded in `frame.html`'s linear gradient).
   - Resolution order, most specific wins: explicit `w`/`h` → `template` → `ratio` → default `3:2`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -119,12 +119,12 @@ describe('angle', () => {
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `npx vitest run test/config.test.js`
-Expected: FAIL — the new keys are undefined.
+Expected: FAIL, the new keys are undefined.
 
 - [ ] **Step 3: Add `TEMPLATES` to `core/presets.js`**
 
 ```js
-// Named export sizes. Real platform dimensions, not ratios — a Dribbble shot is
+// Named export sizes. Real platform dimensions, not ratios, a Dribbble shot is
 // 2800x2100 (4:3 at @2x), which is what the site actually wants.
 export const TEMPLATES = {
   'dribbble':       { w: 2800, h: 2100, label: 'Dribbble shot' },
@@ -144,7 +144,7 @@ export const FORMATS = ['png', 'jpeg', 'webp'];
 
 - [ ] **Step 4: Extend `normalise()` in `core/config.js`**
 
-Resolution order matters — explicit dimensions beat a template, a template beats a ratio.
+Resolution order matters, explicit dimensions beat a template, a template beats a ratio.
 
 ```js
   const tpl = TEMPLATES[input.template];
@@ -167,12 +167,12 @@ And on the returned object:
     template: tpl ? input.template : null,
 ```
 
-`scale` deliberately does NOT inflate `w`/`h` — the composition is authored at the template size and scaled at export, so geometry stays identical at 1x and 3x.
+`scale` deliberately does NOT inflate `w`/`h`, the composition is authored at the template size and scaled at export, so geometry stays identical at 1x and 3x.
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `npx vitest run`
-Expected: PASS — 80 pre-existing plus the new cases, nothing modified.
+Expected: PASS, 80 pre-existing plus the new cases, nothing modified.
 
 - [ ] **Step 6: Commit**
 
@@ -198,7 +198,7 @@ Small, and it must not disturb the frozen goldens.
 
 ```js
 describe('paintGround angle', () => {
-  it('defaults to 166 degrees — byte-identical to the hardcoded original', () => {
+  it('defaults to 166 degrees, byte-identical to the hardcoded original', () => {
     const a = renderGround({ angle: 166 });
     const b = renderGround({});                 // angle omitted
     expect(Buffer.compare(a, b)).toBe(0);
@@ -235,7 +235,7 @@ The existing line computes `rad` from a literal 166. Replace the literal with `c
 - [ ] **Step 4: Verify the goldens did not move**
 
 Run: `npx vitest run`
-Expected: PASS, 80+ tests, and specifically the three pixel-diff cases still green — `normalise()` defaults `angle` to 166, so the default render must be byte-identical to what is frozen. If a golden fails here, the angle conversion changed the default render and that is a defect, not a reason to regenerate.
+Expected: PASS, 80+ tests, and specifically the three pixel-diff cases still green, `normalise()` defaults `angle` to 166, so the default render must be byte-identical to what is frozen. If a golden fails here, the angle conversion changed the default render and that is a defect, not a reason to regenerate.
 
 - [ ] **Step 5: Commit**
 
@@ -295,7 +295,7 @@ describe('paintMesh', () => {
     }
   });
 
-  it('stays within the ground palette — no colour outside the three stops\' hue range', () => {
+  it('stays within the ground palette, no colour outside the three stops\' hue range', () => {
     // a mesh built from the sampled stops must not invent a hue the product
     // does not have; that would break the "ground comes from the product" rule.
     const ctx = renderCtx({ bgType: 'mesh' });
@@ -309,7 +309,7 @@ describe('paintMesh', () => {
 - [ ] **Step 2: Run to verify they fail**
 
 Run: `npx vitest run test/render-mesh.test.js`
-Expected: FAIL — `paintMesh` is not exported.
+Expected: FAIL, `paintMesh` is not exported.
 
 - [ ] **Step 3: Implement `paintSolid` and `paintMesh`**
 
@@ -317,10 +317,10 @@ Expected: FAIL — `paintMesh` is not exported.
 
 `paintMesh` places N soft radial blobs, seeded, each coloured from one of the three stops, over a base fill of `stops[1]`:
 
-- Use the same `mulberry32` seeded PRNG already in `core/render.js` for `noiseTile` — reuse it, do not write a second one. Seed it from `c.seed`.
+- Use the same `mulberry32` seeded PRNG already in `core/render.js` for `noiseTile`, reuse it, do not write a second one. Seed it from `c.seed`.
 - 5–7 blobs. For each: a position drawn from the seeded PRNG within a margin of the canvas, a radius of 40–75% of the shorter canvas side, and a colour cycling through `stops[0]`, `stops[2]`, `stops[0]`…
 - Draw each as a `createRadialGradient` from `rgba(colour, 0.75)` at the centre to `rgba(colour, 0)` at the edge, composited normally.
-- Finish with the same two corner radials `paintGround`'s linear path uses, so the top-left highlight and bottom-right deepening survive — that is what ties a mesh ground to the rest of the system.
+- Finish with the same two corner radials `paintGround`'s linear path uses, so the top-left highlight and bottom-right deepening survive, that is what ties a mesh ground to the rest of the system.
 
 Colour comes only from the three sampled stops. Do not introduce hues that are not in them; the "ground comes from the product" rule is the reason this library exists.
 
@@ -337,7 +337,7 @@ export function paintGround(ctx, c, stops) {
 - [ ] **Step 5: Run the full suite**
 
 Run: `npx vitest run`
-Expected: PASS. The three frozen goldens must still match byte-for-byte — `bgType` defaults to `'linear'`.
+Expected: PASS. The three frozen goldens must still match byte-for-byte, `bgType` defaults to `'linear'`.
 
 - [ ] **Step 6: Add a mesh golden**
 
@@ -362,11 +362,11 @@ git commit -m "feat(core): add solid and seeded mesh background types"
 
 **Interfaces:**
 - `normalise()` gains `frameKind`: `'none'` (default) | `'browser'` | `'iphone'`, and `chromeTheme`
-  (**amended 2026-09-01: `'macos'` dropped from v1 — no design exists in the handoff. An unrecognised kind falls back to `'none'`.**): `'dark'` (default) | `'light'`.
+  (**amended 2026-09-01: `'macos'` dropped from v1, no design exists in the handoff. An unrecognised kind falls back to `'none'`.**): `'dark'` (default) | `'light'`.
 - `layout()`'s `web` object gains a `chrome` field: `null` when `frameKind === 'none'`, otherwise `{kind, barH, screen: {x, y, w, h}, radius, innerRadius}` where `screen` is where the screenshot goes **inside** the frame.
 - When `frameKind === 'none'`, `layout()` output must be **identical** to today's, field for field.
 
-**First, read the mockup.** Open `design_handoff_backdrop_1a/Backdrop Mockups.dc.html`, find `id="1a"`, and extract the real browser-frame values: bar height, radius, the traffic-dot size and gap, the URL pill dimensions. They are given at mockup scale — a 560×420 artboard with the frame at 76% width. Convert each to a fraction of the **frame width** (the way the phone's bezel is `w * 0.019` and its radius `w * 0.125`) and record the arithmetic in a comment. Do not guess and do not snap to a round number.
+**First, read the mockup.** Open `design_handoff_backdrop_1a/Backdrop Mockups.dc.html`, find `id="1a"`, and extract the real browser-frame values: bar height, radius, the traffic-dot size and gap, the URL pill dimensions. They are given at mockup scale, a 560×420 artboard with the frame at 76% width. Convert each to a fraction of the **frame width** (the way the phone's bezel is `w * 0.019` and its radius `w * 0.125`) and record the arithmetic in a comment. Do not guess and do not snap to a round number.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -413,10 +413,10 @@ describe('frame: browser', () => {
   });
 });
 
-// AMENDED 2026-09-01 — this block is REMOVED. macOS is dropped from v1; there is no
+// AMENDED 2026-09-01, this block is REMOVED. macOS is dropped from v1; there is no
 // macOS frame anywhere in the handoff and its bar height would have to be invented.
 // Kept here struck through so the plan's history stays readable.
-describe.skip('frame: macos — REMOVED, see amendment', () => {
+describe.skip('frame: macos, REMOVED, see amendment', () => {
   it('has a bar, and a shorter one than the browser frame', () => {
     const b = layout(normalise({ ratio: '3:2', frameKind: 'browser' }), { web: 1.6, mobile: [] });
     const m = layout(normalise({ ratio: '3:2', frameKind: 'macos' }), { web: 1.6, mobile: [] });
@@ -448,7 +448,7 @@ Derived from the mockup, with the derivation in a comment beside each. Bar heigh
 
 - [ ] **Step 4: Extend `webBox()` in `core/layout.js`**
 
-Compute `chrome` after the existing box maths, never before — the outer frame occupies the box the screenshot used to, and the screenshot moves inside it. Return `chrome: null` when `frameKind === 'none'` and take no other branch, so the existing path is provably untouched.
+Compute `chrome` after the existing box maths, never before, the outer frame occupies the box the screenshot used to, and the screenshot moves inside it. Return `chrome: null` when `frameKind === 'none'` and take no other branch, so the existing path is provably untouched.
 
 - [ ] **Step 5: Run the full suite**
 
@@ -471,7 +471,7 @@ git commit -m "feat(core): compute device-frame geometry in layout"
 - Create: `test/render-frames.test.js`
 
 **Interfaces:**
-- `paintChrome(ctx, c, box, theme)` — dispatches on `box.chrome.kind`, draws the bar, traffic dots and the URL pill. **macOS was dropped from v1** (no design exists in the handoff), so the kinds are `browser` and, from Task 6, `iphone`.
+- `paintChrome(ctx, c, box, theme)`, dispatches on `box.chrome.kind`, draws the bar, traffic dots and the URL pill. **macOS was dropped from v1** (no design exists in the handoff), so the kinds are `browser` and, from Task 6, `iphone`.
 - `paintWeb(ctx, c, box, image)` grows a chrome branch: when `box.chrome` is non-null it paints the frame body, the chrome, then the screenshot into `box.chrome.screen`; when null it behaves exactly as today.
 
 **Read the mockup for every colour.** Dark: chrome `#1b1d22`, body `#101114`, border `rgba(255,255,255,.09)`, URL pill `rgba(255,255,255,.07)` with mono text `#9ba1ab`. Light: chrome `#f6f7f9`, body `#fff`, borders `#e3e5ea`. Traffic dots `#ff5f57 #febc2e #28c840`. Confirm each against the HTML.
@@ -480,13 +480,13 @@ git commit -m "feat(core): compute device-frame geometry in layout"
 
 Cover: the bar is painted in the theme colour; three traffic dots exist in the right colours at the left of the bar; the screenshot lands inside `chrome.screen` and not under the bar; light theme differs from dark; `frameKind: 'none'` renders byte-identically to a render with no chrome code at all.
 
-That last one is the important one — assert it with a buffer comparison, not a spot check.
+That last one is the important one, assert it with a buffer comparison, not a spot check.
 
 - [ ] **Step 2: Run to verify they fail**
 
 - [ ] **Step 3: Implement `paintChrome`**
 
-Reuse `roundRect` and the existing `rgba`/`hexToRgb` helpers. Do not add a second rounded-rect implementation. **Do not touch `paintShadow` or any alpha value** — the shadow attaches to the outer frame exactly as it attaches to the bare screen today, with `frame.html`'s original alphas.
+Reuse `roundRect` and the existing `rgba`/`hexToRgb` helpers. Do not add a second rounded-rect implementation. **Do not touch `paintShadow` or any alpha value**, the shadow attaches to the outer frame exactly as it attaches to the bare screen today, with `frame.html`'s original alphas.
 
 - [ ] **Step 4: Branch in `paintWeb`**
 
@@ -507,7 +507,7 @@ git commit -m "feat(core): paint browser window chrome"
 
 ### Task 6: iPhone frame, goldens, and `compose()` wiring
 
-Completes the plan. The iPhone frame has no title bar — it is a bezel, a large corner radius, and a screenshot filling the interior.
+Completes the plan. The iPhone frame has no title bar, it is a bezel, a large corner radius, and a screenshot filling the interior.
 
 **Files:**
 - Modify: `core/render.js`, `core/index.js`, `scripts/make-render-goldens.js`, `test/compose.test.js`
@@ -530,7 +530,7 @@ Reuse `paintPhone`'s bezel arithmetic where it genuinely applies rather than dup
 
 Add cases for browser-dark, browser-light and iphone. (macOS was dropped from v1.) Regenerate.
 
-Then **prove the new goldens guard**: change the chrome bar height, then a traffic-dot colour, and confirm each fails the pixel-diff. Report the ratios. A golden that does not fail on a real change is decoration — a previous baseline in this project missed a doubled shadow alpha entirely.
+Then **prove the new goldens guard**: change the chrome bar height, then a traffic-dot colour, and confirm each fails the pixel-diff. Report the ratios. A golden that does not fail on a real change is decoration, a previous baseline in this project missed a doubled shadow alpha entirely.
 
 - [ ] **Step 5: Run the full suite**
 
@@ -554,12 +554,12 @@ git commit -m "feat(core): add the iPhone frame and wire frames through compose(
 | Templates, export scale, format | 1 |
 | Angle parameter | 1, 2 |
 | Mesh (and solid) background | 3 |
-| Device frames — geometry | 4 |
-| Device frames — browser paint | 5 |
-| Device frames — iPhone, chrome theme, wiring | 6 |
+| Device frames, geometry | 4 |
+| Device frames, browser paint | 5 |
+| Device frames, iPhone, chrome theme, wiring | 6 |
 | Background panel ordering (auto → presets → manual → mesh) | UI concern; the config surface all four need lands in 1 and 3 |
 | Obsidian tokens, four-pane shell, inspector | the app plan, written after this one |
-| Canvas surround | the app plan — it is chrome, and `core/` must never learn about it |
+| Canvas surround | the app plan, it is chrome, and `core/` must never learn about it |
 
 **Known gaps, stated rather than hidden:**
 
@@ -567,6 +567,6 @@ git commit -m "feat(core): add the iPhone frame and wire frames through compose(
 - **No light theme for the app chrome.** Deferred per the spec; the handoff's option 1b is the likely source.
 - **`scale` is defined but nothing consumes it.** Export happens in the app, so Task 1 lands the config surface and the app plan spends it. Flagged so it is not mistaken for an oversight.
 
-**Type consistency:** `normalise()` (Task 1) → consumed by Tasks 2, 3, 4, 6. `layout()`'s new `chrome` field (Task 4) → consumed by Task 5's `paintChrome` and `paintWeb`, and Task 6's iPhone path. `paintGround`'s dispatch (Task 3) keeps its `(ctx, c, stops)` signature, so `composeWithMeta` needs no change for background types — only for the frame fields.
+**Type consistency:** `normalise()` (Task 1) → consumed by Tasks 2, 3, 4, 6. `layout()`'s new `chrome` field (Task 4) → consumed by Task 5's `paintChrome` and `paintWeb`, and Task 6's iPhone path. `paintGround`'s dispatch (Task 3) keeps its `(ctx, c, stops)` signature, so `composeWithMeta` needs no change for background types, only for the frame fields.
 
 **The constraint every task shares, restated because it is the one that will break:** every new capability defaults OFF, all 80 existing tests pass unmodified, and the three frozen goldens stay byte-identical until Task 6 deliberately adds to them.

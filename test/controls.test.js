@@ -11,7 +11,7 @@ function codeOf(path) {
 // Cycle D Task 4. STRUCTURAL GUARDS over the panel sources, in the same
 // family as the `linear-gradient` guard in test/preset-tiles.test.js.
 //
-// They cannot show that a Reset WORKS — the browser check in this task's
+// They cannot show that a Reset WORKS, the browser check in this task's
 // steps does that, slider by slider. What they buy is that the next slider
 // someone adds cannot quietly skip it, which is exactly how Padding, Corner
 // radius, Shadow and Stroke width came to have none: Cycle C built the
@@ -54,7 +54,7 @@ describe('every slider is built by the same function (Task 4)', () => {
 
   it('the fill reads the LIVE min/max, not the ones passed in', () => {
     // Corner radius rewrites its own maximum when the selected element
-    // changes — a phone's corner range is not a browser's — so a fill
+    // changes, a phone's corner range is not a browser's, so a fill
     // computed from the constructor's arguments would be wrong for it.
     const controls = codeOf('web/controls.js');
     expect(controls).toMatch(/Number\(input\.min\)/);
