@@ -281,6 +281,11 @@
     `box-shadow: none` at the animation's start. */
 
   /* --- Radii -------------------------------------------------------------- */
+  /* THE CONTROL RADIUS. Rock's frame draws chips, the segmented control, the
+     size tabs, the sampled row, the preset tiles and the search field at 6px,
+     not the 8px they had and not the pill the chips had. */
+  --radius-control: 6px;
+
   --radius-sm: 7px;   /* zoom stepper, ghost/select controls (line 57) */
   --radius-md: 8px;   /* segmented control, rail items, dropzone (lines 64,114) */
   --radius-lg: 10px;  /* cards (not used by the shell itself, reserved) */

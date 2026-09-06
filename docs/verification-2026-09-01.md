@@ -2298,3 +2298,35 @@ scroll.
 
 Measured after: all six headings read Inter, 12px, `text-transform: none`.
 515 tests pass, no console errors.
+
+## Step 3: control shapes, from Rock's frame
+
+Heights and radii only. No colour, no type, nothing moved.
+
+| control | before | after |
+|---|---|---|
+| chip | 24px tall, **pill** (12px) | 25px, **6px** |
+| slider reset | 22×22, 6px | **18×18, 4px** |
+| segmented control | 28px, 8px | 28px, **6px** |
+| active cell inside it | square, clipped by the container | **5px**, rounded in its own right |
+| size tabs | 8px | **6px** |
+| sampled row | 8px | **6px** |
+| preset tile | 7px | **6px** |
+| search field | 8px | **6px** |
+| size row | 8px | 8px, unchanged |
+| select, buttons | 7px | 7px, unchanged |
+
+`--radius-control: 6px` is the new token. The 8px on the rows and the 7px on
+buttons stay, because that is what his frame draws.
+
+**A duplicate rule found while doing it.** `.sidebar-search` had two rules:
+one left over from the reverted panel-card experiment carrying a margin and a
+background, and the real one further down carrying the border and radius. The
+second won on order, which is why the radius change had no effect the first
+time. They are one rule now.
+
+**What it costs.** The left panel's overflow drops from 31px to **19px**
+(871px of content in an 852px pane), because the resets got smaller. Still
+scrolls. The stage is unchanged, no horizontal scroll.
+
+515 tests pass, no console errors.

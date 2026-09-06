@@ -534,14 +534,6 @@ input {
   background: var(--surface-window);
 }
 
-/* The sidebar's own children, which are not .inspector-section and so have
-   to inset themselves. 14px, matching .inspector-section's padding, so the
-   Size list and the Background controls line up down a single edge. */
-.sidebar-search {
-  margin: 12px 14px 8px;
-  background: var(--surface-control);
-}
-
 .sidebar-section {
   padding: 0 14px 14px;
 }
@@ -561,9 +553,11 @@ input {
      edge is an interactive component boundary and owes 3:1 rather than the
      judgement call the two decorative border tokens get (Task 3b). */
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   color: var(--text-primary);
   flex: none;
+  margin: 12px 14px 8px;
+  background: var(--surface-control);
 }
 
 .sidebar-search input {
@@ -1198,7 +1192,7 @@ input {
   display: flex;
   height: 28px;
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   overflow: hidden;
   background: var(--surface-control);
 }
@@ -1220,6 +1214,7 @@ input {
   background: var(--accent);
   color: var(--text-primary);
   font-weight: 500;
+  border-radius: calc(var(--radius-control) - 1px);
 }
 
 .segmented-cell:hover:not(.is-active):not(:disabled) {
@@ -1263,6 +1258,7 @@ input {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(0, 1fr);
+  border-radius: var(--radius-control);
 }
 
 .segmented--tabs .segmented-cell {
@@ -1393,7 +1389,7 @@ input {
   height: 36px;
   padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--surface-control);
   /* White, not one rung down. Cycle D Task 5 cut the text ladder to three
      rungs, and the inactive state below needs a visible drop from this one:
@@ -1485,12 +1481,12 @@ input {
 }
 
 .chip {
-  height: 24px;
-  padding: 0 10px;
+  height: 25px;
+  padding: 0 12px;
   display: flex;
   align-items: center;
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   background: var(--surface-control);
   color: var(--text-primary);
   font-size: 12px;
@@ -1760,7 +1756,7 @@ input {
   display: block;
   width: 100%;
   aspect-ratio: 1;
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   /* NO BORDER. Eight tiles x four edges was 32 of the app's 148 painted
      border edges, drawn around pale swatches on a dark panel, they were
      already the highest-contrast thing in the section and did not need
@@ -1815,14 +1811,14 @@ input {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   padding: 0;
   /* A FILL, NOT AN OUTLINE. Eight of these carried four border edges each,
      another 32 lines, and now that the surfaces are actually apart, a
      raised fill says "button" on its own. */
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--surface-control);
   color: var(--text-primary);
   cursor: pointer;
