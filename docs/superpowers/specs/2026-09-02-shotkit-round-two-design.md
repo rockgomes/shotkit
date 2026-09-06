@@ -799,6 +799,31 @@ The knock-on the earlier dark-ground note warned about is already gone:
 removed every backing, so a near-black ground has nothing white to leak
 around the picture's edge.
 
+## Carried forward — moving the shot, in two different senses
+
+Raised by Rock 2026-09-06, mid–Cycle D: *"what about the ability to move the
+frame? like, zoom in, pan, etc?"* Two features hide behind that sentence and
+they are not the same size.
+
+**A — zoom and pan the VIEW. Confirmed as what he meant.** Inspect the
+preview closely without changing a pixel of the export. The toolbar already
+carries a zoom stepper for it, rendered disabled and wired to nothing.
+**It must stay a pure view transform and never reach `composeWithMeta`** —
+the preview canvas *is* the export canvas, so a zoom that touched the
+composition would ship in the PNG. Small, and `web/`-only.
+
+**B — move the SCREENSHOT inside the shot.** Nudging it off-centre, scaling
+it, cropping to part of it. This changes the exported picture, so it is a
+`core/layout.js` feature, not a UI one.
+
+**B is explicitly deferred, with company.** Rock: *"B will eventually have to
+happen, but I have other ideas that we can group and discuss later (for
+example, some people post shots that show only one corner of the UI, so we
+could do something like that)."* So B is not a lone feature to slot into a
+cycle — it is the first of a group about **what part of the screenshot a shot
+shows**, and it gets its own brainstorm rather than being designed inside a
+cycle that is about something else.
+
 ## Out of scope
 
 - The light theme — still its own later cycle, designed from scratch, not

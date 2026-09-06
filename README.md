@@ -310,7 +310,12 @@ Honest list. None of these is half-done; they are simply not there.
   They render, disabled. Nothing is wired behind them.
 - **Zoom, and copy-to-clipboard.** The toolbar's zoom stepper and its "Copy"
   button both render disabled and are wired to nothing. When zoom is built it
-  must stay a pure view transform and never reach `composeWithMeta`.
+  must stay a pure view transform and never reach `composeWithMeta` — the
+  preview canvas *is* the export canvas, so a zoom that touched the
+  composition would ship in the PNG. Confirmed 2026-09-06 as the sense Rock
+  wants first; moving or cropping the screenshot *inside* the shot is a
+  separate, larger idea and is parked in the spec with the rest of its
+  group.
 - **Bleed layouts, and video out.** Letting the UI run off one edge is common in
   the shots that do best and is still unsupported. Dribbble takes video up to
   20MB; same frame, animated screen.
