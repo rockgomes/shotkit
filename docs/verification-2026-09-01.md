@@ -2345,3 +2345,41 @@ are **one line**. The Stroke row is 232px of the 237px available.
 |---|---|---|
 | Frame | None 51, Browser 67, Phone 56 | 1 |
 | Stroke | None 51, Light 48, Glass 51, Custom 64 | 1 |
+
+### Step 3, fix round 2: every stroke, diffed against the frame
+
+Rock: *"will I have to point you to EVERY place that doesn't have a stroke
+anymore, even though I gave you the goddamn file for you to check?"* No. This
+is that check, done properly instead of one chip at a time.
+
+Read every visible node in his frame (7:130) and kept the ones carrying a
+stroke, ignoring icon vectors. **Six containers**, and only six:
+
+| his frame | stroke |
+|---|---|
+| Copy, disabled | `#474d57` 1px |
+| the sampled row, ACTIVE | **white 1.5px** |
+| the selected preset tile | **white 1.5px** |
+| the CLI card | `#474d57` 1px |
+| the format select | **white 1px** |
+| the open size dropdown | black 1px |
+
+Then measured every border the app actually paints. **Fifteen.** The diff:
+
+**Removed**, because his frame defines them by fill alone: the zoom stepper,
+the search field, the segmented control and both mini variants (the surround
+control and the export scale), the angle dial.
+
+**Changed from grey or accent to white**, which is how his frame marks a
+chosen thing: the active sampled row (now 1.5px), the format select (1px), and
+the selected preset tile (1.5px). The sampled row also carries a 1.5px
+transparent edge at rest so the ring appearing never shifts the row.
+
+**Kept**: Copy, the CLI card, and the four structural hairlines around the
+panels, the toolbar and the rail, which his frame keeps as filled rectangles.
+
+Nine strokes remain, and the two that are neither in his list nor structural
+are `.template-row.is-selected` and `.btn-ghost`, both of which he draws the
+same way.
+
+515 tests pass, no console errors.

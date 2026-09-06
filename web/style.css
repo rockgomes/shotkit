@@ -261,7 +261,7 @@ input {
   gap: 6px;
   height: 28px;
   padding: 0 10px;
-  border: 1px solid var(--border-strong);
+  border: none;
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   background: var(--surface-control);
@@ -552,7 +552,7 @@ input {
   /* --border-strong, not --border-subtle: this box holds an <input>, so its
      edge is an interactive component boundary and owes 3:1 rather than the
      judgement call the two decorative border tokens get (Task 3b). */
-  border: 1px solid var(--border-strong);
+  border: none;
   border-radius: var(--radius-control);
   color: var(--text-primary);
   flex: none;
@@ -1191,7 +1191,7 @@ input {
 .segmented {
   display: flex;
   height: 28px;
-  border: 1px solid var(--border-strong);
+  border: none;
   border-radius: var(--radius-control);
   overflow: hidden;
   background: var(--surface-control);
@@ -1388,8 +1388,6 @@ input {
   gap: 9px;
   height: 36px;
   padding: 0 10px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-control);
   background: var(--surface-control);
   /* White, not one rung down. Cycle D Task 5 cut the text ladder to three
      rungs, and the inactive state below needs a visible drop from this one:
@@ -1399,6 +1397,7 @@ input {
   cursor: pointer;
   text-align: left;
   width: 100%;
+  border: 1.5px solid transparent;
 }
 
 .sampled-row:hover {
@@ -1407,9 +1406,9 @@ input {
 
 .sampled-row.is-active {
   background: var(--surface-raised-1);
-  border-color: var(--accent);
   color: var(--text-primary);
   font-weight: 500;
+  border: 1.5px solid var(--text-primary);
 }
 
 /* "This is true, but not what's currently in effect", an override is
@@ -1541,12 +1540,12 @@ input {
   align-items: center;
   justify-content: space-between;
   padding: 0 10px;
-  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   background: var(--surface-control);
   color: var(--text-primary);
   font-size: 12px;
   cursor: pointer;
+  border: 1px solid var(--text-primary);
 }
 
 .select-control .icon {
@@ -1779,7 +1778,7 @@ input {
 
 .preset-tile.is-selected .preset-tile-canvas {
   border-color: var(--text-primary);
-  box-shadow: 0 0 0 1px var(--text-primary);
+  box-shadow: 0 0 0 0.5px var(--text-primary);
 }
 
 .preset-tile.is-selected .preset-tile-label {
@@ -1842,7 +1841,7 @@ input {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  border: 1px solid var(--border-strong);
+  border: none;
   box-sizing: border-box;
 }
 
