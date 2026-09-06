@@ -99,6 +99,26 @@ export function applyCustomSize(config, rawW, rawH) {
   return true;
 }
 
+/** The size control's three tabs. Templates, ratios and a custom size are
+ *  one decision — every one of them writes nothing but `w` and `h` — so
+ *  they are three views of a control, not three controls. */
+export const SIZE_TABS = ['templates', 'ratios', 'custom'];
+
+/**
+ * Which tab the CURRENT size came from.
+ *
+ * The order is core/config.js's own precedence, read the same way
+ * `isCustomSize` and `activeTemplateKey` above already read it: explicit
+ * w/h wins, then a template, then a ratio. A tab rule that disagreed with
+ * normalise() would open the panel on a list with nothing highlighted while
+ * the canvas used a size from somewhere else.
+ */
+export function activeSizeTab(config) {
+  if (isCustomSize(config)) return 'custom';
+  if (activeTemplateKey(config)) return 'templates';
+  return 'ratios';
+}
+
 export function selectGround(config, key) {
   if (HUES[key] === undefined) return;
   config.ground = key;
@@ -152,18 +172,51 @@ export function initSidebar() {
   const templateSection = templateList?.closest('.sidebar-section');
   if (!templateList || !templateSection) return;
 
-  const ratioSection = document.createElement('section');
-  ratioSection.className = 'sidebar-section';
-  ratioSection.innerHTML = '<h2 class="section-label">Ratios</h2><ul class="template-list ratio-list"></ul>';
-  templateSection.insertAdjacentElement('afterend', ratioSection);
-  const ratioList = ratioSection.querySelector('.ratio-list');
+  // ONE section, not two stacked ones plus a disclosure. Templates, ratios
+  // and a custom size all write nothing but `w` and `h`, so they are three
+  // views of one control. The tab strip is the same `.segmented` primitive
+  // the Background type control uses - no new control vocabulary is
+  // invented here.
+  const sizeSection = document.createElement('section');
+  sizeSection.className = 'sidebar-section';
+  sizeSection.innerHTML =
+    '<h2 class="section-label">Size</h2>'
+    + '<div class="segmented segmented--tabs" role="tablist" aria-label="Size"></div>'
+    + '<ul class="template-list size-list"></ul>';
+  templateSection.replaceWith(sizeSection);
+  const tabStrip = sizeSection.querySelector('.segmented--tabs');
+  const sizeList = sizeSection.querySelector('.size-list');
 
-  if (searchInput) searchInput.placeholder = 'Search templates and ratios…';
+  // Which tab is SHOWING. Seeded from the config so the panel opens on the
+  // list the current size came from, then owned by the user's clicks - a
+  // tab that snapped back to the config's tab on every render would fight
+  // anyone browsing templates while a ratio is applied.
+  let openTab = activeSizeTab(state.config);
 
-  // "+ Custom size" disclosure state — kept outside render functions so it
-  // survives the innerHTML rebuild every re-render does (search input,
-  // selecting a row, applying a custom size all call renderAll()).
-  let customOpen = false;
+  const TAB_LABELS = { templates: 'Templates', ratios: 'Ratios', custom: 'Custom' };
+  const tabButtons = SIZE_TABS.map((tab) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'segmented-cell';
+    btn.dataset.tab = tab;
+    btn.setAttribute('role', 'tab');
+    btn.textContent = TAB_LABELS[tab];
+    btn.addEventListener('click', () => {
+      openTab = tab;
+      renderAll();
+    });
+    tabStrip.appendChild(btn);
+    return btn;
+  });
+
+  if (searchInput) searchInput.placeholder = 'Search sizes…';
+
+  // The custom size fields' contents — kept outside the render functions so
+  // they survive the innerHTML rebuild every re-render does (typing in the
+  // search box, selecting a row, applying a size all call renderAll()).
+  //
+  // There is no `customOpen` any more: the Custom TAB is the disclosure that
+  // the "+ Custom size" toggle row used to be.
   let customW = '';
   let customH = '';
 
@@ -193,27 +246,17 @@ export function initSidebar() {
     const li = document.createElement('li');
     li.className = 'custom-size-item';
 
-    const toggle = document.createElement('button');
-    toggle.type = 'button';
-    toggle.className = 'template-row template-row--add' + (isCustomSize(state.config) ? ' is-selected' : '');
-    toggle.textContent = '+ Custom size';
-    toggle.setAttribute('aria-expanded', String(customOpen));
-    toggle.setAttribute('aria-controls', 'sidebarCustomSizeForm');
-    toggle.addEventListener('click', () => {
-      customOpen = !customOpen;
-      if (customOpen) {
-        // Prefill with the canvas's CURRENT effective size (normalise() is
-        // read-only here — a display convenience, not a precedence
-        // decision: applyCustomSize below is what actually sets w/h).
-        const eff = normalise(state.config);
-        customW = String(eff.w);
-        customH = String(eff.h);
-      }
-      renderTemplates(currentQuery());
-    });
-    li.appendChild(toggle);
+    // Prefill with the canvas's CURRENT effective size the first time the
+    // tab is shown. normalise() is read-only here — a display convenience,
+    // not a precedence decision: applyCustomSize below is what actually
+    // sets w/h. Once the user has typed, their value stands.
+    if (customW === '' && customH === '') {
+      const eff = normalise(state.config);
+      customW = String(eff.w);
+      customH = String(eff.h);
+    }
 
-    if (customOpen) {
+    {
       const form = document.createElement('div');
       form.className = 'custom-size-form';
       form.id = 'sidebarCustomSizeForm';
@@ -270,9 +313,7 @@ export function initSidebar() {
       const apply = () => {
         if (applyBtn.disabled) return;
         if (applyCustomSize(state.config, wInput.value, hInput.value)) {
-          customOpen = false;
-          renderAll();
-          scheduleRender();
+          afterSizeChange();
         }
       };
       applyBtn.addEventListener('click', apply);
@@ -289,54 +330,64 @@ export function initSidebar() {
     return li;
   }
 
-  function renderTemplates(query) {
-    templateList.innerHTML = '';
-    const active = activeTemplateKey(state.config);
-    for (const [key, tpl] of Object.entries(TEMPLATES)) {
-      if (!matchesQuery(tpl.label, query)) continue;
-      templateList.appendChild(
-        sizeRow({
+  function renderAll() {
+    const query = currentQuery();
+    for (const btn of tabButtons) {
+      const active = btn.dataset.tab === openTab;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-selected', String(active));
+    }
+    sizeList.innerHTML = '';
+
+    if (openTab === 'templates') {
+      const active = activeTemplateKey(state.config);
+      for (const [key, tpl] of Object.entries(TEMPLATES)) {
+        if (!matchesQuery(tpl.label, query)) continue;
+        sizeList.appendChild(sizeRow({
           key,
           label: tpl.label,
           sizeText: `${tpl.w}×${tpl.h}`,
           selected: active === key,
           onSelect: () => {
             selectTemplate(state.config, key);
-            renderAll();
-            scheduleRender();
+            afterSizeChange();
           },
-        }),
-      );
+        }));
+      }
+      return;
     }
-    templateList.appendChild(customSizeItem());
-  }
 
-  function renderRatios(query) {
-    ratioList.innerHTML = '';
-    const active = activeRatioKey(state.config);
-    for (const [key, [w, h]] of Object.entries(RATIOS)) {
-      if (!matchesQuery(key, query)) continue;
-      ratioList.appendChild(
-        sizeRow({
+    if (openTab === 'ratios') {
+      const active = activeRatioKey(state.config);
+      for (const [key, [w, h]] of Object.entries(RATIOS)) {
+        if (!matchesQuery(key, query)) continue;
+        sizeList.appendChild(sizeRow({
           key,
           label: key,
           sizeText: `${w}×${h}`,
           selected: active === key,
           onSelect: () => {
             selectRatio(state.config, key);
-            renderAll();
-            scheduleRender();
+            afterSizeChange();
           },
-        }),
-      );
+        }));
+      }
+      return;
     }
-    ratioSection.hidden = ratioList.children.length === 0;
+
+    // Custom. The tab IS the disclosure, so the form is always open here -
+    // the "+ Custom size" toggle row that used to hang under Templates is
+    // gone with it.
+    sizeList.appendChild(customSizeItem());
   }
 
-  function renderAll() {
-    const query = currentQuery();
-    renderTemplates(query);
-    renderRatios(query);
+  /** One place every size change goes through, so nothing can update the
+   *  canvas and forget the list, or the other way round. Same reasoning as
+   *  `afterBackgroundChange` in web/inspector-background.js, which exists
+   *  because three listeners had been patched and a fourth was still wrong. */
+  function afterSizeChange() {
+    renderAll();
+    scheduleRender();
   }
 
   searchInput?.addEventListener('input', renderAll);

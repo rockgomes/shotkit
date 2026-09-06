@@ -1184,6 +1184,27 @@ input {
    Rock, 2026-09-02: "short names have also a short click target." Measured
    in Chromium before this rule - Dark 43.2px, Mid 36.9px, Light 49.5px:
    three peers whose targets differ by 34%. After: 49.5px each. */
+/* The size control's tabs (Cycle D Task 1). A full-width segmented control,
+   so its three cells get an equal share from the `flex: 1` .segmented-cell
+   already carries — the `--mini` variant below is the shrink-wrapped one
+   that needed a grid to equalise. */
+.segmented--tabs {
+  margin: 0 4px 8px;
+  /* Equal cells, guaranteed. `flex: 1` alone does not give them: a flex
+     item cannot shrink below its own min-content, so "Templates" took 70px
+     of a 193px strip and the other two split what was left — 69.9 / 60.6 /
+     60.6, measured. `minmax(0, 1fr)` has no such floor, so the three stay
+     equal whatever the labels say, and the smaller padding is what keeps
+     today's longest label from clipping inside its share. */
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+}
+
+.segmented--tabs .segmented-cell {
+  padding: 0 4px;
+}
+
 .segmented--mini {
   /* 26px, not 24: the cells sit inside the control's 1px border, so a 24px
      control gives 22px targets. WCAG 2.2 AA 2.5.8 asks for 24x24, and

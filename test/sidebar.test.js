@@ -13,6 +13,8 @@ import {
   selectRatio,
   applyCustomSize,
   selectGround,
+  SIZE_TABS,
+  activeSizeTab,
 } from '../web/sidebar.js';
 
 // ---------------------------------------------------------------------
@@ -339,5 +341,43 @@ describe('the rail does not duplicate the Background panel', () => {
     expect(readFileSync('web/inspector-background.js', 'utf8')).toMatch(
       /renderTile\(cv, name/,
     );
+  });
+});
+
+// ---------------------------------------------------------------------
+// Cycle D Task 1. Templates, ratios and a custom size are ONE decision —
+// every one of them writes nothing but `w` and `h` — and they read as two
+// stacked lists plus a disclosure. Tabs make the truth visible, and
+// showing one at a time is where the left panel's new space comes from.
+// ---------------------------------------------------------------------
+describe('the size control is one decision, shown one tab at a time', () => {
+  it('offers exactly three tabs', () => {
+    expect(SIZE_TABS).toEqual(['templates', 'ratios', 'custom']);
+  });
+
+  it('opens on the tab the current size actually came from', () => {
+    // Opening on Templates while a ratio is applied would show a list with
+    // nothing highlighted, and read as "nothing is chosen".
+    expect(activeSizeTab({ ratio: '3:2' })).toBe('ratios');
+    expect(activeSizeTab({ template: 'dribbble' })).toBe('templates');
+    expect(activeSizeTab({ w: 1234, h: 567 })).toBe('custom');
+  });
+
+  it("and follows normalise()'s own precedence, not its own", () => {
+    // core/config.js resolves explicit w/h over template over ratio. A tab
+    // rule that disagreed would open on a list the canvas is not using.
+    expect(activeSizeTab({ ratio: '3:2', template: 'dribbble' })).toBe('templates');
+    expect(activeSizeTab({ ratio: '3:2', template: 'dribbble', w: 800, h: 600 })).toBe('custom');
+    // Proven against the real normalise() rather than against the helper's
+    // own opinion: the tab must name where the canvas's size came from.
+    expect(normalise({ ratio: '3:2', template: 'dribbble', w: 800, h: 600 }))
+      .toMatchObject({ w: 800, h: 600 });
+  });
+
+  it('ignores a template or ratio key that is not real', () => {
+    // Same guard activeTemplateKey/activeRatioKey already carry: a stale
+    // jobs.json naming a template that no longer exists must not highlight
+    // a tab whose list cannot show it.
+    expect(activeSizeTab({ template: 'not-a-template' })).toBe('ratios');
   });
 });

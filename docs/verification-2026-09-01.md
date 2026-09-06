@@ -1857,3 +1857,42 @@ a first pass broke every ground test, which is how that was caught.
 
 **16 goldens remain**, not the 15 the plan predicted; the plan's arithmetic
 predated `ground-ash`.
+
+---
+
+# Cycle D Task 1 — what the tabs bought
+
+Templates and Ratios were two stacked lists with a "+ Custom size"
+disclosure hanging under the first. They are one decision — every one of
+them writes nothing but `w` and `h` — so they are now one section with three
+tabs.
+
+Measured in Chromium at 1440×900, comparing the live site against the branch,
+with the **Templates** tab open (the longest of the three lists, so this is
+the worst case rather than the flattering one):
+
+| | before | after |
+|---|---|---|
+| size controls, total height | 264px Templates + 158px Ratios = **422px** | **262px** |
+| free space left in the sidebar | 296px | **459px** |
+
+**160px freed**, and the free space grows by 163px. That is the budget Tasks
+2 and 3 spend moving Background, Padding and Grain into this panel.
+
+## The tabs did not start out equal
+
+First build, measured: **Templates 69.9px, Ratios 60.6px, Custom 60.6px** in
+a 193px strip. `.segmented-cell` already carries `flex: 1`, which is what
+makes the Background type control's two cells equal — but a flex item cannot
+shrink below its own min-content, and "Templates" needs 70px with the
+standard 8px padding. It took what it needed and the other two split the
+remainder.
+
+`grid-auto-columns: minmax(0, 1fr)` has no such floor: **63.7px each**. The
+tab cells also take 4px of horizontal padding rather than 8, which is what
+keeps the longest label from clipping inside its equal share.
+
+This is the second time this cycle-family that `flex: 1` has failed to
+equalise a segmented control, for two different reasons — Cycle C Task 6's
+mini controls had no free space to distribute, these had a min-content floor.
+Grid is the mechanism that works in both cases.
