@@ -112,14 +112,25 @@ body {
   background: var(--surface-window);
   color: var(--text-primary);
   font-family: var(--font-ui);
-  font-size: 12.5px;
+  /* ONE TEXT STYLE. Rock, 2026-09-07, after counting them in his own file:
+     "Your design has one text style. Mine has nine."
+     Node 7:130 is 12px Inter Medium white almost everywhere - the section
+     names, the chips, the tabs, the segmented cells, the slider labels AND
+     their values. There are four exceptions in the whole frame, and each one
+     below says which node it comes from. Everything else inherits this. */
+  font-size: 12px;
+  font-weight: 500;
   line-height: 1.35;
   -webkit-font-smoothing: antialiased;
 }
 
+/* Form controls do not inherit type by default, so the base above would stop
+   at every button and input in the app - which is most of the text in it. */
 button,
 input {
   font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
   color: inherit;
 }
 
@@ -243,7 +254,6 @@ input {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--font-mono);
-  font-size: 11.5px;
 }
 
 .file-slot--empty {
@@ -275,7 +285,6 @@ input {
 }
 
 .zoom-value {
-  font-size: 11px;
   color: var(--text-primary);
   min-width: 3ch;
   text-align: center;
@@ -323,7 +332,6 @@ input {
   height: 28px;
   padding: 0 13px;
   border-radius: var(--radius-sm);
-  font-size: 12px;
   border: none;
   cursor: pointer;
   transition: background-color 120ms ease, border-color 120ms ease, opacity 120ms ease;
@@ -343,7 +351,6 @@ input {
 .btn-primary {
   background: var(--accent);
   color: var(--text-primary);
-  font-weight: 600;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -572,7 +579,6 @@ input {
   background: none;
   outline: none;
   color: var(--text-primary);
-  font-size: 12px;
   width: 100%;
   min-width: 0;
 }
@@ -594,11 +600,14 @@ input {
    rows. The last two are text inside a control's own fill and are supposed
    to be inset; these were not, and were the odd one out. */
 .section-label {
+  /* A heading carries the UA's own font-size and font-weight, so it does NOT
+     inherit the base above: cutting these two lines shipped 18px bold
+     "Background", "Frame" and "Export" for one build. */
+  font-size: 12px;
+  font-weight: 500;
   margin: 0;
   padding: 6px 0 4px;
-  font-size: 12px;
   color: var(--text-primary);
-  font-weight: 500;
 }
 
 /* `.preset-list` was in this rule too, from when the presets were a column
@@ -653,7 +662,6 @@ input {
   border-radius: var(--radius-md);
   background: none;
   color: var(--text-primary);
-  font-size: 12px;
   cursor: pointer;
   text-align: left;
 }
@@ -676,6 +684,8 @@ input {
 
 .template-row .dim {
   font-size: 10.5px;
+  /* Inter Regular, node 7:693. */
+  font-weight: 400;
   color: var(--text-muted);
 }
 
@@ -691,7 +701,6 @@ input {
   background: var(--surface-control);
   border-color: transparent;
   color: var(--text-primary);
-  font-weight: 500;
 }
 
 .template-row.is-selected .dim {
@@ -703,7 +712,6 @@ input {
   margin-top: 4px;
   border: 1px dashed var(--border-dashed);
   color: var(--text-primary);
-  font-size: 12px;
 }
 
 .template-row:focus-visible,
@@ -736,7 +744,6 @@ input {
   flex-direction: column;
   gap: 4px;
   font-family: var(--font-mono);
-  font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-primary);
@@ -752,7 +759,6 @@ input {
   background: var(--surface-control);
   color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: 12px;
 }
 
 .custom-size-input:hover {
@@ -782,7 +788,6 @@ input {
   border-radius: var(--radius-md);
   background: none;
   color: var(--text-primary);
-  font-size: 12.5px;
   cursor: pointer;
   text-align: left;
 }
@@ -795,7 +800,6 @@ input {
   background: var(--surface-raised-1);
   border-color: var(--border-strong);
   color: var(--text-primary);
-  font-weight: 500;
 }
 
 .preset-swatch {
@@ -925,9 +929,7 @@ input {
 }
 
 .canvas-toolbar-label {
-  font-size: 12px;
   color: var(--text-primary);
-  font-weight: 500;
 }
 
 .canvas-surface {
@@ -1140,7 +1142,6 @@ input {
   border-bottom: 1px solid var(--border-hairline);
   background: var(--surface-danger);
   color: var(--color-danger);
-  font-size: 11.5px;
   text-align: center;
 }
 
@@ -1172,13 +1173,10 @@ input {
 }
 
 .inspector-subject-label {
-  font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-primary);
 }
 
 .inspector-subject-name {
-  font-size: 12px;
-  font-weight: 500;
   color: var(--text-primary);
 }
 
@@ -1233,7 +1231,6 @@ input {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 11.5px;
   color: var(--text-primary);
 }
 
@@ -1285,7 +1282,6 @@ input {
   border: none;
   background: none;
   color: var(--text-primary);
-  font-size: 12px;
   cursor: pointer;
   padding: 0 8px;
 }
@@ -1293,7 +1289,6 @@ input {
 .segmented-cell.is-active {
   background: var(--accent);
   color: var(--text-primary);
-  font-weight: 500;
   border-radius: calc(var(--radius-control) - 1px);
 }
 
@@ -1359,7 +1354,8 @@ input {
 
 .segmented--mini .segmented-cell {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  /* 12px like every other cell (nodes 7:236-239, 7:286-289): the mini
+     variant is a smaller BOX, not smaller type. */
   padding: 0 9px;
 }
 
@@ -1376,12 +1372,10 @@ input {
 .slider-label {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
   color: var(--text-primary);
 }
 
 .slider-value {
-  font-size: 12px;
   color: var(--text-primary);
 }
 
@@ -1473,7 +1467,6 @@ input {
      rungs, and the inactive state below needs a visible drop from this one:
      secondary -> muted is 1.30x, white -> muted is 1.68x. */
   color: var(--text-primary);
-  font-size: 12.5px;
   cursor: pointer;
   text-align: left;
   width: 100%;
@@ -1488,7 +1481,6 @@ input {
 .sampled-row.is-active {
   background: var(--surface-raised-1);
   color: var(--text-primary);
-  font-weight: 500;
   border: 1.5px solid var(--text-primary);
 }
 
@@ -1535,7 +1527,6 @@ input {
 }
 
 .sampled-hue {
-  font-size: 12px;
   color: var(--text-muted);
 }
 
@@ -1572,14 +1563,12 @@ input {
   border-radius: var(--radius-control);
   background: var(--surface-control);
   color: var(--text-primary);
-  font-size: 12px;
   cursor: pointer;
 }
 
 .chip.is-selected {
   background: var(--accent);
   color: var(--text-primary);
-  font-weight: 600;
 }
 
 .chip:hover:not(.is-selected):not(:disabled) {
@@ -1634,7 +1623,6 @@ input {
   border-radius: var(--radius-sm);
   background: var(--surface-control);
   color: var(--text-primary);
-  font-size: 12px;
   cursor: pointer;
   /* The edge is transparent at rest and white when OPEN, per the design
      file. It is always 1.5px so opening the menu cannot shift the control's
@@ -1690,9 +1678,8 @@ input {
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-family: inherit;
-  font-size: 12px;
   text-align: left;
   cursor: pointer;
 }
@@ -1739,7 +1726,6 @@ input {
 .size-trigger-name {
   flex: 0 1 auto;
   min-width: 0;
-  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1751,6 +1737,8 @@ input {
 .size-trigger-dims {
   flex: none;
   font-size: 9px;
+  /* Inter Regular, node 7:661. */
+  font-weight: 400;
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -1805,6 +1793,8 @@ input {
 .export-footnote {
   margin: 0;
   font-size: 10.5px;
+  /* Inter Regular, node 7:292. */
+  font-weight: 400;
   color: var(--text-inert);
   text-align: center;
 }
@@ -1936,20 +1926,6 @@ input {
    canvas, arrows to cycle elements, with `.selection-outline` itself as the
    focus indicator so there is never a second ring competing with it. */
 
-/* Which element a panel is editing, in its own header (Cycle B Task 7).
-   Without it the Frame and Finish sections look identical whether they are
-   pointed at the desktop shot or the phone - two panels editing different
-   objects with nothing to tell them apart is a trap, not a feature.
-
-   --text-muted, not a dimmed --text-primary: Task 3b's rule is that every
-   state is an explicit colour and `opacity` is not permitted outside
-   @keyframes. */
-.section-subject {
-  margin-left: 8px;
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--text-muted);
-}
 
 /* The preset grid (Cycle C Task 5). Each tile is a real <canvas> painted by
    core/'s own paintGround, see web/preset-tiles.js, replacing eight 14x14
