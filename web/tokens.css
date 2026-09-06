@@ -17,10 +17,23 @@
                                       doubles as text-on-inverse (line 59) */
   /* `--surface-canvas` was merged into --surface-window in Cycle D Task 5. It
      measured 1.021:1 against it: two names for one colour. */
-  --surface-raised-1: #25292f;    /* selected template row (line 76) */
+
+  /* THE PANEL CARD. Cycle D Task 5, fix round: in the reference Rock gave,
+     exactly ONE surface is lifted off black — the settings panel. The top
+     bar, the rail and the stage all stay black. This is that one surface.
+
+     1.540:1 against the window, which is a charcoal you can see rather than
+     the 1.02 the old --surface-canvas managed. White reads 12.71:1 on it, so
+     there is room above it for a hover and a selected state and still 8.35:1
+     for white on the lightest of them. */
+  --surface-panel: #2e333b;
+  --surface-raised-1: #484e5b;    /* selected template row (line 76) */
   /* `--surface-raised-2` was merged into --surface-raised-1 in Cycle D Task 5.
      It measured 1.032:1 against it: two names for one colour. */
-  --surface-control-active: #3e444f; /* active segmented cell (line 116) */
+  /* `--surface-control-active` was merged into --surface-raised-1 in Cycle D
+     Task 5's fix round. A selected row and an active segmented cell are one
+     state — "this is the chosen one" — and giving it two names was how the
+     two drifted 1.098 apart and stopped reading as the same thing. */
   --surface-inverse: #f2f3f5;     /* primary button fill (line 59) */
 
   /* --- Row hover fill ---------------------------------------------------
@@ -34,7 +47,7 @@
      that. Lifting the hairline to the 1.9:1 below would have dropped the
      ceiling to 9.78:1 and made the ladder impossible. Split, each half is
      free: this one stays exactly where it was, and the hairline moves. */
-  --surface-hover: #333640;
+  --surface-hover: #3d404c;
 
   /* --- Borders / hairlines ----------------------------------------------
      Three thresholds, from the spec's Contrast section, and every value
@@ -46,7 +59,7 @@
 
      Measured in test/contrast.test.js, which derives every pairing from
      web/style.css. Do not lower one of these without moving that test. */
-  --border-hairline: #3c424d;     /* was #1b1d22 (1.16:1, invisible). Pane and
+  --border-hairline: #545c6c;     /* was #1b1d22 (1.16:1, invisible). Pane and
                                      section separators only - the hover fill
                                      that used to share this name is above.
                                      1.91:1 on --surface-window: the BOTTOM of
@@ -56,7 +69,7 @@
                                      inspector section), so they accumulate;
                                      pushed to the top of the range the shell
                                      reads as a wireframe. */
-  --border-subtle: #474d57;       /* was #1f2126 (1.21:1). Toolbar divider and
+  --border-subtle: #606877;       /* was #1f2126 (1.21:1). Toolbar divider and
                                      the CLI card outline - both decorative,
                                      but SHORT (an 18px rule, one small card),
                                      so they get the top of the range instead:
@@ -64,7 +77,7 @@
                                      token to --border-strong; it holds an
                                      <input>, so it is an interactive boundary
                                      and owes 3:1, not a judgement call. */
-  --border-strong: #8e93a2;       /* was #26282e (1.33:1). Every interactive
+  --border-strong: #9ca0ae;       /* was #26282e (1.33:1). Every interactive
                                      boundary: control borders, the search
                                      field, the slider track, the selected
                                      template / preset / sampled row. 3.03:1
@@ -76,7 +89,7 @@
                                      --surface-hover (.btn-ghost keeps this
                                      border while its hover fill lands under
                                      it), 3.86:1 on --surface-window. */
-  --border-dashed: #9499a7;       /* was #2c2f36 (1.43:1 on --surface-canvas -
+  --border-dashed: #adb1bd;       /* was #2c2f36 (1.43:1 on --surface-canvas -
                                      the empty-state frame Rock could not see).
                                      3.55:1 on --surface-hover, 4.04:1 on
                                      --surface-canvas. Deliberately a step
@@ -130,7 +143,14 @@
      invariant; the hue and the chroma are what actually survived. */
   --text-primary: #ffffff;        /* body text, slider fill/thumb accents */
   --text-secondary: #e0e2e5;      /* ghost button label, preset/sampled row label */
-  --text-muted: #c4c8cd;          /* filename, zoom label, slider labels, muted rows */
+  /* `--text-muted` was merged into --text-secondary in Cycle D Task 5's fix
+     round, leaving TWO text rungs: white, and one step down. Rock, four
+     times: "use the goddamn white."
+
+     The arithmetic agrees with him. Once the panel is a lifted card, every
+     grey below --text-secondary stops clearing 7:1 on it — --text-muted
+     measured 6.13:1 on the hover fill. A rung that cannot be used on the
+     surface it sits on is not a rung. */
   /* `--text-faint` was merged into --text-muted in Cycle D Task 5. Five text
      rungs plus any real surface separation does not fit in 21:1 — see the
      budget note at the top of the text section — and this rung sat 1.22 from

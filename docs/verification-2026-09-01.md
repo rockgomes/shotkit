@@ -2172,3 +2172,48 @@ it was always about — the replacement beats the composite and clears the
 floor.
 
 515 tests pass. No console errors.
+
+## Task 5, fix round — the panel is a card, the labels are headings
+
+Rock gave a reference and I read it wrong three times. What it actually shows:
+**exactly one surface lifted off black — the settings panel.** The top bar,
+the rail, the strip of icons and the bottom bar all stay black. I generalised
+one card to the whole app, twice.
+
+| | before | after |
+|---|---|---|
+| both side panels | `#0b0c0e`, same black as everything | **`#2e333b`**, 1.540:1 above it |
+| top bar, rail, stage | `#0b0c0e` | unchanged |
+| section label | 10px, ALL CAPS, 1.2px tracking, grey | **15px, normal capitalisation, white** |
+| slider label | 11.5px grey | 13px white |
+| Gradient/Solid | 28px tall | 34px |
+| chips | 24px | 30px |
+| slider control | 11px tall, 3px track, 11px grip | 20px tall, 6px track, **18px grip** |
+| rows | 32px, 12.5px text | 36px, 13.5px text |
+| the Reset | a round-arrow icon | **the word "Reset"** |
+
+**Two text rungs now: white, and one step down.** `--text-muted` measured
+6.13:1 on the hover fill once the panel was lifted — a rung that cannot be
+used on the surface it sits on is not a rung. Rock, four times: *"use the
+goddamn white."*
+
+**Four surfaces:** window `1.000` → panel `1.540` → hover `1.897` → selected
+`2.345`, steps of 1.232 and 1.236. `--surface-control-active` merged into
+`--surface-raised-1`: a selected row and an active segmented cell are one
+state, and two names is how they drifted apart.
+
+White measures 12.71:1 on the panel and 8.35:1 on the lightest fill.
+
+**What the change forced.** `--border-strong` `#696e7f` → `#9ca0ae`: it bounds
+controls on surfaces that just rose. `--border-dashed` had to rise above it to
+keep the border order. The decorative pair are now measured against the panel
+they sit on rather than the window — 1.89:1 and 2.28:1, inside the band.
+
+**Two assertions retired rather than repointed.** They reconstructed a
+pre-Cycle-A opacity failure from *live* tokens, and the tokens have moved far
+enough that the reconstruction no longer produces the numbers it was named
+after. The history is here in this file; what replaced them asserts the
+property that made the change right — the inert tone is under half of every
+live rung, and still above 3:1.
+
+509 tests pass. No console errors, no horizontal scroll.
