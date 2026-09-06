@@ -2383,3 +2383,35 @@ are `.template-row.is-selected` and `.btn-ghost`, both of which he draws the
 same way.
 
 515 tests pass, no console errors.
+
+### Step 3, fix round 3: four things Rock caught
+
+**The sampled row lost its corners.** My own doing, one fix round earlier: the
+regex that stripped `border` from that rule was `border[^;]*;`, which also
+matches `border-radius`. Restored to `--radius-control`, with the 1.5px
+transparent edge kept so the white ring appearing never shifts the row.
+
+**The selected colour tile was the wrong shape.** His node 7:717 is a 55px box
+with **no fill**, a white 1.5px stroke drawn INSIDE, and the 47.8px swatch
+inset 3.5px at radius 3. A ring outside the colour, not a ring hugging it.
+Measured after: 54.8px box, 1.5px white border, 2px padding, radius 6.
+
+**"PNG" carried a stroke at rest.** In his frame that white edge is the
+control's OPEN state. Removed from the resting state.
+
+While checking it: **the format control does work**, but not as a dropdown.
+Clicking it cycles PNG to JPEG to WEBP (`web/main.js`, `FORMAT_ORDER`). There
+is no menu to open, which is why nothing appeared to happen.
+
+**Two font families, not one.** Rock: *"you know I'm using only Inter font,
+right?"* The app had `--font-ui: Inter` and a separate system monospace for
+the numeric readouts. The monospace existed so digits keep a fixed advance as
+a value changes; `font-variant-numeric: tabular-nums` does that inside Inter,
+so the second family is gone.
+
+And a real one that scan turned up: **`<html>` had no font family at all** and
+was falling back to **Times**. Only `body` carried it, so anything escaping
+body's inheritance would have rendered serif. The family is on the root now.
+A scan of every visible element returns exactly one family: `Inter`.
+
+515 tests pass, no console errors.

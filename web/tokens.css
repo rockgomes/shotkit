@@ -295,5 +295,9 @@
   /* Inter, not Geist. Rock designs in Inter and the app was loading Geist,
      which nobody had checked. */
   --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
+  /* ONE FAMILY. Rock: "you know I'm using only Inter font, right?" The
+     numeric readouts used a monospace so digits would not jitter as they
+     change; `font-variant-numeric: tabular-nums` gives the same fixed advance
+     inside Inter, so the second family is gone. */
+  --font-mono: 'Inter', system-ui, -apple-system, sans-serif;
 }

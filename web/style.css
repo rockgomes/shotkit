@@ -93,6 +93,12 @@
 }
 
 html,
+/* The family belongs on the root, not only on body: <html> was falling
+   back to Times, so anything that escaped body would have rendered serif. */
+html {
+  font-family: var(--font-ui);
+}
+
 body {
   height: 100%;
   margin: 0;
@@ -119,6 +125,7 @@ input {
 
 .mono {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .visually-hidden {
@@ -1398,6 +1405,7 @@ input {
   text-align: left;
   width: 100%;
   border: 1.5px solid transparent;
+  border-radius: var(--radius-control);
 }
 
 .sampled-row:hover {
@@ -1545,7 +1553,7 @@ input {
   color: var(--text-primary);
   font-size: 12px;
   cursor: pointer;
-  border: 1px solid var(--text-primary);
+  border: none;
 }
 
 .select-control .icon {
@@ -1777,8 +1785,10 @@ input {
 }
 
 .preset-tile.is-selected .preset-tile-canvas {
-  border-color: var(--text-primary);
-  box-shadow: 0 0 0 0.5px var(--text-primary);
+  border: 1.5px solid var(--text-primary);
+  padding: 2px;
+  border-radius: var(--radius-control);
+  box-shadow: none;
 }
 
 .preset-tile.is-selected .preset-tile-label {
