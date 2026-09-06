@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the two panels say what the data says — left is the shot, right is the thing you clicked — and give the app a colour that means "active".
+**Goal:** Make the two panels say what the data says — left is the shot, right is the thing you clicked — stop the app reading as one flat black, and give it a colour that means "active".
 
 **Architecture:** No new rendering. This cycle is entirely `web/`: Size becomes one tabbed control so the left panel has room; Background, Padding and Grain move to the left panel because they are canvas properties; Frame, Corner radius, Stroke and Shadow stay on the right because they belong to the selected element; the per-slider Reset that Cycle C built for Background is extracted into a shared control and applied to every slider; and an accent colour replaces "active means lighter" everywhere it currently says that.
 
@@ -78,7 +78,7 @@ One more, from Cycle C Task 7: **a hidden preview pane does not run `requestAnim
 | `web/inspector-frame.js` | keeps Frame, Corner radius, Stroke, Shadow; loses Padding and Grain |
 | `web/inspector-background.js` | unchanged behaviour; its Reset button moves to `web/controls.js` |
 | `web/main.js` | `inert` and drawer wiring follow the moved sections |
-| `web/tokens.css` | the accent tokens |
+| `web/tokens.css` | the surface ladder, then the accent tokens |
 | `web/style.css` | the tab strip, the two panels' headings, accent application |
 
 **`web/controls.js` is a new file for the same reason `web/selection.js` and `web/preset-tiles.js` were.** It carries a rule — *every slider row looks the same and every one has a Reset* — and a rule is easier to keep in a file that contains only the thing it governs. Today `makeResetButton` lives inside `web/inspector-background.js`'s init closure, which is precisely why Padding, Radius, Grain, Shadow and Stroke do not have one.
@@ -842,7 +842,118 @@ git push
 
 ---
 
-## Task 5: The accent colour
+## Task 5: The UI is dim, and it is the surfaces
+
+**Files:**
+- Modify: `web/tokens.css`
+- Test: `test/contrast.test.js`
+
+Rock, 2026-09-06: *"the UI still is very dim and low contrast."*
+
+**He is right, and the text is not the problem.** Measured before writing this:
+
+| token | on `--surface-window` |
+|---|---|
+| `--text-primary` `#f5f7fb` | 18.25:1 |
+| `--text-secondary` `#dfe1e5` | 14.95:1 |
+| `--text-muted` `#cacdd2` | 12.28:1 |
+| `--text-faint` `#b7babf` | 10.05:1 |
+| `--text-fainter` `#a4a8ae` | 8.19:1 |
+
+Cycle A's contrast work lifted that ladder and it is bright. What it never touched is the **surfaces**, and they are all the same near-black:
+
+| adjacent pair | ratio |
+|---|---|
+| `--surface-window` → `--surface-canvas` | **1.021** |
+| `--surface-canvas` → `--surface-raised-1` | 1.089 |
+| `--surface-raised-1` → `--surface-raised-2` | **1.032** |
+| `--surface-raised-2` → `--surface-hover` | **1.012** |
+| `--surface-hover` → `--surface-control-active` | 1.098 |
+
+The whole app spans 1.00 to 1.27. **This project's own floor for ladder separation is 1.2, and not one adjacent surface pair clears it.** A hover state at 1.012 is a hover state nobody can see. Bright text floating on one flat black is exactly what "dim" describes: nothing has shape, so nothing reads as raised, selected or hovered.
+
+The borders are carrying the whole structure alone, and two of the four are faint doing it: `--border-hairline` 1.91:1, `--border-subtle` 2.31:1.
+
+- [ ] **Step 1: Write the failing test the surfaces have never had**
+
+The text ladder has a "keeps its rungs" guard. The surfaces have none — which is why they drifted to within 1% of each other without anything complaining. Add to `test/contrast.test.js`:
+
+```js
+// The SURFACE ladder, which never had a guard and drifted to nothing.
+// Measured 2026-09-06, before Cycle D Task 5: the six surfaces spanned
+// 1.00-1.27 against the window, with adjacent steps as small as 1.012 —
+// a hover state a twentieth of the way to the app's own 1.2 floor.
+//
+// Surfaces are not text, so the bar is not 4.5. It is the same LADDER rule
+// the text tokens keep: each rung must be visibly apart from the one below
+// it, or the name is a lie.
+const SURFACE_LADDER = [
+  '--surface-window',
+  '--surface-canvas',
+  '--surface-raised-1',
+  '--surface-raised-2',
+  '--surface-hover',
+  '--surface-control-active',
+];
+
+it('every surface is visibly above the one below it', () => {
+  for (let i = 1; i < SURFACE_LADDER.length; i++) {
+    const lower = SURFACE_LADDER[i - 1];
+    const upper = SURFACE_LADDER[i];
+    const r = ratio(tokenValue(upper), tokenValue(lower));
+    expect(r, `${lower} -> ${upper} is ${r.toFixed(3)}, flat`).toBeGreaterThanOrEqual(1.2);
+  }
+});
+```
+
+Reuse that file's existing `ratio` and token-reading helpers rather than adding a second pair; if their names differ, use theirs.
+
+- [ ] **Step 2: Run it and watch every rung fail**
+
+```bash
+npx vitest run test/contrast.test.js
+```
+
+Expected: FAIL, naming `--surface-window -> --surface-canvas is 1.021, flat`. Record every reported ratio in `docs/verification-2026-09-01.md` — that table is the before state, and it is the argument for the change.
+
+- [ ] **Step 3: Raise the surfaces, keeping hue and saturation**
+
+Each token keeps its own hue and saturation and moves only in lightness, the same discipline Cycle A used on the text ladder. Work up from `--surface-window`, which stays where it is — it is the floor everything else is measured from, and moving it would move every text ratio too.
+
+After each edit, re-run the test and record the achieved ratio beside the value. **Do not tune to the floor.** Cycle A hit 4.53:1 against a 4.5 bar once and its own token comment records that as a habit to avoid; aim past 1.2, not at it.
+
+- [ ] **Step 4: Confirm the text ladder survived the change**
+
+```bash
+npx vitest run test/contrast.test.js
+```
+
+Raising `--surface-raised-1` and `--surface-control-active` lowers every text ratio measured against them, and those pairs are already asserted in that file. Expected: PASS. If one fails, the surface moved too far — lower the surface rather than raising the text, which has least room left at the top of its own ladder.
+
+- [ ] **Step 5: Look at it, with a shot loaded**
+
+In a **fresh tab**, at 1440px:
+
+- do the panels read as panels, distinct from the stage;
+- is a hovered template row visibly different from an unhovered one;
+- is a selected row visibly different from a hovered one;
+- does the canvas still read as the brightest thing on screen, which it must — the shot is the subject and the chrome is not.
+
+**If it now reads as grey rather than black, say so.** Going too far is a real outcome and the numbers alone cannot tell you.
+
+- [ ] **Step 6: Commit, deploy, and STOP**
+
+```bash
+git add web/tokens.css test/contrast.test.js docs/verification-2026-09-01.md
+git commit -m "fix(web): the surfaces were all one black"
+git push
+```
+
+> Hand over with the before/after table, and answer Rock's sentence directly: it was dim because every surface sat within 1% of every other, and here is what they are now.
+
+---
+
+## Task 6: The accent colour
 
 **Files:**
 - Modify: `web/tokens.css`
@@ -853,7 +964,9 @@ git push
 
 The brand gradient `#5b6cff → #a24ff0` appears on exactly one thing — the app-mark glyph, and now the favicon. Everything else says "active" with lightness alone.
 
-- [ ] **Step 1: Measure what "active" currently costs, before changing it**
+**This comes after Task 5 deliberately.** An accent laid over surfaces that are all the same black would be doing the surfaces' job as well as its own, and the two changes would be impossible to judge apart.
+
+- [ ] **Step 1: Measure what "active" costs today, before changing it**
 
 For each of these, record the current pair and its contrast ratio in `docs/verification-2026-09-01.md`:
 
@@ -866,7 +979,7 @@ For each of these, record the current pair and its contrast ratio in `docs/verif
 - the slider fill (`--text-primary` against `--border-strong`)
 - every `:focus-visible` ring
 
-**This is Step 1 for a reason.** An accent that lands on a surface already carrying a 3:1 boundary must keep it; one that replaces text ink must keep 7:1. Knowing which is which before choosing a colour is the difference between a design decision and a repaint.
+An accent that lands on a surface already carrying a 3:1 boundary must keep it; one that replaces text ink must keep 7:1. Knowing which is which before choosing a colour is the difference between a design decision and a repaint.
 
 - [ ] **Step 2: Add the tokens**
 
@@ -891,7 +1004,7 @@ The exact values are a starting point, not a result — Step 3 measures them and
 In `test/contrast.test.js`, add the accent's pairs to the existing token table:
 
 ```js
-  // The accent (Cycle D Task 5). It carries ink on .chip.is-selected and on
+  // The accent (Cycle D Task 6). It carries ink on .chip.is-selected and on
   // the active segmented cell, so it owes 7:1 there; everywhere else it is a
   // boundary or a fill and owes 3:1.
   ['--accent-ink', '--accent', TEXT_MIN],
@@ -905,7 +1018,7 @@ In `test/contrast.test.js`, add the accent's pairs to the existing token table:
 npx vitest run test/contrast.test.js
 ```
 
-If a pair fails, **change the token, not the threshold**. The thresholds are the spec's; Cycle A tuned a token to exactly its floor once and recorded that as a habit worth avoiding, so aim past the bar rather than at it.
+If a pair fails, **change the token, not the threshold**.
 
 - [ ] **Step 5: Apply it where "active" is currently only lighter**
 
@@ -928,7 +1041,7 @@ Do **not** apply it to: body text, the section labels, the canvas surround, or a
 npx vitest run
 ```
 
-Expected: PASS, including `test/contrast.test.js`'s opacity and off-state guards.
+Expected: PASS, including the opacity and off-state guards.
 
 - [ ] **Step 7: Look at it, with a shot loaded**
 
@@ -944,40 +1057,81 @@ git commit -m "feat(web): the app has an accent colour"
 git push
 ```
 
-> Hand over with the list of places it acts and the measured ratios. Rock asked for this on 2026-09-02 and it has waited two cycles; it deserves a proper look rather than a merge.
-
 ---
 
-## Task 6: The CLI card says something that is not true
+## Task 7: Hide the CLI card
 
 **Files:**
 - Modify: `web/index.html`
 - Modify: `README.md`
+- Modify: `docs/superpowers/specs/2026-09-02-shotkit-round-two-design.md`
 
-The sidebar's footer shows `$ shotkit watch ./shots` above a green dot and the words **CLI connected**. There is no CLI. The README's own "Not built yet" list says so: *"A CLI. The old one is gone and nothing replaced it."*
+The sidebar's footer shows `$ shotkit watch ./shots` above a green dot and the words **CLI connected**. There is no CLI — the README's own "Not built yet" list says so — so it is a status indicator asserting something untrue.
 
-**This is a fabricated status indicator in shipped UI**, which is the one thing this project's rules say never to do. It came in with the design handoff's mockup and was reproduced as chrome.
+**DECIDED, Rock 2026-09-06:** *"but we are supposed to have CLI at some point, no? either way, you can hide it for now. but let's circle back on this later."*
 
-- [ ] **Step 1: Put the three options to Rock, and do not choose silently**
+So it is **hidden, not deleted**: the CLI is still planned, and deleting the card would throw away the design for its status line too. This is a deferral, and it is written down as one so it is not lost.
 
-- **Remove it.** The footer becomes the spacer it already mostly is, and the left panel gets the height back — useful in the cycle that is adding two sections to that panel.
-- **Keep it as a placeholder**, restyled so it plainly reads as not-yet-built: no green dot, no "connected", disabled tone, the same treatment the rail's Library / Presets / Integrations items already get.
-- **Build the CLI.** Out of scope for this cycle and a whole project of its own; recorded so the option is not lost.
+- [ ] **Step 1: Hide the card, and say in the markup why**
 
-Recommend the first: the second keeps a promise the app cannot honour, and the panel needs the room.
+In `web/index.html`, add `hidden` to the `.cli-card` element and put the reason above it:
 
-- [ ] **Step 2: Do what he says, then commit, deploy, and STOP**
+```html
+        <!-- HIDDEN, NOT DELETED — Cycle D Task 7, Rock's call 2026-09-06:
+             "we are supposed to have CLI at some point... you can hide it
+             for now. but let's circle back on this later."
 
-Whichever is chosen, record the decision in the spec beside the "Not built yet" entry, and update the README if the card goes.
+             The card showed a green dot and the words "CLI connected" while
+             no CLI existed — see the README's "Not built yet". A status
+             indicator asserting something untrue is the one thing this
+             project's rules never allow. It stays in the markup because the
+             CLI is still planned and this is its design. -->
+        <div class="cli-card" hidden>
+```
+
+`[hidden] { display: none !important; }` is already the single global rule, so no CSS is added.
+
+- [ ] **Step 2: Record the deferral where it will be found again**
+
+In the spec's "Out of scope" section:
+
+```markdown
+- The CLI, and with it the sidebar's CLI card — hidden 2026-09-06, not
+  deleted, because the CLI is still planned. The card asserted "CLI
+  connected" with a green dot while no CLI existed. Rock: "let's circle back
+  on this later."
+```
+
+In the README's "Not built yet" entry for the CLI, add one sentence: the sidebar carries a hidden status card for it, waiting.
+
+- [ ] **Step 3: Confirm nothing else claims a live connection**
+
+```bash
+grep -rn "connected" web/
+grep -rn "status-dot" web/
+grep -rn "color-status-green" web/
+```
+
+Expected: only the hidden card and its token. Anything else claiming a connection is the same defect and goes with it.
+
+- [ ] **Step 4: Check it in the browser and commit**
+
+In a **fresh tab**: the card is gone from the sidebar, the panel's own scroll still behaves, and the console is clean.
+
+```bash
+git add web/index.html README.md docs/superpowers/specs/2026-09-02-shotkit-round-two-design.md
+git commit -m "fix(web): hide the CLI card, which claimed a connection that does not exist"
+git push
+```
 
 ---
 
-## Task 7: The whole-app verification pass
+## Task 8: The whole-app verification pass
 
 **Files:**
 - Modify: `docs/verification-2026-09-01.md`
 
-Cycle D moves controls between panels, which is exactly the change that breaks keyboard order, focus rings and narrow-viewport drawers without failing a single test.
+Cycle D moves controls between panels and repaints every surface, which is exactly the change that breaks keyboard order, focus rings and narrow-viewport drawers without failing a single test.
 
 - [ ] **Step 1: Tab through the whole app and record the order**
 
@@ -1007,7 +1161,7 @@ git push
 
 ## Cycle close
 
-After Task 7 is approved:
+After Task 8 is approved:
 
 1. `npx vitest run` — green.
 2. `git status --short test/golden` — clean. **No golden may move this cycle**: nothing in `core/` is touched, so a moved golden means something reached the renderer that should not have.
@@ -1020,12 +1174,12 @@ After Task 7 is approved:
 
 ## Self-review
 
-**Spec coverage.** "The organising rule: left is the shot, right is the thing you clicked" → Tasks 2 and 3. "Templates and ratios become one tabbed control" → Task 1. "DECIDED — every slider carries its own Reset ... Cycle D generalises it to the rest" → Task 4. "Carried forward — the accent colour" → Task 5, including its 3:1 / 7:1 requirement. The spec's stated risk — the panels squeezing the canvas — is measured in Task 1 Step 9 and again in Task 7 Step 4.
+**Spec coverage.** "Carried forward — the accent colour" → Task 6, including its 3:1 / 7:1 requirement. "The organising rule: left is the shot, right is the thing you clicked" → Tasks 2 and 3. "Templates and ratios become one tabbed control" → Task 1. "DECIDED — every slider carries its own Reset ... Cycle D generalises it to the rest" → Task 4. The spec's stated risk — the panels squeezing the canvas — is measured in Task 1 Step 9 and again in Task 7 Step 4.
 
 **Not covered here, deliberately:** the light theme, which the spec keeps as its own cycle designed from scratch; keyboard selection on the canvas, still unbuilt since Cycle B; named device frames; saved projects and presets. Background images and wallpapers remain out of scope entirely.
 
-**Raised by this plan, not by the spec:** the CLI card (Task 6). It is a fabricated status in shipped UI, found while mapping the sidebar for the panel split, and it is routed to Rock as a decision rather than removed silently.
+**Raised by this plan, not by the spec:** two things. The CLI card (Task 7) is a fabricated status in shipped UI, found while mapping the sidebar for the panel split; Rock's answer on 2026-09-06 was to hide rather than delete it, since the CLI is still planned. And Task 5 exists because of his verdict the same day — *"the UI still is very dim and low contrast"* — which measurement traced to the surface ladder rather than to the text the earlier contrast work had already lifted.
 
-**Where this plan is weakest, said plainly.** Task 5 is a visual identity decision with almost no test cover — contrast assertions prove an accent is *legible*, never that it is *good*, and the honest acceptance test is Rock looking at it. Task 4 converts eight sliders in one task, which is larger than this plan's own right-sizing rule likes; it is one task because a half-converted `web/controls.js` leaves two ways to build a slider, which is the exact condition it exists to remove. Its risk is mitigated by the browser check in Step 8 listing all eight by name.
+**Where this plan is weakest, said plainly.** Task 6 is a visual identity decision with almost no test cover — contrast assertions prove an accent is *legible*, never that it is *good*, and the honest acceptance test is Rock looking at it. Task 4 converts eight sliders in one task, which is larger than this plan's own right-sizing rule likes; it is one task because a half-converted `web/controls.js` leaves two ways to build a slider, which is the exact condition it exists to remove. Its risk is mitigated by the browser check in Step 8 listing all eight by name.
 
 **Type consistency.** `SIZE_TABS` / `activeSizeTab(config)` are Task 1's exports and used nowhere else. `makeSliderRow({ label, min, max, step, ariaLabel, format, isDefault, onInput, onReset, resetLabel })` returns `{ row, input, value, reset, sync }` and is the only slider constructor from Task 4 onward. `initCanvasPanel()` mounts on `#canvasSection`, matching `CONTENT_SECTIONS` in Task 2 Step 4. `activePadPercent` / `setPadPercent` / `activeGrainPercent` / `setGrainPercent` keep their exact names across the move in Task 3; only their module changes.
