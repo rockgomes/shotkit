@@ -595,12 +595,9 @@ input {
 .section-label {
   margin: 0;
   padding: 6px 0 4px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: 12px;
   color: var(--text-primary);
-  font-weight: 400;
+  font-weight: 500;
 }
 
 /* `.preset-list` was in this rule too, from when the presets were a column
@@ -655,7 +652,7 @@ input {
   border-radius: var(--radius-md);
   background: none;
   color: var(--text-primary);
-  font-size: 12.5px;
+  font-size: 12px;
   cursor: pointer;
   text-align: left;
 }
@@ -877,10 +874,9 @@ input {
 }
 
 .canvas-toolbar-label {
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 12px;
   color: var(--text-primary);
+  font-weight: 500;
 }
 
 .canvas-surface {
@@ -1215,7 +1211,7 @@ input {
   border: none;
   background: none;
   color: var(--text-primary);
-  font-size: 11.5px;
+  font-size: 12px;
   cursor: pointer;
   padding: 0 8px;
 }
@@ -1304,12 +1300,12 @@ input {
 .slider-label {
   display: flex;
   justify-content: space-between;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--text-primary);
 }
 
 .slider-value {
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--text-primary);
 }
 
@@ -1463,7 +1459,7 @@ input {
 }
 
 .sampled-hue {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 
@@ -1497,7 +1493,7 @@ input {
   border-radius: var(--radius-pill);
   background: var(--surface-control);
   color: var(--text-primary);
-  font-size: 11.5px;
+  font-size: 12px;
   cursor: pointer;
 }
 
@@ -1574,7 +1570,7 @@ input {
 
 .export-footnote {
   margin: 0;
-  font-size: 10px;
+  font-size: 10.5px;
   color: var(--text-inert);
   text-align: center;
 }
@@ -1716,10 +1712,8 @@ input {
    @keyframes. */
 .section-subject {
   margin-left: 8px;
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 400;
   color: var(--text-muted);
 }
 
@@ -1775,7 +1769,7 @@ input {
 }
 
 .preset-tile-label {
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.2;
   text-align: center;
   color: var(--text-primary);

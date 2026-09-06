@@ -2266,3 +2266,35 @@ A full scan of every text-bearing element now returns exactly two colours:
 white on 41 elements, and `#c4c8cd` on six, the four row dimensions and the
 two `.section-subject` labels. The dimensions match Rock's frame. The section
 subjects are what his "Selected: Desktop" heading replaces, in a later step.
+
+## Step 2: type, from Rock's frame
+
+Sizes and casing only. No colour changed, nothing moved.
+
+| | before | after |
+|---|---|---|
+| section headings | 10px, ALL CAPS, 1.2px tracking, mono | **12px, sentence case, Inter** |
+| the canvas toolbar's heading | 10px, ALL CAPS, mono | **12px, sentence case, Inter** |
+| section subject ("Desktop") | 10.5px, ALL CAPS, tracked | 12px, sentence case |
+| size rows | 12.5px | 12px |
+| slider labels | 11.5px | 12px |
+| segmented cells | 11.5px | 12px |
+| chips | 11.5px | 12px |
+| preset tile labels | 10.5px | 11px |
+| slider values | 10.5px | 12px |
+| the sampled subline | 10px | 12px |
+| row dimensions | 10.5px | 10.5px, unchanged |
+| "Ready to export" | 10px | 10.5px |
+
+`BACKGROUND` in tracked 10px monospace is now `Background` in 12px Inter,
+which is what his frame draws. The toolbar's own heading carried a `.mono`
+class in the markup, so it stayed monospace after the CSS change; the class
+came off so all six headings match.
+
+**What it costs.** The left panel's content goes from fitting to **883px in
+an 852px pane**, so it scrolls by 31px at 1440×900. The right panel still
+fits exactly. `#stage` is unchanged at 856px and there is no horizontal
+scroll.
+
+Measured after: all six headings read Inter, 12px, `text-transform: none`.
+515 tests pass, no console errors.
