@@ -503,17 +503,45 @@ input {
    Sidebar
    ---------------------------------------------------------------------- */
 
+/* The two panels are the same panel, mirrored. Cycle D put Background in
+   this one, and Rock said what the mismatch looked like immediately: "the
+   area is really compressed, it has some sort of padding/margin that is
+   making it slimmer than it should. I feel like this whole panel should
+   actually have the same size as the other panel."
+
+   He was reading two faults at once, and both were real. Measured: this
+   panel was 226px against #inspector's 266px, AND its own 12px padding
+   nested inside .inspector-section's 14px, so a section that got 237px of
+   content on the right got 173px here — 64px narrower, for a panel only
+   40px narrower.
+
+   So the width matches now, and the padding lives in ONE place: the
+   sections carry their own, exactly as they do in #inspector, and this
+   element carries none. */
 #sidebar {
   display: flex;
   flex-direction: column;
-  width: 226px;
+  width: 266px;
   flex: none;
-  padding: 12px;
-  gap: 4px;
   overflow-y: auto;
   overflow-x: hidden;
   border-right: 1px solid var(--border-hairline);
   background: var(--surface-window);
+}
+
+/* The sidebar's own children, which are not .inspector-section and so have
+   to inset themselves. 14px, matching .inspector-section's padding, so the
+   Size list and the Background controls line up down a single edge. */
+.sidebar-search {
+  margin: 12px 14px 8px;
+}
+
+.sidebar-section {
+  padding: 0 14px 14px;
+}
+
+.cli-card {
+  margin: 0 14px 12px;
 }
 
 .sidebar-search {
@@ -522,7 +550,6 @@ input {
   gap: 7px;
   height: 30px;
   padding: 0 10px;
-  margin-bottom: 8px;
   /* --border-strong, not --border-subtle: this box holds an <input>, so its
      edge is an interactive component boundary and owes 3:1 rather than the
      judgement call the two decorative border tokens get (Task 3b). */
@@ -563,8 +590,12 @@ input {
   font-weight: 400;
 }
 
-.template-list,
-.preset-list {
+/* `.preset-list` was in this rule too, from when the presets were a column
+   of rows. It has been a grid since Cycle C Task 5 (see the .preset-list
+   rule further down), so every property here was already being overridden —
+   an unused second opinion about a live element, which is the shape of
+   defect the retired CSS gradient swatches were. */
+.template-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1658,7 +1689,13 @@ input {
    Cycle D's panel split comes from: eight rows become two. */
 .preset-list {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* minmax(0, 1fr), not 1fr. A `1fr` track cannot shrink below its own
+     min-content, and "Lavender" is the widest of the eight labels — so the
+     first column took 44.6px while the other three got 36.8px, which is
+     what Rock saw as "the color boxes are uneven". Third time this
+     cycle-family that an implicit min-content floor has broken an equal
+     split; grid with an explicit zero minimum is the fix each time. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
   list-style: none;
   margin: 0;

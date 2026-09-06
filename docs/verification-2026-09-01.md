@@ -1919,3 +1919,43 @@ canvas. Verified in Chromium at 1440×900 with a screenshot loaded:
   `clientHeight` 852. `#stage` is still 896px wide, unchanged from before the
   move, so nothing has squeezed the canvas.
 - No console errors; no horizontal scroll at 1440px.
+
+### Task 2, fix round — the panels are now the same panel
+
+Rock, on the first preview: *"it is on the left, but this looks pretty bad.
+the area is really compressed, it has some sort of padding/margin that is
+making it slimmer than it should. the color boxes are uneven. I feel like
+this whole panel should actually have the same size as the other panel."*
+
+Three faults in one look, all three real, all measured:
+
+| | before | after |
+|---|---|---|
+| `#sidebar` width | 226px | **266px**, matching `#inspector` |
+| Background's content width | 173px | **237px**, matching Frame's |
+| preset tiles | 44.6 / 36.8 / 36.8 / 36.8 | **54.8px each** |
+
+**The compression was padding counted twice.** `#sidebar` carried 12px of its
+own, and `.inspector-section` adds 14px — so a section that gets 237px of
+content in the right-hand panel got 173px here. That is 64px narrower for a
+panel only 40px narrower. The padding now lives in one place: the sections
+carry their own, exactly as they do in `#inspector`, and the panel carries
+none.
+
+**The uneven tiles were the min-content trap again.** `repeat(4, 1fr)`: a
+`1fr` track cannot shrink below its own min-content, and "Lavender" is the
+widest of the eight labels, so the first column took 44.6px and the rest
+split what was left. `repeat(4, minmax(0, 1fr))` fixes it — the third time
+in this cycle-family, after Cycle C Task 6's mini segmented controls and
+Cycle D Task 1's tabs. **Three different symptoms, one cause: an implicit
+min-content floor on a track that was supposed to be an equal share.**
+
+**What it cost.** `#stage` goes from 896px to **856px** at 1440×900 — 40px,
+the width the left panel gained. That is a real cost and Rock chose it
+knowingly; it is recorded here rather than left for Task 8 to discover.
+
+Also removed: `.preset-list` was styled twice, once as a flex column left
+over from when the presets were rows and once as the grid it has been since
+Cycle C Task 5. Every property in the older rule was already overridden — an
+unused second opinion about a live element, which is the same shape as the
+CSS gradient swatches that lied twice.
