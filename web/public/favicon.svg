@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="shotkit">
+  <!-- The app's own brand mark at favicon size. Colours are the brand gradient
+       tokens from web/tokens.css, duplicated because an image file cannot read
+       a CSS custom property; test/favicon.test.js pins them to the tokens. The
+       S is a stroked path, not text, so no font has to be installed. -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5b6cff"/>
+      <stop offset="1" stop-color="#a24ff0"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#g)"/>
+  <path d="M21 11.5C21 9 18.5 8 16 8s-5 1-5 3.5S13.5 15 16 16s5 2 5 4.5S18.5 24 16 24s-5-1-5-3.5"
+        fill="none" stroke="#ffffff" stroke-width="2.6"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
