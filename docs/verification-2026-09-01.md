@@ -2232,3 +2232,37 @@ Measured in Chromium after the change:
 | Export | `rgb(83,100,255)` |
 
 515 tests pass. No console errors, no horizontal scroll.
+
+### Step 1, fix round: the off state kept the accent
+
+Rock, on the preview: *"how do you explain the dark text on purple buttons
+that were EXPLICITLY white on the design?"*
+
+Before a screenshot loads, the Background, Frame and Finish sections are
+`inert`, and the single off-state rule re-declares the text tokens to
+`--text-inert`. Step 1 gave the primary button, the active segmented cell and
+the selected chip an accent FILL, and never told that rule about `--accent`.
+So the fill stayed at full strength while the ink went grey.
+
+Five controls on the very first screen: **Export**, **Export PNG**,
+**Gradient**, and both **None** chips, purple with `rgb(94,101,112)` text.
+
+The rule now switches the accent off with everything else:
+`--accent: var(--surface-control)`.
+
+Measured before and after, on load with no screenshot:
+
+| | purple controls in the empty state |
+|---|---|
+| before | 8, of which **5 had grey ink** |
+| after | 3, all white ink: the size tabs, the surround control, the export scale, none of which are inert |
+
+With a screenshot loaded, all six purple controls carry white ink.
+
+**How it got shipped.** I only ever verified with a screenshot loaded. The
+empty state is the first thing anyone sees, and I never looked at it.
+
+A full scan of every text-bearing element now returns exactly two colours:
+white on 41 elements, and `#c4c8cd` on six, the four row dimensions and the
+two `.section-subject` labels. The dimensions match Rock's frame. The section
+subjects are what his "Selected: Desktop" heading replaces, in a later step.

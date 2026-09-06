@@ -77,6 +77,12 @@
      near-white to the inert tone, which keeps their --surface-window ink
      legible at 3.33:1 */
   --surface-inverse: var(--text-inert);
+  /* AND THE ACCENT, for the same reason. Step 1 gave the primary button, the
+     active segmented cell and the selected chip an accent FILL, and this rule
+     greys their ink, so an inert panel showed five full-strength purple
+     controls carrying dead grey text. An off state has to switch off the
+     whole control, not its ink. */
+  --accent: var(--surface-control);
   /* state fills recede to just above the window so the inert tone clears
      3:1 over them too (3.10:1) */
   --surface-control-active: var(--surface-inert);
