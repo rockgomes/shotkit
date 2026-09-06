@@ -293,11 +293,17 @@ const toolbarFileSlot = document.querySelector('#toolbarFile .file-slot');
 const exportFootnote = document.querySelector('.export-footnote');
 const sidebarEl = document.getElementById('sidebar');
 
-// The three inspector sections that describe properties OF a loaded shot —
-// greyed and `inert` (index.html's static default) until one exists. The
-// Export section is deliberately not in this list; see index.html's and
-// style.css's own comments on why it's handled differently (the button
-// disables, the format/scale pickers don't).
+// The three sections that describe properties OF a loaded shot — greyed and
+// `inert` (index.html's static default) until one exists. The Export section
+// is deliberately not in this list; see index.html's and style.css's own
+// comments on why it's handled differently (the button disables, the
+// format/scale pickers don't).
+//
+// ADDRESSED BY ID, NOT BY `#inspector .inspector-section`. Cycle D moved
+// Background into the LEFT panel, and a selector rooted at the inspector
+// would have silently stopped reaching it — the section would have stayed
+// inert forever, greyed with no way to tell why. It was already written this
+// way; that is luck, and this comment is what turns it into a decision.
 const propertySections = ['backgroundSection', 'frameSection', 'finishSection'].map((id) =>
   document.getElementById(id),
 );

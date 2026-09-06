@@ -163,7 +163,7 @@
 
       <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
 
-      <aside id="sidebar" aria-label="Templates and ratios">
+      <aside id="sidebar" aria-label="The shot: size and background">
         <label class="sidebar-search">
           <svg class="icon" aria-hidden="true"><use href="#icon-search"></use></svg>
           <span class="visually-hidden">Search templates</span>
@@ -200,6 +200,32 @@
              Background panel shows the same eight (rendered by the same
              renderGroundSwatches helper in web/sidebar.js) and is where the
              rest of the ground controls live. One list, one place. -->
+
+        <!-- web/inspector-background.js owns everything in this section
+             below the heading — Sampled, the preset tiles, Hue, Angle, Type
+             and Luminosity, in that order (the product's argument, not a
+             layout preference; see that file's header comment). The design
+             handoff's own markup here put a gradient-swatch picker first;
+             that is deliberately NOT reproduced — the screenshot's own
+             sampled ground leads, manual hue is an override.
+
+             IT LIVES IN THE LEFT PANEL as of Cycle D: the ground describes
+             the CANVAS, and the right-hand panel edits whichever element you
+             clicked. `c` is the canvas and `elements` is the things in the
+             shot — the panels now say what the config already says.
+
+             `inert` by default: these are properties OF a loaded shot, so
+             with none loaded they read the way a photo editor's properties
+             panel does before any document is open — present, greyed, not
+             operable. web/main.js's syncContentUI() removes this the moment
+             a screenshot decodes and restores it if the app is ever back to
+             zero images. The Size control above is deliberately not covered
+             by it — that configures what a drop will produce and stays live
+             throughout. -->
+        <section class="inspector-section" id="backgroundSection" inert>
+          <h2 class="section-label">Background</h2>
+        </section>
+
 
         <div class="sidebar-spacer"></div>
 
@@ -250,28 +276,7 @@
         <input type="file" id="fileInput" class="visually-hidden" accept="image/*" multiple tabindex="-1" aria-hidden="true" />
       </main>
 
-      <aside id="inspector" aria-label="Background, frame and export settings">
-        <!-- Task 5 (web/inspector-background.js) owns everything in this
-             section below the heading — Sampled, Presets, Hue, Angle,
-             Type, Seed and Tone, in that order (the product's argument,
-             not a layout preference; see that file's header comment).
-             The design handoff's own markup here put a gradient-swatch
-             picker first; that is deliberately NOT reproduced — the
-             screenshot's own sampled ground leads, manual hue is an
-             override.
-
-             `inert` by default (Task 7): these are properties OF a loaded
-             shot, so with none loaded they read the way a photo editor's
-             properties panel does before any document is open — present,
-             greyed, not operable. web/main.js's syncContentUI() removes
-             this the moment a screenshot decodes and restores it if the
-             app is ever back to zero images. Templates/Ratios in
-             the SIDEBAR are deliberately not covered by this — they
-             configure what a drop will produce and stay live throughout. -->
-        <section class="inspector-section" id="backgroundSection" inert>
-          <h2 class="section-label">Background</h2>
-        </section>
-
+      <aside id="inspector" aria-label="The selected element: frame, finish and export">
         <!-- Task 6 (web/inspector-frame.js) owns everything below the
              heading in both sections below — frameKind chips/chrome theme/
              url in Frame, padding/corner radius/grain/shadow in

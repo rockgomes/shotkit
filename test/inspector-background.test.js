@@ -710,3 +710,40 @@ describe('the angle slider cannot wrap under the thumb (Task 7, fix round 1)', (
     expect(lightEndLabel(ANGLE_SLIDER_MAX)).toBe('bottom');
   });
 });
+
+// ---------------------------------------------------------------------
+// Cycle D Task 2. Background describes the CANVAS — the ground the whole
+// composition sits on — so it belongs in the panel that owns the canvas,
+// not beside Frame, which edits whichever element you clicked.
+//
+// STRUCTURAL GUARDS over web/index.html, in the same family as the
+// `linear-gradient` guard in test/preset-tiles.test.js. They cannot show
+// that the panel WORKS; the browser check in this task's steps does that.
+// What they buy is that the section cannot drift back across the app.
+// ---------------------------------------------------------------------
+describe('Background belongs to the canvas, so it lives on the left (Cycle D)', () => {
+  const html = readFileSync('web/index.html', 'utf8');
+  const at = (id) => {
+    const i = html.indexOf(`id="${id}"`);
+    expect(i, `${id} not found in web/index.html`).toBeGreaterThan(-1);
+    return i;
+  };
+
+  it('backgroundSection sits inside #sidebar, before #stage', () => {
+    expect(at('backgroundSection')).toBeGreaterThan(at('sidebar'));
+    expect(at('backgroundSection')).toBeLessThan(at('stage'));
+  });
+
+  it('and the right-hand panel keeps only what belongs to an element', () => {
+    for (const id of ['frameSection', 'finishSection']) {
+      expect(at(id), `${id} left the inspector`).toBeGreaterThan(at('inspector'));
+    }
+  });
+
+  it('both panels say who they are for', () => {
+    // A panel whose label still reads "Background, frame and export
+    // settings" after Background has moved is a label that lies.
+    expect(html).toMatch(/id="sidebar"[^>]*aria-label="[^"]*[Bb]ackground/);
+    expect(html).not.toMatch(/id="inspector"[^>]*aria-label="[^"]*[Bb]ackground/);
+  });
+});

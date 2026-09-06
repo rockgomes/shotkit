@@ -1896,3 +1896,26 @@ This is the second time this cycle-family that `flex: 1` has failed to
 equalise a segmented control, for two different reasons — Cycle C Task 6's
 mini controls had no free space to distribute, these had a min-content floor.
 Grid is the mechanism that works in both cases.
+
+## Cycle D Task 2 — Background moved sides
+
+The ground describes the canvas, so it belongs in the panel that owns the
+canvas. Verified in Chromium at 1440×900 with a screenshot loaded:
+
+- `#backgroundSection` resolves inside `#sidebar` (`closest('#sidebar')`
+  is truthy), and the left panel now reads **Size, Background**; the right
+  reads **Frame, Finish, Export**.
+- The section is `inert` before a screenshot loads and live after — the path
+  that mattered here, because `propertySections` in `web/main.js` addresses
+  its three sections **by id**. Had it used `#inspector .inspector-section`,
+  Background would have stayed greyed forever with nothing to explain why.
+  It was already written by id; the comment there now records that as a
+  decision rather than luck.
+- Hue still drives the canvas from its new home, measured on the exported
+  canvas rather than by eye: `hue 0 → 223,200,200`, `hue 120 → 200,223,200`,
+  `hue 240 → 200,200,223`. A pure rotation, which is what proves the control
+  reached `paintGround` and not just the tiles.
+- The left panel needs no scrollbar yet: `scrollHeight` 852 against
+  `clientHeight` 852. `#stage` is still 896px wide, unchanged from before the
+  move, so nothing has squeezed the canvas.
+- No console errors; no horizontal scroll at 1440px.
