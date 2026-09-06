@@ -269,6 +269,15 @@ const NON_TEXT = [
   // filled controls whose boundary IS the fill.
   ['--surface-inverse', '--surface-window', BOUNDARY, BOUNDARY],
 
+  // THE ACCENT AS A FILL. Nothing measured this token until the format menu
+  // (2026-09-07) put a label on it in a fourth place. .btn-primary,
+  // .chip.is-selected, .segmented-cell.is-active and
+  // .select-option[aria-selected="true"] are filled controls whose boundary
+  // IS the fill.
+  ['--accent', '--surface-window', BOUNDARY, BOUNDARY],
+  // the selected option sits on .select-menu's own raised fill
+  ['--accent', '--surface-raised-1', BOUNDARY, BOUNDARY],
+
   // The app-mark glyph (205, 448) on the brand gradient's two stops. WCAG
   // 1.4.3 exempts logotypes from the text threshold, so this is held at the
   // graphic floor rather than at 7:1, moving it means restating the brand
@@ -773,5 +782,47 @@ describe('off states dim with colour, never with opacity', () => {
         'that loud belongs to a live section, not an inert one',
     ).toBeLessThanOrEqual(1.15);
     expect(luminance(t['--surface-inert'])).toBeGreaterThan(luminance(t['--surface-window']));
+  });
+});
+
+
+// -------------------------------------------------------------------------
+// THE ACCENT, WHERE IT CARRIES A LABEL
+//
+// --accent is the fill under white labels on .btn-primary, .chip.is-selected,
+// .segmented-cell.is-active and, since 2026-09-07, the format menu's selected
+// option. Nothing in this file measured it, which is how #5b6cff (white at
+// 4.17:1) nearly shipped: the value was fixed by hand, with no guard, so the
+// next hand could put it back.
+//
+// The bar is 4.5, not this file's 7.0 TEXT_MIN, and that is a decision rather
+// than an oversight. 7:1 against white forces a saturated accent to a colour
+// that is no longer the brand's. The accent carries CONTROL LABELS only - one
+// or two words on a control the pointer is already on - never informational
+// text, which keeps 7:1 in PAIRS above. The second test is what holds that
+// line: it fails the moment --accent becomes an ink.
+// -------------------------------------------------------------------------
+const CONTROL_LABEL_MIN = 4.5;
+
+describe('the accent, where it carries a label', () => {
+  it('clears the control-label floor against its own ink', () => {
+    const t = tokens();
+    const r = ratio(t['--text-primary'], t['--accent']);
+    expect(
+      Number(r.toFixed(2)),
+      `--text-primary (${t['--text-primary']}) on --accent (${t['--accent']}) = ${r.toFixed(2)}:1`,
+    ).toBeGreaterThanOrEqual(CONTROL_LABEL_MIN);
+  });
+
+  it('is never used as an ink', () => {
+    const css = readFileSync('web/style.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const inks = css
+      .split('\n')
+      .map((line, i) => [i + 1, line])
+      .filter(([, line]) => /(^|[^-])color:\s*var\(--accent\)/.test(line));
+    expect(
+      inks.map(([n, line]) => `style.css:${n} ${line.trim()}`),
+      'the accent clears 4.5:1, not the 7:1 this project owes informational text',
+    ).toEqual([]);
   });
 });

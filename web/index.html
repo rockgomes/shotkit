@@ -298,9 +298,25 @@
         <section class="inspector-section inspector-section--export">
           <h2 class="section-label">Export</h2>
           <div class="export-row">
-            <button type="button" id="exportFormatSelect" class="select-control" aria-label="Export format: PNG. Click to change.">
-              PNG <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-chevron-down"></use></svg>
-            </button>
+            <!-- A REAL MENU, not a cycling button. Rock, 2026-09-07: "it
+                 should 100% be [a dropdown] and I have already complained
+                 about this before." The control used to swap its own label
+                 PNG -> JPEG -> WEBP on click, so nothing opened and the two
+                 formats you did not want were never visible. The white
+                 stroke in the design file is this control's OPEN state. -->
+            <div class="select" id="exportFormatField">
+              <button type="button" id="exportFormatSelect" class="select-control"
+                      aria-haspopup="listbox" aria-expanded="false"
+                      aria-controls="exportFormatMenu"
+                      aria-label="Export format: PNG">
+                PNG <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-chevron-down"></use></svg>
+              </button>
+              <div id="exportFormatMenu" class="select-menu" role="listbox" aria-label="Export format" hidden>
+                <button type="button" class="select-option" role="option" data-format="png" aria-selected="true" tabindex="-1">PNG</button>
+                <button type="button" class="select-option" role="option" data-format="jpeg" aria-selected="false" tabindex="-1">JPEG</button>
+                <button type="button" class="select-option" role="option" data-format="webp" aria-selected="false" tabindex="-1">WEBP</button>
+              </div>
+            </div>
             <div id="exportScaleControl" class="segmented segmented--mini" role="group" aria-label="Export scale">
               <button type="button" class="segmented-cell" aria-pressed="false">1x</button>
               <button type="button" class="segmented-cell is-active" aria-pressed="true">2x</button>

@@ -701,7 +701,6 @@ const exportBtnPanel = document.getElementById('exportBtnPanel');
 const exportFormatSelect = document.getElementById('exportFormatSelect');
 const exportScaleControl = document.getElementById('exportScaleControl');
 
-const FORMAT_ORDER = ['png', 'jpeg', 'webp'];
 const FORMAT_LABELS = { png: 'PNG', jpeg: 'JPEG', webp: 'WEBP' };
 let exportFormat = 'png';
 let exporting = false;
@@ -721,27 +720,113 @@ function exportControls() {
   ].filter(Boolean);
 }
 
-/** `select-control` is chrome-only markup from Task 1 (a static "PNG ▾"
- *  label, no working dropdown behind it). Rather than build a full listbox
- *  popup for a fixed 3-item set - more surface area than this control needs,
- *  and not what "reuse Task 1's primitives" asks for - clicking it simply
- *  cycles PNG → JPEG → WebP → PNG, updating its own leading text node (the
- *  chevron <svg> after it is untouched) and the panel Export button's label
- *  to match. */
+/** THE FORMAT MENU.
+ *
+ *  This control used to cycle its own label PNG -> JPEG -> WEBP on click.
+ *  Rock, 2026-09-07: *"it should 100% be [a dropdown] and I have already
+ *  complained about this before."* He is right, and the old comment here
+ *  argued the wrong thing: a control that names one option and hides the
+ *  other two is not a smaller listbox, it is a control that cannot be read.
+ *
+ *  It is a real listbox: aria-expanded on the button, aria-selected on the
+ *  options, Escape and outside-click close it, the arrow keys walk it, and
+ *  focus always comes back to the button.
+ */
+const exportFormatMenu = document.getElementById('exportFormatMenu');
+const formatOptions = () =>
+  Array.from(exportFormatMenu?.querySelectorAll('.select-option') ?? []);
+
 function updateFormatUI() {
   const label = FORMAT_LABELS[exportFormat];
   const textNode = Array.from(exportFormatSelect?.childNodes ?? []).find(
     (node) => node.nodeType === Node.TEXT_NODE,
   );
   if (textNode) textNode.data = `${label} `;
-  exportFormatSelect?.setAttribute('aria-label', `Export format: ${label}. Click to change.`);
+  exportFormatSelect?.setAttribute('aria-label', `Export format: ${label}`);
+  for (const opt of formatOptions()) {
+    opt.setAttribute('aria-selected', String(opt.dataset.format === exportFormat));
+  }
   if (exportBtnPanel && !exporting) exportBtnPanel.textContent = `Export ${label}`;
 }
 
-exportFormatSelect?.addEventListener('click', () => {
-  const next = FORMAT_ORDER[(FORMAT_ORDER.indexOf(exportFormat) + 1) % FORMAT_ORDER.length];
-  exportFormat = next;
+function menuIsOpen() {
+  return exportFormatSelect?.getAttribute('aria-expanded') === 'true';
+}
+
+/** @param {boolean} open @param {boolean} [refocus] return focus to the button */
+function setMenuOpen(open, refocus = true) {
+  if (!exportFormatSelect || !exportFormatMenu) return;
+  exportFormatSelect.setAttribute('aria-expanded', String(open));
+  exportFormatSelect.classList.toggle('is-open', open);
+  exportFormatMenu.hidden = !open;
+  if (open) {
+    // READ A LAYOUT PROPERTY FIRST. `hidden` is removed above, but the
+    // global `[hidden] { display: none !important }` rule means the menu is
+    // still display:none until styles recompute, and focus() on a
+    // display:none element silently does nothing. Verified: without this
+    // line the options never took focus, so Escape and the arrow keys went
+    // to the button instead of the menu.
+    void exportFormatMenu.offsetHeight;
+    const current =
+      formatOptions().find((o) => o.dataset.format === exportFormat) || formatOptions()[0];
+    current?.focus();
+  } else if (refocus) {
+    exportFormatSelect.focus();
+  }
+}
+
+function chooseFormat(format) {
+  exportFormat = format;
   updateFormatUI();
+  setMenuOpen(false);
+}
+
+exportFormatSelect?.addEventListener('click', () => {
+  if (exportFormatSelect.disabled) return;
+  setMenuOpen(!menuIsOpen());
+});
+
+exportFormatMenu?.addEventListener('click', (event) => {
+  const opt = event.target.closest('.select-option');
+  if (opt) chooseFormat(opt.dataset.format);
+});
+
+/** Keys are handled on the FIELD, not on the menu, so they work whether
+ *  focus sits on the button or on an option. Arrow keys open a closed menu
+ *  and walk an open one; Home/End jump to the ends; Escape closes without
+ *  changing anything. Enter and Space need no handler: the options are
+ *  buttons and already fire click. */
+document.getElementById('exportFormatField')?.addEventListener('keydown', (event) => {
+  const walk = ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key);
+  if (event.key === 'Escape') {
+    if (!menuIsOpen()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setMenuOpen(false);
+    return;
+  }
+  if (!walk) return;
+  event.preventDefault();
+  if (!menuIsOpen()) {
+    setMenuOpen(true);
+    return;
+  }
+  const opts = formatOptions();
+  const at = opts.indexOf(document.activeElement);
+  if (event.key === 'Home') opts[0]?.focus();
+  else if (event.key === 'End') opts[opts.length - 1]?.focus();
+  else if (at < 0) (event.key === 'ArrowDown' ? opts[0] : opts[opts.length - 1])?.focus();
+  else if (event.key === 'ArrowDown') opts[(at + 1) % opts.length]?.focus();
+  else opts[(at - 1 + opts.length) % opts.length]?.focus();
+});
+
+/** Outside click closes it. `pointerdown` rather than `click` so the menu is
+ *  gone before whatever was clicked reacts; the focus does NOT come back to
+ *  the button here, because the pointer is already somewhere else. */
+document.addEventListener('pointerdown', (event) => {
+  if (!menuIsOpen()) return;
+  if (event.target.closest('#exportFormatField')) return;
+  setMenuOpen(false, false);
 });
 
 /** The 1x/2x/3x segmented control's `.is-active` toggling is already
@@ -759,6 +844,9 @@ function selectedScale() {
  *  human-perceptible wait (see export.js), not something a click should be
  *  able to fire twice into or race a format/scale change against. */
 function setExportBusy(busy) {
+  // An export freezes the format control, so an open menu would be a menu
+  // whose own button is disabled underneath it.
+  if (busy) setMenuOpen(false, false);
   for (const btn of [exportBtnToolbar, exportBtnPanel]) {
     if (!btn) continue;
     btn.setAttribute('aria-busy', String(busy));

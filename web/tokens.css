@@ -275,6 +275,8 @@
     narrow-viewport drawer's cast shadow, not in the mockup, invented for
     the <900px collapse (see task-1-report.md) */
   --overlay-backdrop: rgba(4, 5, 8, 0.6); /* our own addition: drawer backdrop scrim */
+  --shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.5); /* the format menu, which
+     floats over the inspector's own surfaces and needs to read as above them */
   --shadow-settle: 0 18px 40px rgba(0, 0, 0, 0.35); /* Task 7: the shot's
     cast shadow at the end of the "settles" beat in the one authored
     arrival moment (style.css's `shot-settle` keyframes), animates in from

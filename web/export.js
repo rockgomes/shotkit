@@ -21,6 +21,13 @@ import { normalise, SCALES } from '../core/index.js';
 
 const MIME_TYPES = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp' };
 
+// The formats the app can actually encode, and the ONE list the format menu
+// in web/index.html is checked against (test/export-format-menu.test.js).
+// Derived from MIME_TYPES rather than written beside it, so adding a format
+// here cannot leave the menu behind, and a menu that names a format this
+// module cannot encode fails the suite.
+export const EXPORT_FORMATS = Object.keys(MIME_TYPES);
+
 // File extensions intentionally differ from the mime/format key for jpeg:
 // ".jpg" is the extension people actually expect, even though the format
 // key and MIME type both say "jpeg".

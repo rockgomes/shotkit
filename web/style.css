@@ -1541,8 +1541,18 @@ input {
   align-items: center;
 }
 
+/* The field is the positioning context for the menu. `flex: 1` moved here
+   from .select-control, which now fills the field instead of the row. */
+.select {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
 .select-control {
   flex: 1;
+  min-width: 0;
   height: 28px;
   display: flex;
   align-items: center;
@@ -1553,7 +1563,11 @@ input {
   color: var(--text-primary);
   font-size: 12px;
   cursor: pointer;
-  border: none;
+  /* The edge is transparent at rest and white when OPEN, per the design
+     file. It is always 1.5px so opening the menu cannot shift the control's
+     height by 3px. Hover is a fill, not an edge, so hover and open never
+     look like the same state. */
+  border: 1.5px solid transparent;
 }
 
 .select-control .icon {
@@ -1561,7 +1575,64 @@ input {
 }
 
 .select-control:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.select-control.is-open {
   border-color: var(--text-primary);
+}
+
+/* No transition: the app's motion rules would owe this a reduced-motion
+   fallback, and a chevron that flips instantly needs none. */
+.select-control.is-open .icon {
+  transform: rotate(180deg);
+}
+
+/* The menu sits ABOVE the control. The Export section is the last thing in
+   #inspector, which is the scroll container, so a menu opening downward
+   would open into nothing. */
+.select-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 4px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised-1);
+  box-shadow: var(--shadow-menu);
+}
+
+.select-option {
+  height: 26px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.select-option:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.select-option[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--text-primary);
+}
+
+.select-option:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: -2px;
 }
 
 .select-control:disabled {
