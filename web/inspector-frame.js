@@ -164,16 +164,9 @@ export function setPadPercent(config, pct) {
   config.pad = Math.min(PAD_PERCENT_MAX, Math.max(0, n)) / 100;
 }
 
-export function activeGrainPercent(config) {
-  const grain = Number.isFinite(config.grain) ? config.grain : DEFAULTS.grain;
-  return Math.round(grain * 100);
-}
-
-export function setGrainPercent(config, pct) {
-  const n = Number(pct);
-  if (!Number.isFinite(n)) return;
-  config.grain = Math.min(100, Math.max(0, n)) / 100;
-}
+// `activeGrainPercent` / `setGrainPercent` moved to web/inspector-canvas.js
+// with the control they drive: grain paints on the ground and nothing else,
+// so it is a canvas property, not a property of the element you clicked.
 
 // Shadow strength (Task 6b) — the one authorised core/ field this task adds.
 // `config.shadowScale` is a MULTIPLIER over paintShadow's verified alphas
@@ -584,21 +577,6 @@ export function initFinishInspector() {
   const radiusValueEl = radiusRow.querySelector('.slider-value');
   section.appendChild(radiusRow);
 
-  // --- grain -----------------------------------------------------------
-  const grainRow = document.createElement('div');
-  grainRow.className = 'slider-row';
-  grainRow.innerHTML = '<div class="slider-label"><span>Grain</span><span class="mono slider-value"></span></div>';
-  const grainInput = document.createElement('input');
-  grainInput.type = 'range';
-  grainInput.className = 'slider';
-  grainInput.min = '0';
-  grainInput.max = '100';
-  grainInput.step = '1';
-  grainInput.setAttribute('aria-label', 'Grain strength');
-  grainRow.appendChild(grainInput);
-  const grainValueEl = grainRow.querySelector('.slider-value');
-  section.appendChild(grainRow);
-
   // --- shadow (Task 6b) --------------------------------------------------
   // A STRENGTH, not a colour — see setShadowPercent's header comment above
   // for why this multiplies core/render.js's already-verified shadow
@@ -738,12 +716,6 @@ export function initFinishInspector() {
     syncSliderFill(radiusInput, radiusValueEl, `${pct}%`);
   }
 
-  function syncGrainUI() {
-    const pct = activeGrainPercent(state.config);
-    grainInput.value = String(pct);
-    syncSliderFill(grainInput, grainValueEl, `${pct}%`);
-  }
-
   function syncShadowUI() {
     const pct = activeShadowPercent(state.config, editingElement(state));
     shadowInput.value = String(pct);
@@ -762,12 +734,6 @@ export function initFinishInspector() {
     scheduleRender();
   });
 
-  grainInput.addEventListener('input', () => {
-    setGrainPercent(state.config, grainInput.value);
-    syncGrainUI();
-    scheduleRender();
-  });
-
   shadowInput.addEventListener('input', () => {
     setShadowPercent(state.config, shadowInput.value, editingElement(state));
     syncShadowUI();
@@ -776,9 +742,8 @@ export function initFinishInspector() {
 
   syncPadUI();
   syncRadiusUI();
-  syncGrainUI();
   syncShadowUI();
   syncStrokeUI();
 
-  return { syncPadUI, syncRadiusUI, syncGrainUI, syncShadowUI, syncStrokeUI };
+  return { syncPadUI, syncRadiusUI, syncShadowUI, syncStrokeUI };
 }

@@ -227,6 +227,21 @@
         </section>
 
 
+        <!-- web/inspector-canvas.js owns this section: the controls that
+             describe the CANVAS rather than anything in it.
+
+             Grain is here because it paints on the ground and only on the
+             ground — Cycle A Task 4b moved it under the shots for exactly
+             that reason — so it has nothing to do with whichever element is
+             selected, and it was living under a heading that named one.
+
+             Padding is deliberately NOT here. Rock, 2026-09-06: "Padding to
+             me still makes sense on the right, since visually it moves the
+             elements." -->
+        <section class="inspector-section" id="canvasSection" inert>
+          <h2 class="section-label">Canvas</h2>
+        </section>
+
         <div class="sidebar-spacer"></div>
 
         <div class="cli-card">

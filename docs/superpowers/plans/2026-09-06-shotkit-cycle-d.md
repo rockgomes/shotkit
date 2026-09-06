@@ -486,7 +486,7 @@ git push
 
 ---
 
-## Task 3: Padding and Grain move too, into their own module
+## Task 3: Grain moves too, into its own module
 
 **Files:**
 - Create: `web/inspector-canvas.js`
@@ -497,6 +497,8 @@ git push
 - Test: `test/inspector-frame.test.js`
 
 > *"Two of these are on the side they are, against first instinct. Padding is the canvas's safe area and grain paints on the ground only (Cycle A Task 4b), so both are canvas properties however much they feel like finishing touches."*
+
+> **NARROWED, 2026-09-06.** Rock: *"let's move only grain. Padding to me still makes sense on the right, since visually it moves the elements."* So this task moves Grain alone; `activePadPercent` / `setPadPercent` and the Padding row stay in `web/inspector-frame.js`. The spec records the reversal and the one edge it leaves open — the right-hand panel's heading names the selected element, and padding is not one.
 
 **Interfaces:**
 - Consumes: `activePadPercent(config)`, `setPadPercent(config, pct)`, `activeGrainPercent(config)`, `setGrainPercent(config, pct)` — today exported from `web/inspector-frame.js`.

@@ -17,8 +17,6 @@ import {
   activePadPercent,
   setPadPercent,
   PAD_PERCENT_MAX,
-  activeGrainPercent,
-  setGrainPercent,
   activeShadowPercent,
   setShadowPercent,
   activeRadiusPercent,
@@ -35,6 +33,9 @@ import {
   showsStrokeWidth,
   showsStrokeColor,
 } from '../web/inspector-frame.js';
+// Grain moved to web/inspector-canvas.js in Cycle D Task 3 — the round-trip
+// assertions below are unchanged, only their address is.
+import { activeGrainPercent, setGrainPercent } from '../web/inspector-canvas.js';
 
 const mkCanvas = (w, h) => createCanvas(w, h);
 
@@ -289,7 +290,7 @@ describe('retired Finish controls', () => {
   it('still exports the Finish controls that stay', async () => {
     const mod = await import('../web/inspector-frame.js');
     for (const name of ['activePadPercent', 'setPadPercent', 'activeRadiusPercent',
-      'activeGrainPercent', 'activeShadowPercent', 'initFinishInspector']) {
+      'activeShadowPercent', 'initFinishInspector']) {
       expect(typeof mod[name], `${name} went missing`).toBe('function');
     }
   });

@@ -678,6 +678,22 @@ the canvas's safe area and grain paints on the ground only (Cycle A Task 4b),
 so both are canvas properties however much they feel like finishing touches.
 Rock raised the split with both on the right and agreed the correction.
 
+> **REVERSED FOR PADDING, 2026-09-06.** Rock, when Cycle D Task 3 came to
+> move them: *"let's move only grain. Padding to me still makes sense on the
+> right, since visually it moves the elements."*
+>
+> He is describing what it looks like, and it does look like that: padding is
+> the one canvas property whose effect you read on the elements. Grain moved;
+> padding stayed.
+>
+> **The open edge, stated rather than filed away.** The right-hand panel's
+> heading names the selected element — "Finish · Desktop" — and padding sits
+> under it while being canvas-level, so selecting a phone and dragging
+> Padding moves everything. That is a heading that overstates its scope, not
+> a wrong control: `config.pad` has one home and Cycle B's element block is
+> untouched. If it reads wrong in use, the fix is to lift padding out from
+> under the element subject rather than to move it again.
+
 **This lands AFTER Cycle B's selection model, not before.** Click-to-select is
 what gives the right panel a subject; a panel labelled "screenshot" that is
 editing something the user never chose is the defect this whole round exists

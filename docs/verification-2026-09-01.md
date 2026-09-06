@@ -1991,3 +1991,29 @@ from a screen reader.
 longer list never reads as complete. Measured, Background's top is now
 **324.5px on all three tabs**; it moved with every switch before. Templates
 scrolls (202px of content in 153px), Ratios and Custom fit exactly.
+
+## Cycle D Task 3 — Grain moved; Padding did not
+
+The spec put both on the left. Rock narrowed it on 2026-09-06: *"let's move
+only grain. Padding to me still makes sense on the right, since visually it
+moves the elements."*
+
+Verified in Chromium with a screenshot loaded:
+
+- The left panel reads **Size, Background, Canvas**; the right reads
+  **Frame · Desktop, Finish · Desktop, Export**.
+- Grain resolves inside `#sidebar` and still drives the render, measured on
+  the exported canvas rather than by eye: the luminance spread across a 60px
+  patch of ground goes from **165 at grain 0 to 181 at grain 100**.
+- `activeGrainPercent` / `setGrainPercent` moved with the control. They are
+  not re-exported from `web/inspector-frame.js` — a re-export would have left
+  the definition in the module named "frame", which is the split this cycle
+  exists to make real.
+- No console errors.
+
+**The edge this leaves, said out loud.** The right-hand panel's heading names
+the selected element, and Padding now sits under "Finish · Desktop" while
+being canvas-level: select a phone, drag Padding, and everything moves. The
+control is not wrong — `config.pad` still has exactly one home — but the
+heading overstates its scope. The fix, if it reads wrong in use, is to lift
+Padding out from under the element subject, not to move it across again.
