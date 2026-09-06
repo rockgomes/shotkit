@@ -88,6 +88,8 @@ const PAIRS = [
   // (1413), and the hover states of .rail-item / .segmented-cell / .chip.
   // Three of those hovers also swap the background to --surface-hover (327,
   // 728, 1274). .dropzone-title (1001) sits on --surface-canvas.
+  ['--text-secondary', '--surface-window', TEXT_MIN],
+  ['--text-secondary', '--surface-hover', TEXT_MIN],
 
   // .zoom-stepper (261), .cli-status (780), .inline-control-row (1097),
   // .slider-label (1172), .template-row (596) — whose hover lays it on
@@ -354,12 +356,10 @@ describe('non-text contrast', () => {
  *
  * So: the rungs must stay in order, and stay apart.
  */
-// ONE RUNG. Cycle D Task 5's third attempt retired --text-secondary: it was
-// the silver almost every label actually used, so the app defined white and
-// did not use it. Off states still step down, to --text-inert, but that is a
-// STATE and not a rung — the ladder guard below has nothing left to compare,
-// which is the correct shape for "there is one text colour".
-const LADDER = ['--text-primary'];
+const LADDER = [
+  '--text-primary',
+  '--text-secondary',
+];
 
 // Adjacent rungs today measure 1.2208, 1.2174, 1.2211 and 1.2274 apart. That
 // is close to this minimum and cannot honestly be otherwise: see the headroom
@@ -528,7 +528,7 @@ function rules() {
 /** The one rule that dims every off state, found by its declarations rather
  *  than by a selector this test would then be free to disagree with. */
 function offStateRule() {
-  return rules().find((r) => r.body.includes('--text-primary: var(--text-inert)'));
+  return rules().find((r) => r.body.includes('--text-secondary: var(--text-inert)'));
 }
 
 /** The ground swatches carry an inline background written by
@@ -589,7 +589,7 @@ describe('off states dim with colour, never with opacity', () => {
     expect(rule, 'no rule re-declares the ladder tokens as --text-inert').toBeTruthy();
 
     for (const declared of [
-      '--text-primary', '--color-white',
+      '--text-primary', '--text-secondary', '--color-white',
       '--surface-inverse',
     ]) {
       expect(
@@ -666,27 +666,68 @@ describe('off states dim with colour, never with opacity', () => {
     ).toBeLessThanOrEqual(3.5);
   });
 
-  it('is dimmer than the live ink, by a clear factor, and still has shape', () => {
-    // THIS USED TO RECONSTRUCT HISTORY AND CAN NO LONGER. It took the live
-    // text tokens, composited them at the opacity Cycle A removed, and
-    // asserted the results were the sub-3:1 failures that justified the
-    // change. Cycle D took the ladder to a single white rung, and a 0.4
-    // composite of white lands at 3.79:1 — brighter than the inert tone, so
-    // the reconstruction now "proves" the opposite of what it was written
-    // for. The measured history is in docs/verification-2026-09-01.md.
-    //
-    // What an assertion can still hold is the property that made the change
-    // right: an off state has to be visibly off, and still be there.
+  it('beats every composite it replaced', () => {
     const win = t['--surface-window'];
     const inert = ratio(t['--text-inert'], win);
-    const live = ratio(t['--text-primary'], win);
+    const inertBorder = ratio(t['--border-inert'], win);
+
+    // The three that were BELOW 3:1 in the browser, reconstructed from live
+    // tokens rather than copied out of a report.
+    for (const [what, token, alpha] of [
+      ['.zoom-btn:disabled', '--text-secondary', 0.4],
+      ['.segmented-cell:disabled', '--text-secondary', 0.4],
+      ['.chip:disabled', '--text-secondary', 0.4],
+    ]) {
+      const was = ratio(over(t[token], win, alpha), win);
+      expect(
+        Number(inert.toFixed(2)),
+        `${what} composited to ${was.toFixed(2)}:1 and the inert tone is ` +
+          `${inert.toFixed(2)}:1 — the replacement has to be an improvement`,
+      ).toBeGreaterThan(Number(was.toFixed(2)));
+      expect(Number(was.toFixed(2)), `${what} was the failing case`).toBeLessThan(3.0);
+    }
+
+    // The disabled Export button's border had less shape than an inert one.
+    const borderWas = ratio(over(t['--border-strong'], win, 0.4), win);
     expect(
-      Number(inert.toFixed(2)),
-      `text reads ${live.toFixed(2)}:1 live and the inert tone is ` +
-        `${inert.toFixed(2)}:1 — an off state has to be visibly off`,
-    ).toBeLessThan(Number((live / 2).toFixed(2)));
-    expect(Number(inert.toFixed(2)), 'an off state still has to be legible')
-      .toBeGreaterThanOrEqual(3.0);
+      Number(inertBorder.toFixed(2)),
+      `.btn:disabled composited its border to ${borderWas.toFixed(2)}:1, below ` +
+        `--border-inert's ${inertBorder.toFixed(2)}:1 — the live disabled ` +
+        'control had less shape than the inert one',
+    ).toBeGreaterThan(Number(borderWas.toFixed(2)));
+
+    // .sampled-row is not an off state: it is live, clickable, informational
+    // text in a live panel, so it steps down the LADDER instead of into the
+    // inert tone, and it still owes 7:1. Both tokens are read out of the
+    // stylesheet — see declaredColour's comment.
+    const base = declaredColour('.sampled-row');
+    const dim = declaredColour('.sampled-row:not(.is-active)');
+    expect(base, '.sampled-row sets no colour to step down FROM').toBeTruthy();
+    expect(dim, '.sampled-row:not(.is-active) no longer dims at all').toBeTruthy();
+
+    const sampledWas = ratio(over(t[base], win, 0.6), win);
+    const sampledNow = ratio(t[dim], win);
+    // The composite this replaced measured 5.80:1 when the base was
+    // --text-secondary. Cycle D Task 5 lifted the base to white, so 0.6 of it
+    // now composites to 7.29 — the old instrument stopped failing because the
+    // ink got brighter, not because opacity got better. What still holds, and
+    // is what this assertion was always about, is that the REPLACEMENT is
+    // brighter than the composite AND clears the floor.
+    expect(Number(sampledNow.toFixed(2))).toBeGreaterThan(Number(sampledWas.toFixed(2)));
+    expect(
+      Number(sampledNow.toFixed(2)),
+      `.sampled-row:not(.is-active) composited to ${sampledWas.toFixed(2)}:1 at ` +
+        `opacity 0.6; ${dim} gives ${sampledNow.toFixed(2)}:1, and this is live, ` +
+        'clickable, informational text',
+    ).toBeGreaterThanOrEqual(TEXT_MIN);
+    // ...and the dim still has to BE a dim. One ladder rung is 1.22; this
+    // asks for more, or the inactive row stops reading as inactive.
+    const drop = ratio(t[base], win) / sampledNow;
+    expect(
+      Number(drop.toFixed(2)),
+      `${base} -> ${dim} is only ${drop.toFixed(2)}x — an inactive sampled row ` +
+        'that close to an active one has stopped saying anything',
+    ).toBeGreaterThanOrEqual(1.5);
   });
 
   it('names the inert colour on the one control the off-state rule cannot reach', () => {
@@ -700,6 +741,26 @@ describe('off states dim with colour, never with opacity', () => {
     ).toBe('--text-inert');
   });
 
+  it('reads as more off than the 0.42 it replaced', () => {
+    const win = t['--surface-window'];
+    const inert = ratio(t['--text-inert'], win);
+    const brightest = ratio(over(t['--text-primary'], win, OLD_INERT_ALPHA), win);
+    const dimmest = ratio(over(t['--text-secondary'], win, OLD_INERT_ALPHA), win);
+
+    expect(
+      Number(inert.toFixed(2)),
+      `inert ${inert.toFixed(2)}:1 is no dimmer than opacity ${OLD_INERT_ALPHA} ` +
+        `gave the brightest rung (${brightest.toFixed(2)}:1) — the whole point ` +
+        'of dropping opacity was to spend lightness on the text, not the ground',
+    ).toBeLessThan(Number(brightest.toFixed(2)));
+
+    expect(
+      Number(inert.toFixed(2)),
+      `inert ${inert.toFixed(2)}:1 is no brighter than opacity ${OLD_INERT_ALPHA} ` +
+        `gave the dimmest rung (${dimmest.toFixed(2)}:1) — that rung carries ` +
+        'every section label in the panel and was illegible',
+    ).toBeGreaterThan(Number(dimmest.toFixed(2)));
+  });
 
   it('keeps the inert control border below the live one', () => {
     const win = t['--surface-window'];
