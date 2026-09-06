@@ -234,7 +234,7 @@ input {
 }
 
 .file-slot--empty {
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .toolbar-spacer {
@@ -257,7 +257,7 @@ input {
   padding: 0 10px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .zoom-value {
@@ -400,7 +400,7 @@ input {
   flex: none;
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
@@ -467,7 +467,7 @@ input {
   border: none;
   background: none;
   border-radius: var(--radius-md);
-  color: var(--text-secondary);
+  color: var(--text-muted);
   cursor: pointer;
 }
 
@@ -485,7 +485,7 @@ input {
 }
 
 .rail-item[aria-disabled='true']:hover {
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .rail-item:focus-visible {
@@ -524,7 +524,7 @@ input {
   overflow-y: auto;
   overflow-x: hidden;
   border-right: 1px solid var(--border-hairline);
-  background: var(--surface-panel);
+  background: var(--surface-window);
 }
 
 /* The sidebar's own children, which are not .inspector-section and so have
@@ -553,7 +553,7 @@ input {
      judgement call the two decorative border tokens get (Task 3b). */
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
-  color: var(--text-secondary);
+  color: var(--text-muted);
   flex: none;
 }
 
@@ -568,7 +568,7 @@ input {
 }
 
 .sidebar-search input::placeholder {
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .sidebar-search:focus-within {
@@ -585,11 +585,13 @@ input {
    to be inset; these were not, and were the odd one out. */
 .section-label {
   margin: 0;
-  padding: 2px 0 6px;
-  font-size: 15px;
-  letter-spacing: 0;
-  color: var(--text-primary);
-  font-weight: 600;
+  padding: 6px 0 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 400;
 }
 
 /* `.preset-list` was in this rule too, from when the presets were a column
@@ -638,13 +640,13 @@ input {
      exceeds the rail, which is what lets the ellipsis rule below fire. */
   width: 100%;
   max-width: 100%;
-  height: 36px;
+  height: 32px;
   padding: 0 10px;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: none;
-  color: var(--text-secondary);
-  font-size: 13.5px;
+  color: var(--text-muted);
+  font-size: 12.5px;
   cursor: pointer;
   text-align: left;
 }
@@ -667,7 +669,7 @@ input {
 
 .template-row .dim {
   font-size: 10.5px;
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .template-row:hover:not(.is-selected) {
@@ -681,19 +683,15 @@ input {
   font-weight: 500;
 }
 
-/* White on the selected row, not one step down. --surface-raised-1 is the
-   lightest fill in the app, and --text-secondary measures 6.43:1 on it —
-   under the 7:1 informational floor. The chosen row is also the one that
-   should shout loudest, so this is the right answer twice. */
 .template-row.is-selected .dim {
-  color: var(--text-primary);
+  color: var(--text-muted);
 }
 
 .template-row--add {
   justify-content: center;
   margin-top: 4px;
   border: 1px dashed var(--border-dashed);
-  color: var(--text-secondary);
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -730,7 +728,7 @@ input {
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .custom-size-input {
@@ -747,7 +745,7 @@ input {
 }
 
 .custom-size-input:hover {
-  border-color: var(--text-secondary);
+  border-color: var(--text-muted);
 }
 
 .custom-size-input:focus-visible {
@@ -822,7 +820,7 @@ input {
 .cli-command {
   margin: 0;
   font-size: 10.5px;
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .cli-status {
@@ -831,7 +829,7 @@ input {
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .status-dot {
@@ -873,7 +871,7 @@ input {
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .canvas-surface {
@@ -1030,14 +1028,14 @@ input {
   box-sizing: border-box;
   border: 1px dashed var(--border-dashed);
   border-radius: var(--radius-lg);
-  color: var(--text-secondary);
+  color: var(--text-muted);
   cursor: pointer;
   text-align: center;
 }
 
 .dropzone:hover {
   border-color: var(--border-strong);
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .dropzone:focus-visible {
@@ -1056,7 +1054,7 @@ input {
   margin: 0;
   font-size: 10px;
   letter-spacing: 0.04em;
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .dropzone-title {
@@ -1068,7 +1066,7 @@ input {
 .dropzone-sub {
   margin: 0;
   font-size: 11.5px;
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 /* A full-width strip between the canvas toolbar and the stage, not a toast
@@ -1102,7 +1100,7 @@ input {
   overflow-y: auto;
   overflow-x: hidden;
   border-left: 1px solid var(--border-hairline);
-  background: var(--surface-panel);
+  background: var(--surface-window);
 }
 
 .inspector-section {
@@ -1157,7 +1155,7 @@ input {
   justify-content: space-between;
   align-items: center;
   font-size: 11.5px;
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 /* Task 7's stroke colour picker. A native <input type="color"> so the
@@ -1193,7 +1191,7 @@ input {
 
 .segmented {
   display: flex;
-  height: 34px;
+  height: 28px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -1206,14 +1204,14 @@ input {
   justify-content: center;
   border: none;
   background: none;
-  color: var(--text-secondary);
-  font-size: 13px;
+  color: var(--text-muted);
+  font-size: 11.5px;
   cursor: pointer;
   padding: 0 8px;
 }
 
 .segmented-cell.is-active {
-  background: var(--surface-raised-1);
+  background: var(--surface-control-active);
   color: var(--color-white);
   font-weight: 500;
 }
@@ -1294,11 +1292,10 @@ input {
 }
 
 .slider-label {
-  color: var(--text-primary);
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: 11.5px;
+  color: var(--text-muted);
 }
 
 .slider-value {
@@ -1310,14 +1307,14 @@ input {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 20px;
+  height: 11px;
   margin: 0;
   background: transparent;
   cursor: pointer;
 }
 
 .slider::-webkit-slider-runnable-track {
-  height: 6px;
+  height: 3px;
   border-radius: 2px;
   background: linear-gradient(
     to right,
@@ -1329,13 +1326,13 @@ input {
 }
 
 .slider::-moz-range-track {
-  height: 6px;
+  height: 3px;
   border-radius: 2px;
   background: var(--border-strong);
 }
 
 .slider::-moz-range-progress {
-  height: 6px;
+  height: 3px;
   border-radius: 2px;
   background: var(--text-primary);
 }
@@ -1343,18 +1340,18 @@ input {
 .slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
   background: var(--color-white);
   box-shadow: var(--shadow-thumb);
-  margin-top: -6px;
+  margin-top: -4px;
   cursor: pointer;
 }
 
 .slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
+  width: 11px;
+  height: 11px;
   border: none;
   border-radius: 50%;
   background: var(--color-white);
@@ -1424,7 +1421,7 @@ input {
    their true colour: they are the row's content, and a sample you have
    dimmed is a sample that lies about what was sampled. */
 .sampled-row:not(.is-active) {
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .sampled-row:focus-visible {
@@ -1453,11 +1450,11 @@ input {
 
 .sampled-hue {
   font-size: 10px;
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .sampled-row.is-active .sampled-hue {
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 /* `.control-hint` - a small explanatory line under a control - lived here.
@@ -1478,15 +1475,15 @@ input {
 }
 
 .chip {
-  height: 30px;
+  height: 24px;
   padding: 0 10px;
   display: flex;
   align-items: center;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-pill);
   background: none;
-  color: var(--text-secondary);
-  font-size: 12.5px;
+  color: var(--text-muted);
+  font-size: 11.5px;
   cursor: pointer;
 }
 
@@ -1498,7 +1495,7 @@ input {
 }
 
 .chip:hover:not(.is-selected):not(:disabled) {
-  border-color: var(--text-secondary);
+  border-color: var(--text-muted);
   color: var(--text-secondary);
 }
 
@@ -1545,11 +1542,11 @@ input {
 }
 
 .select-control .icon {
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .select-control:hover:not(:disabled) {
-  border-color: var(--text-secondary);
+  border-color: var(--text-muted);
 }
 
 .select-control:disabled {
@@ -1564,7 +1561,7 @@ input {
 .export-footnote {
   margin: 0;
   font-size: 10px;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   text-align: center;
 }
 
@@ -1709,7 +1706,7 @@ input {
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 /* The preset grid (Cycle C Task 5). Each tile is a real <canvas> painted by
@@ -1806,16 +1803,20 @@ input {
 }
 
 .slider-reset {
-  /* THE WORD "Reset", not a round-arrow icon. Rock's reference spells it
-     out beside each slider, and a word cannot be misread the way a glyph
-     can. It is a quiet text button: no fill, no border, just ink. */
   flex: none;
-  padding: 0 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  /* A FILL, NOT AN OUTLINE. Eight of these carried four border edges each —
+     another 32 lines — and now that the surfaces are actually apart, a
+     raised fill says "button" on its own. */
   border: none;
-  background: none;
+  border-radius: 6px;
+  background: var(--surface-raised-1);
   color: var(--text-secondary);
-  font: inherit;
-  font-size: 12px;
   cursor: pointer;
 }
 
@@ -1839,7 +1840,10 @@ input {
   box-sizing: border-box;
 }
 
-
+.slider-reset .icon {
+  width: 13px;
+  height: 13px;
+}
 
 .slider-reset:hover:not(:disabled) {
   background: var(--surface-hover);

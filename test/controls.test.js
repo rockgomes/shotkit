@@ -37,9 +37,7 @@ describe('every slider is built by the same function (Task 4)', () => {
   it('the shared row owns the Reset, so no panel can ship a slider without one', () => {
     const controls = codeOf('web/controls.js');
     expect(controls).toContain('slider-reset');
-    // The WORD, not the round-arrow glyph it was until Cycle D Task 5's fix
-    // round. Rock's reference spells it out beside each slider.
-    expect(controls).toContain("'Reset'");
+    expect(controls).toContain('#icon-reset');
     // Disabled, never hidden: a button that vanishes makes the row jump
     // mid-drag and hides that the control has a default at all.
     expect(controls).toMatch(/reset\.disabled\s*=/);

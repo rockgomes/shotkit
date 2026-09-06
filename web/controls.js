@@ -58,9 +58,7 @@ export function makeSliderRow({
   reset.type = 'button';
   reset.className = 'slider-reset';
   reset.setAttribute('aria-label', resetLabel || `Reset ${label.toLowerCase()}`);
-  // The WORD, not the round-arrow glyph. Rock's reference spells it out, and
-  // a word cannot be misread the way an icon can.
-  reset.textContent = 'Reset';
+  reset.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-reset"></use></svg>';
 
   const track = document.createElement('div');
   track.className = 'slider-track-row';
