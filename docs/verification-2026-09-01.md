@@ -2493,3 +2493,23 @@ format menu's chevron flips with no transition, deliberately, and the comment
 above that rule says why.
 
 551 tests pass, no console errors.
+
+
+## Addendum, 2026-09-07: the unbuilt areas are hidden
+
+Rock: *"more things to hide from live, since we don't have anything there
+yet."* The left rail and the toolbar's zoom / Copy / Export group are
+`hidden`. Re-measured after:
+
+- Tab stops with a shot loaded at 1440x900 fall from **45 to 35**: the five
+  rail items and the toolbar's Export button leave the order. Zoom and Copy
+  were `disabled` and never in it.
+- `#stage` grows from **856px to 908px** at 1440x900, the rail's 52px handed
+  to the canvas. That is the first time this number has gone UP.
+- No horizontal scroll at 320 or 1440, and both drawer toggles still render
+  at 320.
+- Export still works: the right panel's "Export PNG" is the same action, and
+  test/cli-card.test.js fails if it is ever removed or ends up inside a
+  hidden block.
+
+554 tests pass, no console errors.

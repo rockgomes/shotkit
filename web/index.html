@@ -114,7 +114,17 @@
 
       <div class="toolbar-spacer"></div>
 
-      <div class="toolbar-actions">
+      <!-- HIDDEN, NOT DELETED. Rock, 2026-09-07: "more things to hide from
+           live, since we don't have anything there yet: the top-right
+           actions - zoom, copy, export."
+
+           Zoom and Copy are wired to nothing and have been since Task 1;
+           they rendered disabled, which is a promise the app has not kept.
+           EXPORT WORKS - it is the only one of the three that does - but the
+           right panel's own "Export PNG" button does the same job from the
+           place the format and scale are chosen, so nothing is lost by
+           hiding the duplicate. See the README's "Not built yet". -->
+      <div class="toolbar-actions" hidden>
         <div class="zoom-stepper" role="group" aria-label="Zoom level">
           <button type="button" class="zoom-btn" aria-label="Zoom out" disabled>
             <svg class="icon" aria-hidden="true"><use href="#icon-minus"></use></svg>
@@ -139,7 +149,15 @@
     </header>
 
     <div class="workspace">
-      <nav id="rail" aria-label="Primary">
+      <!-- HIDDEN, NOT DELETED. Rock, 2026-09-07: "the first left navigation
+           bar, since we don't have those other areas yet."
+
+           Five items: Canvas, which is the only view this app has, and
+           Library / Presets / Integrations / Settings, none of which exists.
+           A navigation bar whose every other destination is unreachable is
+           not navigation. It comes back when there is a second place to go.
+           The stage gains its 52px in the meantime. -->
+      <nav id="rail" aria-label="Primary" hidden>
         <div class="rail-mark" aria-hidden="true">S</div>
         <ul class="rail-nav">
           <li>

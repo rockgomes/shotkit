@@ -855,3 +855,10 @@ cycle that is about something else.
   this later." When the CLI lands, drop the `hidden` attribute and wire the
   dot to something real - a status indicator that is always green is the
   same defect in a different shape.
+- The left rail, and the toolbar's zoom / Copy / Export group. Both HIDDEN on
+  2026-09-07, not deleted, on Rock's call: "more things to hide from live,
+  since we don't have anything there yet." The rail's four other destinations
+  do not exist; zoom and Copy are wired to nothing. Export is the exception -
+  it works - and it is hidden only because the right panel carries the same
+  action beside the format and scale it uses. When any of them lands, drop
+  the `hidden` attribute.
