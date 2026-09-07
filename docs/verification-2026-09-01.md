@@ -2415,3 +2415,81 @@ body's inheritance would have rendered serif. The family is on the root now.
 A scan of every visible element returns exactly one family: `Inter`.
 
 515 tests pass, no console errors.
+
+---
+
+# Cycle D's verification pass, 2026-09-07
+
+Measured in the Chromium preview at the widths named. Everything below is a
+reading, not an impression.
+
+## Keyboard order and focus rings
+
+Real Tab presses, not `el.focus()`: `:focus-visible` does not match a
+programmatic focus, so a probe built on `.focus()` reports "no ring" for every
+element in the app and proves nothing. A `focusin` listener recorded
+`document.activeElement`, its `:focus-visible` match and its computed outline
+while the browser sent Tab.
+
+**With no screenshot loaded, 1440×900: 14 stops.** Rail (5) → the Size
+trigger → Table's three cells → the drop zone → the format select → 1x/2x/3x
+→ wraps. The two panels are `inert` with nothing loaded, so they take no
+stops, which is the intent. Every stop matched `:focus-visible` and drew a
+2px outline. The four disabled rail items keep a ring in `--text-inert`
+(3.33:1 on the window); they are `aria-disabled`, not `disabled`, so they are
+meant to stay reachable.
+
+**With a screenshot loaded, 1440×900: 45 stops.** Toolbar Export → rail (5) →
+the left panel (type, sampled row, eight ground tiles, four sliders) → the
+Size trigger → Table (3) → the right panel (Frame chips, three sliders,
+Stroke chips, format, scale, Export) → wraps. Order follows the layout, and
+no element carries a positive `tabindex`. Every one of the 45 drew a ring.
+
+The Reset buttons are absent from both counts because a reset is `disabled`
+while its slider sits at the default. Moving a slider puts its reset into the
+order.
+
+## Target size (WCAG 2.2 AA, 2.5.8)
+
+51 interactive elements at 1440×900 with a shot loaded. Sixteen are under
+24×24: two zoom buttons (20×20), seven slider tracks (11px tall), seven
+resets (18×18 — they were 22×22 before this cycle; node 7:600 draws 18).
+
+**No clash.** For every one of the sixteen, no other target's centre lies
+within 24px, so the spacing exception applies to all of them. The new
+adjacency this cycle could have introduced — a reset shrunk from 22 to 18 —
+did not create one, because the gap between a track and its reset grew by the
+same amount the button lost.
+
+## Narrow-viewport drawers
+
+At 880px, with a shot loaded:
+
+- Closed: both panes carry `inert` and hold **0** tab stops.
+- Open: the pane loses `inert` and offers 15 stops.
+- Opening the right drawer makes the left one `inert` in the same gesture.
+- Escape closes it, and focus returns to the toggle that opened it.
+- The backdrop is `hidden` again once both are closed.
+
+## No horizontal scroll
+
+`document.documentElement.scrollWidth` equals `innerWidth` at 320, 560, 880,
+900, 1000, 1440 and 1920. The canvas strip's own content fits its box at all
+of them; the two container queries on it hide the words "Size" and "Table"
+below 366px of strip, and the size name below 291px.
+
+## The canvas did not shrink
+
+`#stage` is **856px** at 1440×900, unchanged from the number recorded after
+Cycle D Task 1, and 1336px at 1920. Size left the left panel and the right
+panel lost a heading this cycle; neither move touched the stage, because both
+panels are fixed at 266px.
+
+## Motion
+
+Four `transition` declarations in `web/style.css`, all of them already inside
+the `prefers-reduced-motion: reduce` block's reach. This cycle added none: the
+format menu's chevron flips with no transition, deliberately, and the comment
+above that rule says why.
+
+551 tests pass, no console errors.
