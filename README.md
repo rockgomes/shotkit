@@ -52,23 +52,25 @@ Drop a screenshot on the canvas, or press Enter on the drop zone to browse.
 Landscape files become the desktop screenshot; portrait files become phones, up
 to three. Then:
 
-- **Sidebar**, six output templates (Dribbble, Twitter post and header, App
-  Store, Open Graph, Instagram), four ratios, a custom size, and the eight named
-  grounds.
-- **Canvas**, the shot, plus a **Surround** control (dark / mid / light). The
-  surround is app chrome only: it changes what sits *behind* the canvas so you
-  can judge a pale ground honestly, and it can never reach the exported pixels.
-- **Canvas**, click a shot to select it. The Frame and Finish panels then
-  edit *that* element, and each says which one it is on. Click the ground or
-  press Escape to clear. The outline is a DOM overlay and never a painted
-  pixel, so it cannot reach the exported PNG.
-- **Inspector**, Background (type first, then the sampled ground, the preset
-  tiles, and hue / angle / luminosity overrides), Frame (none, browser chrome,
-  or phone; chrome theme and URL pill),
-  Finish (padding, radius, grain, shadow strength, and an opt-in stroke,
-  light, glass or a custom colour), and Export. Everything in Frame and
-  Finish except Padding and Grain belongs to the selected element; those two
-  belong to the canvas.
+- **Left panel**, the canvas: the ground. Type, the screenshot's own sampled
+  colours, the eight named grounds as painted tiles, and hue / angle /
+  luminosity / grain.
+- **Canvas strip**, what the canvas IS on the left and how it is DISPLAYED on
+  the right. **Size** is a dropdown holding one tabbed control: six output
+  templates (Dribbble, Twitter post and header, App Store, Open Graph,
+  Instagram), four ratios, and a custom W/H. **Table** (dark / mid / light) is
+  app chrome only: it changes what sits *behind* the canvas so you can judge a
+  pale ground honestly, and it can never reach the exported pixels. The config
+  field behind it is still called `surround`.
+- **Selection**, click a shot to select it. The right panel then edits *that*
+  element and names it once, at the top. Click the ground or press Escape to
+  clear. The outline is a DOM overlay and never a painted pixel, so it cannot
+  reach the exported PNG.
+- **Right panel**, the selected element: Frame (none, browser chrome, or
+  phone; chrome theme and URL pill), then padding, corner radius, shadow, an
+  opt-in stroke (light, glass or a custom colour), and Export. Padding is
+  canvas-level and stays here for now; grain moved to the left panel with the
+  rest of the ground.
 - **Export**, PNG, JPEG or WebP at 1×, 2× or 3×. Filenames come from the source
   file, e.g. `fieldset--web@2x.png`.
 
@@ -225,7 +227,7 @@ design_handoff_backdrop_1a/
 
 ## Tests
 
-`npm test` runs 254 tests across 13 files, including 11 golden PNGs and one
+`npm test` runs 551 tests across 25 files, including 11 golden PNGs and one
 golden JSON of colour values. The goldens are a **regression** baseline rendered
 under `@napi-rs/canvas`, they catch unintended changes to this renderer's own
 output over time. They are not a fidelity check against a browser: `@napi-rs/canvas`
@@ -234,15 +236,15 @@ this code ships, so never compare a golden to a browser screenshot and conclude
 the shadow code is wrong from the difference.
 
 **`web/` is covered too, do not skip the suite when editing the app.** Five test
-files import `web/` modules and drive the real `render()`, 67 of the 254 tests:
+files import `web/` modules and drive the real `render()`, 141 of the 551 tests:
 
 | file | tests | covers |
 |---|---|---|
-| `test/inspector-background.test.js` | 27 | the whole Background panel |
-| `test/inspector-frame.test.js` | 26 | the whole Frame panel, and Finish |
-| `test/sidebar.test.js` | 11 | selection helpers, size changes, ground swatches |
+| `test/inspector-background.test.js` | 55 | the whole Background panel |
+| `test/inspector-frame.test.js` | 51 | the whole Frame panel, and the sliders under it |
+| `test/size.test.js` | 31 | size helpers, the dropdown's markup, the panel split |
 | `test/export-scale-fidelity.test.js` | 2 | the export scale path, at 4:3 |
-| `test/web-export.test.js` | 1 | the surround never reaching the export |
+| `test/web-export.test.js` | 2 | the surround never reaching the export |
 
 So a change to `web/size.js` or either inspector module can and does turn the
 suite red, and a failure there is a real failure, not collateral from `core/`.
