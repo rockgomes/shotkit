@@ -305,7 +305,10 @@ Honest list. None of these is half-done; they are simply not there.
   would still show its face first at another size.
 - **A CLI.** The old one is gone and nothing replaced it. `core/` is a library, so
   a thin Node shell over `composeWithMeta` and `@napi-rs/canvas` would bring back
-  batch rendering without Python or Playwright, it just has not been written.
+  batch rendering without Python or Playwright, it just has not been written. The
+  sidebar carries a hidden card for its status line, waiting: it is in the
+  markup, marked `hidden`, because the design for it exists and the CLI is
+  still planned.
 - **Saved presets, and the rail's Library / Presets / Integrations / Settings.**
   They render, disabled. Nothing is wired behind them.
 - **Zoom, and copy-to-clipboard.** The toolbar's zoom stepper and its "Copy"

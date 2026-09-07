@@ -848,3 +848,10 @@ cycle that is about something else.
 - Saved projects and saved presets, beyond named custom sizes.
 - Background images or bundled wallpapers.
 - Cross-browser verification. One engine, as every round so far.
+- The CLI, and with it the sidebar's CLI card. The card was HIDDEN on
+  2026-09-07, not deleted, because the CLI is still planned. It asserted
+  "CLI connected" beside a green dot while no CLI existed. Rock, twice:
+  "we are supposed to have CLI at some point, no? ... let's circle back on
+  this later." When the CLI lands, drop the `hidden` attribute and wire the
+  dot to something real - a status indicator that is always green is the
+  same defect in a different shape.

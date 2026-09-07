@@ -213,7 +213,19 @@
 
         <div class="sidebar-spacer"></div>
 
-        <div class="cli-card">
+        <!-- HIDDEN, NOT DELETED. Rock, 2026-09-06 and again 2026-09-07:
+             "we are supposed to have CLI at some point, no? either way, you
+             can hide it for now. but let's circle back on this later."
+
+             The card showed a green dot and the words "CLI connected" while
+             no CLI exists - see the README's "Not built yet". A status
+             indicator asserting something untrue is the one thing this
+             project's rules never allow. It stays in the markup because the
+             CLI is still planned and this is its design.
+
+             `[hidden] { display: none !important }` is already the single
+             global rule at the top of web/style.css, so no CSS is added. -->
+        <div class="cli-card" hidden>
           <p class="mono cli-command">$ shotkit watch ./shots</p>
           <p class="cli-status"><span class="status-dot" aria-hidden="true"></span>CLI connected</p>
         </div>
