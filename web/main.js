@@ -1,20 +1,21 @@
-// shotkit editor shell — Task 1 wiring, plus Task 2's pipeline.
+// shotkit editor shell, Task 1 wiring, plus Task 2's pipeline.
 //
 // The top section (unchanged from Task 1) is chrome-only interaction: it
 // makes the control primitives behave like the components they are without
 // touching any application data. The bottom section (marked "Task 2") is
 // where a drop/browse/surround click actually reaches `state` and the
-// on-page canvas — see web/state.js for the render() pipeline itself.
+// on-page canvas, see web/state.js for the render() pipeline itself.
 
 import { state, SURROUNDS, bindCanvas, addFiles, hasContent, onRender } from './state.js';
 import { exportShot } from './export.js';
-import { initSidebar } from './sidebar.js';
+import { initSize, sizeLabel } from './size.js';
+import { makePopover } from './controls.js';
 import { initBackgroundInspector } from './inspector-background.js';
 import { initFrameInspector, initFinishInspector } from './inspector-frame.js';
 import { hitTest, boxFor, placeOutline } from './selection.js';
-// `normalise` only — read-only, to learn the canvas's EFFECTIVE size for the
+// `normalise` only, read-only, to learn the canvas's EFFECTIVE size for the
 // empty-state frame below (Task 7). Never used to decide what to write; see
-// updateEmptyFrame()'s own comment. Same read-only pattern web/sidebar.js's
+// updateEmptyFrame()'s own comment. Same read-only pattern web/size.js's
 // "+ Custom size" prefill and web/inspector-frame.js's radius display
 // already established.
 import { normalise } from '../core/index.js';
@@ -40,11 +41,11 @@ document.querySelectorAll('.segmented').forEach((el) => {
 
 // `.chip-row` (Frame's frameKind chips) and `.swatch-row` (a gradient-colour
 // picker, Background's) were both part of the design handoff's own static
-// markup — Task 5 replaced Background with web/inspector-background.js's
+// markup, Task 5 replaced Background with web/inspector-background.js's
 // own markup, and Task 6 does the same for Frame with
 // web/inspector-frame.js (frameKind chips carry real application state,
 // state.config.frameKind, and need to funnel through scheduleRender() plus
-// conditionally show/hide the chrome-theme and url controls — the generic
+// conditionally show/hide the chrome-theme and url controls, the generic
 // class-toggle-only wiring above can't do either). So there is no longer a
 // `.chip-row` or `.swatch-row` anywhere in index.html at load time for the
 // loops above to find, by the same reasoning Task 5 already established.
@@ -52,9 +53,43 @@ document.querySelectorAll('.segmented').forEach((el) => {
 // Templates/Ratios (Task 4) are NOT wired with the generic
 // wireSingleSelectGroup helper above: those rows carry real application
 // state (state.config.template/ratio), not just a CSS toggle, and
-// need to funnel through scheduleRender() — see web/sidebar.js's header
+// need to funnel through scheduleRender(), see web/size.js's header
 // comment for why that file owns its own click handling instead.
-initSidebar();
+/* THE SIZE DROPDOWN, in the strip above the canvas.
+   The trigger says what the canvas is; the panel is the control that used
+   to sit in the left rail, unchanged. `syncSizeTrigger` runs after every
+   size change (web/size.js calls it through onSizeChange) so the trigger and
+   the open list can never disagree. */
+const sizeSelect = document.getElementById('sizeSelect');
+const sizeMenu = document.getElementById('sizeMenu');
+const sizeTriggerName = document.getElementById('sizeTriggerName');
+const sizeTriggerDims = document.getElementById('sizeTriggerDims');
+
+function syncSizeTrigger() {
+  const { name, dims } = sizeLabel(state.config);
+  if (sizeTriggerName) sizeTriggerName.textContent = name;
+  if (sizeTriggerDims) sizeTriggerDims.textContent = dims;
+  sizeSelect?.setAttribute('aria-label', `Canvas size: ${name}, ${dims}`);
+}
+
+const sizePopover = sizeSelect && sizeMenu
+  ? makePopover({
+    trigger: sizeSelect,
+    panel: sizeMenu,
+    // The search box, so typing a size name is the first thing that works.
+    onOpen: (panel) => panel.querySelector('.sidebar-search input')?.focus(),
+  })
+  : null;
+
+initSize({
+  onSizeChange: () => {
+    syncSizeTrigger();
+    // AND CLOSE. The panel covers the canvas, and the whole point of picking
+    // a size is to see what it did.
+    sizePopover?.setOpen(false);
+  },
+});
+syncSizeTrigger();
 
 /** Sliders: keep the mono value label and the track fill in sync with the
  *  input's own value. Angle gets a ° suffix; everything else gets %. */
@@ -80,7 +115,7 @@ document.querySelectorAll('.slider-row').forEach((row) => {
 // `.segmented` wiring above finishes, not before: it builds its own Hue/
 // Angle sliders and Type/Tone segmented controls from scratch, wires its
 // own listeners directly (mutating `state.config` and calling
-// `scheduleRender()` — the generic loops above only ever toggle a CSS
+// `scheduleRender()`, the generic loops above only ever toggle a CSS
 // class or a --slider-fill percentage, never real state), and needs those
 // elements to NOT be present yet when the generic, one-time
 // `querySelectorAll` passes above ran, so nothing double-wires them. See
@@ -93,7 +128,7 @@ const background = initBackgroundInspector();
 // controls that don't exist in the DOM yet when those loops ran.
 // Finish first, so the Frame section can be given its re-sync hook: the
 // Corner radius slider's BOUNDS depend on which frame is on (Cycle B Task
-// 3 — a browser window and a phone body do not take the same range), so
+// 3, a browser window and a phone body do not take the same range), so
 // changing the frame has to re-sync a control in the other section.
 const finishInspector = initFinishInspector();
 const frameInspector = initFrameInspector(() => finishInspector && finishInspector.syncRadiusUI());
@@ -128,13 +163,13 @@ document.querySelectorAll('.rail-item[aria-disabled="true"]').forEach((el) => {
  * must never be touched by anything below.
  *
  * A closed drawer being merely off-screen (`transform: translateX(±100%)`)
- * is not enough — CSS transforms don't remove an element from the tab
+ * is not enough, CSS transforms don't remove an element from the tab
  * order, so sequential Tab presses walk straight into a closed drawer's
  * controls with no visible focus ring. `inert` is what actually makes a
  * closed drawer unreachable: one attribute pulls its whole subtree out of
  * both the tab order and the accessibility tree, instead of a per-element
  * `tabindex="-1"` patch that Task 2's new controls could silently slip
- * past. Closing a drawer — by Escape, backdrop click, or its own toggle —
+ * past. Closing a drawer, by Escape, backdrop click, or its own toggle,
  * always returns focus to the toggle that opened it (the standard
  * disclosure-widget pattern); without that, focus is left on a control
  * that's either about to be invisible or about to be forced out of an
@@ -143,7 +178,7 @@ document.querySelectorAll('.rail-item[aria-disabled="true"]').forEach((el) => {
  * Sequencing matters: applying `inert` at the same instant the drawer
  * starts sliding away would cut the animation short (this is especially
  * true of the `display: none` some browsers fall back to for `inert`
- * rendering — that's an instant layout change, not an animatable one), so
+ * rendering, that's an instant layout change, not an animatable one), so
  * the close path always moves focus first, then waits for the slide-out
  * transition (or a timeout standing in for it when transitions are
  * disabled, e.g. prefers-reduced-motion) before marking the pane inert.
@@ -154,7 +189,7 @@ const NARROW_QUERY = '(max-width: 899px)';
 const isNarrowViewport = () => window.matchMedia(NARROW_QUERY).matches;
 
 /** Run `run` once the pane's transform transition ends, or after a timeout
- *  slightly longer than the CSS transition (200ms) — the fallback covers
+ *  slightly longer than the CSS transition (200ms), the fallback covers
  *  prefers-reduced-motion, where style.css strips the transition entirely
  *  and `transitionend` would otherwise never fire. */
 function afterCloseTransition(pane, run) {
@@ -201,7 +236,7 @@ function closeDrawer(drawer, { returnFocus = true } = {}) {
   const wasOpen = isDrawerOpen(drawer);
   drawer.pane.classList.remove('is-open');
   drawer.toggle.setAttribute('aria-expanded', 'false');
-  // Move focus BEFORE the pane goes inert, not after — inert content can't
+  // Move focus BEFORE the pane goes inert, not after, inert content can't
   // hold focus, and we want a deterministic destination (the toggle), not
   // whatever the browser picks (usually <body>) when it evicts focus from
   // a subtree that just went inert out from under it.
@@ -247,7 +282,7 @@ document.addEventListener('keydown', (event) => {
 
 // Crossing the 900px boundary itself: going wide makes both panes normal
 // static content again (never inert, is-open meaningless); going narrow
-// makes whichever isn't open inert immediately — there's no transition to
+// makes whichever isn't open inert immediately, there's no transition to
 // wait for here, since the offscreen transform and the transition rule
 // both live in the same media query and only start applying at this exact
 // moment, so nothing was visibly open to animate shut.
@@ -276,7 +311,7 @@ allDrawers.forEach((drawer) => settleInertState(drawer));
 /* -------------------------------------------------------------------------
    Task 2: the pipeline (drop a file, see a shot) and the canvas surround.
 
-   Everything that touches `state` or calls into core/ lives in state.js —
+   Everything that touches `state` or calls into core/ lives in state.js,
    this section is DOM wiring only: turning drops/clicks/keypresses into
    `addFiles()`/`render()` calls, and reflecting the result (a canvas to
    show, an error to say, a surround to paint) back into the page.
@@ -293,11 +328,17 @@ const toolbarFileSlot = document.querySelector('#toolbarFile .file-slot');
 const exportFootnote = document.querySelector('.export-footnote');
 const sidebarEl = document.getElementById('sidebar');
 
-// The three inspector sections that describe properties OF a loaded shot —
-// greyed and `inert` (index.html's static default) until one exists. The
-// Export section is deliberately not in this list; see index.html's and
-// style.css's own comments on why it's handled differently (the button
-// disables, the format/scale pickers don't).
+// The three sections that describe properties OF a loaded shot, greyed and
+// `inert` (index.html's static default) until one exists. The Export section
+// is deliberately not in this list; see index.html's and style.css's own
+// comments on why it's handled differently (the button disables, the
+// format/scale pickers don't).
+//
+// ADDRESSED BY ID, NOT BY `#inspector .inspector-section`. Cycle D moved
+// Background into the LEFT panel, and a selector rooted at the inspector
+// would have silently stopped reaching it, the section would have stayed
+// inert forever, greyed with no way to tell why. It was already written this
+// way; that is luck, and this comment is what turns it into a decision.
 const propertySections = ['backgroundSection', 'frameSection', 'finishSection'].map((id) =>
   document.getElementById(id),
 );
@@ -306,7 +347,7 @@ bindCanvas(renderCanvas);
 
 const isReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// Matches style.css's `dropzone-exit` animation duration exactly — this is
+// Matches style.css's `dropzone-exit` animation duration exactly, this is
 // the ONE place that number is authored twice, so a future change to one
 // without the other would show up immediately as a visible flash (the
 // dropzone hidden mid-animation, or hanging around after it finishes)
@@ -314,7 +355,7 @@ const isReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce
 const DROPZONE_EXIT_MS = 220;
 
 /** Restart a CSS animation by removing its class, forcing a reflow, then
- *  re-adding it — the standard technique for "play this animation again"
+ *  re-adding it, the standard technique for "play this animation again"
  *  when merely re-adding an already-present class is a no-op. Shared by
  *  the arrival sequence below and a later replace-while-loaded drop. */
 function restartAnimation(el, className) {
@@ -325,9 +366,9 @@ function restartAnimation(el, className) {
 
 /** The one authored moment (Task 7): the drop zone gives way, the ground
  *  blooms in (a pure-CSS `background-color` transition on `.canvas-surface`
- *  itself — see style.css — needs no JS timing at all), the shot settles.
- *  Called from `syncContentUI()` below on the ONE transition that matters —
- *  `hasContent()` going from false to true — never on a later drop that
+ *  itself, see style.css, needs no JS timing at all), the shot settles.
+ *  Called from `syncContentUI()` below on the ONE transition that matters,
+ *  `hasContent()` going from false to true, never on a later drop that
  *  replaces an already-loaded shot (see `resettleCanvas()` for that case).
  *
  *  Reduced motion is handled here, not just left to style.css's
@@ -336,7 +377,7 @@ function restartAnimation(el, className) {
  *  would still be neutralised there), but the actual, primary fix is this
  *  function never adding `.is-leaving`/`.is-settling` at all when reduced
  *  motion is on, and hiding the dropzone immediately instead of on a
- *  timer — there is no animation to wait for. */
+ *  timer, there is no animation to wait for. */
 function playArrival() {
   renderCanvas.classList.add('is-visible');
 
@@ -357,7 +398,7 @@ function playArrival() {
 
 /** A later drop that REPLACES an already-loaded shot: the drop zone is long
  *  gone, so there's nothing for it to give way from, but the new shot still
- *  gets its own "settles" beat — same animation, restarted, never under
+ *  gets its own "settles" beat, same animation, restarted, never under
  *  reduced motion (style.css's media block would neutralise it anyway, but
  *  there's no reason to even ask for a restart that has to be thrown away). */
 function resettleCanvas() {
@@ -365,20 +406,20 @@ function resettleCanvas() {
   restartAnimation(renderCanvas, 'is-settling');
 }
 
-/** The empty-state frame's size and dimension label (Task 7) — kept in sync
+/** The empty-state frame's size and dimension label (Task 7), kept in sync
  *  with whatever ratio/template/custom-size the SIDEBAR currently has
  *  selected, even with nothing loaded yet and render() a no-op (see
  *  web/state.js). `normalise()` (core/index.js) is a read-only lookup of
- *  the canvas's EFFECTIVE size, the exact same pattern web/sidebar.js's
+ *  the canvas's EFFECTIVE size, the exact same pattern web/size.js's
  *  "+ Custom size" prefill and web/inspector-frame.js's radius display
- *  already use — never used here to decide what to write.
+ *  already use, never used here to decide what to write.
  *
  *  Sized in JS, not left to a pure-CSS `aspect-ratio`: the box has to fit
  *  BOTH axes of whatever room `.canvas-surface` has left after its own
  *  padding, and CSS has no built-in "shrink to fit both width and height,
  *  preserving a ratio" behaviour for an arbitrary element the way replaced
  *  elements (img/canvas/video) get for free from `width:auto;height:auto`
- *  plus max-width/max-height — that's exactly how `.render-canvas` itself
+ *  plus max-width/max-height, that's exactly how `.render-canvas` itself
  *  gets away with no JS sizing at all. The 160/120 floor trades EXACT
  *  proportionality for a still-usable box at an extreme ratio or a very
  *  narrow viewport; re-clamping to `availW`/`availH` right after is what
@@ -443,7 +484,7 @@ function syncContentUI() {
     else playArrival();
   } else {
     // Not a path state.js's own logic can currently reach (images are only
-    // ever added, never cleared) — kept correct anyway rather than assumed
+    // ever added, never cleared), kept correct anyway rather than assumed
     // unreachable, exactly like showDropErrors() below being written to
     // handle zero errors even though most callers only ever pass one.
     dropzone.hidden = false;
@@ -488,9 +529,9 @@ function syncContentUI() {
 
 // The empty frame tracks the sidebar's Templates/Ratios/"+ Custom size"
 // controls even though none of those write through `scheduleRender()`'s
-// normal path in any way this file can hook directly (web/sidebar.js owns
+// normal path in any way this file can hook directly (web/size.js owns
 // that wiring, and Task 7's brief scopes this file to web/index.html,
-// web/style.css and web/main.js only — not a second file to touch for one
+// web/style.css and web/main.js only, not a second file to touch for one
 // more call). A `click`/`keydown` listener on `#sidebar` itself, scoped to
 // only matter while there's nothing loaded, is what keeps this synced
 // without reaching into that file: every one of those controls' own
@@ -509,7 +550,7 @@ window.addEventListener('resize', updateEmptyFrame);
 
    THE OUTLINE IS A DOM ELEMENT, NEVER A PAINTED PIXEL. The preview canvas
    is the export canvas, so anything drawn into it ships inside every
-   exported PNG — see web/selection.js, which may not touch a canvas at all,
+   exported PNG, see web/selection.js, which may not touch a canvas at all,
    and the byte-identical guard in test/web-export.test.js.
    ---------------------------------------------------------------------- */
 const selectionOutline = document.getElementById('selectionOutline');
@@ -555,7 +596,7 @@ renderCanvas.addEventListener('click', (event) => {
 
 // A click on the surface but NOT on the canvas is a click on the ground:
 // clear the selection. Registered on the surface rather than the document so
-// clicking a panel does not deselect — the panel is where you go to act on
+// clicking a panel does not deselect, the panel is where you go to act on
 // the thing you just selected.
 canvasSurface.addEventListener('click', (event) => {
   if (event.target !== renderCanvas) setSelection(null);
@@ -575,7 +616,7 @@ document.addEventListener('keydown', (event) => {
 onRender(placeSelectionOutline);
 window.addEventListener('resize', placeSelectionOutline);
 
-/** A bad drop is an inline message, never a wiped canvas — addFiles() never
+/** A bad drop is an inline message, never a wiped canvas, addFiles() never
  *  touches state.images for files it couldn't decode, so whatever was last
  *  rendered stays exactly as it was; this just surfaces what went wrong. */
 function showDropErrors(errors) {
@@ -587,7 +628,7 @@ function showDropErrors(errors) {
   dropError.hidden = false;
   dropError.textContent = errors.length === 1
     ? errors[0]
-    : `${errors.length} files were skipped — ${errors.join(' ')}`;
+    : `${errors.length} files were skipped, ${errors.join(' ')}`;
 }
 
 async function handleFiles(fileList) {
@@ -599,11 +640,11 @@ async function handleFiles(fileList) {
   // syncInspectors' own comment.
   syncInspectors();
   // addFiles() above calls render() synchronously when it decodes anything,
-  // so state.meta already reflects the new image(s) by this point — this is
+  // so state.meta already reflects the new image(s) by this point, this is
   // what tells the Background panel's preset swatches to stop showing the
   // synthetic no-image fallback and start previewing the real thing (see
-  // web/sidebar.js's "Ground swatch gradients" header comment), and what
-  // re-derives its "Sampled" row (Task 5) — see web/inspector-background.js's
+  // web/size.js's "Ground swatch gradients" header comment), and what
+  // re-derives its "Sampled" row (Task 5), see web/inspector-background.js's
   // "Sampled" header comment for why it keeps an independent cache that only
   // this call invalidates. The rail had a second copy of this handshake
   // (`sidebar.refreshGrounds()`) until Cycle A Task 2 removed its Ground
@@ -611,7 +652,7 @@ async function handleFiles(fileList) {
   background?.refreshSampled();
 }
 
-/** Drop anywhere on the stage — not just the dropzone box — so a shot can be
+/** Drop anywhere on the stage, not just the dropzone box, so a shot can be
  *  replaced (or a phone added) after the first one loads, once the dropzone
  *  overlay itself is no longer showing. `dragenter`/`dragleave` fire on
  *  every element the pointer crosses, including children, so a plain depth
@@ -648,7 +689,7 @@ stage.addEventListener('drop', (event) => {
 });
 
 /** The accessible equivalent of a drop: the dropzone is a real button
- *  (role="button", tabindex="0" — set in index.html) that opens a native
+ *  (role="button", tabindex="0", set in index.html) that opens a native
  *  file picker, reachable and operable with only a keyboard. */
 dropzone.addEventListener('click', () => fileInput.click());
 dropzone.addEventListener('keydown', (event) => {
@@ -665,7 +706,7 @@ fileInput.addEventListener('change', () => {
 /** The canvas surround: three neutral steps behind the shot, so a pale
  *  ground can be judged honestly. This sets ONLY `canvasSurface`'s own
  *  background (via `data-surround`, read by style.css) and `state.surround`
- *  — core/ never sees this value; see state.js's header comment and
+ * , core/ never sees this value; see state.js's header comment and
  *  test/web-export.test.js. The segmented control's own `.is-active`/
  *  aria-pressed toggling is already handled by the generic
  *  `wireSingleSelectGroup` wiring above (`.surround-control` is a
@@ -695,7 +736,6 @@ const exportBtnPanel = document.getElementById('exportBtnPanel');
 const exportFormatSelect = document.getElementById('exportFormatSelect');
 const exportScaleControl = document.getElementById('exportScaleControl');
 
-const FORMAT_ORDER = ['png', 'jpeg', 'webp'];
 const FORMAT_LABELS = { png: 'PNG', jpeg: 'JPEG', webp: 'WEBP' };
 let exportFormat = 'png';
 let exporting = false;
@@ -715,27 +755,83 @@ function exportControls() {
   ].filter(Boolean);
 }
 
-/** `select-control` is chrome-only markup from Task 1 (a static "PNG ▾"
- *  label, no working dropdown behind it). Rather than build a full listbox
- *  popup for a fixed 3-item set - more surface area than this control needs,
- *  and not what "reuse Task 1's primitives" asks for - clicking it simply
- *  cycles PNG → JPEG → WebP → PNG, updating its own leading text node (the
- *  chevron <svg> after it is untouched) and the panel Export button's label
- *  to match. */
+/** THE FORMAT MENU.
+ *
+ *  This control used to cycle its own label PNG -> JPEG -> WEBP on click.
+ *  Rock, 2026-09-07: *"it should 100% be [a dropdown] and I have already
+ *  complained about this before."* He is right, and the old comment here
+ *  argued the wrong thing: a control that names one option and hides the
+ *  other two is not a smaller listbox, it is a control that cannot be read.
+ *
+ *  It is a real listbox: aria-expanded on the button, aria-selected on the
+ *  options, Escape and outside-click close it, the arrow keys walk it, and
+ *  focus always comes back to the button.
+ */
+const exportFormatMenu = document.getElementById('exportFormatMenu');
+const formatOptions = () =>
+  Array.from(exportFormatMenu?.querySelectorAll('.select-option') ?? []);
+
 function updateFormatUI() {
   const label = FORMAT_LABELS[exportFormat];
   const textNode = Array.from(exportFormatSelect?.childNodes ?? []).find(
     (node) => node.nodeType === Node.TEXT_NODE,
   );
   if (textNode) textNode.data = `${label} `;
-  exportFormatSelect?.setAttribute('aria-label', `Export format: ${label}. Click to change.`);
+  exportFormatSelect?.setAttribute('aria-label', `Export format: ${label}`);
+  for (const opt of formatOptions()) {
+    opt.setAttribute('aria-selected', String(opt.dataset.format === exportFormat));
+  }
   if (exportBtnPanel && !exporting) exportBtnPanel.textContent = `Export ${label}`;
 }
 
-exportFormatSelect?.addEventListener('click', () => {
-  const next = FORMAT_ORDER[(FORMAT_ORDER.indexOf(exportFormat) + 1) % FORMAT_ORDER.length];
-  exportFormat = next;
+const formatMenu = makePopover({
+  trigger: exportFormatSelect,
+  panel: exportFormatMenu,
+  // The option that is already chosen, so the arrow keys start from it.
+  onOpen: () => {
+    const opts = formatOptions();
+    (opts.find((o) => o.dataset.format === exportFormat) || opts[0])?.focus();
+  },
+});
+
+function menuIsOpen() {
+  return formatMenu.isOpen();
+}
+
+function setMenuOpen(open, refocus = true) {
+  formatMenu.setOpen(open, refocus);
+}
+
+function chooseFormat(format) {
+  exportFormat = format;
   updateFormatUI();
+  setMenuOpen(false);
+}
+
+exportFormatMenu?.addEventListener('click', (event) => {
+  const opt = event.target.closest('.select-option');
+  if (opt) chooseFormat(opt.dataset.format);
+});
+
+/** Roving focus, on the FIELD so it works whether focus sits on the button
+ *  or on an option. Arrow keys open a closed menu and walk an open one;
+ *  Home/End jump to the ends. Escape and the outside click are the
+ *  popover's, not this listener's. Enter and Space need no handler: the
+ *  options are buttons and already fire click. */
+formatMenu.field.addEventListener('keydown', (event) => {
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+  event.preventDefault();
+  if (!menuIsOpen()) {
+    setMenuOpen(true);
+    return;
+  }
+  const opts = formatOptions();
+  const at = opts.indexOf(document.activeElement);
+  if (event.key === 'Home') opts[0]?.focus();
+  else if (event.key === 'End') opts[opts.length - 1]?.focus();
+  else if (at < 0) (event.key === 'ArrowDown' ? opts[0] : opts[opts.length - 1])?.focus();
+  else if (event.key === 'ArrowDown') opts[(at + 1) % opts.length]?.focus();
+  else opts[(at - 1 + opts.length) % opts.length]?.focus();
 });
 
 /** The 1x/2x/3x segmented control's `.is-active` toggling is already
@@ -753,6 +849,9 @@ function selectedScale() {
  *  human-perceptible wait (see export.js), not something a click should be
  *  able to fire twice into or race a format/scale change against. */
 function setExportBusy(busy) {
+  // An export freezes the format control, so an open menu would be a menu
+  // whose own button is disabled underneath it.
+  if (busy) setMenuOpen(false, false);
   for (const btn of [exportBtnToolbar, exportBtnPanel]) {
     if (!btn) continue;
     btn.setAttribute('aria-busy', String(busy));

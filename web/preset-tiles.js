@@ -1,12 +1,12 @@
-// web/preset-tiles.js — the small ground thumbnails in the Background panel,
+// web/preset-tiles.js, the small ground thumbnails in the Background panel,
 // each painted into its canvas by the code that paints the real one: the
 // eight preset tiles, and the Angle dial.
 //
 // THE TILE IS DRAWN BY THE REAL GENERATOR, NEVER APPROXIMATED. That is this
 // file's whole reason to exist, and it is not a style preference.
 //
-// What it replaces: `gradientFor` in web/sidebar.js built a CSS
-// `linear-gradient` string that approximated what `paintGround` would draw —
+// What it replaces: `gradientFor` in web/size.js built a CSS
+// `linear-gradient` string that approximated what `paintGround` would draw,
 // a second implementation of the ground, in a different language, kept in
 // step by hand. It had already lied once, and Cycle C caught it lying again
 // within an hour of `ash` gaining its own saturation: the swatch previewed a
@@ -24,7 +24,7 @@ import {
 /**
  * Paint one named preset into `canvas`.
  *
- * `config` is the app's own config — the tile has to honour the type, the
+ * `config` is the app's own config, the tile has to honour the type, the
  * angle and the luminosity, or it previews something the
  * canvas will not produce. `meta` is a previously-returned ground meta for
  * the loaded screenshot, so a preset can be previewed against the user's own
@@ -39,7 +39,7 @@ export function renderTile(canvas, name, config, meta = null, makeCanvas = defau
   const preset = GROUNDS[name];
   if (!preset || !canvas) return;
 
-  // The preset's OWN saturation when it declares one — `ash` is grey
+  // The preset's OWN saturation when it declares one, `ash` is grey
   // whatever it is dropped on, and a tile that ignored this is precisely
   // the lie this file exists to stop telling.
   const forceSat = preset.sat ?? null;
@@ -48,15 +48,15 @@ export function renderTile(canvas, name, config, meta = null, makeCanvas = defau
   const stops = meta
     ? groundFromMeta(meta, preset.hue, eff.luminosity, forceSat).ground
     // No screenshot yet: a synthetic mid-tone source at this preset's own
-    // hue, which is what web/sidebar.js's swatches have always fallen back
+    // hue, which is what web/size.js's swatches have always fallen back
     // to for the empty state.
     : groundFor([syntheticSource(preset.hue, makeCanvas)],
                 preset.hue, eff.luminosity, forceSat).ground;
 
   // A config describing THE TILE, not the shot: its own pixel size, and the
   // background settings the shot would use. Grain is absent because
-  // paintGround does not paint it — `paintGrain` is a separate pass in
-  // composeWithMeta — and at 44px it would be noise rather than texture.
+  // paintGround does not paint it, `paintGrain` is a separate pass in
+  // composeWithMeta, and at 44px it would be noise rather than texture.
   const tileConfig = {
     ...eff,
     w: canvas.width,
@@ -93,7 +93,7 @@ function defaultMakeCanvas(w, h) {
  *
  * A number cannot say which way 166° points, and an ARROW drawn from that
  * number would only restate it. So the dial is a circle of the REAL ground
- * at the current settings — the same rule as the tiles above, and the same
+ * at the current settings, the same rule as the tiles above, and the same
  * reason: it cannot disagree with the canvas, because it is the canvas's own
  * function. The tick then marks the light end, from the same `angle` field
  * `paintGround` reads.

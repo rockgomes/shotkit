@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
     rel="stylesheet"
-    href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@400;500;600&display=swap"
   />
   <!-- SVG only, deliberately: with this present the browser stops asking for
        /favicon.ico, which was the one 404 on the live site. -->
@@ -60,9 +60,17 @@
            arrow, the conventional "undo to default" mark, rather than a
            cross: a cross reads as "clear", and these put a value back to
            what the app chose, which is not the same thing. -->
+      <!-- BROKEN BEFORE, and Rock said so. The old pair was
+           `M3 10a9 9 0 1 1 2.2 5.9` plus `M3 4.5V10h5.5`: a 319-degree arc
+           whose END was at (5.2, 15.9), with the corner bracket sitting on
+           its START at (3, 10). So the bracket's upright hung off the
+           outside of the circle and its arm cut into the middle of it, while
+           the gap in the ring sat somewhere else entirely. This is Lucide's
+           rotate-ccw, where the arc TERMINATES at (3, 8) and the bracket is
+           the tail it ends in. -->
       <symbol id="icon-reset" viewBox="0 0 24 24">
-        <path d="M3 10a9 9 0 1 1 2.2 5.9" />
-        <path d="M3 4.5V10h5.5" />
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+        <path d="M3 3v5h5" />
       </symbol>
       <symbol id="icon-upload" viewBox="0 0 24 24">
         <path d="M12 15V4M7 9l5-5 5 5" />
@@ -163,56 +171,98 @@
 
       <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
 
-      <aside id="sidebar" aria-label="Templates and ratios">
-        <label class="sidebar-search">
-          <svg class="icon" aria-hidden="true"><use href="#icon-search"></use></svg>
-          <span class="visually-hidden">Search templates</span>
-          <input type="text" placeholder="Search templates…" />
-        </label>
-
-        <section class="sidebar-section">
-          <h2 class="section-label">Templates</h2>
-          <ul class="template-list">
-            <li><button type="button" class="template-row is-selected" aria-pressed="true">
-              <span>Dribbble shot</span><span class="mono dim">2800×2100</span>
-            </button></li>
-            <li><button type="button" class="template-row" aria-pressed="false">
-              <span>Twitter post</span><span class="mono dim">1600×900</span>
-            </button></li>
-            <li><button type="button" class="template-row" aria-pressed="false">
-              <span>Twitter header</span><span class="mono dim">1500×500</span>
-            </button></li>
-            <li><button type="button" class="template-row" aria-pressed="false">
-              <span>App Store</span><span class="mono dim">2880×1800</span>
-            </button></li>
-            <li><button type="button" class="template-row" aria-pressed="false">
-              <span>Open Graph</span><span class="mono dim">2400×1260</span>
-            </button></li>
-            <li><button type="button" class="template-row" aria-pressed="false">
-              <span>Instagram</span><span class="mono dim">2160×2160</span>
-            </button></li>
-            <li><button type="button" class="template-row template-row--add">+ Custom size</button></li>
-          </ul>
-        </section>
+      <aside id="sidebar" aria-label="The canvas: background">
+        <!-- NO SIZE CONTROL HERE as of 2026-09-07. Size moved into the strip
+             above the canvas, as a dropdown, because that is where Rock's own
+             design puts it: the size IS the canvas, so it belongs on the
+             canvas, not in a list of panels beside it. The search box went
+             with it - it searches sizes, and there is nothing else here to
+             search. web/size.js builds the control into #sizeHost now. -->
 
         <!-- NO GROUND SECTION HERE, DELIBERATELY. The rail used to carry a
              second copy of the eight ground presets; the inspector's
              Background panel shows the same eight (rendered by the same
-             renderGroundSwatches helper in web/sidebar.js) and is where the
+             renderGroundSwatches helper in web/size.js) and is where the
              rest of the ground controls live. One list, one place. -->
+
+        <!-- web/inspector-background.js owns everything in this section
+             below the heading, Sampled, the preset tiles, Hue, Angle, Type
+             and Luminosity, in that order (the product's argument, not a
+             layout preference; see that file's header comment). The design
+             handoff's own markup here put a gradient-swatch picker first;
+             that is deliberately NOT reproduced, the screenshot's own
+             sampled ground leads, manual hue is an override.
+
+             IT LIVES IN THE LEFT PANEL as of Cycle D: the ground describes
+             the CANVAS, and the right-hand panel edits whichever element you
+             clicked. `c` is the canvas and `elements` is the things in the
+             shot, the panels now say what the config already says.
+
+             `inert` by default: these are properties OF a loaded shot, so
+             with none loaded they read the way a photo editor's properties
+             panel does before any document is open, present, greyed, not
+             operable. web/main.js's syncContentUI() removes this the moment
+             a screenshot decodes and restores it if the app is ever back to
+             zero images. The Size control is not covered by it - it now
+             lives in the canvas strip, it configures what a drop will
+             produce, and it stays live throughout. -->
+        <section class="inspector-section" id="backgroundSection" inert>
+          <h2 class="section-label">Background</h2>
+        </section>
+
 
         <div class="sidebar-spacer"></div>
 
-        <div class="cli-card">
+        <!-- HIDDEN, NOT DELETED. Rock, 2026-09-06 and again 2026-09-07:
+             "we are supposed to have CLI at some point, no? either way, you
+             can hide it for now. but let's circle back on this later."
+
+             The card showed a green dot and the words "CLI connected" while
+             no CLI exists - see the README's "Not built yet". A status
+             indicator asserting something untrue is the one thing this
+             project's rules never allow. It stays in the markup because the
+             CLI is still planned and this is its design.
+
+             `[hidden] { display: none !important }` is already the single
+             global rule at the top of web/style.css, so no CSS is added. -->
+        <div class="cli-card" hidden>
           <p class="mono cli-command">$ shotkit watch ./shots</p>
           <p class="cli-status"><span class="status-dot" aria-hidden="true"></span>CLI connected</p>
         </div>
       </aside>
 
       <main id="stage" aria-label="Canvas">
+        <!-- THE CANVAS STRIP. What the canvas IS on the left (its size),
+             how it is DISPLAYED on the right (the table it sits on). The
+             right-hand control was called "Surround"; Rock, 2026-09-06:
+             *"Table is better than surround"*. Only the visible word
+             changed - `data-surround`, --surround-*, state.surround and
+             SURROUNDS all still say surround, because that is what the
+             config field is called and renaming it would touch core/. -->
         <div class="canvas-toolbar">
-          <span class="canvas-toolbar-label mono">Surround</span>
-          <div class="segmented segmented--mini surround-control" role="group" aria-label="Canvas surround">
+          <span class="canvas-toolbar-label" id="sizeLabel">Size</span>
+          <div class="select select--size" id="sizeField">
+            <button type="button" id="sizeSelect" class="select-control select-control--size"
+                    aria-haspopup="dialog" aria-expanded="false" aria-controls="sizeMenu"
+                    aria-label="Canvas size">
+              <span class="size-trigger-name" id="sizeTriggerName">Dribbble shot</span>
+              <span class="mono size-trigger-dims" id="sizeTriggerDims">2800×2100</span>
+              <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-chevron-down"></use></svg>
+            </button>
+            <div id="sizeMenu" class="select-menu select-menu--panel" role="dialog" aria-label="Canvas size" hidden>
+              <label class="sidebar-search">
+                <svg class="icon" aria-hidden="true"><use href="#icon-search"></use></svg>
+                <span class="visually-hidden">Search sizes</span>
+                <input type="text" placeholder="Search sizes…" />
+              </label>
+              <!-- web/size.js fills this in: the tab strip, the list and
+                   the custom W/H form, exactly as they were in the rail. -->
+              <section class="sidebar-section" id="sizeHost"></section>
+            </div>
+          </div>
+
+          <span class="canvas-toolbar-label">Table</span>
+          <div class="segmented segmented--mini surround-control" role="group" aria-label="Canvas table">
             <button type="button" class="segmented-cell surround-cell" data-surround="dark" aria-pressed="false">Dark</button>
             <button type="button" class="segmented-cell surround-cell is-active" data-surround="mid" aria-pressed="true">Mid</button>
             <button type="button" class="segmented-cell surround-cell" data-surround="light" aria-pressed="false">Light</button>
@@ -231,7 +281,7 @@
                test/web-export.test.js. -->
           <div id="selectionOutline" class="selection-outline" hidden></div>
 
-          <!-- The empty state IS the app with no file open — an empty frame
+          <!-- The empty state IS the app with no file open, an empty frame
                at the current ratio, not a marketing panel (see task-7-brief.md:
                that reading was rejected twice during direction exploration).
                web/main.js sizes this box to the canvas's own effective
@@ -250,52 +300,61 @@
         <input type="file" id="fileInput" class="visually-hidden" accept="image/*" multiple tabindex="-1" aria-hidden="true" />
       </main>
 
-      <aside id="inspector" aria-label="Background, frame and export settings">
-        <!-- Task 5 (web/inspector-background.js) owns everything in this
-             section below the heading — Sampled, Presets, Hue, Angle,
-             Type, Seed and Tone, in that order (the product's argument,
-             not a layout preference; see that file's header comment).
-             The design handoff's own markup here put a gradient-swatch
-             picker first; that is deliberately NOT reproduced — the
-             screenshot's own sampled ground leads, manual hue is an
-             override.
-
-             `inert` by default (Task 7): these are properties OF a loaded
-             shot, so with none loaded they read the way a photo editor's
-             properties panel does before any document is open — present,
-             greyed, not operable. web/main.js's syncContentUI() removes
-             this the moment a screenshot decodes and restores it if the
-             app is ever back to zero images. Templates/Ratios in
-             the SIDEBAR are deliberately not covered by this — they
-             configure what a drop will produce and stay live throughout. -->
-        <section class="inspector-section" id="backgroundSection" inert>
-          <h2 class="section-label">Background</h2>
-        </section>
+      <aside id="inspector" aria-label="The selected element: frame, finish and export">
+        <!-- ONE SUBJECT LINE, at the top, instead of a "· Desktop" tag on
+             each section heading. Both sections always edit the same thing -
+             whichever element is selected - so naming it twice said nothing
+             the second time, and said it in a place that read as part of the
+             heading. web/inspector-frame.js writes the name. -->
+        <header class="inspector-subject" id="inspectorSubject">
+          <span class="inspector-subject-label">Selected</span>
+          <span class="inspector-subject-name" id="selectedElementName">Desktop</span>
+        </header>
 
         <!-- Task 6 (web/inspector-frame.js) owns everything below the
-             heading in both sections below — frameKind chips/chrome theme/
+             heading in both sections below, frameKind chips/chrome theme/
              url in Frame, padding/corner radius/grain/shadow in
-             Finish — built fresh the same way Task 5 built Background, not
+             Finish, built fresh the same way Task 5 built Background, not
              wired from static markup here. The design handoff's own Frame
              chips ("None / Browser / macOS / iPhone") are deliberately NOT
              reproduced: macOS has no design in this project (see
              FRAME_KINDS, core/presets.js) and "iPhone" was Task 5b's
-             `phone` rename — reproducing either literal label here would
+             `phone` rename, reproducing either literal label here would
              just reintroduce what those two decisions already closed. -->
         <section class="inspector-section" id="frameSection" inert>
           <h2 class="section-label">Frame</h2>
         </section>
 
-        <section class="inspector-section" id="finishSection" inert>
-          <h2 class="section-label">Finish</h2>
-        </section>
+        <!-- NO HEADING. Rock, 2026-09-07: "is this in the design?" It was
+             not. His right panel is Selected -> Frame -> the three sliders
+             -> Stroke -> Export, with the sliders sitting straight under the
+             Frame chips. "Finish" was a name this app invented for a group
+             the design does not label. The SECTION stays: it is the box the
+             sliders live in, and web/inspector-frame.js finds it by id. -->
+        <section class="inspector-section" id="finishSection" inert></section>
 
         <section class="inspector-section inspector-section--export">
           <h2 class="section-label">Export</h2>
           <div class="export-row">
-            <button type="button" id="exportFormatSelect" class="select-control" aria-label="Export format: PNG. Click to change.">
-              PNG <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-chevron-down"></use></svg>
-            </button>
+            <!-- A REAL MENU, not a cycling button. Rock, 2026-09-07: "it
+                 should 100% be [a dropdown] and I have already complained
+                 about this before." The control used to swap its own label
+                 PNG -> JPEG -> WEBP on click, so nothing opened and the two
+                 formats you did not want were never visible. The white
+                 stroke in the design file is this control's OPEN state. -->
+            <div class="select" id="exportFormatField">
+              <button type="button" id="exportFormatSelect" class="select-control"
+                      aria-haspopup="listbox" aria-expanded="false"
+                      aria-controls="exportFormatMenu"
+                      aria-label="Export format: PNG">
+                PNG <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-chevron-down"></use></svg>
+              </button>
+              <div id="exportFormatMenu" class="select-menu" role="listbox" aria-label="Export format" hidden>
+                <button type="button" class="select-option" role="option" data-format="png" aria-selected="true" tabindex="-1">PNG</button>
+                <button type="button" class="select-option" role="option" data-format="jpeg" aria-selected="false" tabindex="-1">JPEG</button>
+                <button type="button" class="select-option" role="option" data-format="webp" aria-selected="false" tabindex="-1">WEBP</button>
+              </div>
+            </div>
             <div id="exportScaleControl" class="segmented segmented--mini" role="group" aria-label="Export scale">
               <button type="button" class="segmented-cell" aria-pressed="false">1x</button>
               <button type="button" class="segmented-cell is-active" aria-pressed="true">2x</button>

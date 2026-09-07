@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 // The site had no favicon at all: `/favicon.ico` returned 404 on the live
 // domain, and that 404 was the only console error the shipped app produced.
 //
-// The mark is the app's own — the rounded square from `.brand-mark` in
+// The mark is the app's own, the rounded square from `.brand-mark` in
 // web/style.css, on the same brand gradient. That gradient's two colours
 // live in web/tokens.css, which is the one file in web/ allowed to name a
 // colour outright, and an SVG cannot read a CSS custom property. So the two

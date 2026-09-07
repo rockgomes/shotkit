@@ -13,12 +13,15 @@ import {
   selectRatio,
   applyCustomSize,
   selectGround,
-} from '../web/sidebar.js';
+  SIZE_TABS,
+  activeSizeTab,
+  sizeLabel,
+} from '../web/size.js';
 
 // ---------------------------------------------------------------------
 // Pure helpers: selection semantics without reimplementing normalise()'s
 // precedence (explicit w/h > template > ratio). These prove the CLEARING
-// behaviour that keeps the sidebar's own "selected" highlight honest —
+// behaviour that keeps the sidebar's own "selected" highlight honest,
 // not the precedence rule itself, which belongs to core/config.js and is
 // already covered by test/config.test.js.
 // ---------------------------------------------------------------------
@@ -44,7 +47,7 @@ describe('sidebar selection helpers', () => {
     expect(normalise(config)).toMatchObject({ w: TEMPLATES.dribbble.w, h: TEMPLATES.dribbble.h, template: 'dribbble' });
   });
 
-  it('selectRatio clears BOTH explicit w/h and a lingering template — template beats ratio otherwise', () => {
+  it('selectRatio clears BOTH explicit w/h and a lingering template, template beats ratio otherwise', () => {
     const config = { ratio: '3:2' };
     selectTemplate(config, 'app-store');
     selectRatio(config, '1:1');
@@ -68,7 +71,7 @@ describe('sidebar selection helpers', () => {
     // Simulate the broken version: set template WITHOUT clearing w/h.
     config.template = 'dribbble';
     // With the bug, isCustomSize is still true (w/h never cleared), so the
-    // template can never be "active" — exactly the mismatch the real
+    // template can never be "active", exactly the mismatch the real
     // selectTemplate() exists to prevent.
     expect(activeTemplateKey(config)).toBeNull();
     // The real function fixes this:
@@ -109,7 +112,7 @@ describe('sidebar selection helpers', () => {
 // identity of the returned `meta` object, not a byte/visual diff or a timing
 // threshold: composeWithMeta's own code is
 // `const meta = precomputedMeta || (() => { ...fresh groundFor()... })();`
-// — if the cache were hit, `meta` IS the literal cached object; if it were
+//, if the cache were hit, `meta` IS the literal cached object; if it were
 // missed, a brand new object is always built. Two renders returning the
 // identical reference is only possible if groundFor was never called the
 // second time, which is a stronger and less flaky guarantee than measuring
@@ -138,7 +141,7 @@ describe('sidebar size changes reuse the ground cache; ground changes bust it', 
     const firstMeta = state.meta;
     expect(firstMeta).toBeTruthy();
 
-    // Simulate exactly what web/sidebar.js's template row click does: set
+    // Simulate exactly what web/size.js's template row click does: set
     // `template`, clear any explicit w/h. Ground/tone are untouched.
     selectTemplate(state.config, 'app-store');
     render();
@@ -186,22 +189,22 @@ describe('sidebar size changes reuse the ground cache; ground changes bust it', 
 
 // ---------------------------------------------------------------------
 // FIX ROUND 1: a ground preset swatch must tell the truth about what
-// clicking it will actually produce — including on a DARK screenshot,
+// clicking it will actually produce, including on a DARK screenshot,
 // where core/ground.js's mid-tone branch applies. The first version of
 // gradientFor() always fed groundFor() a synthetic, always-pale sample
-// (HSL(hue, 50%, 70%) — luminance ~0.85-0.97 for every hue), so no swatch
+// (HSL(hue, 50%, 70%), luminance ~0.85-0.97 for every hue), so no swatch
 // could ever preview the mid-tone branch: it rendered the pale-tint
 // preview even for an image whose OWN luminance would force mid-tone once
 // applied. That is a different branch of the algorithm, not sampling
-// noise — see web/sidebar.js's "Ground swatch gradients" header comment
+// noise, see web/size.js's "Ground swatch gradients" header comment
 // for the measured before/after hex values.
 //
 // This drives the REAL app pipeline (decode a real dark image, render it,
 // ask gradientFor() for a swatch, then actually select that preset and
 // re-render) and asserts the swatch's own colours are the exact ones
-// render() then produces — not merely "a" plausible gradient. Confirmed
+// render() then produces, not merely "a" plausible gradient. Confirmed
 // failing against the pre-fix implementation before the fix landed (see
-// task-4-report.md's fix-round-1 section for the run log) — it must fail
+// task-4-report.md's fix-round-1 section for the run log), it must fail
 // there, since demonstrating the bug is the entire point of this test.
 // ---------------------------------------------------------------------
 
@@ -302,8 +305,8 @@ describe('preset tiles tell the truth about a loaded (dark) image', () => {
 // environment (vitest.config.js) and this file's own split is explicit
 // about it: "Pure helpers: ... no DOM". There is no jsdom, no mount
 // helper, and adding one for two assertions would be a second harness
-// nobody else uses. So the removal is asserted where it actually lives —
-// the shipped markup, and the module's exports — rather than by
+// nobody else uses. So the removal is asserted where it actually lives,
+// the shipped markup, and the module's exports, rather than by
 // simulating a browser.
 // ---------------------------------------------------------------------
 
@@ -321,23 +324,191 @@ describe('the rail does not duplicate the Background panel', () => {
   });
 
   it('initSidebar no longer renders ground swatches', () => {
-    const src = readFileSync('web/sidebar.js', 'utf8');
+    const src = readFileSync('web/size.js', 'utf8');
     const init = src.slice(src.indexOf('export function initSidebar'));
     expect(init).not.toMatch(/renderGroundSwatches\(/);
   });
 
-  it('no longer renders the presets at all — the panel does, with real tiles', async () => {
+  it('no longer renders the presets at all, the panel does, with real tiles', async () => {
     // Cycle A Task 2 removed the rail's duplicate Ground group and this
     // asserted the shared renderer survived for the inspector. Cycle C Task
     // 5 retired that renderer: it built a CSS gradient approximating the
     // real one, and the panel now paints canvases through core/ instead.
     // Kept, aimed at the current architecture, so nothing quietly grows a
     // second ground implementation here again.
-    const mod = await import('../web/sidebar.js');
+    const mod = await import('../web/size.js');
     expect(mod.renderGroundSwatches).toBeUndefined();
     expect(mod.gradientFor).toBeUndefined();
     expect(readFileSync('web/inspector-background.js', 'utf8')).toMatch(
       /renderTile\(cv, name/,
     );
+  });
+});
+
+// ---------------------------------------------------------------------
+// Cycle D Task 1. Templates, ratios and a custom size are ONE decision,
+// every one of them writes nothing but `w` and `h`, and they read as two
+// stacked lists plus a disclosure. Tabs make the truth visible, and
+// showing one at a time is where the left panel's new space comes from.
+// ---------------------------------------------------------------------
+describe('the size control is one decision, shown one tab at a time', () => {
+  it('offers exactly three tabs', () => {
+    expect(SIZE_TABS).toEqual(['templates', 'ratios', 'custom']);
+  });
+
+  it('opens on the tab the current size actually came from', () => {
+    // Opening on Templates while a ratio is applied would show a list with
+    // nothing highlighted, and read as "nothing is chosen".
+    expect(activeSizeTab({ ratio: '3:2' })).toBe('ratios');
+    expect(activeSizeTab({ template: 'dribbble' })).toBe('templates');
+    expect(activeSizeTab({ w: 1234, h: 567 })).toBe('custom');
+  });
+
+  it("and follows normalise()'s own precedence, not its own", () => {
+    // core/config.js resolves explicit w/h over template over ratio. A tab
+    // rule that disagreed would open on a list the canvas is not using.
+    expect(activeSizeTab({ ratio: '3:2', template: 'dribbble' })).toBe('templates');
+    expect(activeSizeTab({ ratio: '3:2', template: 'dribbble', w: 800, h: 600 })).toBe('custom');
+    // Proven against the real normalise() rather than against the helper's
+    // own opinion: the tab must name where the canvas's size came from.
+    expect(normalise({ ratio: '3:2', template: 'dribbble', w: 800, h: 600 }))
+      .toMatchObject({ w: 800, h: 600 });
+  });
+
+  it('ignores a template or ratio key that is not real', () => {
+    // Same guard activeTemplateKey/activeRatioKey already carry: a stale
+    // jobs.json naming a template that no longer exists must not highlight
+    // a tab whose list cannot show it.
+    expect(activeSizeTab({ template: 'not-a-template' })).toBe('ratios');
+  });
+});
+
+
+// ---------------------------------------------------------------------
+// SIZE LEFT THE LEFT PANEL (2026-09-07)
+//
+// It is a dropdown in the strip above the canvas now, because that is where
+// Rock's own design puts it: the size IS the canvas. The control itself did
+// not change - same tabs, same rows, same custom form - so what is worth
+// asserting is the move, and the one new thing the move needed: a label for
+// the trigger, which must never name a size the open list has not selected.
+// ---------------------------------------------------------------------
+
+describe('sizeLabel, the dropdown trigger', () => {
+  it('names the template when one is selected', () => {
+    const config = {};
+    selectTemplate(config, 'dribbble');
+    const { name, dims } = sizeLabel(config);
+    expect(name).toBe(TEMPLATES.dribbble.label);
+    expect(dims).toBe(`${TEMPLATES.dribbble.w}\u00d7${TEMPLATES.dribbble.h}`);
+  });
+
+  it('names the ratio when one is selected', () => {
+    const config = {};
+    selectRatio(config, '16:9');
+    const { name, dims } = sizeLabel(config);
+    expect(name).toBe('16:9');
+    expect(dims).toBe(`${RATIOS['16:9'][0]}\u00d7${RATIOS['16:9'][1]}`);
+  });
+
+  it('says Custom for an explicit size, and gives its real pixels', () => {
+    const config = {};
+    expect(applyCustomSize(config, '1234', '567')).toBe(true);
+    expect(sizeLabel(config)).toEqual({ name: 'Custom', dims: '1234\u00d7567' });
+  });
+
+  it('agrees with the list: an explicit size wins over a template', () => {
+    // applyCustomSize leaves the template key on the config; isCustomSize is
+    // what breaks the tie for the list, and the trigger must break it the
+    // same way or the strip names one size while a different row is lit.
+    const config = {};
+    selectTemplate(config, 'dribbble');
+    applyCustomSize(config, '800', '600');
+    expect(activeTemplateKey(config)).toBeNull();
+    expect(sizeLabel(config).name).toBe('Custom');
+  });
+
+  it('reports the pixels core/ will actually render', () => {
+    const config = {};
+    selectRatio(config, '1:1');
+    const eff = normalise(config);
+    expect(sizeLabel(config).dims).toBe(`${eff.w}\u00d7${eff.h}`);
+  });
+});
+
+describe('the size control lives in the canvas strip', () => {
+  // Comments stripped first: this reads the MARKUP, and the comment that
+  // records the move names the ids it moved to.
+  const html = readFileSync('web/index.html', 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+  const sidebar = html.slice(html.indexOf('<aside id="sidebar"'), html.indexOf('</aside>'));
+  const strip = html.slice(
+    html.indexOf('<div class="canvas-toolbar">'),
+    html.indexOf('<p id="dropError"'),
+  );
+
+  it('is not in the left panel any more, and neither is its search box', () => {
+    expect(sidebar).not.toContain('sidebar-search');
+    expect(sidebar).not.toContain('template-list');
+    expect(sidebar).not.toContain('sizeHost');
+  });
+
+  it('is in the strip above the canvas, with a host web/size.js can find', () => {
+    expect(strip).toContain('id="sizeField"');
+    expect(strip).toContain('id="sizeSelect"');
+    expect(strip).toContain('id="sizeMenu"');
+    expect(strip).toContain('id="sizeHost"');
+    expect(strip).toContain('sidebar-search');
+    // web/size.js reads exactly these two ids; a rename in one place only
+    // would leave the control silently unbuilt.
+    const src = readFileSync('web/size.js', 'utf8');
+    expect(src).toContain("getElementById('sizeMenu')");
+    expect(src).toContain("getElementById('sizeHost')");
+  });
+
+  it('labels the control Size, the way the design does', () => {
+    // Node 7:660: the word sits OUTSIDE the control, 8px before it, exactly
+    // as "Table" does on the other end of the strip.
+    expect(strip).toContain('>Size<');
+  });
+
+  it('fills its panel with the menu surface, not a panel surface', () => {
+    const style = readFileSync('web/style.css', 'utf8');
+    const at = style.indexOf('.select-menu--panel {');
+    const block = style.slice(at, style.indexOf('}', at));
+    expect(block).toContain('background: var(--surface-menu)');
+  });
+
+  it('calls the right-hand control Table, not Surround', () => {
+    expect(strip).toContain('>Table<');
+    expect(strip).not.toMatch(/>Surround</);
+    // Only the WORD changed. The config field, the data attribute and the
+    // tokens still say surround, and renaming those would reach into core/.
+    expect(strip).toContain('data-surround="dark"');
+  });
+});
+
+describe('the inspector names its subject once', () => {
+  const html = readFileSync('web/index.html', 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+  const inspector = html.slice(html.indexOf('<aside id="inspector"'));
+
+  it('has one subject line at the top of the panel', () => {
+    expect(inspector).toContain('id="selectedElementName"');
+    expect((inspector.match(/id="selectedElementName"/g) || []).length).toBe(1);
+  });
+
+  it('does not invent a "Finish" heading the design has none of', () => {
+    // Rock's right panel is Selected -> Frame -> sliders -> Stroke ->
+    // Export. There is no heading over the sliders in node 7:130, and the
+    // one this app had was its own.
+    expect(inspector).not.toContain('>Finish<');
+    const src = readFileSync('web/inspector-frame.js', 'utf8');
+    expect(src).not.toContain("section-label\">Finish");
+  });
+
+  it('no longer tags each section heading with the element', () => {
+    const src = readFileSync('web/inspector-frame.js', 'utf8');
+    expect(src).not.toContain('section-subject');
+    expect(src).not.toContain('frameSubject');
+    expect(src).not.toContain('finishSubject');
   });
 });

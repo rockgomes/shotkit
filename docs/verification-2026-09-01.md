@@ -1,15 +1,15 @@
-# Verification records — 2026-09-01
+# Verification records, 2026-09-01
 
 Two records, in order: **Task 7** (empty state, motion, accessibility) first, and
 **Task 8** (the production build, and retiring the original implementation) at
 the end of this file. Both follow the same rule: every claim either names the
 tool call that produced it, or says plainly that it could not be produced here.
 
-## Task 7 — empty state, motion, and the verification pass
+## Task 7, empty state, motion, and the verification pass
 
 Date: 2026-09-01. Branch `feat/shotkit-web`, on top of `c380e4a`.
 
-This records what was actually run and what was actually found — not a
+This records what was actually run and what was actually found, not a
 checklist ticked from reading the code. Every claim below either names the
 tool call that produced it or says plainly that it couldn't be produced in
 this environment.
@@ -24,12 +24,12 @@ Test Files  13 passed (13)
 ```
 
 Run twice, at the start of this task (before any change) and again after
-every change described below — both runs green, unmodified. One test
+every change described below, both runs green, unmodified. One test
 (`export-scale-fidelity.test.js`) timed out once at 20s under system load in
 the very first run of the session; re-run standalone it passed in ~18s, and
 every subsequent full-suite run (three more, including the final one after
 all changes) passed it inline with no timeout. That is a flake from machine
-load during a large parallel run, not a regression — nothing in this task
+load during a large parallel run, not a regression, nothing in this task
 touches `core/`, `test/`, or `scripts/`, and `git diff --stat` confirms only
 `web/index.html`, `web/style.css`, `web/main.js` and `web/tokens.css`
 changed.
@@ -49,22 +49,22 @@ driven through the Browser pane):
 - **Full chrome present, presets live.** With nothing loaded: toolbar,
   rail, sidebar (Templates/Ratios/Ground), canvas toolbar (Surround) and
   the inspector's Export section all render and respond to clicks.
-  Confirmed by clicking a Ratio row (`16:9`) with no file loaded — the
+  Confirmed by clicking a Ratio row (`16:9`) with no file loaded, the
   empty frame's own label and box both updated to `1920 × 1080` and
   re-proportioned, with no image loaded at all.
 - **An empty frame at the current ratio, dimensions labelled.** Verified
   by reading `#dropzoneDims`'s text and `#dropzone`'s computed
   width/height at the default (`3:2`, `1800 × 1200`) and after switching
-  ratio — text and box both track `normalise(state.config)`'s effective
+  ratio, text and box both track `normalise(state.config)`'s effective
   size, not a fixed placeholder.
 - **Properties greyed.** Confirmed via `getComputedStyle`:
   `#backgroundSection`/`#frameSection`/`#finishSection` all report
   `opacity: 0.42` and `hasAttribute('inert') === true` with nothing
   loaded, and every control inside them is genuinely unfocusable while
-  inert (see §5 — the "false" `:focus-visible` results for `.chip`,
+  inert (see §5, the "false" `:focus-visible` results for `.chip`,
   `.sampled-row`, `.slider`, the URL/caption inputs all trace back to
   this, not to a missing focus style). The Export section is deliberately
-  excluded from this — its format/scale pickers stay live; only the two
+  excluded from this, its format/scale pickers stay live; only the two
   Export buttons themselves are `disabled` (already true before this
   task, confirmed unchanged).
 - **Export disabled.** `#exportBtnToolbar.disabled === true` and
@@ -76,20 +76,20 @@ driven through the Browser pane):
 Implemented as three coordinated pieces, all in `web/style.css` +
 `web/main.js`:
 
-- **Drop zone gives way** — `.dropzone.is-leaving` (`dropzone-exit`
+- **Drop zone gives way**, `.dropzone.is-leaving` (`dropzone-exit`
   keyframes, 220ms), added by `playArrival()` and removed once the
   dropzone is set `hidden` after that duration.
-- **The ground blooms in** — `.canvas-surface`'s own
+- **The ground blooms in**, `.canvas-surface`'s own
   `transition: background-color 420ms ease`, which fires for free the
   moment `.has-content`/`data-surround` flip; no JS timing needed for
   this piece.
-- **The shot settles** — `.render-canvas.is-settling` (`shot-settle`
+- **The shot settles**, `.render-canvas.is-settling` (`shot-settle`
   keyframes, 420ms, 120ms delay: opacity 0→1, `scale(0.96) translateY(10px)`
   → identity, `box-shadow: none` → `var(--shadow-settle)`).
 
 Verified live: dropped `samples/fieldset.png` (via a real `File` object
 fetched from a copy served alongside the app and dispatched through the
-actual hidden `<input type="file">`'s `change` event — the same code path
+actual hidden `<input type="file">`'s `change` event, the same code path
 `main.js`'s `fileInput` listener and `state.js`'s `addFiles()` use for a
 real drop) into a fresh empty-state load. Confirmed by reading DOM state
 mid-flight and after settling:
@@ -99,11 +99,11 @@ mid-flight and after settling:
 - `dropzone.hidden` became `true` only after the 220ms exit window, not
   immediately.
 - The finished frame (screenshot) shows a fully opaque, correctly
-  positioned shot with no dropzone remnant — see the fieldset.png and
+  positioned shot with no dropzone remnant, see the fieldset.png and
   karaoke-web.png screenshots taken during this session.
 - A **second** drop while already loaded (replacing the shot) does not
   re-run the dropzone-exit beat (nothing to exit) but does restart
-  `is-settling` on the new canvas content — confirmed by code path
+  `is-settling` on the new canvas content, confirmed by code path
   (`resettleCanvas()`), not separately screenshotted.
 
 Reduced motion is covered in §6.
@@ -119,14 +119,14 @@ tokens (`--surface-*`, `--text-*`, `--border-*`) are fixed values in
 consistent with `docs/superpowers/specs/2026-08-31-shotkit-web-design.md`'s
 own **Amendment 1**, which superseded the original "app wears the shot's
 colour" idea and replaced it with the Background panel's "Sampled" ground
-swatches — small, `aria-hidden`, decorative chips (`.sampled-stop`,
+swatches, small, `aria-hidden`, decorative chips (`.sampled-stop`,
 `.preset-swatch`) that sit *beside* fixed-colour text, never *under* it. No
 text is ever rendered on top of a hue-derived colour anywhere in `web/`
 (confirmed by reading every element that sets `.style.background` from
-`gradientFor()`/`groundFromMeta()` — both `.sampled-stops` and
+`gradientFor()`/`groundFromMeta()`, both `.sampled-stops` and
 `.preset-swatch` are `aria-hidden="true"` siblings of the text, never a
 container of it). So the 4.5:1 text-contrast sweep the brief describes has
-no real target in this codebase to sweep — that is the honest finding, not
+no real target in this codebase to sweep, that is the honest finding, not
 an assumption to route around.
 
 What **was** checked, precisely:
@@ -141,13 +141,13 @@ formula (script run under Node, not eyeballed):
 | `--text-secondary` on window / raised-1 / hover bg | 10.26–11.91:1 | pass |
 | `--text-muted` on window | 7.53:1 | pass |
 | `--text-faint` on window | 6.02:1 | pass |
-| `--text-disabled` (`#7e8590`) on window / hover bg (`#1b1d22`) | 5.26:1 / 4.53:1 | pass — this is the value already lifted from `#565b64` in an earlier task; re-verified here, not re-fixed |
-| `--text-fainter` (`#6b7078`) on window / hover bg | 3.93:1 / 3.38:1 | **below 4.5:1, by design** — sits on icons/section-labels/a placeholder, where the 3:1 non-text threshold applies; confirmed by grep that every use is icon colour, a `.section-label`, or `.dropzone-sub`/`.dropzone-dims`, never a value or a control's primary label |
-| `--text-subtle` (`#4b4f58`) on window | 2.38:1 | **not currently reachable to fail anything** — `tokens.css` documents it as the breadcrumb `/` separator's colour, but `grep -rn "text-subtle" web/*.css` turns up no `var(--text-subtle)` consumer anywhere in `style.css` today; see the note below the table |
+| `--text-disabled` (`#7e8590`) on window / hover bg (`#1b1d22`) | 5.26:1 / 4.53:1 | pass, this is the value already lifted from `#565b64` in an earlier task; re-verified here, not re-fixed |
+| `--text-fainter` (`#6b7078`) on window / hover bg | 3.93:1 / 3.38:1 | **below 4.5:1, by design**, sits on icons/section-labels/a placeholder, where the 3:1 non-text threshold applies; confirmed by grep that every use is icon colour, a `.section-label`, or `.dropzone-sub`/`.dropzone-dims`, never a value or a control's primary label |
+| `--text-subtle` (`#4b4f58`) on window | 2.38:1 | **not currently reachable to fail anything**, `tokens.css` documents it as the breadcrumb `/` separator's colour, but `grep -rn "text-subtle" web/*.css` turns up no `var(--text-subtle)` consumer anywhere in `style.css` today; see the note below the table |
 | `--color-danger` on `--surface-danger` (drop-error banner) | 7.90:1 | pass |
 
 Note on `--text-subtle`: grepping `web/style.css` for `var(--text-subtle)`
-turns up **zero current uses** — the token is defined and documented but
+turns up **zero current uses**, the token is defined and documented but
 not consumed by any rule in the shipped CSS today. Left as-is (not
 deleted): out of scope for this task, and removing a token is a `tokens.css`
 change with its own blast radius this task wasn't asked to take on.
@@ -157,8 +157,8 @@ already clears its applicable threshold (the `--text-disabled` lift was
 already done in an earlier task and is called out in `tokens.css`'s own
 comment, not new here).
 
-**(b) The hue-dependent swatches**, swept exactly as instructed — hue 0 to
-360 in steps of 10 — using the real `groundFor()` from `core/ground.js`
+**(b) The hue-dependent swatches**, swept exactly as instructed, hue 0 to
+360 in steps of 10, using the real `groundFor()` from `core/ground.js`
 (imported, not reimplemented), at all three `tone` modes (`null`/auto,
 `'mid'`, `'light'`), against both panel backgrounds the swatches actually
 sit on (`--surface-window` and `--surface-raised-1`):
@@ -167,11 +167,11 @@ sit on (`--surface-window` and `--surface-raised-1`):
   samples): **7.59:1**, at hue 240°, tone `mid`, against
   `--surface-raised-1`.
 - Best case: 16.25:1 range at the pale/light branch.
-- **Nothing in the sweep drops below 3:1**, let alone 4.5:1 — the swatches
+- **Nothing in the sweep drops below 3:1**, let alone 4.5:1, the swatches
   clear even the stricter text threshold with room to spare, despite
   never needing to (they carry no text).
 
-No token or lightness change was made as a result of the hue sweep — there
+No token or lightness change was made as a result of the hue sweep, there
 was nothing to fix.
 
 **(c) Non-text / UI-component pairs** (1px hairlines, control borders,
@@ -179,15 +179,15 @@ selected-row fills) were also computed and several fall under 3:1 against
 their neighbouring surface (e.g. `--border-hairline` on `--surface-window`,
 1.16:1). These are pure decorative separators and redundant-cue state
 indicators (a selected row also changes background fill, font-weight and
-text colour — never border colour alone), not the sole means of conveying
+text colour, never border colour alone), not the sole means of conveying
 information, so WCAG 1.4.11 does not apply to them the way it would to,
 say, a focus ring or a required component boundary. Not treated as
 failures; noted here so the number isn't silently omitted.
 
 ## 5. No horizontal scroll, 320–1920
 
-Checked at every width the brief lists — 320, 375, 480, 640, 768, 899, 900,
-1024, 1280, 1440, 1920 — via `document.documentElement.scrollWidth` vs.
+Checked at every width the brief lists, 320, 375, 480, 640, 768, 899, 900,
+1024, 1280, 1440, 1920, via `document.documentElement.scrollWidth` vs.
 `clientWidth` (a scrollbar-agnostic, exact check, not a visual guess), at
 **both** the empty state (this task's new sizing logic, the actual risk
 area) and with a shot loaded:
@@ -211,7 +211,7 @@ No overflow at any width, in either state. The empty-state frame's width
 column shows the ratio-preserving resize logic working continuously across
 the breakpoint, including the discontinuity at exactly 900px where the
 sidebar/inspector switch from off-canvas drawers to permanent panes and the
-stage's available width drops sharply (791px → 300px) — `updateEmptyFrame()`
+stage's available width drops sharply (791px → 300px), `updateEmptyFrame()`
 re-clamps to the new available space correctly on both sides of that jump.
 
 ## 6. Focus, disabled, loading
@@ -223,7 +223,7 @@ synthetic `Tab` key presses landed on `<body>` rather than entering the
 page's own tab order. Real hardware Tab-key traversal was **not**
 exercised in this environment. What follows is a DOM/CSS-level substitute:
 each control was given real programmatic focus (`el.focus()`) and checked
-with `el.matches(':focus-visible')` plus `getComputedStyle` — Chromium
+with `el.matches(':focus-visible')` plus `getComputedStyle`, Chromium
 applies the same `:focus-visible` heuristic to a programmatic focus as it
 would to a keyboard-focus in the absence of a very recent mouse click, so
 this exercises the same CSS rules a keyboard user would trigger, but it is
@@ -234,9 +234,9 @@ Results, focusing one instance of every control class:
 
 - `.rail-item`, `.template-row`, `.preset-row`, `.surround-cell`,
   `#dropzone`, `.segmented-cell`, `#exportFormatSelect`/`.select-control`,
-  `.sidebar-search` (the wrapping label, via `:focus-within` — fixed
+  `.sidebar-search` (the wrapping label, via `:focus-within`, fixed
   during this task, see below), `.slider`, `.chip`, `.sampled-row`,
-  the URL and Caption text inputs — **every one** shows
+  the URL and Caption text inputs, **every one** shows
   `:focus-visible` matching `true` and a `2px solid` outline in
   `--text-primary` when reachable.
 - Controls that reported `focus-visible: false` were checked individually
@@ -244,13 +244,13 @@ Results, focusing one instance of every control class:
   `.zoom-btn`/`#exportBtnToolbar` (native `disabled` before a shot is
   loaded), `#panelToggleLeft`/`#panelToggleRight` (`display: none` outside
   the <900px breakpoint), `.chip`/`.sampled-row`/`.slider`/the URL input
-  (all inside an `inert` Properties section with nothing loaded — see §2),
+  (all inside an `inert` Properties section with nothing loaded, see §2),
   and the URL input a second time before `frameKind` is `browser` (its row
   is `[hidden]`).
 - **Fix made:** `.sidebar-search input` had `outline: none` with no
   replacement focus indicator anywhere but a barely-visible border-colour
   shift on `:focus-within`. Added `outline: 2px solid var(--text-primary)`
-  to `.sidebar-search:focus-within` in `web/style.css` — confirmed live,
+  to `.sidebar-search:focus-within` in `web/style.css`, confirmed live,
   now `2px solid` on focus.
 - **Disabled state:** `#exportBtnToolbar`/`#exportBtnPanel` confirmed
   `disabled === true` with nothing loaded, `false` once a shot exists.
@@ -259,12 +259,12 @@ Results, focusing one instance of every control class:
   mid-flight: `aria-busy="true"`, label "Exporting…", `.is-loading`
   spinner class present; on completion `aria-busy="false"`, label restored
   to "Export PNG". The exported blob was decoded back
-  (`createImageBitmap`) and measured at exactly 3600×2400 — the file is
+  (`createImageBitmap`) and measured at exactly 3600×2400, the file is
   genuinely valid, not just "no error thrown."
 - **Rail items:** `Library`/`Presets`/`Integrations`/`Settings` all carry
   `aria-disabled="true"`, remain focusable (`tabIndex === 0`, confirmed by
   `.focus()` actually landing), and their click handler calls
-  `preventDefault()` (existing code, unchanged) — matches the "skipped or
+  `preventDefault()` (existing code, unchanged), matches the "skipped or
   announced as disabled" requirement for a control that stays in the tab
   order per ARIA authoring practice rather than one that's removed from it.
 
@@ -284,11 +284,11 @@ real file drop through the same `<input>` `change` path used elsewhere:
 - Canvas opacity was `1` and visible from the first check after the drop.
 
 This confirms `main.js`'s own `isReducedMotion()` branch in `playArrival()`
-— the code path that decides whether to animate at all. The **CSS**
+the code path that decides whether to animate at all. The **CSS**
 `@media (prefers-reduced-motion: reduce)` block (which also zeroes the
 `.canvas-surface` background-color transition, and would neutralise
 `.is-leaving`/`.is-settling` even if one slipped through) was confirmed by
-reading the stylesheet, not by triggering the real OS media feature — that
+reading the stylesheet, not by triggering the real OS media feature, that
 half of the "belt and suspenders" design is a code-review confirmation,
 not a live one, and is reported as such rather than folded into the "live"
 claims above.
@@ -303,7 +303,7 @@ mode described in the brief, using this session's own tooling:
 2. Opened the inspector drawer via its toggle button (dispatched through
    the real click handler, `panelToggleRight.click()`) → `is-open: true`,
    `inert: false` (correct).
-3. Widened the viewport to 1200px via `resize_window` — **this tool changes
+3. Widened the viewport to 1200px via `resize_window`, **this tool changes
    rendering dimensions but does not fire a `resize` or `matchMedia`
    `change` event** (confirmed by instrumenting both listeners before the
    resize: zero events logged). Checked `#inspector` afterward:
@@ -311,19 +311,19 @@ mode described in the brief, using this session's own tooling:
    `display: flex`, bounding rect fully on-screen at
    `x:934–1200, y:48–800`. **This is the bug, live-reproduced**: the pane
    is rendered, laid out, and fully on-screen in the desktop four-pane
-   layout, while still carrying `inert` from before the resize — a
+   layout, while still carrying `inert` from before the resize, a
    keyboard/AT user would see the pane but it would be unreachable and
    invisible to assistive tech.
 4. Manually dispatched `window.dispatchEvent(new Event('resize'))` →
    `#inspector.inert` immediately became `false`, `is-open` unchanged
-   (`false`) — the pane became a normal, fully-interactive pane. **This
+   (`false`), the pane became a normal, fully-interactive pane. **This
    confirms the reconciliation logic (`reconcileForViewport()`/
-   `settleInertState()` in `main.js`) is correct** — exactly what the two
-   prior reviews found — and that the gap is specifically in this
+   `settleInertState()` in `main.js`) is correct**, exactly what the two
+   prior reviews found, and that the gap is specifically in this
    environment's inability to fire a genuine resize signal, not in the
    app.
 
-No code change was made for this — the brief frames it as a proven-correct
+No code change was made for this, the brief frames it as a proven-correct
 reconciliation blocked only by tooling, and this session's reproduction
 confirms that framing rather than finding a new bug to fix. A real user
 dragging a real OS window edge fires a native `resize` event no
@@ -334,30 +334,30 @@ one thing that doesn't.
 `themeRow.hidden = !showsSecondary`). Verified by eye in the running app,
 not just by the existing unit test:
 
-- `frameKind: none` (default) — no Chrome theme row, no URL row. Screenshot
+- `frameKind: none` (default), no Chrome theme row, no URL row. Screenshot
   taken.
-- `frameKind: browser` — both rows appear (Chrome theme Dark/Light segmented,
+- `frameKind: browser`, both rows appear (Chrome theme Dark/Light segmented,
   URL text input with `app.acme.dev` placeholder). Screenshot taken; the
   canvas itself also grew a macOS-style traffic-light browser frame around
   the shot, confirming the connection is live end-to-end, not just a CSS
   toggle with nothing behind it.
-- `frameKind: phone` — both rows disappear again, canvas shows the phone
+- `frameKind: phone`, both rows disappear again, canvas shows the phone
   device frame instead. Screenshot taken.
 
 The `!` is present and correct in the running app; had it been dropped
 (`themeRow.hidden = showsSecondary`), Browser would have hidden the rows
-and Phone/None would have shown them — the opposite of what was observed.
+and Phone/None would have shown them, the opposite of what was observed.
 
 **(c) A real end-to-end look.** Loaded `karaoke-web.png` (the dark sample)
 through the real file-input path, then in one session: switched Surround
-to Light, set a Caption ("Reporting dashboard" — test-only text, never
+to Light, set a Caption ("Reporting dashboard", test-only text, never
 committed to any file), switched Frame to Browser, confirmed the Sampled
 hue (255°, a violet) and the correctly-chosen mid-tone ground (per the
-"dark screenshot never gets a dark ground" rule — visibly separated in the
+"dark screenshot never gets a dark ground" rule, visibly separated in the
 screenshot), ran a real 2x PNG export, and decoded the resulting blob back
 into an `ImageBitmap` to confirm it is a valid 3600×2400 PNG. Both
 `fieldset.png` (light) and `karaoke-web.png` (dark) decoded and rendered
-correctly on the first real attempt in this session — the earlier report
+correctly on the first real attempt in this session, the earlier report
 that these files "would not decode in the sandboxed browser" did not
 reproduce here, consistent with what a reviewer already found.
 
@@ -376,9 +376,9 @@ reproduce here, consistent with what a reviewer already found.
   `restartAnimation()`/`isReducedMotion()`, the `propertySections` inert
   toggle, and the `#sidebar` click/keydown listeners that keep the empty
   frame in sync with Templates/Ratios/Custom-size without touching
-  `web/sidebar.js`.
+  `web/size.js`.
 - `web/tokens.css`: one new compound token, `--shadow-settle`, for the
-  arrival animation's cast shadow — following the file's own existing
+  arrival animation's cast shadow, following the file's own existing
   convention that compound shadow values live here, not as a literal in
   `style.css` (see `--shadow-thumb`/`--shadow-drawer` already there).
 - No changes to `core/`, `test/`, or `scripts/`. All 254 tests pass,
@@ -387,28 +387,28 @@ reproduce here, consistent with what a reviewer already found.
 
 ## What was NOT verified, stated plainly
 
-- Real hardware keyboard Tab-key traversal in an actual browser window —
+- Real hardware keyboard Tab-key traversal in an actual browser window,
   substituted with programmatic `:focus-visible` checks (§6).
 - The actual OS-level `prefers-reduced-motion` media feature engaging the
-  CSS `@media` block — substituted with a `matchMedia` monkey-patch that
+  CSS `@media` block, substituted with a `matchMedia` monkey-patch that
   proves the JS branch, plus a static read of the CSS (§7).
-- A genuine OS-level window drag/resize crossing the 900px breakpoint —
+- A genuine OS-level window drag/resize crossing the 900px breakpoint,
   this session's tooling changes the viewport without firing the event a
   real resize fires; the reconciliation logic was proven correct via a
   manually-dispatched `resize` event instead (§8a).
 - Whatever `--text-subtle`'s zero-current-consumer status implies for a
-  future cleanup — flagged, not acted on (§4).
+  future cleanup, flagged, not acted on (§4).
 
 ---
 
-## Task 8 — the production build, and retiring the original
+## Task 8, the production build, and retiring the original
 
 Date: 2026-09-01. Branch `feat/shotkit-web`, on top of `f9710d3`.
 
 Task 8 added `netlify.toml`, rewrote `README.md`, and deleted `frame.html`,
 `ground.py`, `shotkit.js` and `jobs.json`. The deletion is irreversible in
-practice — those four files were the reference every constant in `core/` was
-verified against — so the order below matters: everything was proved green
+practice, those four files were the reference every constant in `core/` was
+verified against, so the order below matters: everything was proved green
 first, and nothing was deleted until it was.
 
 ### 1. Green before deleting anything
@@ -429,7 +429,7 @@ Test Files  13 passed (13)
 ../dist/assets/index-qD2RSkrO.js   44.10 kB │ gzip: 14.83 kB
 ```
 
-Identical asset content hashes across both builds — removing the four files
+Identical asset content hashes across both builds, removing the four files
 changed nothing about what the app compiles to, which is the point: they were
 already dead weight, not inputs.
 
@@ -441,8 +441,8 @@ and this is the evidence.
 
 Both servers were driven in a real browser (the Browser pane), with the same
 sequence on each: fetch `fieldset.png` from the origin, wrap it in a real `File`,
-set it on the actual `#fileInput` and dispatch `change` — the same code path
-`main.js`'s listener and `state.js`'s `addFiles()` take for a genuine drop — then
+set it on the actual `#fileInput` and dispatch `change`, the same code path
+`main.js`'s listener and `state.js`'s `addFiles()` take for a genuine drop, then
 wait for Export to enable and click the real `#exportBtnPanel`.
 
 | | `npm run dev` (:5188) | `npm run preview` (:4188) |
@@ -467,7 +467,7 @@ hashed with `crypto.subtle` and decoded with `createImageBitmap`. These are the
 bytes the download *would* have written, and the anchor's own `download` and the
 blob's `type` were read off the intercepted element to confirm the filename and
 MIME the user would have received. What this does **not** prove is the browser's
-file-writing step itself — no PNG was compared on disk.
+file-writing step itself, no PNG was compared on disk.
 
 **Second substitution.** The sandboxed browser cannot read `samples/` directly,
 so `samples/fieldset.png` was temporarily copied to `web/` and `dist/` to be
@@ -478,7 +478,7 @@ served from each origin. Both copies were deleted before staging, and
 
 `git rm frame.html ground.py shotkit.js jobs.json`, after a repo-wide grep
 (excluding `node_modules`) for all four names. Nearly every remaining hit is
-provenance prose in `core/`, `test/` and `docs/` — comments recording where a
+provenance prose in `core/`, `test/` and `docs/`, comments recording where a
 constant came from ("frame.html's alphas, unchanged", "Port of ground.py"). Those
 are the audit trail for the port and stay. Two hits are not prose, and both are
 in `scripts/`, which this task was not permitted to modify:
@@ -507,7 +507,7 @@ in `scripts/`, which this task was not permitted to modify:
 
 - **The download written to disk.** Intercepted in-page instead (§2). The bytes,
   filename and MIME are the real ones; the filesystem write is not exercised.
-- **`netlify.toml` against a real Netlify build.** The file is config only — no
+- **`netlify.toml` against a real Netlify build.** The file is config only, no
   site is connected, no deploy was run, and the build command and publish
   directory were verified only by running `npm run build` locally and confirming
   it writes `dist/`. `publish = "dist"` is repo-root-relative while
@@ -523,7 +523,7 @@ in `scripts/`, which this task was not permitted to modify:
   that engine, not a cross-browser claim.
 - **`NODE_VERSION = "20"` against vite 7's `engines` range.** Vite 7 requires
   `^20.19.0 || >=22.12.0`. Netlify resolves the bare `"20"` to the latest 20.x,
-  which satisfies it — but that resolution was never observed, and it has its own
+  which satisfies it, but that resolution was never observed, and it has its own
   failure mode (`npm ERR! engine`) distinct from the publish-path assumption above.
 - **Any export format or scale other than PNG at 2x.** The dev-vs-production
   comparison used one image, one layout, one format and one scale. The other
@@ -532,7 +532,7 @@ in `scripts/`, which this task was not permitted to modify:
 
 ---
 
-## Deployment — 2026-09-01
+## Deployment, 2026-09-01
 
 Deployed by the user's explicit instruction, after the Task 8 review returned
 APPROVED. Netlify project `shotkit-app`
@@ -556,7 +556,7 @@ for real, so they are struck here rather than in place.
 the config and listing `dist/` locally. Netlify's own build system has now
 resolved it: the build succeeded and the site serves the app at `/`. The
 `NODE_VERSION = "20"` resolution against vite 7's `engines` range is likewise
-now observed rather than reasoned about — the build did not fail on `npm ERR!
+now observed rather than reasoned about, the build did not fail on `npm ERR!
 engine`.
 
 **2. The security headers being served.** Observed on a real response from the
@@ -576,12 +576,12 @@ Both declared headers are present. HSTS is Netlify's own default, not ours.
 
 Driven against the live origin, not a local server:
 
-- Empty state renders as app chrome — toolbar, rail, sidebar, inspector, empty
+- Empty state renders as app chrome, toolbar, rail, sidebar, inspector, empty
   ratio frame labelled `1800 x 1200`. Zero console errors.
 - A synthetic 1440x900 PNG was set on the real `#fileInput` and dispatched
   `change` (the same path a drop takes). Export enabled, the real Export button
   clicked, and the download blob captured: `synthetic--web@2x.png`,
-  `image/png`, 9,499,433 bytes, decoded **3600x2400** — the correct 2x of the
+  `image/png`, 9,499,433 bytes, decoded **3600x2400**, the correct 2x of the
   3:2 1800x1200 canvas.
 - The preview canvas was confirmed painted by sampling its backing store
   (1800x1200, pixel range [14,18,31]–[255,255,255]), not by eye. Worth
@@ -592,23 +592,23 @@ Driven against the live origin, not a local server:
 
 ### Still not verified
 
-- **The download written to disk.** Same substitution as §2 — the blob was
+- **The download written to disk.** Same substitution as §2, the blob was
   intercepted in-page. Unchanged by deploying.
 - **Any browser other than Chromium.** The production smoke test used one
   engine, as every check before it did.
-- **The two real-hardware items from Task 7** — an OS-level Reduce Motion
+- **The two real-hardware items from Task 7**, an OS-level Reduce Motion
   toggle, and a real window drag across the 900px breakpoint. Still worth
   thirty seconds on the live site.
 
 ---
 
-# Task 4b — grain scope, and the white edge nobody could reproduce
+# Task 4b, grain scope, and the white edge nobody could reproduce
 
 Date: 2026-09-02. Branch `feat/cycle-a`, on top of `e75e6b9`.
 
 Two defects, reported together and unrelated in cause. One is testable in
 Node and is tested. The other is a **Chromium-only rasterisation bug** that
-`@napi-rs/canvas` does not reproduce, so this record — not a green test — is
+`@napi-rs/canvas` does not reproduce, so this record, not a green test, is
 the evidence for it.
 
 ## 1. Grain was painted over everything (testable, tested)
@@ -634,7 +634,7 @@ unfixed code before the fix landed: two of its three cases failed with the
 **Fix:** `paintGrain` moved to immediately after `paintGround`, rather than
 clipped around the shots. The reasoning is in `core/index.js` at the call
 site: an even-odd clip around every shot box would modulate the grain along
-its own antialiased boundary, producing a 1px ring at the shot's edge — the
+its own antialiased boundary, producing a 1px ring at the shot's edge, the
 exact artefact Task 1 spent two rounds removing.
 
 ## 2. The white edge on dark screenshots (browser only, NOT testable here)
@@ -667,7 +667,7 @@ covers its clip region is rasterised against the clip mask's rounded-out
 device bounds instead of its own rectangle**, and for an antialiased
 non-rectangular clip those bounds overshoot the path.
 
-Measured directly, canvas 1800x1200, box `{x:100, y:100, w:1600, h:1000}` —
+Measured directly, canvas 1800x1200, box `{x:100, y:100, w:1600, h:1000}`,
 so the true right edge is 1700 and the true bottom is 1100. Last painted
 pixel:
 
@@ -697,8 +697,8 @@ small rect inside the clip is exact (`fillRect(200,200,400,60)` inside the
 same clip → 200,200..599,259, correct to the pixel), and so is a bar
 spanning the full clip width at the top (100,100..1699,159, correct).
 
-Intersecting an exact `rect()` clip with the rounded clip does **not** help —
-measured, still 13,868 near-white pixels — because the combined clip is
+Intersecting an exact `rect()` clip with the rounded clip does **not** help,
+measured, still 13,868 near-white pixels, because the combined clip is
 still non-rectangular. The fix is not "clip differently", it is "fill the
 path you already have instead of a rectangle over it".
 
@@ -715,7 +715,7 @@ bug. Before/after at 10x: `docs/2026-09-02-task-4b-clip-leak.png`.
 
 `@napi-rs/canvas` clips exactly, so the same scene renders clean in Node
 both before and after the fix. A pixel assertion would pass in both
-directions — vacuous, which this cycle has already shipped five times. The
+directions, vacuous, which this cycle has already shipped five times. The
 guard is structural instead: `test/render-clip-safety.test.js` scans
 `core/render.js` for any `fillRect` inside a `ctx.clip()` block and for the
 five painters that must route their body fill through `fillRoundRect`.
@@ -724,8 +724,8 @@ five leaking `fillRect` sites.
 
 Its known limit is stated in the file: the scan is lexical, so a covering
 `fillRect` reached only at runtime across a call boundary would slip past
-it. The one such call that exists today — `paintChrome`'s title bar, inside
-`paintWebChrome`'s clip — was measured and is safe, because it does not
+it. The one such call that exists today, `paintChrome`'s title bar, inside
+`paintWebChrome`'s clip, was measured and is safe, because it does not
 cover the clip.
 
 ### Confirmed fixed, in the browser, through the app
@@ -769,10 +769,10 @@ mobile          5,898 px, max delta 48     860,713 px, max delta 55
 browser-dark    5,091 px, max delta 48     572,907 px, max delta 53
 ```
 
-The clip fix touches ~5,100 pixels per case — the shot's perimeter, which is
+The clip fix touches ~5,100 pixels per case, the shot's perimeter, which is
 ~5,460 pixels for the 3:2 web box. Everything else is the grain move: large
 inside the shot (max delta 19 on a light screenshot, 61 on the dark phone
-body — soft-light lightens dark pixels hardest, which is why the complaint
+body, soft-light lightens dark pixels hardest, which is why the complaint
 came from a dark screenshot), and at most 3-4 levels outside it, where the
 only change is that the shadow is now painted over grain rather than under
 it.
@@ -780,7 +780,7 @@ it.
 One assertion moved with them: `test/compose.test.js`'s "the browser-url
 golden actually discriminates" measured 0.00201 and now measures 0.000816,
 still ~80x its pass threshold. The drop is `pixelmatch`'s `includeAA: false`
-finally working — grain over the URL text used to defeat its antialias
+finally working, grain over the URL text used to defeat its antialias
 heuristic, so glyph edges counted as differences. With clean text they are
 correctly skipped and only glyph bodies count, which is the stricter
 measurement. The threshold and the recorded number were updated together,
@@ -792,8 +792,8 @@ with that reasoning in the test.
   right and bottom, only when the fill covers a non-rectangular clip) but
   not traced to a Chromium source line, and no upstream bug was filed or
   looked for.
-- **Whether it is size-dependent.** A small case — 200x150 canvas, box
-  100.3x80.7, radius 12 — showed no overshoot. Every case at shot-sized
+- **Whether it is size-dependent.** A small case, 200x150 canvas, box
+  100.3x80.7, radius 12, showed no overshoot. Every case at shot-sized
   geometry did. The threshold between them was not located, so nobody should
   treat a small repro's cleanliness as disproof.
 - **Other browsers.** Measured in Chrome only. Not checked in Safari or
@@ -801,8 +801,8 @@ with that reasoning in the test.
 
 ## 4. The CI timeout this task hit on the way through
 
-The first push of Task 4b went red on CI — `export-scale-fidelity.test.js`
-timed out at 20s — and it was worth ruling out as a regression before
+The first push of Task 4b went red on CI, `export-scale-fidelity.test.js`
+timed out at 20s, and it was worth ruling out as a regression before
 treating it as a budget problem.
 
 It is not a regression. The same test was timed on `HEAD~1` (the pre-Task-4b
@@ -818,29 +818,29 @@ under full-suite load   9.5s            4.5s
 Identical within noise. The test composes the same shot at 1x, 2x and 3x, and
 3x of 2000x1500 is 27 megapixels through `@napi-rs/canvas`; at 9.5s under
 load it had 2.1x headroom against the suite-wide 20s, and CI's shared
-`macos-15-intel` runner is slower than this machine. It was always marginal —
+`macos-15-intel` runner is slower than this machine. It was always marginal,
 the Task 7 record above already notes it timing out once, in the previous
 cycle, for the same reason.
 
 Fixed by scoping a measured 90s timeout to that one file rather than raising
-the suite-wide budget, so the other 320 tests keep a tight one — for them a
+the suite-wide budget, so the other 320 tests keep a tight one, for them a
 20s hang IS the bug signal. The `describe(name, { timeout }, fn)` form was
 verified to actually apply, not be silently ignored, with a throwaway test
 that sleeps 24s and passes under it.
 
 ---
 
-# Task 4d — the clip itself, measured in Chrome
+# Task 4d, the clip itself, measured in Chrome
 
 Task 4c stopped a one-pixel halo by snapping the screenshot's destination
 rect outward onto the pixel grid, inside the `ctx.clip()` every painter had
 always used. The edge numbers came right. Rock opened the preview and
 reported two new things the same day:
 
-> "1px is cut from the top and left of the screenshot" — as soon as the
+> "1px is cut from the top and left of the screenshot", as soon as the
 > corner radius is above zero. At radius 0 the image is intact.
 
-> "a visible spike where the straight edge meets the corner arc" — visible
+> "a visible spike where the straight edge meets the corner arc", visible
 > without zooming.
 
 Both are the clip, and both are invisible to this suite: `@napi-rs/canvas`
@@ -850,8 +850,8 @@ stands in for the pixel test, exactly as Task 4b's does above.
 ## The measurement
 
 A standalone page, canvas 1800x1200, box `{x:62.4, y:76.5, w:1675.2,
-h:1047, radius:24}` — the app's own `frame: none` geometry at the default
-padding — rendering the same scene four ways and reading the result back
+h:1047, radius:24}`, the app's own `frame: none` geometry at the default
+padding, rendering the same scene four ways and reading the result back
 with `getImageData`. Two flat sources (`#141414` and `#c8c8c8`) isolate the
 screenshot's own contribution from everything painted over it:
 
@@ -862,7 +862,7 @@ out(S) = a * S + b   =>   a = (out(light) - out(dark)) / (light - dark)
 `a` is how much of the screenshot reached each pixel. The path's own
 coverage comes from filling the same rounded rect white on black.
 
-### Edge coverage — the shot against the path it is supposed to follow
+### Edge coverage, the shot against the path it is supposed to follow
 
 ```
                                    left     right     top      bottom
@@ -873,16 +873,16 @@ D  tile, no clamp                  0.361    0.361     0.000    0.250
 ```
 
 **A overshoots its own clip by a whole pixel on the right and bottom.** That
-is the same Chromium behaviour Task 4b measured for a covering `fillRect` —
+is the same Chromium behaviour Task 4b measured for a covering `fillRect`,
 a non-rectangular clip is rasterised against rounded-out device bounds, not
-against its path — reaching `drawImage` for the first time because Task 4c's
+against its path, reaching `drawImage` for the first time because Task 4c's
 snap pushed the drawn rect out far enough to touch those bounds. Before 4c
 the picture faded out inside the clip and never met it.
 
 The report about the top and left is a plainer thing, and NOT
 Chromium-specific: the snapped rect starts at `floor(box.x)`, the clip cuts
 at `box.x`, and what falls between them is picture. It is ordinary clipping
-of an overhang the snap created. Measured as marker survival — a source
+of an overhang the snap created. Measured as marker survival, a source
 whose first row and column are a distinct colour, rendered twice and
 subtracted, summed across the boundary:
 
@@ -893,20 +893,20 @@ A  clip + snapped drawImage        0.714 px (61%)     0.812 px (70%)
 C  tile + edge clamp               1.141 px (98%)     1.141 px (98%)
 ```
 
-This half IS reproducible in Node — `@napi-rs/canvas` reads 0.714 and 0.812
-for A too, to three decimal places — which is why it is a real test rather
+This half IS reproducible in Node, `@napi-rs/canvas` reads 0.714 and 0.812
+for A too, to three decimal places, which is why it is a real test rather
 than a note in this file: `test/render-edge-blend.test.js`'s "the screenshot
 keeps every pixel it was given", six assertions at three radii, all six red
 against the pre-fix core.
 
 **D is why the clamp is not optional.** A tile whose picture is drawn at the
-true rect and then masked has two antialiased edges again — its own and the
-mask's — and they multiply: 0.6 x 0.6 = 0.36. That is Task 4c's halo back in
+true rect and then masked has two antialiased edges again, its own and the
+mask's, and they multiply: 0.6 x 0.6 = 0.36. That is Task 4c's halo back in
 full. The clamp draws the source's outermost row and column one pixel past
 the shot under `destination-over`, so the picture has no partial coverage of
 its own along the line the mask cuts.
 
-### The corner join — where the straight edge meets the arc
+### The corner join, where the straight edge meets the arc
 
 Walking the bottom-right corner column by column and reading the boundary's
 sub-pixel position out of each column's coverage, normalised by the straight
@@ -920,7 +920,7 @@ C  tile + edge clamp + one mask    0.009 px         0.012 px
 @napi-rs/canvas, either            0.031 px         0.021 px
 ```
 
-Walking it row by row instead makes the shape of it plainer — A tracks the
+Walking it row by row instead makes the shape of it plainer, A tracks the
 arc to within 0.03px for eleven rows and then leaves it:
 
 ```
@@ -933,7 +933,7 @@ Fourteen pixels of shot sticking out along the bottom edge where the arc has
 already turned away from it. That is the spike, and it is one pixel of
 overshoot on a straight edge meeting a curve that has none.
 
-### Colour at the boundary — why the clamp and not a scaled copy
+### Colour at the boundary, why the clamp and not a scaled copy
 
 Redrawing the whole picture one pixel larger behind itself fixes the
 coverage identically, and shifts the boundary colour, because it resamples
@@ -951,7 +951,7 @@ B  scaled second copy              172,136,172
 - **Which Chromium version, and whether it is GPU-dependent.** Measured in
   the Chrome this machine runs, once. Not checked across versions, not
   checked with GPU rasterisation forced off, not checked in Safari or
-  Firefox. The fix does not depend on which engines are affected — it
+  Firefox. The fix does not depend on which engines are affected, it
   removes the clip rather than working around it.
 - **Whether the +1 on right/bottom and the +4 of Task 4b are the same
   constant.** They are the same asymmetry (right and bottom, radius > 0) and
@@ -961,18 +961,18 @@ B  scaled second copy              172,136,172
   `@napi-rs/canvas` defect, not Chromium's, and is recorded where it can do
   some good: in `placeShot`'s doc comment in `core/render.js`. A
   `destination-in` fill whose path lies outside the untransformed canvas
-  bounds is culled, and a culled `destination-in` clears the whole surface —
+  bounds is culled, and a culled `destination-in` clears the whole surface,
   so the first version of this task, which put a `translate` on the tile,
   rendered phones with no screenshot at all whenever the phone sat past
   x = 512. The goldens caught it. It is not reproduced in Chromium.
 
 ---
 
-# Cycle A Task 7 — strokes
+# Cycle A Task 7, strokes
 
 Measured in Chrome on this machine, against the dev server, by rendering
 `core/` directly (no UI) onto a 1800x1200 canvas with a fully black
-1440x900 source and the lavender ground — the same probe Rock's own bug
+1440x900 source and the lavender ground, the same probe Rock's own bug
 reports were reproduced with.
 
 ## The phone body's inner highlight: LEFT AS IT WAS
@@ -980,8 +980,8 @@ reports were reproduced with.
 `paintDeviceHairline` (`core/render.js`) strokes `rgba(255,255,255,0.10)`
 just inside every phone body, and it still does so unconditionally.
 
-That is deliberate. It is the DEVICE's own highlight — the same thing the
-browser frame's `t.border` is — not an edge treatment on anyone's
+That is deliberate. It is the DEVICE's own highlight, the same thing the
+browser frame's `t.border` is, not an edge treatment on anyone's
 screenshot. The complaint that opened round two was a hairline on a *bare*
 screenshot, which Task 1 removed; a phone that is drawn as a phone reads
 wrong without its highlight, exactly as the browser frame would without its
@@ -998,13 +998,13 @@ position rather than a silence.
 | probe | no stroke | light mat |
 |---|---|---|
 | 3px inside the composite's left edge | `0,0,0` (shot) | `255,255,255` |
-| 2px inside `inner`'s left edge | — | `0,0,0` (shot) |
+| 2px inside `inner`'s left edge |, | `0,0,0` (shot) |
 | 3px outside the composite, right | `207,200,223` | `207,202,224` |
 | 3px outside the composite, bottom | `187,179,206` | `189,180,207` |
 
 The mat reads pure white on all four sides; the picture starts, still pure
 black, immediately inside `inner`; and outside the composite is ground. No
-band of body colour on the right or bottom — Task 4b's `fillRoundRect` rule
+band of body colour on the right or bottom, Task 4b's `fillRoundRect` rule
 holds through a path fill too. `glass` measured `248,246,254` over the pale
 ground (translucent, as intended) and `custom` measured exactly `255,0,170`
 for `#ff00aa`.
@@ -1014,7 +1014,7 @@ for `#ff00aa`.
 The first version handed `paintChrome` the OUTER box. With a mat on, the
 title bar was then drawn one stroke-width too high and ended one
 stroke-width short of the screenshot, leaving a band of bare white mat
-between the bar and the picture — **16 rows** of `255,255,255` at a 1.5%
+between the bar and the picture, **16 rows** of `255,255,255` at a 1.5%
 stroke, found by scanning the composite's centre column top to bottom.
 
 Nothing in the suite could have caught it as it stood. The unstroked frame
@@ -1024,14 +1024,14 @@ agreed with itself. `test/render-stroke.test.js`'s "leaves no gap between
 the browser bar and the screenshot" is the guard, confirmed red against the
 pre-fix line and green after; the golden was regenerated.
 
-The neighbouring test in that file — "wraps the browser window without
-moving the bar off the screenshot" — passes in BOTH states. It guards other
+The neighbouring test in that file, "wraps the browser window without
+moving the bar off the screenshot", passes in BOTH states. It guards other
 claims (the screenshot sits under the bar; the mat sits above it) and is
 not, on its own, a guard against the gap.
 
 ## Goldens
 
-Three added — `stroke-light`, `stroke-glass`, `stroke-browser`. All ten
+Three added, `stroke-light`, `stroke-glass`, `stroke-browser`. All ten
 pre-existing goldens stayed byte-identical across the regeneration
 (`git status` reported only the three new files), which is the proof that
 `STROKE_DEFAULTS.style: 'none'` really is a no-op. Two discriminator tests
@@ -1041,11 +1041,11 @@ more than 2% of pixels, and `glass` against the `light` golden likewise.
 
 ---
 
-# Cycle A Task 8 — the browser chrome, remeasured
+# Cycle A Task 8, the browser chrome, remeasured
 
-Every number came from the Figma community file *Apple iOS Browser Mockup —
+Every number came from the Figma community file *Apple iOS Browser Mockup,
 Safari & Chrome*, file key `ashXeowHsiwznytlLbuvuS`, page "Browser Mockup",
-read as **layer geometry** through the Figma MCP — not pixel-counted off a
+read as **layer geometry** through the Figma MCP, not pixel-counted off a
 raster. Symbols: `Desktop / Safari / Light` (node `1:3179`, 1280 wide) and
 `Desktop / Safari / Dark` (node `1:3209`, 1268 wide).
 
@@ -1059,11 +1059,11 @@ which carries the same 24. The old value (`25/1064 = 0.0235`) would have
 been 30px at that width.
 
 Two near-misses worth recording, because either would have been wrong:
-`Body` (`1:3180`) has **no** radius at all — it is a plain rect behind the
-clip — and the `toolbar` child carries its own `rounded-tl-10 rounded-tr-10`,
+`Body` (`1:3180`) has **no** radius at all, it is a plain rect behind the
+clip, and the `toolbar` child carries its own `rounded-tl-10 rounded-tr-10`,
 which the parent's 24px clip overrides. Neither is the visible corner.
 
-**2. The theme colours — three agree, three did not.**
+**2. The theme colours, three agree, three did not.**
 
 | value | handoff (was) | Safari reference | verdict |
 |---|---|---|---|
@@ -1077,7 +1077,7 @@ The pills did not merely differ in value, they differed in **sign**: our
 light pill was *lighter* than its bar, where a browser's address field is
 recessed. The light bar goes to white and the light pill to `#f0f0f0`,
 restoring the relationship. The dark pill goes to `rgba(255,255,255,0.16)`
-rather than the reference's flat `#434343` — that lands at `#40424a`, the
+rather than the reference's flat `#434343`, that lands at `#40424a`, the
 same lightness, but keeps the bar's blue-grey hue instead of dropping a
 neutral patch into it. A port of the relationship, not of the number.
 
@@ -1087,24 +1087,24 @@ neutral patch into it. A port of the relationship, not of the number.
 (0.0223), sized for the old 45/1064 pill. The reference sets its address
 text at 14px in a 28px pill → `14/1280 = 0.0109`. Against the new pill, the
 old ratio would have been 28.6px of text inside a 28px pill: it simply would
-not fit. Changed, and the face changed with it — the reference uses SF Pro
+not fit. Changed, and the face changed with it, the reference uses SF Pro
 Display Medium, and Geist Mono at this size read as a code snippet pasted
 into the chrome.
 
 Also read off the `URL Background` SVG's own path (`M0 9.6 C …`): the pill
 radius is 9.6px, so `9.6/1280 = 0.0075`. The old `25/2128` would have been
-15px on a 28px pill — past half its height, collapsing it into a stadium.
+15px on a 28px pill, past half its height, collapsing it into a stadium.
 
 ## Traffic lights: kept ours, deliberately
 
 The reference's own SVG uses `#EE6A5F / #F5BD4F / #61C454`, each with a
 0.5px darker ring. Those are its matte reconstruction of the three lights.
-At the size these draw here — `12/1280` of the frame, about 17px on an
-1800px canvas — the ring is sub-pixel and the muted fills read as dimmer
+At the size these draw here, `12/1280` of the frame, about 17px on an
+1800px canvas, the ring is sub-pixel and the muted fills read as dimmer
 dots, so the saturated system values (`#ff5f57 / #febc2e / #28c840`) stay.
 Recorded so the difference is a decision, not an oversight.
 
-Geometry confirmed from the same SVG: circles at cx 6, 26, 46 with r=6 — so
+Geometry confirmed from the same SVG: circles at cx 6, 26, 46 with r=6, so
 12px across and **20px centre to centre**. The old constant was an
 edge-to-edge gap; the new one is a stride, and `paintChrome` was changed to
 match.
@@ -1115,7 +1115,7 @@ Rendered the new `browser-dark` golden and the reference's own screenshot
 (node `1:3209`) scaled to a common 1200px window width, stacked. Bar height,
 traffic-light size and inset, and pill height and centring all line up.
 
-**What ours deliberately omits:** the reference's six toolbar buttons —
+**What ours deliberately omits:** the reference's six toolbar buttons,
 sidebar, back, forward, shield, share, new tab, tabs. Those are exported SVG
 assets; drawing them would mean hand-authoring vectors we do not have, which
 is the one thing the design-to-code guidance says never to do. The bar is
@@ -1124,27 +1124,27 @@ therefore chrome + lights + address field, and nothing invented.
 ## Goldens
 
 Five changed, exactly the five predicted: `browser-dark`, `browser-light`,
-`browser-url`, `square-browser`, `stroke-browser`. The other eight —
+`browser-url`, `square-browser`, `stroke-browser`. The other eight,
 `web`, `mobile`, `web-mobile`, `mesh`, `phone`, `shadow-heavy`,
-`stroke-light`, `stroke-glass` — are byte-identical.
+`stroke-light`, `stroke-glass`, are byte-identical.
 
 ## Three tests moved, and why none of them was weakened
 
-- **`the browser-url golden actually discriminates`** — bound lowered from
+- **`the browser-url golden actually discriminates`**, bound lowered from
   5e-4 to 2.5e-4. Only because the text halved in size: measured 704 of
   2,160,000 pixels (3.26e-4) after the rebuild. The guard still fails if the
   text stops being drawn.
-- **`scales the whole composite uniformly when the floor does bind`** — its
+- **`scales the whole composite uniformly when the floor does bind`**, its
   premise stopped holding. A browser composite at 3:2 used to cross
   `MIN_MARGIN_RATIO` at the default padding; with a 4.1% bar it now fits
   with room to spare, which is the feature working. The test moved to
   `pad: 0.02` so the floor binds again; the assertion is unchanged.
-- **`does not make the browser title bar taller`** (Task 7) — was comparing
+- **`does not make the browser title bar taller`** (Task 7), was comparing
   against a hardcoded `10/133`. Now imports `BROWSER_BAR_RATIO`. That
   literal was exactly the drift this codebase keeps warning about, and it
   was mine.
 
-## Task 8, round two — the whole chrome at 3/4
+## Task 8, round two, the whole chrome at 3/4
 
 Rock, on the first rebuild: *"I still feel like it's too big. like, in the
 small image the bar is almost as tall as the bar I have right now on my
@@ -1153,17 +1153,17 @@ height."*
 
 He was describing a real property the first pass missed. **Browser chrome
 has a FIXED height.** A Safari window twice as wide still has a 53px
-toolbar — the chrome does not grow with the window, only the page does.
+toolbar, the chrome does not grow with the window, only the page does.
 Dividing the measurements by 1280 drew the reference's chrome at the size it
 would be *if our frame were a 1280px window*. It is not: at 3:2 the frame is
 1675px wide, and every ratio was multiplied back up by that. The bar came out
-at 69px — proportionally faithful, and taller than any real one.
+at 69px, proportionally faithful, and taller than any real one.
 
 **Fix: `CHROME_REF_WIDTH = 1280 / 0.75 = 1706.67`**, the single divisor every
 browser ratio now shares. Two independent routes agree on it:
 
 - Rock's "about 1/4 shorter" is exactly the 0.75.
-- 1706.67 is within 2% of 1675.2, our actual frame width at 3:2 — so the bar
+- 1706.67 is within 2% of 1675.2, our actual frame width at 3:2, so the bar
   now draws at **52.0px** against a real Safari's **53px**. Very nearly
   literal.
 
@@ -1177,22 +1177,22 @@ pill text 13.7px.
 
 ### Two tests moved again, and the second one is the interesting failure
 
-- **`scales the whole composite uniformly when the floor does bind`** — its
+- **`scales the whole composite uniformly when the floor does bind`**, its
   premise broke for the second time in one task. The bar is now small enough
   that a browser composite clears `MIN_MARGIN_RATIO` even at `pad: 0.02`. The
   test now uses a SQUARE source, so the screenshot already fills the safe
   box's height and any bar at all must push past it, and it asserts up front
   that the floor really did bind rather than trusting the setup.
-- **`the browser-url golden actually discriminates`** — its bound has now
+- **`the browser-url golden actually discriminates`**, its bound has now
   been lowered twice in one task, both times because the text got smaller:
   5.00e-4 → 3.26e-4 → 2.38e-4 (514 of 2,160,000 pixels). **A bound that keeps
   being lowered is a bound worth distrusting**, so the test gained a second
   assertion that does not depend on glyph count at all: the same config with
   no url must differ from the golden. That is the claim the golden exists to
-  make, and it cannot be eroded by the text shrinking — only by the text
+  make, and it cannot be eroded by the text shrinking, only by the text
   disappearing.
 
-## Task 8, round three — the window corner at 0.6%, and a bug it uncovered
+## Task 8, round three, the window corner at 0.6%, and a bug it uncovered
 
 Rock: *"our base browser view can have less rounded corners. based on our
 sliders, 0.6% would be it."*
@@ -1211,8 +1211,8 @@ objects; Cycle B's per-element model is where they stop being unrelated.
 
 ### The bug the smaller corner exposed
 
-Every inset hairline in `core/render.js` — the browser frame's border, the
-phone body's highlight, the glass stroke's outer line — was stroked with its
+Every inset hairline in `core/render.js`, the browser frame's border, the
+phone body's highlight, the glass stroke's outer line, was stroked with its
 box's FULL radius on a rect inset half a pixel. A 1px stroke straddles its
 path, so the path really does run half a pixel inside each edge, and the
 radius has to come in by the same half pixel or the arc traced is wider than
@@ -1220,23 +1220,23 @@ the corner it sits inside. The border bulged.
 
 The error is 0.5 against the radius, so it hid while the corners were large:
 2% at the browser's old 23.6px corner, 4.6% at 10.8px. Fixed in one place,
-`strokeInsetHairline`, now shared by all three call sites — the same
+`strokeInsetHairline`, now shared by all three call sites, the same
 correction `paintShadow` already makes for its inset caster.
 
 **How it was pinned, because two suspects looked identical.** The
 corner-continuity metric in `test/render-edge-blend.test.js` went red at
 0.49px against a 0.35 tolerance. Two experiments separated the causes:
 
-- the SAME metric on an UNFRAMED shot at radius 11 **passed** — so it was
+- the SAME metric on an UNFRAMED shot at radius 11 **passed**, so it was
   not the ruler running out of resolution at a small radius;
-- the browser case with the border stroke commented out **passed** — so it
+- the browser case with the border stroke commented out **passed**, so it
   was not the shot's edge either.
 
 Both suspects were real, and they were tangled in one number:
 
 1. the hairline was genuinely non-concentric (fixed);
 2. the metric divides the border's attenuation out as a CONSTANT, which is
-   exact on the straight run and only approximate through the arc — an error
+   exact on the straight run and only approximate through the arc, an error
    that scales as 1px / radius and so grew when the corner halved.
 
 They are now guarded separately: the browser case carries its own documented
@@ -1246,7 +1246,7 @@ They are now guarded separately: the browser case carries its own documented
 
 The first version of that guard looked for painted pixels outside the
 frame's path. **It passed identically with the bug present and with it
-fixed** — a 0.09-alpha white line moved half a pixel does not push visible
+fixed**, a 0.09-alpha white line moved half a pixel does not push visible
 colour past an arc. That is the eleventh test in this cycle that could not
 fail, and it was deleted rather than tuned.
 
@@ -1259,15 +1259,15 @@ traces a negative one.
 
 ### Goldens
 
-Nine changed — every golden that draws an inset hairline: `browser-dark`,
+Nine changed, every golden that draws an inset hairline: `browser-dark`,
 `browser-light`, `browser-url`, `square-browser`, `stroke-browser`,
 `stroke-glass`, `phone`, `mobile`, `web-mobile`. The four with no hairline
-anywhere — `web`, `mesh`, `shadow-heavy`, `stroke-light` — are
+anywhere, `web`, `mesh`, `shadow-heavy`, `stroke-light`, are
 byte-identical, which is the check that the change did only what it claims.
 
 ---
 
-# Cycle A Task 9 — mesh rebuilt
+# Cycle A Task 9, mesh rebuilt
 
 Rock: *"I still don't know what mesh does. you're gonna need to show me the
 value of it."* It was two tints of ONE hue with a reroll button, so it could
@@ -1284,12 +1284,12 @@ The argument was right and the conclusion was too strong. The rule is now
 **parameterised**: `spread` is a hue arc in degrees, **centred on the
 ground's own hue**, so the mesh wanders a bounded distance from the colour
 the screenshot actually produced and never off to an unrelated one. At spread
-0 every blob is the base hue and the old guarantee holds exactly — which is
+0 every blob is the base hue and the old guarantee holds exactly, which is
 what the old test now asserts, restated rather than deleted, alongside a new
 one that the arc never exceeds the spread it was given.
 
 **Only the hue varies.** Each blob keeps a sampled stop's saturation and
-lightness — g1 for the first pass, g3 for the second — so the light/dark play
+lightness, g1 for the first pass, g3 for the second, so the light/dark play
 that made the field read as a ground is untouched, and a dark ground cannot
 sprout bright blobs. A near-grey ground has no hue to rotate around and is
 left alone entirely; spread does nothing there, on purpose.
@@ -1297,24 +1297,24 @@ left alone entirely; spread does nothing there, on purpose.
 **`seed` is NOT in the mesh block**, deliberately, though the plan specified
 `mesh: { stops, spread, seed }`. It already lives at the top level with its
 own clamp and its own control. A second writable home for one value is
-exactly how Task 5b killed the shadow slider — a nested default silently
+exactly how Task 5b killed the shadow slider, a nested default silently
 outranked the flat field and the control went dead while still displaying the
 old number. One value, one home; guarded by a test that asserts
 `config.mesh.seed` stays undefined.
 
 ## The three gates
 
-**1. Distinguishable — PASS.** Measured: a spread mesh spans more 15° hue
+**1. Distinguishable, PASS.** Measured: a spread mesh spans more 15° hue
 buckets than a linear ground of the same base. Visually it is not close, on a
 ground with any real chroma: on an ember ground, spread 140 shows distinct
 orange, yellow-green and red regions where the linear ramp is one orange
 sweep.
 
-**2. Steerable — PASS.** Spread, stop count and seed each change the bytes,
+**2. Steerable, PASS.** Spread, stop count and seed each change the bytes,
 each with its own test. Spread 0 → 70 → 140 → 180 is a visible progression;
 two seeds at the same spread give genuinely different fields, not noise.
 
-**3. Not muddy — PASS**, and the per-blob alpha came down from 0.75 to 0.62
+**3. Not muddy, PASS**, and the per-blob alpha came down from 0.75 to 0.62
 to keep it that way once there could be ten overlapping blobs instead of six.
 Mean chroma over the sample grid, ground `#ece6fb`:
 
@@ -1324,7 +1324,7 @@ Mean chroma over the sample grid, ground `#ece6fb`:
 | mesh, spread 0 | 24.54 |
 | mesh, spread 70 (default) | 23.77 |
 | mesh, spread 140 | 19.63 |
-| mesh, spread 180 (range max) | **17.31** — 9% clear of the floor |
+| mesh, spread 180 (range max) | **17.31**, 9% clear of the floor |
 
 ### What the anti-mud gate does not catch, stated rather than left to be found
 
@@ -1333,7 +1333,7 @@ the top of `MESH_SPREAD_RANGE`, because a gate that stops short of the
 range's own maximum does not cover the range.
 
 More importantly: **raising the per-blob alpha to 0.85 does not trip it.**
-Checked directly. Alpha is not the lever that muds this construction — the
+Checked directly. Alpha is not the lever that muds this construction, the
 blobs are drawn `source-over`, so the topmost mostly replaces rather than
 averages, and it is SPREAD that pulls chroma down. So this is a floor on the
 worst case a user can reach, not a detector of every possible way to make
@@ -1344,7 +1344,7 @@ assertion measures the widest spread against the mesh's OWN spread-0 render
 ## Two things worth Rock's attention, not defects
 
 - **On the shipped lavender ground, mesh is faint at any spread.** So is the
-  linear gradient. That is the palette, not the mesh — and it is his own
+  linear gradient. That is the palette, not the mesh, and it is his own
   earlier feedback ("our selection is good, but poor... their colors are too
   faint"), already carried into the spec for Cycle B. The ember comparison
   above is the control that separates the two.
@@ -1354,7 +1354,7 @@ assertion measures the widest spread against the mesh's OWN spread-0 render
 
 ## Goldens and speed
 
-`mesh` changed — the point of the task — and `mesh-wide` is new, covering the
+`mesh` changed, the point of the task, and `mesh-wide` is new, covering the
 wide, five-stop end of the range that the default-config `mesh` case says
 nothing about. Nothing else moved.
 
@@ -1367,14 +1367,14 @@ instead of ~170s.
 
 ---
 
-# Cycle C Task 2 — the shadow across the luminosity range
+# Cycle C Task 2, the shadow across the luminosity range
 
 Measured in **Chromium**, over the dev server, calling `core/` directly. Not
 through `@napi-rs/canvas`: the shadow is the one thing in this codebase where
 the two engines have historically disagreed by a factor of five.
 
-Method: the same shot at each luminosity, rendered twice — once with the shot
-(and therefore its shadow), once as ground alone — and the two sampled at the
+Method: the same shot at each luminosity, rendered twice, once with the shot
+(and therefore its shadow), once as ground alone, and the two sampled at the
 same points 10, 20 and 40px below the shot's bottom edge. The number is the
 WCAG contrast ratio between the shadowed and unshadowed ground.
 
@@ -1388,7 +1388,7 @@ WCAG contrast ratio between the shadowed and unshadowed ground.
 | 0.15 | `#201f23` | **1.022** | 1.013 | 1.011 |
 
 **The shadow decays smoothly to nothing.** At 0.15 it moves the ground by
-three levels — 25,25,30 against 28,27,31 — which is not visible.
+three levels, 25,25,30 against 28,27,31, which is not visible.
 
 ## Why raising the alphas cannot fix it
 
@@ -1400,7 +1400,7 @@ fully opaque black shadow would reach only
 (0.0117 + 0.05) / (0 + 0.05) = 1.23
 ```
 
-— still below the 1.38 the pale end gets for free, at alpha 0.17. So outcome
+still below the 1.38 the pale end gets for free, at alpha 0.17. So outcome
 3 from the plan ("the shadow changes with the ground") is not available: the
 whole range of the instrument is smaller than the gap it would need to close.
 **The alphas are untouched.**
@@ -1410,12 +1410,12 @@ whole range of the instrument is smaller than the gap it would need to close.
 Rendered the combinations rather than reasoning about them. The failure is
 narrower than the table suggests:
 
-- **A light screenshot on a dark ground** separates enormously well — the
+- **A light screenshot on a dark ground** separates enormously well, the
   shot's own edge carries it, and the shadow was never doing the work.
 - **A dark screenshot on a pale ground** is the shipped default and is fine.
 - **A dark screenshot on a very dark ground** is the one that fails. At
   luminosity 0.15 the shot nearly disappears into the ground, and rendering
-  it with `shadowScale: 0` is visually indistinguishable — confirming the
+  it with `shadowScale: 0` is visually indistinguishable, confirming the
   shadow contributes nothing there.
 - **The same shot with a 0.6% light stroke** separates completely.
 
@@ -1426,8 +1426,8 @@ stroke already does it, opt-in since Cycle A Task 7, and one click away.
 ## What was deliberately NOT done
 
 No automatic stroke at low luminosity. It would be a canvas-level control
-silently writing a per-element setting — the exact hidden coupling Cycle B
-spent eight tasks removing — and it would fire on the light-screenshot case
+silently writing a per-element setting, the exact hidden coupling Cycle B
+spent eight tasks removing, and it would fire on the light-screenshot case
 that has no problem. Raised with Rock as a decision instead.
 
 ## Golden
@@ -1438,7 +1438,7 @@ a change to the ground maths, the edge blend or the shadow at that end.
 
 ---
 
-# Cycle C Task 3 — the palette
+# Cycle C Task 3, the palette
 
 Rock: *"our selection is good, but poor. I can't even see the difference
 between them on their thumbnails."* Half of that is the 14×14 swatch, which
@@ -1452,7 +1452,7 @@ MOST saturated ground the palette could produce.
 
 | | mid stop | HSL saturation |
 |---|---|---|
-| every one of the eight | — | **0.263** |
+| every one of the eight |, | **0.263** |
 | closest pair, `paper` vs `ash` | `#f1ede7` / `#f1eee7` | **1 level apart** |
 | a low-chroma screenshot (the common case) | `#eceaee` | 0.105 |
 
@@ -1466,7 +1466,7 @@ colour.
 Both ends rise. The floor so a nearly-colourless screenshot still produces a
 ground with a hue rather than a tinted grey; the ceiling so a colourful one
 produces a ground you could name. **The ceiling still exists**, and that is
-not negotiable — a ground competing with the screenshot is worse than a dull
+not negotiable, a ground competing with the screenshot is worse than a dull
 one, which is why this was never a plain `chroma` passthrough.
 
 After: 0.263 → **0.385** at the ceiling, 0.105 → **0.158** at the common end.
@@ -1479,7 +1479,7 @@ and disturbing them would move two things at once.
 
 `paper` (34°) and `ash` (40°) are **six degrees apart**. After the change
 they are still one level apart in their largest channel. No saturation
-setting separates two hues six degrees apart — that is a palette *selection*
+setting separates two hues six degrees apart, that is a palette *selection*
 problem, not a saturation one.
 
 The eight sit at 24, 34, 40, 158, 205, 240, 268, 340. Three are crammed into
@@ -1491,7 +1491,7 @@ re-hueing `ash` is a naming question as much as a colour one.
 
 All sixteen renders change, because the ground is in every one. They were
 regenerated wholesale. The evidence for this task is the before/after contact
-sheet — rendered **with a shot on top**, because a screenshot covers most of
+sheet, rendered **with a shot on top**, because a screenshot covers most of
 the canvas and only a border of ground shows, which is the thing being judged.
 
 ## A test that got weaker, said out loud
@@ -1502,26 +1502,26 @@ the Python original's actual formula rather than merely with itself. Raising
 the saturation formula breaks that agreement deliberately.
 
 `ground.py` was retired in Cycle A, so the cross-check was already
-historical — but this is the commit that ends it. The values are now
+historical, but this is the commit that ends it. The values are now
 generated from `core/ground.js`, and what remains is a freeze: it still
 catches the hex output drifting silently, which the golden-image test above
 cannot (it reads only hue/lum/chroma/darkUI), but it can no longer catch this
 file disagreeing with an external reference, because there is no longer one.
 
-## Task 3, round two — a preset carries its own saturation
+## Task 3, round two, a preset carries its own saturation
 
 Rock, on the palette sheet: *"yeah they are extremely similar. when you say
 'ash' I expect 'grey'. we don't have a gray one there."*
 
 Right twice over. `ash` sat six degrees from `paper` and rendered as a second
-warm cream — and **grey was unreachable**, because a preset was a hue and
+warm cream, and **grey was unreachable**, because a preset was a hue and
 nothing else. Grey is not a hue; it is the absence of chroma, and nothing in
 the pipeline could ask for that.
 
 `HUES` (name → degrees) becomes `GROUNDS` (name → `{ hue, sat? }`), with
 `HUES` kept as a derived export so the several callers that only want degrees
 are untouched. One table, not two. `sat` REPLACES the chroma-derived
-saturation rather than scaling it — scaling would let a grey preset drift
+saturation rather than scaling it, scaling would let a grey preset drift
 with the screenshot, where replacing makes "grey" mean grey whatever it is
 dropped on.
 
@@ -1535,13 +1535,13 @@ reads as deliberate.
 | `ash` mid stop | `#f1eee7` (warm cream) | `#eaebed` (grey) |
 
 `paper` and `ember` are ten degrees apart and are now the closest pair. They
-are at least distinguishable — cream against peach — but they are the next
+are at least distinguishable, cream against peach, but they are the next
 candidates if the palette is revisited.
 
 ### The test suite caught this one, unprompted
 
-`gradientFor` in `web/sidebar.js` previews a preset in its swatch, and it did
-not know about `forceSat` — so the `ash` swatch would have previewed as a
+`gradientFor` in `web/size.js` previews a preset in its swatch, and it did
+not know about `forceSat`, so the `ash` swatch would have previewed as a
 blue tint and then rendered as a grey. **A swatch lying about what selecting
 it produces** is the exact defect that file's own suite exists to catch, and
 it caught it: "every swatch, computed for the loaded dark image, matches what
@@ -1549,7 +1549,7 @@ selecting it actually renders" went red on the first run.
 
 ### And a gap this exposed
 
-**Regenerating the goldens after this change moved nothing at all** — because
+**Regenerating the goldens after this change moved nothing at all**, because
 no golden picks a named ground. They all take the sampled one, so the entire
 `forceSat` path was unguarded. `ground-ash` added, plus four unit tests
 covering the one-table rule, grey-on-vivid, colour-on-vivid, and
@@ -1557,21 +1557,21 @@ replace-not-scale.
 
 ---
 
-# Cycle C Task 5 — preset tiles
+# Cycle C Task 5, preset tiles
 
-`gradientFor` in `web/sidebar.js` built a CSS `linear-gradient` string that
+`gradientFor` in `web/size.js` built a CSS `linear-gradient` string that
 APPROXIMATED what `paintGround` draws, and `renderGroundSwatches` painted
 eight 14×14 chips with it. A second implementation of the ground, in a
 different language, kept in step by hand.
 
 It lied twice. Once before Cycle A, and again within an hour of `ash` gaining
-its own saturation in Task 3 — it previewed a blue tint for a preset that
+its own saturation in Task 3, it previewed a blue tint for a preset that
 renders grey. Both are deleted. `web/preset-tiles.js` paints a preset into a
 real canvas with the real generator, at the current type, angle and
 luminosity.
 
 `paintGround` is now exported from `core/index.js` for exactly this. The
-other painters stay internal — `composeWithMeta` remains the only way to draw
+other painters stay internal, `composeWithMeta` remains the only way to draw
 a shot, which is what keeps the preview canvas and the export canvas from
 disagreeing.
 
@@ -1589,7 +1589,7 @@ In the browser: eight tiles, **eight distinct colours**, `ash` at
 
 `test/sidebar.test.js`'s "swatches tell the truth about a loaded dark image"
 compared `gradientFor`'s string against the gradient `render()` produced. The
-function is gone, but the claim is the reason that suite exists — so it is
+function is gone, but the claim is the reason that suite exists, so it is
 made against PIXELS now: paint the tile, select the preset, render, compare
 the tile's centre to the ground the shot actually got. Within 3 levels for
 all eight, against a genuinely dark sample.
@@ -1597,13 +1597,13 @@ all eight, against a genuinely dark sample.
 ## The mistake, and why the suite did not catch it
 
 Deleting `gradientFor` and `renderGroundSwatches` meant removing the block
-they sat in — and that block also contained `matchesQuery`, the sidebar's
+they sat in, and that block also contained `matchesQuery`, the sidebar's
 search filter, which I removed with them.
 
 `node --check` passed: the syntax was fine. **All 518 tests passed**: nothing
 in the suite drives the search box. The app threw
 `ReferenceError: matchesQuery is not defined` on load and rendered nothing at
-all — no templates, no ratios, no panel.
+all, no templates, no ratios, no panel.
 
 Caught by opening it. This is the second time this cycle that the browser
 found something green tests could not (the first was the luminosity slider
@@ -1613,7 +1613,7 @@ that the page loads.**
 
 ---
 
-# Cycle C Task 6 — click targets, measured
+# Cycle C Task 6, click targets, measured
 
 Rock, 2026-09-02: *"the color names's clickable area should be the whole row,
 like we have for templates. short names atm have also a short click target."*
@@ -1626,7 +1626,7 @@ are grid cells at `width: 100%`, canvas and label both inside the button.
 
 **Already right.** `.sampled-row` is `width: 100%` (measured 237px, the
 section's full content width). The Background type cells are a plain
-`.segmented`, whose cells carry `flex: 1` — **Gradient 117.5px, Solid
+`.segmented`, whose cells carry `flex: 1`, **Gradient 117.5px, Solid
 117.5px**, equal and filling.
 
 **The one real instance left.** `.segmented--mini`:
@@ -1638,25 +1638,25 @@ section's full content width). The Background type cells are a plain
 | Light | 49.5px | 49.5px |
 
 Three peers whose targets differed by 34%, purely by label length. Export's
-`1x / 2x / 3x` measured equal only because those labels are the same width —
+`1x / 2x / 3x` measured equal only because those labels are the same width,
 an accident, not a rule, and it now holds by construction.
 
 `flex: 1` does not fix this one: a mini control shrink-wraps inside a toolbar
 row, so there is no free space for `flex-grow` to distribute. Probed both in
-the page before choosing — `flex: 1 1 0` left the cells at 43.2 / 36.9 / 49.5,
+the page before choosing, `flex: 1 1 0` left the cells at 43.2 / 36.9 / 49.5,
 unchanged. `grid-auto-columns: 1fr` sizes every column to the widest cell and
 the control grows to 150.5px. That is the mechanism that works on a
 shrink-to-fit box.
 
 **Left alone, deliberately.** The `.chip` rows (None / Browser / Phone at
-50.9 / 65.6 / 55.3px) are pills in a wrapping row, not rows — sizing to the
+50.9 / 65.6 / 55.3px) are pills in a wrapping row, not rows, sizing to the
 label is that idiom, and each is already ≥50px wide.
 
 **Found while measuring, not fixed.** Every `.segmented-cell` is **22px
 tall**. WCAG 2.2 AA 2.5.8 asks for 24×24 CSS px, and adjacent cells touch, so
 the spacing exception does not apply. Raising `.segmented--mini` to 26px
 would fix it and would change the density of the canvas toolbar, the frame
-theme control and the export scale at once — an app-wide look change, so it
+theme control and the export scale at once, an app-wide look change, so it
 is Rock's call, not a silent edit inside a Background task.
 
 ## The rest of the accessibility check, measured
@@ -1677,7 +1677,7 @@ apart vertically; a reset button's nearest neighbour is its own slider, whose
 box centre is ~120px away.
 
 The segmented cells were the only genuine failure, because they are the only
-undersized targets that **touch** — a segmented control has no gaps, so the
+undersized targets that **touch**, a segmented control has no gaps, so the
 exception cannot apply to it. 22px → 24px (control 24px → 26px; the cells sit
 inside its 1px border).
 
@@ -1685,7 +1685,7 @@ inside its 1px border).
 
 - **Accessible names.** No interactive element lacks one.
 - **Focus.** Every interactive class carries its own `:focus-visible` rule.
-  The one apparent gap — the search `<input>`, which sets `outline: none` —
+  The one apparent gap, the search `<input>`, which sets `outline: none`,
   is covered by `.sidebar-search:focus-within`, which draws the ring on the
   wrapper.
 - **Reduced motion.** Five rules declare a transition or animation
@@ -1697,12 +1697,12 @@ inside its 1px border).
 
 **Not covered, and worth saying.** The mesh seed and stops steppers use
 `.zoom-btn` and are hidden while mesh is withheld, so they were not in the
-DOM to measure. If mesh comes back in Task 8, measure them then — two
+DOM to measure. If mesh comes back in Task 8, measure them then, two
 `.zoom-btn`s inside one stepper sit closer together than the canvas zoom's do.
 
 ---
 
-# Cycle C Task 7 — what Angle actually did
+# Cycle C Task 7, what Angle actually did
 
 Rock, on the shipped app: *"I can't seem to understand the logic behind how
 Angle works."* Step 1 of the task was to find out by rendering and measuring,
@@ -1723,14 +1723,14 @@ sits half a turn from the number. Measured on the linear layer alone, at
 | 180° | top |
 | 270° | right |
 
-The default, 166°, travels almost straight down, so the light is at the top —
+The default, 166°, travels almost straight down, so the light is at the top,
 14° off vertical, which is why the shipped ground has always been lightest at
 the top and a little to the left.
 
 ## Why it read as illogical
 
 `paintGround` draws **three** layers: the linear gradient, which turns, and
-two radial washes, which were **pinned** — the light one at 22%/6% of the
+two radial washes, which were **pinned**, the light one at 22%/6% of the
 canvas, the dark one at 88%/97%, whatever the angle said. The angle steered
 one layer of three.
 
@@ -1740,13 +1740,13 @@ Measured on the full composite, brightest-region centroid as a bearing:
 |---|---|---|
 | worst disagreement between the number and where the light actually is | **178°** (dead opposite, at 330°) | **17°** |
 | the 285°–345° arc | brightest point **frozen** at 22%/6°, identical at every step | moves with the number |
-| gradient's own axis ends, at 0° | 149 vs 145 — **four levels**, a gradient with nothing left of it | 205 vs 177 |
+| gradient's own axis ends, at 0° | 149 vs 145, **four levels**, a gradient with nothing left of it | 205 vs 177 |
 
 ## The change, and what it costs
 
 The two washes now rotate about the centre by `angle − DEFAULT_ANGLE`. That
 term is zero at 166°, so **the shipped look is byte-identical and no golden
-moved** — all 531 tests pass, including the 15 pixel-diff goldens. Every
+moved**, all 531 tests pass, including the 15 pixel-diff goldens. Every
 other angle now means what it says.
 
 The ellipses stay axis-aligned; only their centres travel. Rotating the
@@ -1755,7 +1755,7 @@ was not made.
 
 ## The dial
 
-An arrow drawn from the angle number would only restate the number — and
+An arrow drawn from the angle number would only restate the number, and
 before the fix it would have pointed up to 178° away from the light. So the
 indicator is a 22px circle of the **real ground**, painted by `paintGround`
 from the same `groundFromMeta(meta, forceHue, luminosity, forceSat)` call
@@ -1773,7 +1773,7 @@ loaded, sampling the exported canvas at 1800×1200:
 | 166° | top, 213 | yes (dial top 215) |
 | 270° | right, 216 | yes |
 
-`aria-valuetext` says the same sentence — "166 degrees, light from the top" —
+`aria-valuetext` says the same sentence, "166 degrees, light from the top",
 so the dial and the screen reader cannot drift apart either.
 
 ## A trap worth writing down
@@ -1785,23 +1785,23 @@ angle. Nothing was wrong with the render: the Browser pane was hidden,
 suppressed. Changing the *hue* did nothing either, which is what gave it
 away. Reloading with `requestAnimationFrame` patched produced the numbers
 above. **A canvas that never updates in a hidden preview is the harness, not
-the app** — check a control known to work before believing a regression.
+the app**, check a control known to work before believing a regression.
 
 ---
 
-# Cycle C Task 8 — mesh's second hearing, and its deletion
+# Cycle C Task 8, mesh's second hearing, and its deletion
 
 Mesh was withheld in Cycle A, not removed, because Rock could not see it:
 *"I can see it on your screenshots, but when there's a screen on top, there
 isn't much to see, and our current colors are very faint."* The spec set the
-terms for this rematch — judged on the new palette, with a shot on top, at
+terms for this rematch, judged on the new palette, with a shot on top, at
 several luminosities, and **deleted rather than hidden a second time** if it
 still could not be seen.
 
 ## Measured
 
 Composed through `composeWithMeta` with a dark UI screenshot on top, and
-measured **only in the ground that is actually visible** — every pixel
+measured **only in the ground that is actually visible**, every pixel
 outside the shot's box plus a 3.5% margin, so the shadow and the stroke are
 excluded.
 
@@ -1818,7 +1818,7 @@ excluded.
 
 Two things to read off it.
 
-**Mesh is not flatter than the gradient** — its own spread tracks linear's
+**Mesh is not flatter than the gradient**, its own spread tracks linear's
 within a few levels. It was never broken.
 
 **It is not different from it either.** Five levels of mean difference, and
@@ -1827,13 +1827,13 @@ at 22% padding, with four times the visible border, the numbers do not move.
 
 ## Why, and why no amount of tuning fixes it
 
-Every blob took its saturation and lightness from `g1` or `g3` — the sampled
+Every blob took its saturation and lightness from `g1` or `g3`, the sampled
 palette's own light and dark stops. Those sit about 60 levels apart across
 the whole canvas. A field assembled only from colours inside that range
 cannot vary more than the plain gradient already does. Only the **hue**
 rotated, and hue rotation at these saturations is worth a handful of levels.
 
-The way out would be to paint colours the screenshot does not contain — which
+The way out would be to paint colours the screenshot does not contain, which
 is the one thing `core/ground.js` exists to refuse, and the argument
 `paintMesh`'s own comment made before Cycle A weakened it.
 
@@ -1851,9 +1851,645 @@ been rewritten, and mesh reads exactly as it did.
 entry.
 
 Four helpers in `core/render.js` went with it, having lost their only
-callers: `hexToHsl`, `hslToHex`, and — checked, not assumed — nothing else.
+callers: `hexToHsl`, `hslToHex`, and, checked, not assumed, nothing else.
 `hexToRgb` and `rgba` stay: `radial()` still uses them, and deleting them on
 a first pass broke every ground test, which is how that was caught.
 
 **16 goldens remain**, not the 15 the plan predicted; the plan's arithmetic
 predated `ground-ash`.
+
+---
+
+# Cycle D Task 1, what the tabs bought
+
+Templates and Ratios were two stacked lists with a "+ Custom size"
+disclosure hanging under the first. They are one decision, every one of
+them writes nothing but `w` and `h`, so they are now one section with three
+tabs.
+
+Measured in Chromium at 1440×900, comparing the live site against the branch,
+with the **Templates** tab open (the longest of the three lists, so this is
+the worst case rather than the flattering one):
+
+| | before | after |
+|---|---|---|
+| size controls, total height | 264px Templates + 158px Ratios = **422px** | **262px** |
+| free space left in the sidebar | 296px | **459px** |
+
+**160px freed**, and the free space grows by 163px. That is the budget Tasks
+2 and 3 spend moving Background, Padding and Grain into this panel.
+
+## The tabs did not start out equal
+
+First build, measured: **Templates 69.9px, Ratios 60.6px, Custom 60.6px** in
+a 193px strip. `.segmented-cell` already carries `flex: 1`, which is what
+makes the Background type control's two cells equal, but a flex item cannot
+shrink below its own min-content, and "Templates" needs 70px with the
+standard 8px padding. It took what it needed and the other two split the
+remainder.
+
+`grid-auto-columns: minmax(0, 1fr)` has no such floor: **63.7px each**. The
+tab cells also take 4px of horizontal padding rather than 8, which is what
+keeps the longest label from clipping inside its equal share.
+
+This is the second time this cycle-family that `flex: 1` has failed to
+equalise a segmented control, for two different reasons, Cycle C Task 6's
+mini controls had no free space to distribute, these had a min-content floor.
+Grid is the mechanism that works in both cases.
+
+## Cycle D Task 2, Background moved sides
+
+The ground describes the canvas, so it belongs in the panel that owns the
+canvas. Verified in Chromium at 1440×900 with a screenshot loaded:
+
+- `#backgroundSection` resolves inside `#sidebar` (`closest('#sidebar')`
+  is truthy), and the left panel now reads **Size, Background**; the right
+  reads **Frame, Finish, Export**.
+- The section is `inert` before a screenshot loads and live after, the path
+  that mattered here, because `propertySections` in `web/main.js` addresses
+  its three sections **by id**. Had it used `#inspector .inspector-section`,
+  Background would have stayed greyed forever with nothing to explain why.
+  It was already written by id; the comment there now records that as a
+  decision rather than luck.
+- Hue still drives the canvas from its new home, measured on the exported
+  canvas rather than by eye: `hue 0 → 223,200,200`, `hue 120 → 200,223,200`,
+  `hue 240 → 200,200,223`. A pure rotation, which is what proves the control
+  reached `paintGround` and not just the tiles.
+- The left panel needs no scrollbar yet: `scrollHeight` 852 against
+  `clientHeight` 852. `#stage` is still 896px wide, unchanged from before the
+  move, so nothing has squeezed the canvas.
+- No console errors; no horizontal scroll at 1440px.
+
+### Task 2, fix round, the panels are now the same panel
+
+Rock, on the first preview: *"it is on the left, but this looks pretty bad.
+the area is really compressed, it has some sort of padding/margin that is
+making it slimmer than it should. the color boxes are uneven. I feel like
+this whole panel should actually have the same size as the other panel."*
+
+Three faults in one look, all three real, all measured:
+
+| | before | after |
+|---|---|---|
+| `#sidebar` width | 226px | **266px**, matching `#inspector` |
+| Background's content width | 173px | **237px**, matching Frame's |
+| preset tiles | 44.6 / 36.8 / 36.8 / 36.8 | **54.8px each** |
+
+**The compression was padding counted twice.** `#sidebar` carried 12px of its
+own, and `.inspector-section` adds 14px, so a section that gets 237px of
+content in the right-hand panel got 173px here. That is 64px narrower for a
+panel only 40px narrower. The padding now lives in one place: the sections
+carry their own, exactly as they do in `#inspector`, and the panel carries
+none.
+
+**The uneven tiles were the min-content trap again.** `repeat(4, 1fr)`: a
+`1fr` track cannot shrink below its own min-content, and "Lavender" is the
+widest of the eight labels, so the first column took 44.6px and the rest
+split what was left. `repeat(4, minmax(0, 1fr))` fixes it, the third time
+in this cycle-family, after Cycle C Task 6's mini segmented controls and
+Cycle D Task 1's tabs. **Three different symptoms, one cause: an implicit
+min-content floor on a track that was supposed to be an equal share.**
+
+**What it cost.** `#stage` goes from 896px to **856px** at 1440×900, 40px,
+the width the left panel gained. That is a real cost and Rock chose it
+knowingly; it is recorded here rather than left for Task 8 to discover.
+
+Also removed: `.preset-list` was styled twice, once as a flex column left
+over from when the presets were rows and once as the grid it has been since
+Cycle C Task 5. Every property in the older rule was already overridden, an
+unused second opinion about a live element, which is the same shape as the
+CSS gradient swatches that lied twice.
+
+### Task 2, fix round 2, one left edge, no redundant label, no jumping
+
+Rock, with two guide lines drawn down the panel: *"what even is this
+alignment? why that huge space between background and type? can't we just
+get rid of 'Type'? ... everytime I change a tab on size, everything jumps
+around. Size should have a fixed size, and then have a scroll. show 4.5
+items and then scroll to see the rest."*
+
+**Four left edges, measured.** Text and box positions across the panel:
+
+| | before | after |
+|---|---|---|
+| plain labels, preset grid | 66px | 66px |
+| `.section-label` (SIZE, BACKGROUND) | **70px** | 66px |
+| the size tab strip's box | **70px** | 66px |
+| control boxes (search, rows, segmented, sampled) | 66px | 66px |
+
+The section headings carried 4px of horizontal padding and the tab strip a
+4px margin, nothing else did. Text *inside* a control's own fill stays inset
+(75–77px) and is meant to; that is the control, not the panel.
+
+**"Type" is gone.** It captioned a two-cell control whose cells read
+"Gradient" and "Solid", a control labelled with its own category. It cost
+about 30px directly under the section heading, which is what the "huge space"
+was. The group keeps `aria-label="Background type"`, so nothing was taken
+from a screen reader.
+
+**The size list is pinned at 153px**, four rows and half of a fifth, so a
+longer list never reads as complete. Measured, Background's top is now
+**324.5px on all three tabs**; it moved with every switch before. Templates
+scrolls (202px of content in 153px), Ratios and Custom fit exactly.
+
+## Cycle D Task 3, Grain moved; Padding did not
+
+The spec put both on the left. Rock narrowed it on 2026-09-06: *"let's move
+only grain. Padding to me still makes sense on the right, since visually it
+moves the elements."*
+
+Verified in Chromium with a screenshot loaded:
+
+- The left panel reads **Size, Background, Canvas**; the right reads
+  **Frame · Desktop, Finish · Desktop, Export**.
+- Grain resolves inside `#sidebar` and still drives the render, measured on
+  the exported canvas rather than by eye: the luminance spread across a 60px
+  patch of ground goes from **165 at grain 0 to 181 at grain 100**.
+- `activeGrainPercent` / `setGrainPercent` moved with the control. They are
+  not re-exported from `web/inspector-frame.js`, a re-export would have left
+  the definition in the module named "frame", which is the split this cycle
+  exists to make real.
+- No console errors.
+
+**The edge this leaves, said out loud.** The right-hand panel's heading names
+the selected element, and Padding now sits under "Finish · Desktop" while
+being canvas-level: select a phone, drag Padding, and everything moves. The
+control is not wrong, `config.pad` still has exactly one home, but the
+heading overstates its scope. The fix, if it reads wrong in use, is to lift
+Padding out from under the element subject, not to move it across again.
+
+### Task 3, fix round, grain went into Background, not a section of its own
+
+Rock: *"why not just put grain together with HAL controls?"*
+
+Right, and it is the same argument the move itself rested on: `paintGrain` is
+clipped to the ground and nothing else, so grain describes the same surface
+Hue, Angle and Luminosity do. With Padding staying on the right, the "Canvas"
+section it had briefly been given held **one slider**, a heading for one row.
+
+`web/inspector-canvas.js` and `#canvasSection` are gone; Background reads
+**Hue, Angle, Luminosity, Grain**, and the left panel is **Size, Background**.
+
+Grain also gets a Reset, ahead of Task 4 generalising them, because the row
+was being rebuilt anyway and shipping the one slider in that panel without
+one would have been the arbitrariness Rock objected to in Cycle C.
+
+**A bug the move introduced, caught by measuring rather than by looking.**
+`syncGrainUI` was wired into `afterBackgroundChange` but not into the init
+sequence, so grain's Reset rendered **enabled at the default** until some
+other control moved. Measured `resetDisabledAtDefault: false` on load; after
+the fix, all four of Background's Resets read `true` on load.
+
+Verified after: grain still drives the render, ground luminance spread 165
+at 0%, 181 at 100%, its Reset returns the slider to 34% and disables itself,
+and there are no console errors.
+
+## Cycle D Task 4, one slider row, and eight Resets
+
+`web/controls.js`'s `makeSliderRow` now builds every slider in the app. Both
+panels' hand-built range inputs are gone, and so are **two identical copies
+of `syncSliderFill`**, seven lines each in `web/inspector-background.js` and
+`web/inspector-frame.js`.
+
+Measured in Chromium, every slider, with a screenshot loaded and a Light
+stroke selected so the stroke rows are live:
+
+| slider | disabled at default | enables when moved | returns to | disabled again |
+|---|---|---|---|---|
+| Hue | yes | yes | 224° | yes |
+| Angle | yes | yes | 166° | yes |
+| Luminosity | yes | yes | 0.855 | yes |
+| Grain | yes | yes | 34% | yes |
+| Padding | yes | yes | 5.2% | yes |
+| Corner radius | yes | yes | 1.3% | yes |
+| Shadow | yes | yes | 100% | yes |
+| Stroke width | yes | yes | 0.8% | yes |
+
+## Two bugs the measurement caught, and the suite did not
+
+**`clearRadius` was never defined.** The Corner radius Reset called it, so
+clicking that button threw a `ReferenceError` and did nothing. The function
+had been written into a patch whose anchor did not match, and the patch
+failed silently. **528 tests passed while that button was dead**, the same
+lesson as Cycle C's `matchesQuery`, in a new place: a green suite is not
+evidence that a control works.
+
+**Luminosity's Reset cleared the override but left the slider where it was.**
+It is the one slider whose displayed value comes from `state.meta`, and
+`state.meta` is written only when `render()` finishes, so after clearing,
+`activeLuminosity` fell back to a meta that still described the render made
+*with* the override. The Reset correctly greyed out while the thumb stayed at
+15%, and it corrected itself the next time anything else touched the panel:
+intermittent and self-healing, which is the worst kind of wrong.
+
+Fixed with `onRender(syncLuminosityUI)`, `web/state.js` has a subscriber
+list for exactly this, added in Cycle B for the selection outline. This bug
+predates Task 4; the task only made it visible by testing every Reset in a
+loop instead of the one that had been built.
+
+---
+
+# Cycle D Task 5, real white, and 67 fewer lines
+
+Rock, after three rounds of me nudging greys: *"I told you we need to have
+better contrast, and you keep doing this very small adjustments, when what we
+need it WHITE. just use the fucking white."* And then: *"separators need to be
+really faint. I feel like we have way too many 'lines' in the UI."*
+
+## Why the small adjustments kept happening
+
+I had convinced myself the app was out of room. The measurement that produced
+that conclusion was real, five text rungs plus six surface rungs, all 1.2
+apart, with a 7:1 floor, needs **36:1**, and white on black is 21:1, but the
+conclusion I drew from it was wrong. The answer was not "we cannot have
+contrast". It was **stop spending 21:1 on distinctions nobody can see.**
+
+The app was carrying five text greys and six surface names. The five greys sat
+1.22 apart. The six surfaces sat 1.012–1.098 apart, which is to say they were
+one colour with six names.
+
+## What changed
+
+**Text: three rungs, and the top one is real white.**
+
+| | before | after |
+|---|---|---|
+| `--text-primary` | `#f5f7fb` 18.25:1 | **`#ffffff` 19.57:1** |
+| `--text-secondary` | `#dfe1e5` 14.95:1 | `#e0e2e5` 15.08:1 |
+| `--text-muted` | `#cacdd2` 12.28:1 | `#c4c8cd` 11.64:1 |
+| `--text-faint` | `#b7babf` 10.05:1 | *merged into muted* |
+| `--text-fainter` | `#a4a8ae` 8.19:1 | *merged into muted* |
+
+`--text-fainter` was the busiest token in the app (21 usages) **and** the
+dimmest. That combination is most of what "dim" meant. Everything it carried
+is now 11.64:1.
+
+**Surfaces: four rungs that are actually apart.**
+
+| adjacent pair | before | after |
+|---|---|---|
+| window → raised-1 | 1.089 (via canvas) | **1.339** |
+| raised-1 → hover | 1.032, 1.012 (via raised-2) | **1.213** |
+| hover → control-active | 1.098 | **1.467** |
+
+`--surface-canvas` (1.021 from the window) and `--surface-raised-2` (1.032
+from raised-1) are gone: two names each for one colour.
+
+**Borders: 148 painted edges → 81.** Counted in Chromium, every element,
+every side.
+
+- the eight preset tiles lost their outlines, 32 edges, drawn around the
+  brightest things in the panel;
+- the eight slider Resets became a raised fill instead of an outline, 32
+  edges;
+- the section separators went, spacing does that job now the surfaces differ.
+
+The separators that remain are faint by measurement, not by intention:
+`--border-hairline` 1.94:1 and `--border-subtle` 2.30:1 on the window, both
+inside the 1.8–2.5 decorative band.
+
+## Two things the change forced, and why
+
+**`--border-strong` had to get lighter, not fainter.** It bounds controls, so
+it owes 3:1 against the lightest surface it touches, and those surfaces just
+rose. `#696e7f` → `#8e93a2`, which now measures 3.19:1 against the active
+segmented cell (the tightest case) and 3.93:1 against hover. It is not a
+separator; the separators are the two above.
+
+**The drag-over outline inverts on a light surround.** It was
+`--border-strong`, and a light grey on `#e9eaed` measured 2.55:1. It uses the
+app's darkest ink there instead.
+
+## The suite moved with it
+
+`test/contrast.test.js` gained a **surface ladder guard**, the text tokens
+have had one since Cycle A, the surfaces never did, which is how they drifted
+to 1.012 without anything complaining. Four assertions had to be repointed at
+surviving tokens, and one had to be rewritten rather than repointed: the
+sampled row's "was this better than opacity 0.6" comparison stopped failing on
+the old instrument once the base ink went white, so it now asserts the thing
+it was always about, the replacement beats the composite and clears the
+floor.
+
+515 tests pass. No console errors.
+
+---
+
+# Cycle D Task 5, step 1: colour, from Rock's own Figma frame
+
+Rock redesigned the editor himself in the Figma file (node 7:130) after three
+failed attempts by me to read a reference image. This step takes the colour
+decisions out of that frame and nothing else. Nothing moves position.
+
+**One control fill.** `--surface-control: #252527`, a neutral grey. In his
+frame the zoom stepper, the type toggle, the sampled row, the search field,
+the size tabs, chips at rest, the reset buttons, the format select and the
+scale control are all this single value. 1.279:1 over the window; white reads
+15.30:1 on it.
+
+**The accent, as a fill.** Export, the active segmented cell, a selected chip,
+and as a stroke on the selected row and the active sampled row.
+
+Rock drew `#5b6cff`. White measures **4.17:1** on it, under WCAG AA's 4.5 for
+text. At that hue 7:1 is unreachable without wrecking the colour: `#1d35ff`
+clears white at 6.99 but falls to 2.80:1 against the window, under the 3:1 a
+component boundary owes. **`#5364ff`** is the same blue eight units darker:
+white 4.53:1, 4.32:1 against the window. Raised with him rather than silently
+substituted.
+
+**Text is white.** 32 rules moved from `--text-secondary` or `--text-muted` to
+`--text-primary`: section headings, rows, slider labels, segmented cells,
+chips, the search field, the filename, the CLI command, the dropzone title,
+the preset tile labels. `--text-muted` is left on exactly what his frame keeps
+subordinate: the row dimensions, the sampled subline, the dropzone's own
+dimensions and subtitle, the search placeholder, the CLI status, inactive rail
+icons. `--text-inert` keeps "Ready to export".
+
+**The sampled row's state signal moved.** It used to dim the label when
+inactive. His frame marks the ACTIVE row with an accent border and a raised
+fill and leaves the ink alone, so the dim was saying the same thing twice, and
+it dropped a live informational row under 7:1. The assertion that guarded the
+old behaviour now guards the new one: the ink clears the floor, and something
+marks the active state.
+
+**The font was wrong and nobody had checked.** The app loaded **Geist** and
+**Geist Mono** from Google Fonts. Rock designs in Inter, and said so in
+passing. Now Inter, with the mono stack falling back to the system monospace.
+
+Measured in Chromium after the change:
+
+| | value |
+|---|---|
+| body font | `Inter, system-ui, -apple-system, sans-serif` |
+| section heading | `rgb(255,255,255)` |
+| row label | `rgb(255,255,255)` |
+| row dimensions | `rgb(196,200,205)` |
+| chip at rest | fill `rgb(37,37,39)`, stroke `rgb(142,147,162)`, white ink |
+| chip selected | fill `rgb(83,100,255)`, white ink |
+| segmented at rest | `rgb(37,37,39)` |
+| segmented active | `rgb(83,100,255)` |
+| selected size row | fill `rgb(37,37,39)`, border `rgb(83,100,255)` |
+| Export | `rgb(83,100,255)` |
+
+515 tests pass. No console errors, no horizontal scroll.
+
+### Step 1, fix round: the off state kept the accent
+
+Rock, on the preview: *"how do you explain the dark text on purple buttons
+that were EXPLICITLY white on the design?"*
+
+Before a screenshot loads, the Background, Frame and Finish sections are
+`inert`, and the single off-state rule re-declares the text tokens to
+`--text-inert`. Step 1 gave the primary button, the active segmented cell and
+the selected chip an accent FILL, and never told that rule about `--accent`.
+So the fill stayed at full strength while the ink went grey.
+
+Five controls on the very first screen: **Export**, **Export PNG**,
+**Gradient**, and both **None** chips, purple with `rgb(94,101,112)` text.
+
+The rule now switches the accent off with everything else:
+`--accent: var(--surface-control)`.
+
+Measured before and after, on load with no screenshot:
+
+| | purple controls in the empty state |
+|---|---|
+| before | 8, of which **5 had grey ink** |
+| after | 3, all white ink: the size tabs, the surround control, the export scale, none of which are inert |
+
+With a screenshot loaded, all six purple controls carry white ink.
+
+**How it got shipped.** I only ever verified with a screenshot loaded. The
+empty state is the first thing anyone sees, and I never looked at it.
+
+A full scan of every text-bearing element now returns exactly two colours:
+white on 41 elements, and `#c4c8cd` on six, the four row dimensions and the
+two `.section-subject` labels. The dimensions match Rock's frame. The section
+subjects are what his "Selected: Desktop" heading replaces, in a later step.
+
+## Step 2: type, from Rock's frame
+
+Sizes and casing only. No colour changed, nothing moved.
+
+| | before | after |
+|---|---|---|
+| section headings | 10px, ALL CAPS, 1.2px tracking, mono | **12px, sentence case, Inter** |
+| the canvas toolbar's heading | 10px, ALL CAPS, mono | **12px, sentence case, Inter** |
+| section subject ("Desktop") | 10.5px, ALL CAPS, tracked | 12px, sentence case |
+| size rows | 12.5px | 12px |
+| slider labels | 11.5px | 12px |
+| segmented cells | 11.5px | 12px |
+| chips | 11.5px | 12px |
+| preset tile labels | 10.5px | 11px |
+| slider values | 10.5px | 12px |
+| the sampled subline | 10px | 12px |
+| row dimensions | 10.5px | 10.5px, unchanged |
+| "Ready to export" | 10px | 10.5px |
+
+`BACKGROUND` in tracked 10px monospace is now `Background` in 12px Inter,
+which is what his frame draws. The toolbar's own heading carried a `.mono`
+class in the markup, so it stayed monospace after the CSS change; the class
+came off so all six headings match.
+
+**What it costs.** The left panel's content goes from fitting to **883px in
+an 852px pane**, so it scrolls by 31px at 1440×900. The right panel still
+fits exactly. `#stage` is unchanged at 856px and there is no horizontal
+scroll.
+
+Measured after: all six headings read Inter, 12px, `text-transform: none`.
+515 tests pass, no console errors.
+
+## Step 3: control shapes, from Rock's frame
+
+Heights and radii only. No colour, no type, nothing moved.
+
+| control | before | after |
+|---|---|---|
+| chip | 24px tall, **pill** (12px) | 25px, **6px** |
+| slider reset | 22×22, 6px | **18×18, 4px** |
+| segmented control | 28px, 8px | 28px, **6px** |
+| active cell inside it | square, clipped by the container | **5px**, rounded in its own right |
+| size tabs | 8px | **6px** |
+| sampled row | 8px | **6px** |
+| preset tile | 7px | **6px** |
+| search field | 8px | **6px** |
+| size row | 8px | 8px, unchanged |
+| select, buttons | 7px | 7px, unchanged |
+
+`--radius-control: 6px` is the new token. The 8px on the rows and the 7px on
+buttons stay, because that is what his frame draws.
+
+**A duplicate rule found while doing it.** `.sidebar-search` had two rules:
+one left over from the reverted panel-card experiment carrying a margin and a
+background, and the real one further down carrying the border and radius. The
+second won on order, which is why the radius change had no effect the first
+time. They are one rule now.
+
+**What it costs.** The left panel's overflow drops from 31px to **19px**
+(871px of content in an 852px pane), because the resets got smaller. Still
+scrolls. The stage is unchanged, no horizontal scroll.
+
+515 tests pass, no console errors.
+
+### Step 3, fix round: the chips still had an outline
+
+Rock put his design beside the build: *"wasn't this the step where this would
+look the same?"* It did not. His chips are flat filled boxes with no border.
+Mine kept a `#8e93a2` outline, and that outline cost 2px a chip, which pushed
+"Custom" onto a second row.
+
+Border removed, padding 12px to 10px a side. Measured after: both chip rows
+are **one line**. The Stroke row is 232px of the 237px available.
+
+| row | chips | lines |
+|---|---|---|
+| Frame | None 51, Browser 67, Phone 56 | 1 |
+| Stroke | None 51, Light 48, Glass 51, Custom 64 | 1 |
+
+### Step 3, fix round 2: every stroke, diffed against the frame
+
+Rock: *"will I have to point you to EVERY place that doesn't have a stroke
+anymore, even though I gave you the goddamn file for you to check?"* No. This
+is that check, done properly instead of one chip at a time.
+
+Read every visible node in his frame (7:130) and kept the ones carrying a
+stroke, ignoring icon vectors. **Six containers**, and only six:
+
+| his frame | stroke |
+|---|---|
+| Copy, disabled | `#474d57` 1px |
+| the sampled row, ACTIVE | **white 1.5px** |
+| the selected preset tile | **white 1.5px** |
+| the CLI card | `#474d57` 1px |
+| the format select | **white 1px** |
+| the open size dropdown | black 1px |
+
+Then measured every border the app actually paints. **Fifteen.** The diff:
+
+**Removed**, because his frame defines them by fill alone: the zoom stepper,
+the search field, the segmented control and both mini variants (the surround
+control and the export scale), the angle dial.
+
+**Changed from grey or accent to white**, which is how his frame marks a
+chosen thing: the active sampled row (now 1.5px), the format select (1px), and
+the selected preset tile (1.5px). The sampled row also carries a 1.5px
+transparent edge at rest so the ring appearing never shifts the row.
+
+**Kept**: Copy, the CLI card, and the four structural hairlines around the
+panels, the toolbar and the rail, which his frame keeps as filled rectangles.
+
+Nine strokes remain, and the two that are neither in his list nor structural
+are `.template-row.is-selected` and `.btn-ghost`, both of which he draws the
+same way.
+
+515 tests pass, no console errors.
+
+### Step 3, fix round 3: four things Rock caught
+
+**The sampled row lost its corners.** My own doing, one fix round earlier: the
+regex that stripped `border` from that rule was `border[^;]*;`, which also
+matches `border-radius`. Restored to `--radius-control`, with the 1.5px
+transparent edge kept so the white ring appearing never shifts the row.
+
+**The selected colour tile was the wrong shape.** His node 7:717 is a 55px box
+with **no fill**, a white 1.5px stroke drawn INSIDE, and the 47.8px swatch
+inset 3.5px at radius 3. A ring outside the colour, not a ring hugging it.
+Measured after: 54.8px box, 1.5px white border, 2px padding, radius 6.
+
+**"PNG" carried a stroke at rest.** In his frame that white edge is the
+control's OPEN state. Removed from the resting state.
+
+While checking it: **the format control does work**, but not as a dropdown.
+Clicking it cycles PNG to JPEG to WEBP (`web/main.js`, `FORMAT_ORDER`). There
+is no menu to open, which is why nothing appeared to happen.
+
+**Two font families, not one.** Rock: *"you know I'm using only Inter font,
+right?"* The app had `--font-ui: Inter` and a separate system monospace for
+the numeric readouts. The monospace existed so digits keep a fixed advance as
+a value changes; `font-variant-numeric: tabular-nums` does that inside Inter,
+so the second family is gone.
+
+And a real one that scan turned up: **`<html>` had no font family at all** and
+was falling back to **Times**. Only `body` carried it, so anything escaping
+body's inheritance would have rendered serif. The family is on the root now.
+A scan of every visible element returns exactly one family: `Inter`.
+
+515 tests pass, no console errors.
+
+---
+
+# Cycle D's verification pass, 2026-09-07
+
+Measured in the Chromium preview at the widths named. Everything below is a
+reading, not an impression.
+
+## Keyboard order and focus rings
+
+Real Tab presses, not `el.focus()`: `:focus-visible` does not match a
+programmatic focus, so a probe built on `.focus()` reports "no ring" for every
+element in the app and proves nothing. A `focusin` listener recorded
+`document.activeElement`, its `:focus-visible` match and its computed outline
+while the browser sent Tab.
+
+**With no screenshot loaded, 1440×900: 14 stops.** Rail (5) → the Size
+trigger → Table's three cells → the drop zone → the format select → 1x/2x/3x
+→ wraps. The two panels are `inert` with nothing loaded, so they take no
+stops, which is the intent. Every stop matched `:focus-visible` and drew a
+2px outline. The four disabled rail items keep a ring in `--text-inert`
+(3.33:1 on the window); they are `aria-disabled`, not `disabled`, so they are
+meant to stay reachable.
+
+**With a screenshot loaded, 1440×900: 45 stops.** Toolbar Export → rail (5) →
+the left panel (type, sampled row, eight ground tiles, four sliders) → the
+Size trigger → Table (3) → the right panel (Frame chips, three sliders,
+Stroke chips, format, scale, Export) → wraps. Order follows the layout, and
+no element carries a positive `tabindex`. Every one of the 45 drew a ring.
+
+The Reset buttons are absent from both counts because a reset is `disabled`
+while its slider sits at the default. Moving a slider puts its reset into the
+order.
+
+## Target size (WCAG 2.2 AA, 2.5.8)
+
+51 interactive elements at 1440×900 with a shot loaded. Sixteen are under
+24×24: two zoom buttons (20×20), seven slider tracks (11px tall), seven
+resets (18×18 — they were 22×22 before this cycle; node 7:600 draws 18).
+
+**No clash.** For every one of the sixteen, no other target's centre lies
+within 24px, so the spacing exception applies to all of them. The new
+adjacency this cycle could have introduced — a reset shrunk from 22 to 18 —
+did not create one, because the gap between a track and its reset grew by the
+same amount the button lost.
+
+## Narrow-viewport drawers
+
+At 880px, with a shot loaded:
+
+- Closed: both panes carry `inert` and hold **0** tab stops.
+- Open: the pane loses `inert` and offers 15 stops.
+- Opening the right drawer makes the left one `inert` in the same gesture.
+- Escape closes it, and focus returns to the toggle that opened it.
+- The backdrop is `hidden` again once both are closed.
+
+## No horizontal scroll
+
+`document.documentElement.scrollWidth` equals `innerWidth` at 320, 560, 880,
+900, 1000, 1440 and 1920. The canvas strip's own content fits its box at all
+of them; the two container queries on it hide the words "Size" and "Table"
+below 366px of strip, and the size name below 291px.
+
+## The canvas did not shrink
+
+`#stage` is **856px** at 1440×900, unchanged from the number recorded after
+Cycle D Task 1, and 1336px at 1920. Size left the left panel and the right
+panel lost a heading this cycle; neither move touched the stage, because both
+panels are fixed at 266px.
+
+## Motion
+
+Four `transition` declarations in `web/style.css`, all of them already inside
+the `prefers-reduced-motion: reduce` block's reach. This cycle added none: the
+format menu's chevron flips with no transition, deliberately, and the comment
+above that rule says why.
+
+551 tests pass, no console errors.

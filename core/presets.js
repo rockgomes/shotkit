@@ -22,7 +22,7 @@ export const RATIOS = {
 export const GROUNDS = {
   lavender: { hue: 268 },
   // 46, not the 34 it shipped at. Measured 2026-09-05: paper and ember sat 5
-  // levels apart in their middle stop — the closest pair in the palette by
+  // levels apart in their middle stop, the closest pair in the palette by
   // half, where every other pair managed 11 or more. Searching both hues over
   // the whole warm arc, the best available separation is 11, and it comes
   // from moving paper alone: pulling ember redder collides it with rose, and
@@ -90,14 +90,14 @@ export const PHONE_RADIUS_RATIO = 0.125;
 export const PHONE_BEZEL_RATIO = 0.019;
 export const PHONE_BEZEL_MIN = 3;
 
-// Valid `frameKind` values for normalise(). 'none' means no device frame —
+// Valid `frameKind` values for normalise(). 'none' means no device frame,
 // the screenshot renders exactly as it always has. 'phone' describes the
-// SHAPE (a bezelled, all-round-rounded body) rather than a specific device —
+// SHAPE (a bezelled, all-round-rounded body) rather than a specific device,
 // deliberately not named 'iphone', so it never promises a device-size picker
 // this v1 isn't opening; named devices can extend this frame later without a
 // rename. macOS is deliberately absent: every image-slot in the mockup sits
 // inside the same "browser" chrome, and "macOS" appears only as an inert
-// inspector chip with no rendered frame anywhere in the handoff — shipping a
+// inspector chip with no rendered frame anywhere in the handoff, shipping a
 // bar-height constant for it would mean inventing a value the mockup doesn't
 // contain. It comes back once it has an actual design.
 export const FRAME_KINDS = ['none', 'browser', 'phone'];
@@ -221,7 +221,7 @@ export const URL_PILL_FONT_RATIO = 14 / CHROME_REF_WIDTH; // = 0.0082
 // 53px bar, whose own centre is 26.5. The half-pixel is authoring slop;
 // paintChrome centres both and does not reproduce it.
 
-// Named export sizes. Real platform dimensions, not ratios — a Dribbble shot is
+// Named export sizes. Real platform dimensions, not ratios, a Dribbble shot is
 // 2800x2100 (4:3 at @2x), which is what the site actually wants.
 export const TEMPLATES = {
   'dribbble':       { w: 2800, h: 2100, label: 'Dribbble shot' },
@@ -258,10 +258,10 @@ export const CHROME_THEMES = ['dark', 'light'];
 
 // The composite (screenshot + chrome, and from Task 7 the stroke too) grows
 // OUTWARD from the screenshot and is allowed to consume the safe area's
-// padding — that is what makes turning on a frame leave the screenshot's own
+// padding, that is what makes turning on a frame leave the screenshot's own
 // size alone (see the spec's "frames and strokes are outsets"). This is the
 // floor it may not cross: a fraction of the shorter canvas side, kept as
-// breathing room at the canvas edge. It is a floor, not the normal path —
+// breathing room at the canvas edge. It is a floor, not the normal path,
 // only a composite that would otherwise cross it is scaled down, and then
 // uniformly, screenshot included.
 export const MIN_MARGIN_RATIO = 0.02;
@@ -280,13 +280,13 @@ export const STROKE_WIDTH_RANGE = [0, 0.06];
 
 export const STROKE_DEFAULTS = { style: 'none', width: 0.008, color: '#ffffff' };
 
-// Mesh lived here — MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS, and
+// Mesh lived here, MESH_STOPS_RANGE, MESH_SPREAD_RANGE, MESH_DEFAULTS, and
 // the top-level `seed` that only it read. DELETED 2026-09-05 after its second
 // hearing (Cycle C Task 8), not hidden a second time.
 //
 // It worked, and that was never the question. Its blobs are painted in
-// colours taken from g1 and g3 — the sampled palette's own light and dark
-// stops, about 60 levels apart across the whole canvas — so a field built
+// colours taken from g1 and g3, the sampled palette's own light and dark
+// stops, about 60 levels apart across the whole canvas, so a field built
 // only from colours inside that range cannot vary more than the plain
 // gradient already does. Measured against `linear` over the same screenshot:
 // a mean difference of 5 levels in the visible ground, 20 at worst, and no

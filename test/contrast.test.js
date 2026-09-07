@@ -7,7 +7,7 @@
  * the page is so dim that I can barely see the dashed lines and the ratio on
  * the corner."
  *
- * He was right twice. The floor WAS the target — 4.5:1 — and the audit
+ * He was right twice. The floor WAS the target, 4.5:1, and the audit
  * measured text only, so every border, dashed affordance and the dot grid
  * went unchecked and all of them failed badly (1.15:1 to 1.46:1).
  *
@@ -22,7 +22,7 @@
  *      dot grid                      no WCAG duty, but VISIBLE: 1.8-2.5:1,
  *                                    a judgement call, bounded at both ends
  *   5. Inert and disabled states     explicit colours at full alpha, never
- *                                    `opacity` — see the last describe block
+ *                                    `opacity`, see the last describe block
  *
  * Neither PAIRS nor NON_TEXT below is a guess. Every row was read out of
  * web/style.css and carries the line numbers it came from: a token's row
@@ -30,7 +30,7 @@
  * the *lightest* one is the binding test (this is a dark theme). If a pairing
  * here is ever wrong the fix is to correct the pairing, never to lower `min`.
  *
- * The helper is deliberately local to this file — Cycle B recomputes contrast
+ * The helper is deliberately local to this file, Cycle B recomputes contrast
  * for the generated ground hues separately and must not couple to this one.
  */
 import { describe, it, expect } from 'vitest';
@@ -53,13 +53,13 @@ function ratio(a, b) {
 }
 
 function tokens() {
-  // Comments are stripped FIRST — pre-emptively, not because anything has
+  // Comments are stripped FIRST, pre-emptively, not because anything has
   // gone wrong yet. tokens.css documents every retired token in prose right
   // where it used to live, and today those notes quote bare hexes only, so a
   // raw regex and a stripped one both yield the same tokens. The moment one
   // of those notes is written in `--name: #value` form the raw regex
-  // resurrects a deleted token, and the dead-token guard below — whose whole
-  // job is to notice a removal being undone — would pass on a ghost.
+  // resurrects a deleted token, and the dead-token guard below, whose whole
+  // job is to notice a removal being undone, would pass on a ghost.
   const css = readFileSync('web/tokens.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
   const out = {};
   for (const [, name, value] of css.matchAll(/(--[a-z0-9-]+):\s*(#[0-9a-fA-F]{6})/g)) {
@@ -81,9 +81,7 @@ const PAIRS = [
   // the active rail item on --surface-raised-2 (410); .icon-btn:hover on
   // --surface-hover (411); .dropzone:focus copy on --surface-canvas.
   ['--text-primary', '--surface-window', TEXT_MIN],
-  ['--text-primary', '--surface-canvas', TEXT_MIN],
   ['--text-primary', '--surface-raised-1', TEXT_MIN],
-  ['--text-primary', '--surface-raised-2', TEXT_MIN],
   ['--text-primary', '--surface-hover', TEXT_MIN],
 
   // .btn-ghost (322), .preset-row (721), .sampled-row (1266), .select-control
@@ -92,33 +90,26 @@ const PAIRS = [
   // 728, 1274). .dropzone-title (1001) sits on --surface-canvas.
   ['--text-secondary', '--surface-window', TEXT_MIN],
   ['--text-secondary', '--surface-hover', TEXT_MIN],
-  ['--text-secondary', '--surface-canvas', TEXT_MIN],
   ['--text-secondary', '--surface-raised-1', TEXT_MIN],
 
   // .zoom-stepper (261), .cli-status (780), .inline-control-row (1097),
-  // .slider-label (1172), .template-row (596) — whose hover lays it on
-  // --surface-hover (624) — and .dropzone:hover (976) on --surface-canvas.
+  // .slider-label (1172), .template-row (596), whose hover lays it on
+  // --surface-hover (624), and .dropzone:hover (976) on --surface-canvas.
   ['--text-muted', '--surface-window', TEXT_MIN],
   ['--text-muted', '--surface-hover', TEXT_MIN],
-  ['--text-muted', '--surface-canvas', TEXT_MIN],
 
   // .cli-command (771), .segmented-cell (1119), .chip (1359) on the window;
   // the selected row's dimensions (635) and the active sampled row's hue
   // (1338) on --surface-raised-1.
-  ['--text-faint', '--surface-window', TEXT_MIN],
-  ['--text-faint', '--surface-raised-1', TEXT_MIN],
 
   // The busiest token. On --surface-window: .section-label,
   // .template-row--add, .custom-size-field, .canvas-toolbar-label,
   // .sampled-hue, .file-slot--empty, the rail icons, and the
-  // two usages absorbed from --text-disabled — .template-row .dim (the
+  // two usages absorbed from --text-disabled, .template-row .dim (the
   // "2800x2100" dimensions) and .export-footnote. On --surface-hover:
   // .template-row--add is a .template-row, so its hover lands there, and so
   // does .dim's. On --surface-canvas: the whole of the dropzone's copy,
-  // including .dropzone-dims — the corner ratio label Rock named.
-  ['--text-fainter', '--surface-window', TEXT_MIN],
-  ['--text-fainter', '--surface-hover', TEXT_MIN],
-  ['--text-fainter', '--surface-canvas', TEXT_MIN],
+  // including .dropzone-dims, the corner ratio label Rock named.
 
   // --- Inverted and one-off pairs ---------------------------------------
   // .btn-primary (331) and .chip.is-selected (1365) paint --surface-window as
@@ -128,7 +119,15 @@ const PAIRS = [
   // The active segmented cell's label (1127) on --surface-control-active.
   ['--color-white', '--surface-control-active', TEXT_MIN],
 
-  // The drop error strip (1023/1024) — an opaque pair that only ever has to
+  // --surface-control is THE control fill (chips, the segmented cells, both
+  // .select-controls, the sampled row). It carried text on every one of them
+  // and appeared nowhere in this table until the Size dropdown, whose trigger
+  // puts a name on it in --text-primary and the pixels in --text-muted.
+  ['--text-primary', '--surface-control', TEXT_MIN],
+  ['--text-secondary', '--surface-control', TEXT_MIN],
+  ['--text-muted', '--surface-control', TEXT_MIN],
+
+  // The drop error strip (1023/1024), an opaque pair that only ever has to
   // work against itself.
   ['--color-danger', '--surface-danger', TEXT_MIN],
 ];
@@ -166,7 +165,7 @@ describe('token contrast', () => {
 
 
 /**
- * NON-TEXT CONTRAST — the half Task 3 never measured.
+ * NON-TEXT CONTRAST, the half Task 3 never measured.
  *
  * Text was audited and lifted; every border, every dashed affordance, every
  * focus ring and the dot grid were not looked at once, and they were the
@@ -175,11 +174,11 @@ describe('token contrast', () => {
  *
  * Two thresholds, from the spec:
  *
- *   BOUNDARY (3.0) — interactive component boundaries and meaningful
+ *   BOUNDARY (3.0), interactive component boundaries and meaningful
  *   graphics. Control borders, input borders, the slider track, focus rings,
  *   status indicators, and the empty state's dashed frame.
  *
- *   DECOR (1.8 floor, 2.5 CEILING) — purely decorative separators and the dot
+ *   DECOR (1.8 floor, 2.5 CEILING), purely decorative separators and the dot
  *   grid. These owe WCAG nothing, so the floor is a visibility judgement, not
  *   a standard. The ceiling is the other half of that judgement and is the
  *   reason this is a range and not a `>=`: pane separators pushed to 3:1 on a
@@ -196,7 +195,7 @@ describe('token contrast', () => {
  *   --border-hairline on --surround-mid   1.23:1  `.canvas-toolbar` and
  *     `.drop-error` carry a hairline bottom edge with the stage underneath,
  *     so once a shot is loaded that edge is adjacent to a surround. It clears
- *     1.8 against the --surface-window strip above it — and when the stage is
+ *     1.8 against the --surface-window strip above it, and when the stage is
  *     mid-grey the strip-to-stage edge is itself an enormous value step, so
  *     the hairline has nothing left to do.
  *
@@ -210,7 +209,7 @@ describe('token contrast', () => {
  * fails loudly if the value it rests on ever moves.
  *
  * The argument does NOT cover the drag-over outline, which sits entirely
- * inside one backdrop — which is why that one gets real per-surround pairings
+ * inside one backdrop, which is why that one gets real per-surround pairings
  * instead. Nor does it cover --border-strong against --surface-control-active
  * (2.80:1 before this review): that is a control boundary, not a separator,
  * and item 3 exists to stop the arguing. --border-strong was re-solved to
@@ -234,21 +233,22 @@ const NON_TEXT = [
   // .sampled-row.is-active (1279) put it on the selected row's own fill.
   ['--border-strong', '--surface-raised-1', BOUNDARY, BOUNDARY],
   // .dropzone:hover (975) swaps the dashed frame's colour to it.
-  ['--border-strong', '--surface-canvas', BOUNDARY, BOUNDARY],
   // The .segmented container's border (1107) runs against the ACTIVE cell's
-  // fill (1126) wherever that cell is first or last — `overflow: hidden` on
+  // fill (1126) wherever that cell is first or last, `overflow: hidden` on
   // the container means the fill reaches the border. This is the lightest
   // backdrop --border-strong has anywhere, and it was missed in the first
   // pass: the token was solved against --surface-hover and measured 2.80 here.
   ['--border-strong', '--surface-control-active', BOUNDARY, BOUNDARY],
-  // The drag-over outline's light-surround override (883).
-  ['--border-strong', '--surround-light', BOUNDARY, BOUNDARY],
+  // The drag-over outline's light-surround override. It used to be
+  // --border-strong; Cycle D Task 5 lifted that token to a light grey so it
+  // could still bound the lifted surfaces, and a light grey on a light
+  // surround measured 2.55:1. The outline inverts there instead.
+  ['--surface-window', '--surround-light', BOUNDARY, 25],
 
-  // The empty state's dashed frame (967) — the thing Rock named. Also
+  // The empty state's dashed frame (967), the thing Rock named. Also
   // .template-row--add (641) and .custom-size-form (661) on the window, and
   // because .template-row--add IS a .template-row its hover fill (624) lands
   // under the same dashes.
-  ['--border-dashed', '--surface-canvas', BOUNDARY, BOUNDARY],
   ['--border-dashed', '--surface-window', BOUNDARY, BOUNDARY],
   ['--border-dashed', '--surface-hover', BOUNDARY, BOUNDARY],
 
@@ -261,16 +261,14 @@ const NON_TEXT = [
   // .dropzone:focus-visible (980), and the drag-over outline (878) on the
   // empty stage and on the two dark surrounds. The light surround is the
   // override row above.
-  ['--text-primary', '--surface-canvas', BOUNDARY, BOUNDARY],
   ['--text-primary', '--surround-dark', BOUNDARY, BOUNDARY],
   ['--text-primary', '--surround-mid', BOUNDARY, BOUNDARY],
 
   // Hover borders on .custom-size-input (696), .chip (1372) and
-  // .select-control (1423) — a lift off --border-strong, so they must clear
+  // .select-control (1423), a lift off --border-strong, so they must clear
   // the boundary floor in their own right.
-  ['--text-fainter', '--surface-window', BOUNDARY, BOUNDARY],
 
-  // The CLI-connected status dot (787) — a 6px indicator carrying state that
+  // The CLI-connected status dot (787), a 6px indicator carrying state that
   // nothing else in that card carries.
   ['--color-status-green', '--surface-window', BOUNDARY, BOUNDARY],
   // The slider thumb (1220, 1231).
@@ -279,9 +277,18 @@ const NON_TEXT = [
   // filled controls whose boundary IS the fill.
   ['--surface-inverse', '--surface-window', BOUNDARY, BOUNDARY],
 
+  // THE ACCENT AS A FILL. Nothing measured this token until the format menu
+  // (2026-09-07) put a label on it in a fourth place. .btn-primary,
+  // .chip.is-selected, .segmented-cell.is-active and
+  // .select-option[aria-selected="true"] are filled controls whose boundary
+  // IS the fill.
+  ['--accent', '--surface-window', BOUNDARY, BOUNDARY],
+  // the selected option sits on .select-menu's own raised fill
+  ['--accent', '--surface-raised-1', BOUNDARY, BOUNDARY],
+
   // The app-mark glyph (205, 448) on the brand gradient's two stops. WCAG
   // 1.4.3 exempts logotypes from the text threshold, so this is held at the
-  // graphic floor rather than at 7:1 — moving it means restating the brand
+  // graphic floor rather than at 7:1, moving it means restating the brand
   // colours, which is a design decision and not a contrast fix.
   ['--color-white', '--color-brand-start', BOUNDARY, BOUNDARY],
   ['--color-white', '--color-brand-end', BOUNDARY, BOUNDARY],
@@ -289,15 +296,13 @@ const NON_TEXT = [
   // --- Decorative -------------------------------------------------------
   // Pane and section separators: #toolbar (186), #rail (436), #sidebar (514),
   // .canvas-toolbar (815), .drop-error (1022), #inspector (1040),
-  // .inspector-section (1049). Bottom of the range on purpose — these are the
+  // .inspector-section (1049). Bottom of the range on purpose, these are the
   // longest and most repeated lines in the layout.
   ['--border-hairline', '--surface-window', DECOR_MIN, DECOR_MAX],
-  ['--border-hairline', '--surface-canvas', DECOR_MIN, DECOR_MAX],
   // .toolbar-divider (219) and .cli-card (760): short, so the top of it.
   ['--border-subtle', '--surface-window', DECOR_MIN, DECOR_MAX],
   // The stage dot grid (837): 1px dots on a 22px pitch, the sparsest mark in
   // the app, so also the top of the range.
-  ['--dot-grid-dot', '--surface-canvas', DECOR_MIN, DECOR_MAX],
 ];
 
 describe('non-text contrast', () => {
@@ -309,11 +314,11 @@ describe('non-text contrast', () => {
       expect(t[bg], `${bg} missing`).toBeTruthy();
       const r = Number(ratio(t[fg], t[bg]).toFixed(2));
       const where = `${fg} (${t[fg]}) on ${bg} (${t[bg]}) = ${r}:1`;
-      expect(r, `${where} — below the ${min}:1 floor`).toBeGreaterThanOrEqual(min);
+      expect(r, `${where}, below the ${min}:1 floor`).toBeGreaterThanOrEqual(min);
       if (max > min) {
         expect(
           r,
-          `${where} — ABOVE the ${max}:1 ceiling. Decoration this strong ` +
+          `${where}, ABOVE the ${max}:1 ceiling. Decoration this strong ` +
             'reads as a wireframe; that is a regression, not an improvement.',
         ).toBeLessThanOrEqual(max);
       }
@@ -332,14 +337,13 @@ describe('non-text contrast', () => {
     const t2 = tokens();
     for (const [edge, belongsTo, terminates] of [
       ['--border-hairline', '--surround-mid', '--surface-window'],
-      ['--border-hairline', '--surface-danger', '--surface-canvas'],
     ]) {
       const weak = ratio(t2[edge], t2[belongsTo]);
       const load = ratio(t2[edge], t2[terminates]);
       expect(
         Number(load.toFixed(2)),
         `${edge} is excused against ${belongsTo} (${weak.toFixed(2)}:1) only ` +
-          `because it terminates against ${terminates} — where it now measures ` +
+          `because it terminates against ${terminates}, where it now measures ` +
           `${load.toFixed(2)}:1. That excuse has just expired.`,
       ).toBeGreaterThanOrEqual(DECOR_MIN);
     }
@@ -361,7 +365,7 @@ describe('non-text contrast', () => {
  * Clearing a floor is a floor, and a floor can be cleared by a UI with no
  * hierarchy left in it at all. In a dark theme the floor over the lightest
  * text-bearing surface admits roughly one value, so every token pushed down
- * to it converges — which is exactly how --text-fainter and --text-disabled
+ * to it converges, which is exactly how --text-fainter and --text-disabled
  * ended up 1.0005:1 apart, two names for one colour, with every PAIRS row
  * green. They are now one token.
  *
@@ -370,25 +374,73 @@ describe('non-text contrast', () => {
  * ceiling overhead COMPRESSES it. Five rungs 1.2 apart above a 7:1 floor need
  * 14.52:1 at the top, and pure white on --surface-hover is 16.86:1. There is
  * 1.16x of headroom in the whole design. Any future "just brighten it" edit
- * spends that headroom, and every PAIRS row stays green while it does —
+ * spends that headroom, and every PAIRS row stays green while it does,
  * because a brighter token clears its floor more easily, not less.
  *
  * So: the rungs must stay in order, and stay apart.
  */
 const LADDER = [
-  '--text-primary',    // 15.72:1 on --surface-hover
-  '--text-secondary',  // 12.88
-  '--text-muted',      // 10.58
-  '--text-faint',      //  8.66
-  '--text-fainter',    //  7.06 — the floor
+  '--text-primary',
+  '--text-secondary',
+  '--text-muted',
 ];
 
 // Adjacent rungs today measure 1.2208, 1.2174, 1.2211 and 1.2274 apart. That
 // is close to this minimum and cannot honestly be otherwise: see the headroom
 // arithmetic above. It is a "these are different colours" floor, not a target
-// — but with this little slack, anything that pushes a rung is going to hit
+//, but with this little slack, anything that pushes a rung is going to hit
 // it, which is the point.
 const MIN_LADDER_STEP = 1.2;
+
+// --- The SURFACE ladder ----------------------------------------------
+//
+// The text tokens have had a rungs guard since Cycle A. The surfaces never
+// did, and they drifted to nothing: measured 2026-09-06, before Cycle D
+// Task 5, the six of them spanned 1.00-1.27 against the window, with
+// adjacent steps as small as 1.012, a hover state a twentieth of the way
+// to this project's own separation floor. Rock, looking at the app:
+// "the UI still is very dim and low contrast."
+//
+// He was right, and the text was not the problem: after Cycle A's work it
+// runs 8.19:1 to 18.25:1. Bright text on one flat black is exactly what
+// "dim" describes, nothing has shape, so nothing reads as raised, selected
+// or hovered, and the borders were carrying the whole structure alone.
+//
+// Surfaces are not text, so the bar is not 4.5 or 7. It is the same LADDER
+// rule the text tokens keep: each rung visibly above the one below it, or
+// the name is a lie.
+const SURFACE_LADDER = [
+  '--surface-window',
+  '--surface-raised-1',
+  '--surface-hover',
+  '--surface-control-active',
+];
+
+describe('the surface ladder keeps its rungs', () => {
+  const t = tokens();
+
+  it('runs darkest to lightest in the declared order', () => {
+    for (let i = 0; i < SURFACE_LADDER.length - 1; i += 1) {
+      const [a, b] = [SURFACE_LADDER[i], SURFACE_LADDER[i + 1]];
+      expect(
+        luminance(t[b]),
+        `${b} (${t[b]}) must stay lighter than ${a} (${t[a]})`,
+      ).toBeGreaterThan(luminance(t[a]));
+    }
+  });
+
+  it('keeps every adjacent pair visibly apart', () => {
+    for (let i = 0; i < SURFACE_LADDER.length - 1; i += 1) {
+      const [a, b] = [SURFACE_LADDER[i], SURFACE_LADDER[i + 1]];
+      const r = ratio(t[a], t[b]);
+      expect(
+        Number(r.toFixed(4)),
+        `${a} (${t[a]}) and ${b} (${t[b]}) are ${r.toFixed(4)}:1 apart, ` +
+          `below ${MIN_LADDER_STEP}, they are the same surface`,
+      ).toBeGreaterThanOrEqual(MIN_LADDER_STEP);
+    }
+  });
+});
 
 describe('the text ladder keeps its rungs', () => {
   const t = tokens();
@@ -409,7 +461,7 @@ describe('the text ladder keeps its rungs', () => {
       const r = ratio(t[a], t[b]);
       expect(
         Number(r.toFixed(4)),
-        `${a} (${t[a]}) and ${b} (${t[b]}) are ${r.toFixed(4)}:1 apart — ` +
+        `${a} (${t[a]}) and ${b} (${t[b]}) are ${r.toFixed(4)}:1 apart, ` +
           `below ${MIN_LADDER_STEP}, they are the same rung`,
       ).toBeGreaterThanOrEqual(MIN_LADDER_STEP);
     }
@@ -417,17 +469,17 @@ describe('the text ladder keeps its rungs', () => {
 });
 
 /**
- * OFF STATES — inert, disabled, and "true but not in effect".
+ * OFF STATES, inert, disabled, and "true but not in effect".
  *
  * `.inspector-section[inert]` was `opacity: 0.42`. Opacity is the wrong
- * instrument: it composites toward whatever is BEHIND the element — here the
- * darkest surface in the app — so it collapses contrast far faster than it
+ * instrument: it composites toward whatever is BEHIND the element, here the
+ * darkest surface in the app, so it collapses contrast far faster than it
  * reduces apparent brightness. The section ran 3.56:1 at the top down to
  * 1.85:1 at the bottom, and the bottom rung is every section label in it.
  *
  * THE FIRST PASS CONVERTED ONE RULE AND LEFT NINE. That is the same failure
- * that created this task — a category named in the policy and left
- * unenforced — and the review caught it, so this file now enforces the
+ * that created this task, a category named in the policy and left
+ * unenforced, and the review caught it, so this file now enforces the
  * category instead of the instance. Measured in Chrome before the fix, on
  * --surface-window:
  *
@@ -442,7 +494,7 @@ describe('the text ladder keeps its rungs', () => {
  *   .select-control:disabled     0.4    3.16
  *   .sampled-row:not(.is-active) 0.6    5.80 label / 3.60 hue, against 7:1
  *
- * The empty state — the exact screen Rock complained about — carried most of
+ * The empty state, the exact screen Rock complained about, carried most of
  * those: its toolbar buttons, both zoom steppers and all four rail items were
  * DIMMER than the inert inspector panels beside them, by the mechanism item 5
  * exists to retire. And the last row is not a disabled control at all: it is
@@ -450,7 +502,7 @@ describe('the text ladder keeps its rungs', () => {
  *
  * So the guard below is categorical, not a list of ratios. It parses
  * web/style.css and fails on ANY static `opacity` below 1 outside
- * `@keyframes` — because a composited colour is invisible to every other
+ * `@keyframes`, because a composited colour is invisible to every other
  * assertion in this file, which reads values out of tokens.css. That is
  * exactly why nine rules survived a green suite. `over()` is kept, and used
  * to prove the replacements beat what they replaced rather than to bless a
@@ -458,7 +510,7 @@ describe('the text ladder keeps its rungs', () => {
  */
 const OLD_INERT_ALPHA = 0.42;
 
-/** Innermost CSS rules, with `@keyframes` blocks removed first — a keyframe
+/** Innermost CSS rules, with `@keyframes` blocks removed first, a keyframe
  *  step is `opacity: 0` by design and is motion, not state. */
 function rules() {
   let css = readFileSync('web/style.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -490,7 +542,7 @@ function rules() {
 /** The one rule that dims every off state, found by its declarations rather
  *  than by a selector this test would then be free to disagree with. */
 function offStateRule() {
-  return rules().find((r) => r.body.includes('--text-fainter: var(--text-inert)'));
+  return rules().find((r) => r.body.includes('--text-muted: var(--text-inert)'));
 }
 
 /** The ground swatches carry an inline background written by
@@ -541,7 +593,7 @@ describe('off states dim with colour, never with opacity', () => {
       offenders,
       'opacity composites toward the darkest surface behind the element, so ' +
         'these ratios exist in the browser and in NO other assertion in this ' +
-        'file — which is how nine of them survived a green suite:\n  ' +
+        'file, which is how nine of them survived a green suite:\n  ' +
         offenders.join('\n  '),
     ).toEqual([]);
   });
@@ -551,8 +603,8 @@ describe('off states dim with colour, never with opacity', () => {
     expect(rule, 'no rule re-declares the ladder tokens as --text-inert').toBeTruthy();
 
     for (const declared of [
-      '--text-primary', '--text-secondary', '--text-muted', '--text-faint',
-      '--text-fainter', '--color-white', '--surface-inverse',
+      '--text-primary', '--text-secondary', '--text-muted', '--color-white',
+      '--surface-inverse',
       '--surface-control-active', '--surface-raised-1', '--border-strong',
     ]) {
       expect(
@@ -585,12 +637,12 @@ describe('off states dim with colour, never with opacity', () => {
   it('dims the inline-styled ground swatches to the same tone as the rest', () => {
     // Not decoration this test can reach through tokens.css: these are pale
     // grounds written inline. Without this rule they are the BRIGHTEST things
-    // on a panel that is supposed to read as off — which is exactly how it
+    // on a panel that is supposed to read as off, which is exactly how it
     // looked the first time `opacity` came off the section.
     const b = inertSwatchBrightness();
     expect(
       b,
-      'no brightness filter on the inert ground swatches — an inline-styled ' +
+      'no brightness filter on the inert ground swatches, an inline-styled ' +
         'pale swatch ignores every token re-declaration on the off-state rule',
     ).toBeTruthy();
     // A near-white swatch, multiplied down, should land on the inert tone
@@ -605,7 +657,7 @@ describe('off states dim with colour, never with opacity', () => {
     expect(
       Math.abs(swatch - inert) < 0.5,
       `a pale swatch dims to ${swatch.toFixed(2)}:1 while the section's text ` +
-        `sits at ${inert.toFixed(2)}:1 — the swatches are not in the same tone`,
+        `sits at ${inert.toFixed(2)}:1, the swatches are not in the same tone`,
     ).toBe(true);
   });
 
@@ -638,14 +690,14 @@ describe('off states dim with colour, never with opacity', () => {
     // tokens rather than copied out of a report.
     for (const [what, token, alpha] of [
       ['.zoom-btn:disabled', '--text-muted', 0.4],
-      ['.segmented-cell:disabled', '--text-faint', 0.4],
-      ['.chip:disabled', '--text-faint', 0.4],
+      ['.segmented-cell:disabled', '--text-muted', 0.4],
+      ['.chip:disabled', '--text-muted', 0.4],
     ]) {
       const was = ratio(over(t[token], win, alpha), win);
       expect(
         Number(inert.toFixed(2)),
         `${what} composited to ${was.toFixed(2)}:1 and the inert tone is ` +
-          `${inert.toFixed(2)}:1 — the replacement has to be an improvement`,
+          `${inert.toFixed(2)}:1, the replacement has to be an improvement`,
       ).toBeGreaterThan(Number(was.toFixed(2)));
       expect(Number(was.toFixed(2)), `${what} was the failing case`).toBeLessThan(3.0);
     }
@@ -655,41 +707,39 @@ describe('off states dim with colour, never with opacity', () => {
     expect(
       Number(inertBorder.toFixed(2)),
       `.btn:disabled composited its border to ${borderWas.toFixed(2)}:1, below ` +
-        `--border-inert's ${inertBorder.toFixed(2)}:1 — the live disabled ` +
+        `--border-inert's ${inertBorder.toFixed(2)}:1, the live disabled ` +
         'control had less shape than the inert one',
     ).toBeGreaterThan(Number(borderWas.toFixed(2)));
 
-    // .sampled-row is not an off state: it is live, clickable, informational
-    // text in a live panel, so it steps down the LADDER instead of into the
-    // inert tone, and it still owes 7:1. Both tokens are read out of the
-    // stylesheet — see declaredColour's comment.
-    const base = declaredColour('.sampled-row');
-    const dim = declaredColour('.sampled-row:not(.is-active)');
-    expect(base, '.sampled-row sets no colour to step down FROM').toBeTruthy();
-    expect(dim, '.sampled-row:not(.is-active) no longer dims at all').toBeTruthy();
-
-    const sampledWas = ratio(over(t[base], win, 0.6), win);
-    const sampledNow = ratio(t[dim], win);
-    expect(Number(sampledWas.toFixed(2))).toBeLessThan(TEXT_MIN);
+    // THE SIGNAL MOVED. This used to assert that the inactive sampled row
+    // stepped DOWN the text ladder while still clearing 7:1, because that is
+    // how the state was drawn. Rock's own frame marks the active row with an
+    // accent border and a raised fill instead, and leaves the ink alone, so
+    // there is no longer a second ink to compare. Dimming as well would have
+    // said the same thing twice.
+    //
+    // What still has to hold: the row's ink clears the informational floor,
+    // and the two states are told apart by something.
+    const ink = declaredColour('.sampled-row');
+    expect(ink, '.sampled-row sets no colour at all').toBeTruthy();
     expect(
-      Number(sampledNow.toFixed(2)),
-      `.sampled-row:not(.is-active) composited to ${sampledWas.toFixed(2)}:1 at ` +
-        `opacity 0.6; ${dim} gives ${sampledNow.toFixed(2)}:1, and this is live, ` +
-        'clickable, informational text',
+      Number(ratio(t[ink], win).toFixed(2)),
+      `.sampled-row is live, clickable, informational text and reads ` +
+        `${ratio(t[ink], win).toFixed(2)}:1`,
     ).toBeGreaterThanOrEqual(TEXT_MIN);
-    // ...and the dim still has to BE a dim. One ladder rung is 1.22; this
-    // asks for more, or the inactive row stops reading as inactive.
-    const drop = ratio(t[base], win) / sampledNow;
+
+    const activeRule = rules().find(r => r.selector.includes('.sampled-row.is-active'));
+    expect(activeRule, 'nothing marks the active sampled row').toBeTruthy();
     expect(
-      Number(drop.toFixed(2)),
-      `${base} -> ${dim} is only ${drop.toFixed(2)}x — an inactive sampled row ` +
-        'that close to an active one has stopped saying anything',
-    ).toBeGreaterThanOrEqual(1.5);
+      /border-color|background/.test(activeRule.body),
+      'the active sampled row is not marked by a border or a fill, so the ' +
+        'two states are indistinguishable',
+    ).toBe(true);
   });
 
   it('names the inert colour on the one control the off-state rule cannot reach', () => {
     // .zoom-btn is `color: inherit`, which takes .zoom-stepper's COMPUTED
-    // colour — a custom property re-declared on the button itself is invisible
+    // colour, a custom property re-declared on the button itself is invisible
     // to it. If this declaration goes, the disabled zoom glyphs quietly return
     // to full live --text-muted and nothing else in this file would notice.
     expect(
@@ -702,19 +752,19 @@ describe('off states dim with colour, never with opacity', () => {
     const win = t['--surface-window'];
     const inert = ratio(t['--text-inert'], win);
     const brightest = ratio(over(t['--text-primary'], win, OLD_INERT_ALPHA), win);
-    const dimmest = ratio(over(t['--text-fainter'], win, OLD_INERT_ALPHA), win);
+    const dimmest = ratio(over(t['--text-muted'], win, OLD_INERT_ALPHA), win);
 
     expect(
       Number(inert.toFixed(2)),
       `inert ${inert.toFixed(2)}:1 is no dimmer than opacity ${OLD_INERT_ALPHA} ` +
-        `gave the brightest rung (${brightest.toFixed(2)}:1) — the whole point ` +
+        `gave the brightest rung (${brightest.toFixed(2)}:1), the whole point ` +
         'of dropping opacity was to spend lightness on the text, not the ground',
     ).toBeLessThan(Number(brightest.toFixed(2)));
 
     expect(
       Number(inert.toFixed(2)),
       `inert ${inert.toFixed(2)}:1 is no brighter than opacity ${OLD_INERT_ALPHA} ` +
-        `gave the dimmest rung (${dimmest.toFixed(2)}:1) — that rung carries ` +
+        `gave the dimmest rung (${dimmest.toFixed(2)}:1), that rung carries ` +
         'every section label in the panel and was illegible',
     ).toBeGreaterThan(Number(dimmest.toFixed(2)));
   });
@@ -723,7 +773,7 @@ describe('off states dim with colour, never with opacity', () => {
     const win = t['--surface-window'];
     const inertBorder = ratio(t['--border-inert'], win);
     const liveBorder = ratio(t['--border-strong'], win);
-    // WCAG 1.4.11 exempts inactive components, so this is allowed below 3:1 —
+    // WCAG 1.4.11 exempts inactive components, so this is allowed below 3:1,
     // and has to be, or an inert control's edge reads exactly as live.
     expect(inertBorder).toBeLessThan(liveBorder);
     expect(
@@ -736,9 +786,51 @@ describe('off states dim with colour, never with opacity', () => {
     const r = ratio(t['--surface-inert'], t['--surface-window']);
     expect(
       Number(r.toFixed(2)),
-      `--surface-inert is ${r.toFixed(2)}:1 over the window — a state fill ` +
+      `--surface-inert is ${r.toFixed(2)}:1 over the window, a state fill ` +
         'that loud belongs to a live section, not an inert one',
     ).toBeLessThanOrEqual(1.15);
     expect(luminance(t['--surface-inert'])).toBeGreaterThan(luminance(t['--surface-window']));
+  });
+});
+
+
+// -------------------------------------------------------------------------
+// THE ACCENT, WHERE IT CARRIES A LABEL
+//
+// --accent is the fill under white labels on .btn-primary, .chip.is-selected,
+// .segmented-cell.is-active and, since 2026-09-07, the format menu's selected
+// option. Nothing in this file measured it, which is how #5b6cff (white at
+// 4.17:1) nearly shipped: the value was fixed by hand, with no guard, so the
+// next hand could put it back.
+//
+// The bar is 4.5, not this file's 7.0 TEXT_MIN, and that is a decision rather
+// than an oversight. 7:1 against white forces a saturated accent to a colour
+// that is no longer the brand's. The accent carries CONTROL LABELS only - one
+// or two words on a control the pointer is already on - never informational
+// text, which keeps 7:1 in PAIRS above. The second test is what holds that
+// line: it fails the moment --accent becomes an ink.
+// -------------------------------------------------------------------------
+const CONTROL_LABEL_MIN = 4.5;
+
+describe('the accent, where it carries a label', () => {
+  it('clears the control-label floor against its own ink', () => {
+    const t = tokens();
+    const r = ratio(t['--text-primary'], t['--accent']);
+    expect(
+      Number(r.toFixed(2)),
+      `--text-primary (${t['--text-primary']}) on --accent (${t['--accent']}) = ${r.toFixed(2)}:1`,
+    ).toBeGreaterThanOrEqual(CONTROL_LABEL_MIN);
+  });
+
+  it('is never used as an ink', () => {
+    const css = readFileSync('web/style.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const inks = css
+      .split('\n')
+      .map((line, i) => [i + 1, line])
+      .filter(([, line]) => /(^|[^-])color:\s*var\(--accent\)/.test(line));
+    expect(
+      inks.map(([n, line]) => `style.css:${n} ${line.trim()}`),
+      'the accent clears 4.5:1, not the 7:1 this project owes informational text',
+    ).toEqual([]);
   });
 });

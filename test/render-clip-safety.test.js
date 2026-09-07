@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
  *   radius 2-96  clip + fillRect   -> right 1703, bottom 1103  (+4 / +4)
  *   radius 24    clip + fill(path) -> right 1699, bottom 1099  (exact)
  *
- * On the real shot that painted the BODY colour — white — as a 4px band
+ * On the real shot that painted the BODY colour, white, as a 4px band
  * between the screenshot and the ground, plus a bottom-right corner whose
  * curve no longer followed the shot's radius. Both were reported by Rock:
  * "they have a white stroke", "even the roundness of the corner is off".
@@ -41,7 +41,7 @@ import { readFileSync } from 'node:fs';
  * spike where the straight edge meets the corner arc".
  *
  * A pixel assertion for either would pass vacuously here, in both
- * directions, which is worse than no test — five tests in this cycle turned
+ * directions, which is worse than no test, five tests in this cycle turned
  * out incapable of failing. So this asserts the STRUCTURE that makes both
  * unreachable: nothing is filled OR drawn inside a clip, every rounded
  * backing is filled as a path, and every shot is composed in its own tile
@@ -50,8 +50,8 @@ import { readFileSync } from 'node:fs';
  * KNOWN LIMIT, stated rather than papered over: the scan is lexical, so it
  * cannot see a fill or a draw that is inside a clip only at RUNTIME. If a
  * future painter grows one behind a call boundary, this guard will not catch
- * it. The one call that used to rely on that exemption — paintChrome's
- * title-bar fillRect, reached from inside paintWebChrome's clip — no longer
+ * it. The one call that used to rely on that exemption, paintChrome's
+ * title-bar fillRect, reached from inside paintWebChrome's clip, no longer
  * does: paintWebChrome has no clip left to be inside.
  */
 
@@ -85,7 +85,7 @@ function clippedOps(src, what) {
   return { hits, leftOpen: stack.length, unbalanced };
 }
 
-// The body of a top-level function, by name — up to its closing brace in
+// The body of a top-level function, by name, up to its closing brace in
 // column 0. Cutting at the NEXT function declaration instead would swallow
 // whatever sits between the two, which here is the CHROME_THEME table and
 // its `#ffffff`: paintWeb's scan below would then go red on a colour that
@@ -102,7 +102,7 @@ function bodyOf(name) {
 describe('core/render.js never fills a rect inside a clip', () => {
   const parsed = clippedOps(SRC, /\bfillRect\s*\(/);
 
-  it('parses save/restore in balanced pairs — otherwise the scan below is meaningless', () => {
+  it('parses save/restore in balanced pairs, otherwise the scan below is meaningless', () => {
     expect(parsed.unbalanced, 'a ctx.restore() with no matching ctx.save()').toBe(0);
     expect(parsed.leftOpen, 'a ctx.save() left unrestored').toBe(0);
   });
@@ -128,7 +128,7 @@ describe('core/render.js never fills a rect inside a clip', () => {
 
 /**
  * Task 4d's own half. A screenshot drawn inside a clip has TWO antialiased
- * edges on the same line — the clip's and its own — and the way out is not
+ * edges on the same line, the clip's and its own, and the way out is not
  * to make them agree but to stop having two: compose the shot in a tile,
  * draw everything a pixel past where the shot ends, cut the shape once with
  * a `destination-in` fill, and stamp the tile down at integer coordinates.

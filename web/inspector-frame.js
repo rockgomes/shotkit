@@ -1,14 +1,14 @@
-// web/inspector-frame.js — Task 6: the inspector's Frame and Finish
+// web/inspector-frame.js, Task 6: the inspector's Frame and Finish
 // sections, plus the text input that finally closes the browser pill's
 // long-empty URL field.
 //
 // TWO SECTIONS, ONE FILE: the task brief creates exactly one new file for
 // both (Frame: frameKind chips, chrome theme, the url field it gates;
-// Finish: padding, corner radius, grain, shadow) — they're wired the
+// Finish: padding, corner radius, grain, shadow), they're wired the
 // same way and share no state with web/inspector-background.js, so there's
 // no reason to split them further. Order within each section follows the
 // brief's own ordering, not the design handoff's (which never designed a
-// "Finish" section at all — padding/radius/grain/shadow are this
+// "Finish" section at all, padding/radius/grain/shadow are this
 // app's own grouping of fields the handoff scattered or omitted).
 //
 // Cycle A Task 4 retired two of these controls: a Fit segmented control
@@ -17,23 +17,23 @@
 // core/ as well, so there is no config field left for either to write.
 //
 // ONE RENDER PATH: exactly like web/inspector-background.js and
-// web/sidebar.js before it, every handler below mutates `state.config` and
-// calls `scheduleRender()` — nothing here calls `composeWithMeta` directly.
+// web/size.js before it, every handler below mutates `state.config` and
+// calls `scheduleRender()`, nothing here calls `composeWithMeta` directly.
 //
 // core/ IMPORTS: only from core/index.js (FRAME_KINDS, CHROME_THEMES,
-// DEFAULTS, normalise) — never a deep import of core/presets.js. Reading
+// DEFAULTS, normalise), never a deep import of core/presets.js. Reading
 // `normalise(state.config)` to display an EFFECTIVE value (the corner
 // radius's own default, in particular) is the same read-only pattern
-// web/sidebar.js already established for "+ Custom size"'s prefill — never
+// web/size.js already established for "+ Custom size"'s prefill, never
 // used here to decide what to WRITE, only what to show before the user has
 // touched a control.
 //
 // PERFORMANCE: none of frameKind/chromeTheme/url/pad/radius/grain/
 // shadowScale is part of web/state.js's `groundKeyFor` (images +
-// config.ground + config.luminosity only) — every control in this file hits the
+// config.ground + config.luminosity only), every control in this file hits the
 // warm ~3ms colour cache, never groundFor's ~90-200ms analysis. shadowScale
-// (Task 6b) has nothing to do with the sampled ground even in principle — a
-// shadow multiplier over a fixed rgba colour — so it belongs in this list
+// (Task 6b) has nothing to do with the sampled ground even in principle, a
+// shadow multiplier over a fixed rgba colour, so it belongs in this list
 // for the same reason grain does. See test/inspector-frame.test.js's
 // "throwing canvas" guard for the proof, and task-6-report.md /
 // task-6b-report.md for measured timings.
@@ -44,9 +44,10 @@ import {
   BROWSER_RADIUS_RANGE, PHONE_RADIUS_RANGE,
 } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
+import { makeSliderRow } from './controls.js';
 
 // ---------------------------------------------------------------------
-// Pure state helpers — no DOM. Same split web/sidebar.js and
+// Pure state helpers, no DOM. Same split web/size.js and
 // web/inspector-background.js already established: these are what
 // test/inspector-frame.test.js drives directly; the DOM-touching init
 // functions are at the bottom of this file.
@@ -65,13 +66,13 @@ function writeElement(config, which, patch) {
 }
 
 /**
- * WHICH ELEMENT THE PANEL IS EDITING — Cycle B Task 7.
+ * WHICH ELEMENT THE PANEL IS EDITING, Cycle B Task 7.
  *
  * `state.selection` when the user has clicked something. Otherwise the only
  * element the shot actually HAS, which is the case that matters: a
  * mobile-only shot has no web element at all, so a panel hard-wired to
  * 'web' writes somewhere nothing reads. That is precisely the dead control
- * Rock hit while testing Task 3 — the Corner radius slider moving and his
+ * Rock hit while testing Task 3, the Corner radius slider moving and his
  * phone screenshot not caring.
  *
  * The alternative considered and rejected: grey the whole panel until
@@ -87,7 +88,7 @@ export function editingElement(state = {}) {
 }
 
 /** The effective frameKind for one element. Goes through normalise() so a
- *  flat `frameKind` on an old config or a jobs.json still reads correctly —
+ *  flat `frameKind` on an old config or a jobs.json still reads correctly,
  *  the same read-everything / write-one-place split the stroke and shadow
  *  helpers use. */
 export function activeFrameKind(config, which = 'web') {
@@ -115,13 +116,13 @@ export function setChromeTheme(config, theme, which = 'web') {
  * Fix round 1 (Task 6): chrome theme originally had its OWN, looser rule
  * (visible for 'phone' too, reasoned as a legitimate pre-set for later).
  * A reviewer rendered a phone frame at both chrome themes and found the
- * output byte-identical — `paintPhoneChrome` (core/render.js) never
+ * output byte-identical, `paintPhoneChrome` (core/render.js) never
  * receives `theme` at all, and `paintDeviceBody`/`paintDeviceHairline`
  * hardcode their own colours regardless of it. So the control visibly
  * toggled while nothing it claims to control moved: a segmented control
  * that appears to work and doesn't. `core/render.js` only ever consults
  * `chromeTheme`/`url` along the browser-only code path (`paintWebChrome`/
- * `paintChrome`) — `paintPhoneChrome` receives neither — so this file now
+ * `paintChrome`), `paintPhoneChrome` receives neither, so this file now
  * gates both the same way too, extracted as one pure, directly-testable
  * function instead of two inline conditions that could drift apart again.
  * See test/inspector-frame.test.js.
@@ -133,7 +134,7 @@ export function showsBrowserOnlyControls(config, which = 'web') {
 /** The browser URL pill's own text (core/config.js's `url`, Task 6's
  *  authorised core/ change). Raw pass-through, on purpose: normalise()
  *  already coerces an empty string to null, so this file doesn't need to
- *  duplicate that here — see core/config.js. */
+ *  duplicate that here, see core/config.js. */
 export function setUrl(config, value, which = 'web') {
   writeElement(config, which, { url: value });
 }
@@ -146,7 +147,7 @@ export function activeUrl(config, which = 'web') {
 // --- Finish ----------------------------------------------------------------
 
 // Padding sliders (and the corner-radius one below) work in PERCENT in the
-// UI — `config.pad` itself is already a 0..1 fraction of the shorter canvas
+// UI, `config.pad` itself is already a 0..1 fraction of the shorter canvas
 // side (core/presets.js's DEFAULTS.pad), so this is a direct *100/*0.01
 // round trip, not a unit this file invents. Bounded to keep the slider
 // meaningful (a comfortable range either side of the 5.2% default), not
@@ -164,24 +165,17 @@ export function setPadPercent(config, pct) {
   config.pad = Math.min(PAD_PERCENT_MAX, Math.max(0, n)) / 100;
 }
 
-export function activeGrainPercent(config) {
-  const grain = Number.isFinite(config.grain) ? config.grain : DEFAULTS.grain;
-  return Math.round(grain * 100);
-}
+// `activeGrainPercent` / `setGrainPercent` moved to web/inspector-canvas.js
+// with the control they drive: grain paints on the ground and nothing else,
+// so it is a canvas property, not a property of the element you clicked.
 
-export function setGrainPercent(config, pct) {
-  const n = Number(pct);
-  if (!Number.isFinite(n)) return;
-  config.grain = Math.min(100, Math.max(0, n)) / 100;
-}
-
-// Shadow strength (Task 6b) — the one authorised core/ field this task adds.
+// Shadow strength (Task 6b), the one authorised core/ field this task adds.
 // `config.shadowScale` is a MULTIPLIER over paintShadow's verified alphas
 // (core/render.js), 1 == frame.html's own values unchanged; SHADOW_SCALE_RANGE
 // (core/presets.js, [0, 2]) is the bound this slider works to, imported
 // rather than hardcoded here so the UI and normalise()'s own clamp can never
 // drift apart. The percent round-trip below is the exact same *100/*0.01
-// pattern grain and padding already use, just over a wider [0,200] range —
+// pattern grain and padding already use, just over a wider [0,200] range,
 // 100% reads back as the untouched default.
 export function activeShadowPercent(config, which = 'web') {
   return Math.round(normalise(config).elements[which].shadowScale * 100);
@@ -196,7 +190,7 @@ export function setShadowPercent(config, pct, which = 'web') {
   });
 }
 
-// Stroke (Task 7) — the opt-in mat around the shot. `config.stroke` is a
+// Stroke (Task 7), the opt-in mat around the shot. `config.stroke` is a
 // NESTED block ({ style, width, color }), not three flat fields, matching
 // core/config.js: the spec's per-element model (Cycle B) gives the web
 // element and the phone element one each, and a nested value moves there
@@ -263,7 +257,7 @@ export function setStrokeColor(config, value, which = 'web') {
 }
 
 /** Width only means something once a style paints; colour only means
- *  something for 'custom' (light and glass are fixed fills — see
+ *  something for 'custom' (light and glass are fixed fills, see
  *  paintStroke in core/render.js). Same shape as showsBrowserOnlyControls
  *  above, and hidden the same way: the global `[hidden]` rule, never a
  *  second mechanism. */
@@ -275,7 +269,7 @@ export function showsStrokeColor(config, which = 'web') {
   return activeStrokeStyle(config, which) === 'custom';
 }
 
-// Corner radius is the one field here that ISN'T stored as a fraction —
+// Corner radius is the one field here that ISN'T stored as a fraction,
 // it is a literal pixel count, applied as-is regardless of any later
 // template or ratio change. That is the field's own existing semantics
 // (core/config.js), not something this file changes, and Cycle B keeps it:
@@ -283,18 +277,29 @@ export function showsStrokeColor(config, which = 'web') {
 // beside, so there is no second unit to confuse.
 //
 // CYCLE B TASK 3 MADE THIS CONTROL ACT UNDER A FRAME. Until now `c.radius`
-// reached the canvas only on the unframed path — `paintWebChrome` rounded
+// reached the canvas only on the unframed path, `paintWebChrome` rounded
 // the window to BROWSER_RADIUS_RATIO and `paintPhoneChrome` to
-// PHONE_RADIUS_RATIO, both fixed — so the slider moved and nothing
+// PHONE_RADIUS_RATIO, both fixed, so the slider moved and nothing
 // happened. Rock: "corner radius slider is not working when browser is
 // selected. it either should, or the control should be disabled."
 export const RADIUS_PERCENT_MAX = 6;
+
+/** THE PANEL'S SUBJECT, written in one place.
+ *
+ *  Both sections call this, and both used to write their own copy into their
+ *  own heading. The heading is not where it belongs: it read as part of the
+ *  word "Frame", and it was said twice for one selection. */
+function setInspectorSubject(which) {
+  const el = document.getElementById('selectedElementName');
+  if (el) el.textContent = ELEMENT_LABELS[which];
+}
 
 /**
  * The element the Corner radius control edits, resolved the same way every
  * other reader here resolves one. `which` is a name ('web'/'mobile'), not a
  * block - Task 7 supplies it from the selection; until then it is 'web'.
  */
+
 function elementOf(config, which) {
   return normalise(config).elements[which];
 }
@@ -327,6 +332,14 @@ export function activeRadiusPercent(config, which = 'web', elementW = null) {
   else if (el.frameKind === 'phone') px = w * PHONE_RADIUS_RATIO;
   else px = eff.radius;
   return Math.round((px / eff.w) * 1000) / 10;
+}
+
+/** Give the corner radius back to the frame's own. `null` is what
+ *  core/layout.js's radiusFor reads as "this frame decides", and that is a
+ *  different thing from 0, a browser frame's own corner is not square. */
+export function clearRadius(config, which = 'web') {
+  const el = config.elements && config.elements[which];
+  config.elements = { ...(config.elements || {}), [which]: { ...(el || {}), radius: null } };
 }
 
 export function setRadiusPercent(config, pct, which = 'web') {
@@ -364,18 +377,14 @@ export function radiusRangeFor(config, which = 'web', elementW = null) {
 // DOM wiring. Fully self-contained, like web/inspector-background.js: each
 // init function builds its own section content from scratch and wires its
 // own listeners, rather than relying on web/main.js's generic
-// wireSingleSelectGroup/slider-fill loops — see that file's header comment
+// wireSingleSelectGroup/slider-fill loops, see that file's header comment
 // for why those loops run BEFORE these, and touch none of this section's
 // controls at all.
 // ---------------------------------------------------------------------
 
-function syncSliderFill(input, valueEl, text) {
-  const min = Number(input.min) || 0;
-  const max = Number(input.max) || 100;
-  const pct = ((Number(input.value) - min) / (max - min)) * 100;
-  input.style.setProperty('--slider-fill', `${pct}%`);
-  if (valueEl) valueEl.textContent = text;
-}
+// `syncSliderFill` lived here, seven lines identical to the copy in
+// web/inspector-background.js. Both are gone: web/controls.js's makeSliderRow
+// owns the fill, the readout and the Reset, once.
 
 const FRAME_LABELS = { none: 'None', browser: 'Browser', phone: 'Phone' };
 
@@ -389,7 +398,7 @@ const ELEMENT_LABELS = { web: 'Desktop', mobile: 'Phone' };
  * the browser URL text field.
  *
  * Both secondary controls are hidden via `showsBrowserOnlyControls` above
- * (Task 5's global `[hidden]` rule — no per-element hidden CSS here); see
+ * (Task 5's global `[hidden]` rule, no per-element hidden CSS here); see
  * that function's own header comment for the fix-round-1 history of why
  * this is now ONE rule instead of two.
  */
@@ -398,8 +407,7 @@ export function initFrameInspector(onFrameChange = null) {
   if (!section) return null;
 
   section.innerHTML =
-    '<h2 class="section-label">Frame<span class="section-subject" id="frameSubject"></span></h2>';
-  const subject = section.querySelector('#frameSubject');
+    '<h2 class="section-label">Frame</h2>';
 
   // --- frameKind chips -----------------------------------------------
   const chipRow = document.createElement('div');
@@ -443,11 +451,11 @@ export function initFrameInspector(onFrameChange = null) {
 
   // --- browser URL ----------------------------------------------------
   // Closes the gap: core/render.js's paintChrome draws this in the pill,
-  // in fUrlTxt, clipped, whenever it's non-empty — left blank, the pill
+  // in fUrlTxt, clipped, whenever it's non-empty, left blank, the pill
   // stays blank (see core/config.js's normalise() and this task's report).
   // The placeholder attribute below is a greyed-out UI hint the browser
   // never submits as a value (it vanishes the instant the field is
-  // focused or has any real content) — it is not text drawn into anyone's
+  // focused or has any real content), it is not text drawn into anyone's
   // export, so it doesn't reopen the "no fabricated placeholder copy"
   // question that field exists to answer.
   const urlRow = document.createElement('div');
@@ -459,16 +467,18 @@ export function initFrameInspector(onFrameChange = null) {
   urlInput.type = 'text';
   urlInput.className = 'custom-size-input';
   urlInput.placeholder = 'app.acme.dev';
-  urlInput.setAttribute('aria-label', 'Browser URL pill text — left empty, the pill stays empty');
+  urlInput.setAttribute('aria-label', 'Browser URL pill text, left empty, the pill stays empty');
   urlRow.append(urlLabelRow, urlInput);
   section.appendChild(urlRow);
 
   function syncFrameUI() {
     const which = editingElement(state);
-    // The subject, said out loud. Two identical panels editing different
-    // objects is a trap, not a feature - and after Task 6 the panel really
-    // can be pointed at either one.
-    subject.textContent = ELEMENT_LABELS[which];
+    // The subject, said out loud, ONCE, at the top of the panel. Two
+    // identical panels editing different objects is a trap, not a feature -
+    // and after Task 6 the panel really can be pointed at either one. It
+    // used to be a "· Desktop" tag on each of the two headings; naming it
+    // twice said nothing the second time.
+    setInspectorSubject(which);
 
     const kind = activeFrameKind(state.config, which);
     chips.forEach((btn) => {
@@ -501,7 +511,7 @@ export function initFrameInspector(onFrameChange = null) {
       // The Corner radius slider's BOUNDS depend on which frame is on, so a
       // frame change has to re-sync it or the slider keeps a range that no
       // longer applies. It lives in the other section, so main.js is what
-      // owns that wiring — see initFinishInspector's return value.
+      // owns that wiring, see initFinishInspector's return value.
       if (typeof onFrameChange === 'function') onFrameChange();
       scheduleRender();
     });
@@ -527,7 +537,7 @@ export function initFrameInspector(onFrameChange = null) {
 }
 
 /**
- * The Finish section: padding, corner radius, grain, shadow — the task
+ * The Finish section: padding, corner radius, grain, shadow, the task
  * brief's own order, with Shadow (Task 6b) slotted in right after Grain:
  * both are "material" finishing touches over the composed shot rather than
  * layout, and neither touches `config.ground` or `config.luminosity`, so none of
@@ -541,24 +551,24 @@ export function initFinishInspector() {
   const section = document.getElementById('finishSection');
   if (!section) return null;
 
-  section.innerHTML =
-    '<h2 class="section-label">Finish<span class="section-subject" id="finishSubject"></span></h2>';
-  const finishSubject = section.querySelector('#finishSubject');
+  // No heading: the design does not label this group (see web/index.html).
+  section.innerHTML = '';
 
   // --- padding -------------------------------------------------------
-  const padRow = document.createElement('div');
-  padRow.className = 'slider-row';
-  padRow.innerHTML = '<div class="slider-label"><span>Padding</span><span class="mono slider-value"></span></div>';
-  const padInput = document.createElement('input');
-  padInput.type = 'range';
-  padInput.className = 'slider';
-  padInput.min = '0';
-  padInput.max = String(PAD_PERCENT_MAX);
-  padInput.step = '0.1';
-  padInput.setAttribute('aria-label', 'Padding, as a percentage of the shorter canvas side');
-  padRow.appendChild(padInput);
-  const padValueEl = padRow.querySelector('.slider-value');
-  section.appendChild(padRow);
+  const pad = makeSliderRow({
+    label: 'Padding',
+    min: 0,
+    max: PAD_PERCENT_MAX,
+    step: 0.1,
+    ariaLabel: 'Padding, as a percentage of the shorter canvas side',
+    resetLabel: 'Reset padding to the default',
+    format: (v) => `${v}%`,
+    isDefault: () => !Number.isFinite(state.config.pad)
+      || Math.abs(state.config.pad - DEFAULTS.pad) < 1e-9,
+    onInput: (raw) => { setPadPercent(state.config, raw); syncPadUI(); scheduleRender(); },
+    onReset: () => { setPadPercent(state.config, DEFAULTS.pad * 100); syncPadUI(); scheduleRender(); },
+  });
+  section.appendChild(pad.row);
 
   // NO HINT UNDER PADDING. Task 6 added a two-sentence note here explaining
   // that a frame grows into this padding, so the visible gap can be smaller
@@ -568,60 +578,68 @@ export function initFinishInspector() {
   // confusing, the fix is the control, not a caption.
 
   // --- corner radius ---------------------------------------------------
-  const radiusRow = document.createElement('div');
-  radiusRow.className = 'slider-row';
-  radiusRow.innerHTML = '<div class="slider-label"><span>Corner radius</span><span class="mono slider-value"></span></div>';
-  const radiusInput = document.createElement('input');
-  radiusInput.type = 'range';
-  radiusInput.className = 'slider';
-  // min/max are re-set on every sync — the bounds follow the frame (see
-  // radiusRangeFor). These are only the pre-sync placeholders.
-  radiusInput.min = '0';
-  radiusInput.max = String(RADIUS_PERCENT_MAX);
-  radiusInput.step = '0.1';
-  radiusInput.setAttribute('aria-label', 'Screenshot corner radius, as a percentage of canvas width');
-  radiusRow.appendChild(radiusInput);
-  const radiusValueEl = radiusRow.querySelector('.slider-value');
-  section.appendChild(radiusRow);
-
-  // --- grain -----------------------------------------------------------
-  const grainRow = document.createElement('div');
-  grainRow.className = 'slider-row';
-  grainRow.innerHTML = '<div class="slider-label"><span>Grain</span><span class="mono slider-value"></span></div>';
-  const grainInput = document.createElement('input');
-  grainInput.type = 'range';
-  grainInput.className = 'slider';
-  grainInput.min = '0';
-  grainInput.max = '100';
-  grainInput.step = '1';
-  grainInput.setAttribute('aria-label', 'Grain strength');
-  grainRow.appendChild(grainInput);
-  const grainValueEl = grainRow.querySelector('.slider-value');
-  section.appendChild(grainRow);
+  // Its min/max are re-set on every sync, the bounds follow the frame (see
+  // radiusRangeFor), because a phone's corner range is nothing like a
+  // browser's. `makeSliderRow`'s own fill reads the live min/max for that
+  // reason rather than the ones passed in here.
+  const radius = makeSliderRow({
+    label: 'Corner radius',
+    min: 0,
+    max: RADIUS_PERCENT_MAX,
+    step: 0.1,
+    ariaLabel: 'Screenshot corner radius, as a percentage of canvas width',
+    resetLabel: "Reset the corner radius to the frame's own",
+    format: (v) => `${v}%`,
+    // `null` is the default, not 0: it means "this frame decides", and a
+    // browser frame's own corner is not square.
+    isDefault: () => {
+      const el = state.config.elements && state.config.elements[editingElement(state)];
+      return !el || el.radius === null || el.radius === undefined;
+    },
+    onInput: (raw) => {
+      setRadiusPercent(state.config, raw, editingElement(state));
+      syncRadiusUI();
+      scheduleRender();
+    },
+    onReset: () => {
+      clearRadius(state.config, editingElement(state));
+      syncRadiusUI();
+      scheduleRender();
+    },
+  });
+  section.appendChild(radius.row);
 
   // --- shadow (Task 6b) --------------------------------------------------
-  // A STRENGTH, not a colour — see setShadowPercent's header comment above
+  // A STRENGTH, not a colour, see setShadowPercent's header comment above
   // for why this multiplies core/render.js's already-verified shadow
   // alphas instead of picking a new one. 0–200%, default 100% (== exactly
   // frame.html's own values, unchanged).
-  const shadowRow = document.createElement('div');
-  shadowRow.className = 'slider-row';
-  shadowRow.innerHTML = '<div class="slider-label"><span>Shadow</span><span class="mono slider-value"></span></div>';
-  const shadowInput = document.createElement('input');
-  shadowInput.type = 'range';
-  shadowInput.className = 'slider';
-  shadowInput.min = '0';
-  shadowInput.max = String(SHADOW_SCALE_RANGE[1] * 100);
-  shadowInput.step = '1';
-  shadowInput.setAttribute('aria-label', 'Shadow strength, as a percentage of the default');
-  shadowRow.appendChild(shadowInput);
-  const shadowValueEl = shadowRow.querySelector('.slider-value');
-  section.appendChild(shadowRow);
+  const shadow = makeSliderRow({
+    label: 'Shadow',
+    min: 0,
+    max: SHADOW_SCALE_RANGE[1] * 100,
+    step: 1,
+    ariaLabel: 'Shadow strength, as a percentage of the default',
+    resetLabel: 'Reset the shadow to the verified strength',
+    format: (v) => `${v}%`,
+    isDefault: (v) => v === 100,
+    onInput: (raw) => {
+      setShadowPercent(state.config, raw, editingElement(state));
+      syncShadowUI();
+      scheduleRender();
+    },
+    onReset: () => {
+      setShadowPercent(state.config, 100, editingElement(state));
+      syncShadowUI();
+      scheduleRender();
+    },
+  });
+  section.appendChild(shadow.row);
 
   // --- stroke (Task 7) ---------------------------------------------------
   // Deliberately minimal, and Cycle B replaces it: a render feature with no
   // way to invoke it cannot be previewed, and a feature Rock cannot test is
-  // a feature he cannot approve. Same row idioms as everything above — no
+  // a feature he cannot approve. Same row idioms as everything above, no
   // new control vocabulary is invented here.
   const strokeRow = document.createElement('div');
   strokeRow.className = 'slider-row';
@@ -644,18 +662,27 @@ export function initFinishInspector() {
   strokeRow.appendChild(strokeChips);
   section.appendChild(strokeRow);
 
-  const strokeWidthRow = document.createElement('div');
-  strokeWidthRow.className = 'slider-row';
-  strokeWidthRow.innerHTML = '<div class="slider-label"><span>Stroke width</span><span class="mono slider-value"></span></div>';
-  const strokeWidthInput = document.createElement('input');
-  strokeWidthInput.type = 'range';
-  strokeWidthInput.className = 'slider';
-  strokeWidthInput.min = '0';
-  strokeWidthInput.max = String(STROKE_PERCENT_MAX);
-  strokeWidthInput.step = '0.1';
-  strokeWidthInput.setAttribute('aria-label', 'Stroke width, as a percentage of the shorter canvas side');
-  strokeWidthRow.appendChild(strokeWidthInput);
-  const strokeWidthValueEl = strokeWidthRow.querySelector('.slider-value');
+  const strokeWidth = makeSliderRow({
+    label: 'Stroke width',
+    min: 0,
+    max: STROKE_PERCENT_MAX,
+    step: 0.1,
+    ariaLabel: 'Stroke width, as a percentage of the shorter canvas side',
+    resetLabel: 'Reset the stroke width to the default',
+    format: (v) => `${v}%`,
+    isDefault: (v) => Math.abs(v - STROKE_DEFAULTS.width * 100) < 1e-9,
+    onInput: (raw) => {
+      setStrokeWidthPercent(state.config, raw, editingElement(state));
+      syncStrokeUI();
+      scheduleRender();
+    },
+    onReset: () => {
+      setStrokeWidthPercent(state.config, STROKE_DEFAULTS.width * 100, editingElement(state));
+      syncStrokeUI();
+      scheduleRender();
+    },
+  });
+  const strokeWidthRow = strokeWidth.row;
   section.appendChild(strokeWidthRow);
 
   const strokeColorRow = document.createElement('div');
@@ -680,9 +707,7 @@ export function initFinishInspector() {
     strokeWidthRow.hidden = !showsStrokeWidth(state.config, which);
     strokeColorRow.hidden = !showsStrokeColor(state.config, which);
 
-    const pct = activeStrokeWidthPercent(state.config, which);
-    strokeWidthInput.value = String(pct);
-    syncSliderFill(strokeWidthInput, strokeWidthValueEl, `${pct}%`);
+    strokeWidth.sync(activeStrokeWidthPercent(state.config, which));
 
     const colour = activeStrokeColor(state.config, which);
     if (document.activeElement !== strokeColorInput) strokeColorInput.value = colour;
@@ -696,12 +721,6 @@ export function initFinishInspector() {
     });
   });
 
-  strokeWidthInput.addEventListener('input', () => {
-    setStrokeWidthPercent(state.config, strokeWidthInput.value, editingElement(state));
-    syncStrokeUI();
-    scheduleRender();
-  });
-
   strokeColorInput.addEventListener('input', () => {
     setStrokeColor(state.config, strokeColorInput.value, editingElement(state));
     syncStrokeUI();
@@ -712,16 +731,14 @@ export function initFinishInspector() {
     // Padding is CANVAS-level, not per element - it is the safe area, and
     // there is one of those. It stays here for now; Cycle C's panel split
     // moves it to the left side where the rest of the canvas lives.
-    finishSubject.textContent = ELEMENT_LABELS[editingElement(state)];
-    const pct = activePadPercent(state.config);
-    padInput.value = String(pct);
-    syncSliderFill(padInput, padValueEl, `${pct}%`);
+    setInspectorSubject(editingElement(state));
+    pad.sync(activePadPercent(state.config));
   }
 
   function syncRadiusUI() {
     // The element's real composite width, from the layout core/ just
     // used. Null before the first render, and the helpers fall back to the
-    // canvas width then — see activeRadiusPercent's comment.
+    // canvas width then, see activeRadiusPercent's comment.
     const which = editingElement(state);
     // The width of the element being edited, from the layout core/ just
     // used - a phone's composite is nothing like the web shot's, so reading
@@ -731,54 +748,19 @@ export function initFinishInspector() {
       : (state.lay && state.lay.web);
     const elementW = box ? box.w : null;
     const [min, max] = radiusRangeFor(state.config, which, elementW);
-    radiusInput.min = String(min);
-    radiusInput.max = String(max);
-    const pct = activeRadiusPercent(state.config, which, elementW);
-    radiusInput.value = String(pct);
-    syncSliderFill(radiusInput, radiusValueEl, `${pct}%`);
-  }
-
-  function syncGrainUI() {
-    const pct = activeGrainPercent(state.config);
-    grainInput.value = String(pct);
-    syncSliderFill(grainInput, grainValueEl, `${pct}%`);
+    radius.input.min = String(min);
+    radius.input.max = String(max);
+    radius.sync(activeRadiusPercent(state.config, which, elementW));
   }
 
   function syncShadowUI() {
-    const pct = activeShadowPercent(state.config, editingElement(state));
-    shadowInput.value = String(pct);
-    syncSliderFill(shadowInput, shadowValueEl, `${pct}%`);
+    shadow.sync(activeShadowPercent(state.config, editingElement(state)));
   }
-
-  padInput.addEventListener('input', () => {
-    setPadPercent(state.config, padInput.value);
-    syncPadUI();
-    scheduleRender();
-  });
-
-  radiusInput.addEventListener('input', () => {
-    setRadiusPercent(state.config, radiusInput.value, editingElement(state));
-    syncRadiusUI();
-    scheduleRender();
-  });
-
-  grainInput.addEventListener('input', () => {
-    setGrainPercent(state.config, grainInput.value);
-    syncGrainUI();
-    scheduleRender();
-  });
-
-  shadowInput.addEventListener('input', () => {
-    setShadowPercent(state.config, shadowInput.value, editingElement(state));
-    syncShadowUI();
-    scheduleRender();
-  });
 
   syncPadUI();
   syncRadiusUI();
-  syncGrainUI();
   syncShadowUI();
   syncStrokeUI();
 
-  return { syncPadUI, syncRadiusUI, syncGrainUI, syncShadowUI, syncStrokeUI };
+  return { syncPadUI, syncRadiusUI, syncShadowUI, syncStrokeUI };
 }

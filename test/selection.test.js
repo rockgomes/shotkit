@@ -27,7 +27,7 @@ describe('hit-testing the canvas', () => {
   // the web shot's bottom-right corner - so there is a region inside BOTH
   // boxes. Testing the web box first would select the thing underneath the
   // one you clicked.
-  it('the phone wins where it overlaps the web shot — it is drawn on top', () => {
+  it('the phone wins where it overlaps the web shot, it is drawn on top', () => {
     const l = lay();
     const p = l.phones[0];
     const x = p.x + 4, y = p.y + p.h * 0.25;

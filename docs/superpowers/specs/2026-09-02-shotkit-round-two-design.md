@@ -1,4 +1,4 @@
-# shotkit round two — design
+# shotkit round two, design
 
 Date: 2026-09-02. Follows the deployed app at
 https://shotkit-app.netlify.app (branch `feat/shotkit-web`, commit `5634e10`).
@@ -6,7 +6,7 @@ https://shotkit-app.netlify.app (branch `feat/shotkit-web`, commit `5634e10`).
 ## Why
 
 The app shipped and Rock used it. Nineteen items came back. They are not a
-defect list — most of them say the same thing twice: **controls exist that
+defect list, most of them say the same thing twice: **controls exist that
 don't do what their name promises**, and **the shot's own look is decided by
 constants nobody can reach**. `cover` only crops. `Fit` names something the
 user could not identify. Mesh has two colours and a reroll button. Zoom is
@@ -22,7 +22,7 @@ Rendering (`core/`):
 
 1. `frame: none` must draw no stroke.
 2. Strokes as a deliberate feature: light, glass, custom colour + width.
-3. Rebuild the browser chrome — Safari-like, much smaller bar.
+3. Rebuild the browser chrome, Safari-like, much smaller bar.
 4. Frames grow outward; the screenshot does not shrink.
 5. Delete `cover`, and with it the `Fit` control.
 6. Drop the caption.
@@ -34,7 +34,7 @@ App:
 
 10. Click an element to select it; controls follow the selection.
 11. Template and ratio labels need a space.
-12. Drop Ground from the left rail — it duplicates Background.
+12. Drop Ground from the left rail, it duplicates Background.
 13. Nameable custom sizes.
 14. New / close project.
 15. Zoom and pan the artboard.
@@ -46,13 +46,13 @@ App:
 Bigger, truer preset tiles are not a separate item: they are part of item 7's
 restructure, and are specified under Background below.
 
-## Structural decision 1 — the config gains elements
+## Structural decision 1, the config gains elements
 
 `normalise()` returns one flat config today. "Tap the mobile and get the mobile
 controls" cannot be true of that shape: there is nowhere for a phone to hold a
 frame that differs from the web shot's.
 
-**Canvas and ground stay global.** One ratio, one ground, one grain — they
+**Canvas and ground stay global.** One ratio, one ground, one grain, they
 describe the shot, not a thing in it.
 
 **And grain is painted on the ground only** (added after Cycle A Task 4b).
@@ -60,7 +60,7 @@ It used to be an unclipped `soft-light` pass over the finished canvas, so it
 landed on the screenshot and the phones as well: at `grain: 1` a flat source
 came back with 105 distinct greys inside the picture. Grain is a property of
 the backdrop. It is never applied to a user's own screenshot, and it is
-achieved by paint ORDER — ground, grain, then the shots — not by clipping
+achieved by paint ORDER, ground, grain, then the shots, not by clipping
 around them, because an antialiased clip boundary would draw a 1px ring at the
 shot's edge.
 
@@ -74,7 +74,7 @@ elements: {
 ```
 
 `mobile` covers every phone in the `web+mobile` layout as one class. Selecting
-one phone selects the phones — per-phone settings are not a goal and would not
+one phone selects the phones, per-phone settings are not a goal and would not
 survive a layout change.
 
 **One compatibility rule, so callers and golden scripts stay short:** a flat
@@ -82,7 +82,7 @@ key at the top level of the input is a default for *every* element; an entry
 in `elements` overrides it for that element. `normalise({frameKind:'browser'})`
 therefore keeps meaning exactly what it means today.
 
-## Structural decision 2 — frames and strokes are outsets
+## Structural decision 2, frames and strokes are outsets
 
 Rock chose "image keeps its size, frame grows outward". Applied consistently, a
 stroke is the same idea: a white mat around a shot makes the shot bigger, it
@@ -90,16 +90,16 @@ does not eat into the picture.
 
 So both are outsets, resolved in one place:
 
-1. `screen` — the screenshot's own box, its ratio taken from the source image,
+1. `screen`, the screenshot's own box, its ratio taken from the source image,
    fitted to the safe area. **This is the size the screenshot keeps.**
 2. Add the browser bar and any bezel outward.
 3. Add the stroke width outward.
 4. The result is the composite.
 
 **What gives way is the padding, not the picture.** The composite is fitted to
-the canvas less a minimum margin — `MIN_MARGIN_RATIO = 0.02` of the shorter canvas
-side — not to the safe box. Turning on a frame therefore consumes
-padding and leaves the screenshot alone — which is the visible behaviour Rock
+the canvas less a minimum margin, `MIN_MARGIN_RATIO = 0.02` of the shorter canvas
+side, not to the safe box. Turning on a frame therefore consumes
+padding and leaves the screenshot alone, which is the visible behaviour Rock
 asked for. This must be stated in the UI copy for padding, because padding
 stops being an absolute promise.
 
@@ -113,11 +113,11 @@ not adjusted. The round-trip property it defended is now structural: `screen`
 is never derived, so it cannot drift. A test must still assert
 `screen.w / screen.h === sourceRatio` to within 1e-12.
 
-## Structural decision 3 — WITHDRAWN
+## Structural decision 3, WITHDRAWN
 
 **The shadow rework was built, then reverted in full on 2026-09-02 at Rock's
 instruction.** The shadow keeps the single strength slider it already had. Item 8
-of the item list ("Real shadow control — distance, angle, blur, directional") is
+of the item list ("Real shadow control, distance, angle, blur, directional") is
 withdrawn from this round, not deferred: it was built, it worked, and the churn
 around it was not worth the feature. See the REVERTED note at the head of Cycle
 A's Task 5 in the plan for what went wrong and what is worth keeping if it is
@@ -126,12 +126,12 @@ ever revisited.
 The reasoning below is retained because the *guard* it describes is sound and
 would apply to any future attempt.
 
-## Structural decision 3 (withdrawn) — the shadow rework gets an isolated guard
+## Structural decision 3 (withdrawn), the shadow rework gets an isolated guard
 
 `paintShadow`'s alphas (0.17 / 0.07 web and browser, 0.22 / 0.10 phone) have
 been broken once already: a pass retuned them against `@napi-rs/canvas` to
-0.40 / 0.30, every Node test stayed green, and the browser — the actual
-product — would have shipped a shadow roughly 65 RGB levels too dark. It was
+0.40 / 0.30, every Node test stayed green, and the browser, the actual
+product, would have shipped a shadow roughly 65 RGB levels too dark. It was
 caught only because a reviewer measured Chromium directly.
 
 Adding distance, angle, blur and a directional mode means touching that
@@ -140,7 +140,7 @@ re-derived from it.
 
 **Required guard: an isolated shadow golden.** A test renders `paintShadow`
 alone, at default parameters, on a blank canvas, and compares against a stored
-PNG. Not a golden of a whole shot — every whole-shot golden is changing this
+PNG. Not a golden of a whole shot, every whole-shot golden is changing this
 round for other reasons and would hide a shadow regression inside a legitimate
 diff.
 
@@ -151,7 +151,7 @@ shadow: { scale: 1, distance: 0.040, angle: 90, blur: 0.105, directional: false 
 ```
 
 `distance` and `blur` are fractions of the canvas height, which is what
-`c.h * 0.040` and `c.h * 0.105` already are — the numbers move into config
+`c.h * 0.040` and `c.h * 0.105` already are, the numbers move into config
 without changing value. `directional: false` keeps the present two-layer
 ambient-plus-direct construction. `directional: true` offsets the direct layer
 along `angle` by `distance`; the ambient layer stays centred.
@@ -162,14 +162,14 @@ drawn at the defaults:
 - **Finish shows one shadow slider.** Strength stays in the panel; distance,
   angle, softness and directional move behind a collapsed **Advanced shadow
   settings** disclosure, mirroring the Screen Studio panel Rock supplied.
-- **Angle is subordinate to Directional** — ordered under it, indented, and
+- **Angle is subordinate to Directional**, ordered under it, indented, and
   disabled while it is off. Task 5 left it enabled on the argument that a
   vanishing control confuses; a control that moves while nothing changes
   reads as broken, which is worse.
 - **`blur` is called Softness in the UI, and its lower bound is no longer
   zero.** The name would otherwise collide with the Background blur above.
   The bound is `SHADOW_BLUR_RANGE = [0.035, 0.40]`: at 0 the two layers stop
-  being a blur and become two hard-edged rectangles — which is both the
+  being a blur and become two hard-edged rectangles, which is both the
   "sharp shadow" and the "two shadows" Rock reported. 0.035 is 42.0px of
   `shadowBlur` (the worst measured requirement for the shadow's own edge to
   fall below 1% Weber contrast, over seven canvas sizes and the whole
@@ -186,13 +186,13 @@ stroke: { style: 'none' | 'light' | 'glass' | 'custom',
 ```
 
 Default `{ style: 'none', width: 0.008, color: '#ffffff' }`. `none` paints
-nothing at all — item 1 is satisfied by deleting the unconditional hairline at
+nothing at all, item 1 is satisfied by deleting the unconditional hairline at
 `core/render.js:377`, not by making it transparent.
 
-- **light** — opaque near-white mat.
-- **glass** — translucent white with an inner highlight and a faint outer
+- **light**, opaque near-white mat.
+- **glass**, translucent white with an inner highlight and a faint outer
   hairline, so the ground reads through it.
-- **custom** — solid `color`.
+- **custom**, solid `color`.
 
 Painted as a ring behind the composite: outer radius = inner radius + width, so
 the corner stays concentric. The shadow applies to the outer, stroked box. The
@@ -200,7 +200,7 @@ stroke is never drawn inside the clip, so it can never cover the screenshot.
 
 ## Browser chrome
 
-The present bar is `BROWSER_BAR_RATIO = 10/133` of the frame **width** — about
+The present bar is `BROWSER_BAR_RATIO = 10/133` of the frame **width**, about
 126px on a 1675px-wide shot, roughly twice what the reference windows show, and
 it carries the handoff's generic bar rather than a recognisable browser.
 
@@ -213,7 +213,7 @@ smallest supported canvas.
 Contents, all proportional, in light and dark:
 
 - three traffic-light dots, left;
-- a centred URL pill carrying `url` when set, empty when not — no invented
+- a centred URL pill carrying `url` when set, empty when not, no invented
   placeholder text, which has been the rule since Task 6;
 - two or three muted glyphs, right.
 
@@ -222,9 +222,9 @@ Contents, all proportional, in light and dark:
 Type becomes the top control. Each type carries its own set, and **sampled
 lives inside each type** rather than being a fourth option:
 
-- **Gradient** (default) — sampled gradient, plus gradient presets.
-- **Solid** — sampled solid, plus solid presets.
-- **Mesh** — sampled mesh, plus mesh presets.
+- **Gradient** (default), sampled gradient, plus gradient presets.
+- **Solid**, sampled solid, plus solid presets.
+- **Mesh**, sampled mesh, plus mesh presets.
 
 `bgType`'s internal value stays `'linear'` for gradient; the label changes, the
 stored value does not. There is no Image type: no background images are
@@ -232,12 +232,12 @@ bundled or uploaded this round.
 
 **Preset tiles are rendered by the real generator** into a small canvas, at
 roughly 44px, not approximated in CSS. `.preset-swatch` is 14×14 today, which
-is why eight hues are indistinguishable — and CSS approximations are how the
+is why eight hues are indistinguishable, and CSS approximations are how the
 swatches came to lie about the sampled ground once before.
 
 ## Mesh, rebuilt
 
-`paintMesh` takes `[g1, , g3]` — two tints of one hue — and offers a single
+`paintMesh` takes `[g1, , g3]`, two tints of one hue, and offers a single
 integer seed. It can only produce a blotchier linear gradient, which is why it
 has no use.
 
@@ -254,7 +254,7 @@ distinct stop rather than alternating between two.
 element's block.
 
 **The selection outline is a DOM overlay, never painted into the canvas.** The
-preview canvas is the export canvas — anything drawn into it ships in the PNG.
+preview canvas is the export canvas, anything drawn into it ships in the PNG.
 A test must prove an active selection leaves the export byte-identical.
 
 ## Zoom and pan
@@ -266,7 +266,7 @@ stepper, fit-to-window, and reset.
 
 ## Smaller items
 
-- **Labels** — `sidebar.js:418` and `:440` concatenate name and dimensions with
+- **Labels**, `sidebar.js:418` and `:440` concatenate name and dimensions with
   no separator, giving "Dribbble shot2800×2100".
 - **Ground leaves the left rail.** It duplicates the Background panel.
 - **Custom sizes** gain a name, stored in `localStorage`: per browser, not
@@ -287,7 +287,7 @@ Task 3 duly tuned tokens to sit just above it. Rock's read of the result:
 *"still dim. I think our greys need to get closer to white. I feel like we
 using 'pass' as the floor... even the placeholder 'square' on the center of the
 page is so dim that I can barely see the dashed lines and the ratio on the
-corner."* Both halves of that are addressed below — the floor was too low, and
+corner."* Both halves of that are addressed below, the floor was too low, and
 the audit measured text only while every border and graphic went unchecked.
 
 Dark theme only; the light theme remains a later cycle, built from scratch.
@@ -311,7 +311,7 @@ Dark theme only; the light theme remains a later cycle, built from scratch.
    threshold per WCAG 1.4.3 and is held to this one instead.
 
 4. **Purely decorative separators and the dot grid: 1.8-2.5:1.** No WCAG
-   obligation applies, so the floor is a visibility judgement — but the range
+   obligation applies, so the floor is a visibility judgement, but the range
    has a **ceiling as well as a floor**, and that is deliberate. Pane
    separators pushed to 3:1 on a dark UI stop reading as separators and start
    reading as a wireframe. Within the range, weight is set by how much of the
@@ -319,14 +319,14 @@ Dark theme only; the light theme remains a later cycle, built from scratch.
    bottom, sparse marks (the dot grid, a short divider) take the top.
 
 5. **Inert and disabled states: explicit colours at full alpha, never
-   `opacity`.** Opacity composites toward whatever is behind the element — on
-   this app the darkest surface on screen — so it spends lightness on the
+   `opacity`.** Opacity composites toward whatever is behind the element, on
+   this app the darkest surface on screen, so it spends lightness on the
    ground instead of on the thing being dimmed, and destroys contrast far
    faster than it reduces apparent brightness. `opacity: 0.42` on an inspector
    section ran 3.56:1 at the top down to 1.85:1 at the bottom, and the bottom
    rung carried every section label in the panel.
 
-   Every off state — `[inert]` sections and every disabled control alike —
+   Every off state, `[inert]` sections and every disabled control alike,
    re-declares the live tokens on itself at a single flat tone landing
    3:1-3.5:1: dimmer than 0.42 gave its brightest element, and far brighter
    than 0.42 gave its dimmest. Off is flat, because "unavailable" is one state
@@ -341,7 +341,7 @@ Dark theme only; the light theme remains a later cycle, built from scratch.
 
    Dimming is not always an off state. A control that is live and clickable but
    not currently in effect is informational, owes the full 7:1 of item 1, and
-   dims by stepping down the ladder — not by joining the inert tone and not by
+   dims by stepping down the ladder, not by joining the inert tone and not by
    compositing.
 
 `web/tokens.css` remains the only file in `web/` allowed to hold a raw hex, and
@@ -379,58 +379,58 @@ Revised 2026-09-03, after Cycle A shipped. The original split put Background
 and selection in one cycle; three things changed that.
 
 First, the per-element model (Structural decision 1) turned out to be the
-single cause of every dead control Rock found while approving Cycle A — Frame
+single cause of every dead control Rock found while approving Cycle A, Frame
 and Padding on a mobile shot, Corner radius under either frame, and the
 missing browser frame for mobile. Second, the selection model *needs* it:
 selecting the phone is meaningless unless the phone has a settings block to
-show. Third, the Background rebuild grew — the palette, a dark ground, the
+show. Third, the Background rebuild grew, the palette, a dark ground, the
 accent colour and mesh's second hearing all landed in it.
 
 So B splits in two, and Rock chose the order: fix the controls that lie
 before rebuilding what they control.
 
-**A — Render.** *Shipped 2026-09-03.* Items 1–9, plus three app fixes that
+**A, Render.** *Shipped 2026-09-03.* Items 1–9, plus three app fixes that
 touch nothing in the inspector and so cannot collide: contrast (19), label
 spacing (11), Ground dedup (12). Item 8's shadow rework was built and
 reverted; item 9's mesh was built and withheld.
 
-**B — Elements and selection.** Structural decision 1 (`elements: { web,
+**B, Elements and selection.** Structural decision 1 (`elements: { web,
 mobile }`), item 10's selection model, and every control that currently does
 nothing: Corner radius live under all three frames, a bounded phone radius, a
 browser frame for a mobile shot, and an explicit disabled state for anything
 that still cannot act.
 
-**C — Background, end to end.** *Split again 2026-09-04, Rock's call, for
+**C, Background, end to end.** *Split again 2026-09-04, Rock's call, for
 the same reason B was: the original C was thirteen tasks.* The seam is what
 each cycle is ABOUT. C is the background: the luminosity slider that replaces
 `tone` and finally reaches a dark ground, the shadow re-verified across that
 range, a stronger palette, item 7's type-first restructure with sampled
 inside each type, the rendered preset tiles, preset click targets and the
-preset-angle question, Angle made legible (17), and mesh's second hearing —
+preset-angle question, Angle made legible (17), and mesh's second hearing,
 judged on a ground that can carry it, with a shot on top.
 
-**D — How the app is organised.** The left/right panel split (left is the
+**D, How the app is organised.** The left/right panel split (left is the
 shot, right is the thing you clicked), templates and ratios as one tabbed
 control, per-control Resets (18), and the accent colour.
 
 **The accent colour moved from C to D** when C split. Rock had placed it "with
 the palette", and the reasoning was that it is a visual-identity decision
-rather than a per-control one. It still is — but the places it acts are
+rather than a per-control one. It still is, but the places it acts are
 selected rail items, active segmented cells, focus rings and slider fills,
 which is exactly the surface D rebuilds. Doing it in C would mean styling
 states that D then moves.
 
-**E — Shell.** Zoom and pan (15), new/close project (14), nameable custom
+**E, Shell.** Zoom and pan (15), new/close project (14), nameable custom
 sizes (13), export dropdown (16).
 
 Each cycle is its own plan, run task by task, stopping after every task.
 
-## Carried forward — controls that do nothing, from Rock 2026-09-02
+## Carried forward, controls that do nothing, from Rock 2026-09-02
 
 Found while approving Task 6, and it sharpens the Cycle B selection model.
 
 **Frames apply to the web element only.** `layout()` gives `out.web` a `chrome`
-block; `out.phones` never gets one — phones are always drawn as phone bodies.
+block; `out.phones` never gets one, phones are always drawn as phone bodies.
 So dropping a portrait screenshot puts the app in the `mobile` layout, where
 `frameKind` has nothing to act on. Rock: *"Browser and None don't do anything…
 but then I shouldn't be able to select them, right?"* Padding and corner radius
@@ -440,7 +440,7 @@ layout.
 **And the asymmetry he spotted is the real finding:** *"on the other hand, you
 do allow me to add a phone border on a desktop screenshot. shouldn't it work the
 same way?"* A phone frame around a web screenshot works; a browser frame around
-a mobile screenshot does not exist. That is not a decision — it is `frameKind`
+a mobile screenshot does not exist. That is not a decision, it is `frameKind`
 having been attached to one element while the mobile layout has its own hardcoded
 device. The per-element `elements: { web, mobile }` block in "Structural decision
 1" is what makes the two symmetric, so this is evidence for that design rather
@@ -450,16 +450,16 @@ than a separate feature.
 
 1. **Inert controls must say so.** A control that appears to work and does not
    is the defect this whole round exists to remove. Disable them, using Task 3b's
-   explicit-colour treatment — never `opacity`, which the stylesheet no longer
+   explicit-colour treatment, never `opacity`, which the stylesheet no longer
    permits outside `@keyframes`.
 2. **Phones should probably take a corner radius.** Rock: *"shouldn't we allow
    'some' adjustment for corner radius on mobile? I think android phones can have
    a different ratio."* `PHONE_RADIUS_RATIO` is a fixed 0.125 of the phone's
-   width. Exposing it needs a bounded range — a phone with square corners or with
-   a radius past half its width stops reading as a phone — so it is a range
+   width. Exposing it needs a bounded range, a phone with square corners or with
+   a radius past half its width stops reading as a phone, so it is a range
    question, not a slider question.
 
-## Carried forward — corner radius is inert under a frame, from Rock 2026-09-03
+## Carried forward, corner radius is inert under a frame, from Rock 2026-09-03
 
 Found while approving Task 7. *"corner radius slider is not working when
 browser is selected. it either should, or the control should be disabled."*
@@ -469,7 +469,7 @@ only on the unframed path. `paintWebChrome` rounds the window to
 `chrome.radius` (`BROWSER_RADIUS_RATIO`, a fixed 25/1064 of the frame's
 width) and draws the screenshot inside it as a plain rect; `paintPhoneChrome`
 rounds to `PHONE_RADIUS_RATIO`, a fixed 0.125. So the Corner radius slider is
-fully inert under BOTH frames, not just Browser — the same defect as the
+fully inert under BOTH frames, not just Browser, the same defect as the
 inert Padding and Frame controls in the `mobile` layout, in a third place.
 
 **This is now three findings with one cause**, and they should be fixed
@@ -491,7 +491,7 @@ the phone already wants a bounded radius for the same reason (see the
 carried-forward note above). Disabling is the fallback if the frame's radius
 turns out to be tied to geometry that cannot move.
 
-## Mesh is built, and withheld — Rock 2026-09-03
+## Mesh is built, and withheld, Rock 2026-09-03
 
 Item 9 of the list ("Mesh rebuilt so it is worth having") was built in Cycle
 A Task 9 and passes all three gates it was given: it spans real hue variety,
@@ -506,7 +506,7 @@ spread. Rock then used it:
 **He is diagnosing it correctly, and the diagnosis is why this is a hide and
 not a delete.** A shot is a screenshot with a border of ground around it. Any
 ground effect only has that border to work in, and on a pale palette the
-border shows almost nothing — the linear gradient included. What fails is the
+border shows almost nothing, the linear gradient included. What fails is the
 palette, not the mesh: rendered on a saturated ground the same mesh is
 unmistakable.
 
@@ -516,12 +516,12 @@ both goldens and all sixteen tests stay, fully guarded. Restoring it is one
 line.
 
 **Revisit it after the palette work**, which is already in this spec's
-Background section — bigger, truer preset tiles and a stronger set of
+Background section, bigger, truer preset tiles and a stronger set of
 grounds. Mesh should be judged again then, on a ground that can carry it, and
 with a shot on top rather than on its own. If it still cannot be seen at that
 point, delete it rather than hiding it a second time.
 
-> **DELETED, 2026-09-05 — Cycle C Task 8.** Judged on the rebuilt palette,
+> **DELETED, 2026-09-05, Cycle C Task 8.** Judged on the rebuilt palette,
 > with a dark UI screenshot on top, at four luminosities and three paddings.
 > Measured in the ground that is actually visible: mesh differs from the
 > plain gradient by a mean of **5 levels**, 20 at worst, and it gets *worse*
@@ -530,8 +530,8 @@ point, delete it rather than hiding it a second time.
 >
 > **The diagnosis above was wrong, and correcting it is the point of writing
 > this down.** The palette was not what failed. Every blob takes its
-> saturation and lightness from `g1` or `g3` — the sampled palette's own two
-> ends, about 60 levels apart — so a field built only from colours inside
+> saturation and lightness from `g1` or `g3`, the sampled palette's own two
+> ends, about 60 levels apart, so a field built only from colours inside
 > that range cannot vary more than the gradient already does. Only the hue
 > rotates, and hue rotation at these saturations is worth a handful of
 > levels. Rewriting the palette could not have fixed that, and did not.
@@ -541,7 +541,7 @@ point, delete it rather than hiding it a second time.
 > was never going to be worth having on these terms. Deleted whole, per the
 > paragraph above. Numbers in `docs/verification-2026-09-01.md`.
 
-## Carried forward — Background panel, from Rock 2026-09-02
+## Carried forward, Background panel, from Rock 2026-09-02
 
 Raised while approving Task 5, and explicitly deferred by him: *"I guess this
 is for another phase, but already leaving this feedback here."*
@@ -549,7 +549,7 @@ is for another phase, but already leaving this feedback here."*
 **Preset rows need a full-width click target.** *"the color names's clickable
 area should be the whole row, like we have for templates. short names atm have
 also a short click target."* Cycle A Task 2 fixed exactly this for the template
-and ratio rows — `.template-row` shrink-wrapped to its text, so a short name
+and ratio rows, `.template-row` shrink-wrapped to its text, so a short name
 gave a short target, and `width: 100%` fixed it. The Background panel's preset
 rows have the same defect and did not get the same fix. Reuse the reasoning,
 and check the sampled row and the type cells while there.
@@ -557,7 +557,7 @@ and check the sampled row and the type cells while there.
 **A preset sets the hue but not the angle.** *"selecting a background changes
 the hue, but not the angle. why?"* Because nothing wires them together: a
 preset writes `forceHue` only, and `angle` is an independent field defaulting
-to `DEFAULT_ANGLE` (166°). That is not a decision anyone took — it is how the
+to `DEFAULT_ANGLE` (166°). That is not a decision anyone took, it is how the
 CLI's flags happened to map. Whether a preset should carry its own angle (so
 each named ground has a considered direction) is a real design question for the
 type-first rebuild, where each type gets its own set.
@@ -566,43 +566,43 @@ type-first rebuild, where each type gets its own set.
 > I feel like we have solved it already. now that HAL controls have a reset,
 > and every update on the sliders also update the color block, I feel like
 > this is less confusing now."* The confusion this question came from was
-> fixed by Cycle C Task 5 — the per-slider Resets, and colour tiles that
-> repaint on every background change — not by wiring hue to angle.
+> fixed by Cycle C Task 5, the per-slider Resets, and colour tiles that
+> repaint on every background change, not by wiring hue to angle.
 >
 > The alternative was weaker than it first looked, and saying why is the
 > point of writing it down. A preset carrying its own angle still had to
 > leave an angle the user set explicitly alone, by the same
 > sampled-versus-explicit rule as the rest of the panel. So it would have
-> differed from today in exactly one case — before you first touch the Angle
-> slider — and behaved identically ever after. A feature that stops working
+> differed from today in exactly one case, before you first touch the Angle
+> slider, and behaved identically ever after. A feature that stops working
 > the first time you use the control next to it is not worth the wiring.
 
 **Background blur belongs here too.** Rock described Screen Studio's control:
-it blurs a *wallpaper* — waves, glass reflections. It is meaningless against a
+it blurs a *wallpaper*, waves, glass reflections. It is meaningless against a
 flat gradient, so it only becomes real once the Background rebuild has image or
 generated-wallpaper types. Do not confuse it with the shadow's own softness,
 which is a different control that Cycle A Task 5b renames for exactly this
 reason.
 
-## Carried forward — a dark ground
+## Carried forward, a dark ground
 
 Raised by Rock 2026-09-02: *"in the ground tone, why don't we have dark
 anymore? or you never had it?"* and, clarifying: *"by dark I mean like a black
 (or near black) option."*
 
 **It never existed.** `TONES` has only ever been `['light', 'mid']`, and both
-branches of `tail()` in `core/ground.js` produce *light* grounds — the "light"
+branches of `tail()` in `core/ground.js` produce *light* grounds, the "light"
 branch at HSL lightness 0.975/0.925/0.868, the "mid" branch at
 0.855/0.780/0.712. "Mid" means *less pale*, not dark, and it is selected
 automatically when the screenshot itself is dark (`darkUI = lum < 0.34`), on the
 inherited premise that a near-white ground blows out around a dark UI. A
-genuinely dark ground — lightness around 0.15 — exists nowhere in the tool.
+genuinely dark ground, lightness around 0.15, exists nowhere in the tool.
 
 The label is misleading: "Mid" reads as the middle of a range that includes
 dark, and there is no such range.
 
 **This is a new feature, not a restoration**, and it belongs in Cycle B's
-type-first Background rebuild, where sampled lives inside each type — a sampled
+type-first Background rebuild, where sampled lives inside each type, a sampled
 *dark* ground is exactly what that structure should make reachable. It also
 wants a rename, since "Light / Mid" stops making sense once a third option
 exists.
@@ -610,18 +610,18 @@ exists.
 Note the knock-on. Half of it is already closed: `paintWeb` used to fill the
 screen with `#ffffff` behind the screenshot, and Cycle A Task 4d removed every
 backing, so a near-black ground has nothing white to leak around the picture.
-The other half stands — `paintShadow`'s alphas were verified against pale
+The other half stands, `paintShadow`'s alphas were verified against pale
 grounds and want re-checking against a dark one. See "Tone becomes a
 luminosity slider" below, which makes that a requirement rather than a note.
 
-## Carried forward — the accent colour
+## Carried forward, the accent colour
 
 Raised by Rock 2026-09-02, after approving Task 3b: *"I think we are too BW and
 not using our main accent color (which seems to be purple maybe?). just hold
 this suggestion for later."*
 
 He is right that it is barely used. The palette has `--color-brand-start`
-`#5b6cff` and `--color-brand-end` `#a24ff0` — an indigo-to-purple gradient — and
+`#5b6cff` and `--color-brand-end` `#a24ff0`, an indigo-to-purple gradient, and
 they appear on exactly one thing, the app-mark glyph. Everything else in the
 chrome is neutral. The contrast work of Task 3/3b raised the greys but did not
 introduce any colour, so the app is now a brighter greyscale rather than a
@@ -634,16 +634,16 @@ readability is how the two would get confused.
 **It lands in Cycle D**, and the route there is worth recording: Rock placed
 it "with the palette" on 2026-09-03, which was Cycle C at the time. When C
 split on 2026-09-04 it followed the panel work rather than the palette,
-because every place an accent acts — selected rail items, active segmented
-cells, focus rings, slider fills — is a surface D rebuilds. Candidates when it is taken up:
+because every place an accent acts, selected rail items, active segmented
+cells, focus rings, slider fills, is a surface D rebuilds. Candidates when it is taken up:
 selected states in the rail and template list, the active segmented cell, focus
-rings, slider fills, and the sampled-ground indicator — all places where the
+rings, slider fills, and the sampled-ground indicator, all places where the
 app currently says "active" with lightness alone.
 
 Any accent must clear the same bars Task 3b set: 3:1 as a component boundary,
 7:1 if it carries text, in both themes once the light theme exists.
 
-## Cycle C's shape — from Rock, 2026-09-03
+## Cycle C's shape, from Rock, 2026-09-03
 
 Brainstormed after Task 4 of Cycle B, and approved to be written down. This
 section is requirements, not notes.
@@ -651,20 +651,20 @@ section is requirements, not notes.
 ### The organising rule: left is the shot, right is the thing you clicked
 
 Controls are split by **what they belong to**, which is the same split Cycle
-B just made in the config — `c` is the canvas, `elements` is the things in
+B just made in the config, `c` is the canvas, `elements` is the things in
 the shot. The UI should say the same thing the data says.
 
-*(The panel split itself is Cycle D. The rest of this section — tabbed size,
-rendered tiles, the luminosity slider — is Cycle C, except where noted.)*
+*(The panel split itself is Cycle D. The rest of this section, tabbed size,
+rendered tiles, the luminosity slider, is Cycle C, except where noted.)*
 
-**Left — the shot as a whole**
+**Left, the shot as a whole**
 
 - Size: templates, ratios and custom
 - Background: type, presets, hue, angle, luminosity
 - Padding
 - Grain
 
-**Right — the selected element**
+**Right, the selected element**
 
 - Frame (none / browser / phone), and the chrome theme and URL it gates
 - Corner radius
@@ -678,6 +678,22 @@ the canvas's safe area and grain paints on the ground only (Cycle A Task 4b),
 so both are canvas properties however much they feel like finishing touches.
 Rock raised the split with both on the right and agreed the correction.
 
+> **REVERSED FOR PADDING, 2026-09-06.** Rock, when Cycle D Task 3 came to
+> move them: *"let's move only grain. Padding to me still makes sense on the
+> right, since visually it moves the elements."*
+>
+> He is describing what it looks like, and it does look like that: padding is
+> the one canvas property whose effect you read on the elements. Grain moved;
+> padding stayed.
+>
+> **The open edge, stated rather than filed away.** The right-hand panel's
+> heading names the selected element, "Finish · Desktop", and padding sits
+> under it while being canvas-level, so selecting a phone and dragging
+> Padding moves everything. That is a heading that overstates its scope, not
+> a wrong control: `config.pad` has one home and Cycle B's element block is
+> untouched. If it reads wrong in use, the fix is to lift padding out from
+> under the element subject rather than to move it again.
+
 **This lands AFTER Cycle B's selection model, not before.** Click-to-select is
 what gives the right panel a subject; a panel labelled "screenshot" that is
 editing something the user never chose is the defect this whole round exists
@@ -688,7 +704,7 @@ three items below are what pays for it.
 
 ### Templates and ratios become one tabbed control
 
-They are already one decision — both write nothing but `w` and `h` — and today
+They are already one decision, both write nothing but `w` and `h`, and today
 they read as two independent lists stacked on top of each other. Tabs make
 that truth visible, and showing one at a time is where most of the left
 panel's new space comes from.
@@ -708,16 +724,16 @@ the swatches came to lie about the sampled ground once before.
 
 ### Tone becomes a luminosity slider
 
-`TONES` is `['light', 'mid']` and both branches are pale — "mid" means *less
+`TONES` is `['light', 'mid']` and both branches are pale, "mid" means *less
 pale*, not dark. There is no dark ground anywhere in the tool, which is what
 Rock asked for on 2026-09-02, and the label has been misleading since round
 one. A continuous luminosity control removes a control, fixes the label, and
 reaches somewhere the current one cannot.
 
-**It replaces `tone` rather than joining it.** One value, one home — the rule
+**It replaces `tone` rather than joining it.** One value, one home, the rule
 Cycle B's element block was built on.
 
-**REQUIREMENT — the slider starts at the sampled value.** Sampling the
+**REQUIREMENT, the slider starts at the sampled value.** Sampling the
 screenshot is the product's premise, and Rock is explicit: *"being able to
 sample the image is our 'special sauce' and I'm not changing that. the idea
 is still to be streamlined, but giving people good controls too."*
@@ -726,7 +742,7 @@ So the control behaves exactly as the ground hue already does: `null` means
 sampled, and the slider renders at the position `groundFor`'s own analysis
 chose. Touching it writes a value and makes it the user's. A slider that
 started at a fixed midpoint would throw the inference away on every shot,
-silently — which is the same failure as a preset that sets the hue but not
+silently, which is the same failure as a preset that sets the hue but not
 the angle, one level up.
 
 Note what is being made continuous: today `groundFromMeta` picks a branch
@@ -734,23 +750,23 @@ from `darkUI = lum < 0.34`, and the two branches sit at HSL lightness
 0.975/0.925/0.868 and 0.855/0.780/0.712. The slider spans those and continues
 down to roughly 0.15 for the near-black Rock asked for.
 
-**DECIDED — no explanatory paragraphs under controls.** Rock, 2026-09-04:
+**DECIDED, no explanatory paragraphs under controls.** Rock, 2026-09-04:
 *"get rid of this ... and stop putting messages there."*
 
 Twice now a `.control-hint` paragraph has been written under a slider to
-explain behaviour the control did not communicate — under Padding in Cycle A,
-under Luminosity in Cycle C — and both were cut on sight. A paragraph under a
+explain behaviour the control did not communicate, under Padding in Cycle A,
+under Luminosity in Cycle C, and both were cut on sight. A paragraph under a
 slider is the control failing to explain itself. If one is confusing, the fix
 is the control.
 
-**DECIDED — every slider carries its own Reset.** Rock, on the first
+**DECIDED, every slider carries its own Reset.** Rock, on the first
 luminosity build: *"I'm not sure I follow the logic of that reset button that
 only activates for luminosity. I think we could have just a reset button in
 front of the slider ... a small square button with the round arrow icon."*
 
 One slider having a reset and the others not is arbitrary. Every slider gets
 the same control, in the same place, **disabled** (never hidden) when its
-value is already the one the app chose — hiding it would make the row jump
+value is already the one the app chose, hiding it would make the row jump
 mid-drag and hide the fact that the control has a default. That is item 18's
 shape, brought forward from Cycle D for the Background panel; Cycle D
 generalises it to the rest.
@@ -758,12 +774,12 @@ generalises it to the rest.
 The whole-ground **Sampled** row stays, and is a different scope: it clears
 every override at once.
 
-**DECIDED — the dark ground does not auto-apply a stroke.** Rock, 2026-09-04,
+**DECIDED, the dark ground does not auto-apply a stroke.** Rock, 2026-09-04,
 after Cycle C Task 2 measured the shadow across the range: *"A, leave it
 manual."*
 
 The shadow fades to nothing as the ground darkens (1.38 → 1.02 contrast), and
-raising its alphas cannot help — it is black, and black cannot be darkened.
+raising its alphas cannot help, it is black, and black cannot be darkened.
 The one combination that actually fails is a DARK screenshot on a very dark
 ground; a light one separates on its own edge. A light stroke fixes it
 completely and is one click away.
@@ -773,24 +789,24 @@ writing a per-element setting is the hidden coupling Cycle B spent eight
 tasks removing, and it would fire on the light-screenshot case that has no
 problem.
 
-**REQUIREMENT — "Sampled" means the WHOLE ground.** Added 2026-09-04, from
+**REQUIREMENT, "Sampled" means the WHOLE ground.** Added 2026-09-04, from
 Rock on the first preview: *"I was hoping that clicking on 'sampled' would
 reset everything, including luminosity. am I thinking wrong about it?"*
 
 He was not. The first build shipped a second button also labelled "Sampled"
 beside the luminosity slider, so two controls carried the same word and meant
 different-sized things. The Sampled row clears every override the ground has
-— hue, luminosity, and anything sampled added later — and its swatch previews
+hue, luminosity, and anything sampled added later, and its swatch previews
 what clicking it would actually produce. A single control's own reset is
 "Reset", which is item 18's vocabulary and what Cycle D generalises.
 
 Anything sampled that is added later belongs in `resetToSampled`. That is
 what the word promises.
 
-**REQUIREMENT — the shadow is re-verified across the range, in Chromium.**
+**REQUIREMENT, the shadow is re-verified across the range, in Chromium.**
 `paintShadow`'s alphas were verified against pale grounds only. Two fixed
 tones meant two cases; a slider means the whole range has to hold, and the
-dark end is where a shadow stops reading. Measure it, do not assume it — and
+dark end is where a shadow stops reading. Measure it, do not assume it, and
 do not retune the alphas to fix it without saying so, given what happened the
 last time they were touched.
 
@@ -799,11 +815,43 @@ The knock-on the earlier dark-ground note warned about is already gone:
 removed every backing, so a near-black ground has nothing white to leak
 around the picture's edge.
 
+## Carried forward, moving the shot, in two different senses
+
+Raised by Rock 2026-09-06, mid–Cycle D: *"what about the ability to move the
+frame? like, zoom in, pan, etc?"* Two features hide behind that sentence and
+they are not the same size.
+
+**A, zoom and pan the VIEW. Confirmed as what he meant.** Inspect the
+preview closely without changing a pixel of the export. The toolbar already
+carries a zoom stepper for it, rendered disabled and wired to nothing.
+**It must stay a pure view transform and never reach `composeWithMeta`**,
+the preview canvas *is* the export canvas, so a zoom that touched the
+composition would ship in the PNG. Small, and `web/`-only.
+
+**B, move the SCREENSHOT inside the shot.** Nudging it off-centre, scaling
+it, cropping to part of it. This changes the exported picture, so it is a
+`core/layout.js` feature, not a UI one.
+
+**B is explicitly deferred, with company.** Rock: *"B will eventually have to
+happen, but I have other ideas that we can group and discuss later (for
+example, some people post shots that show only one corner of the UI, so we
+could do something like that)."* So B is not a lone feature to slot into a
+cycle, it is the first of a group about **what part of the screenshot a shot
+shows**, and it gets its own brainstorm rather than being designed inside a
+cycle that is about something else.
+
 ## Out of scope
 
-- The light theme — still its own later cycle, designed from scratch, not
+- The light theme, still its own later cycle, designed from scratch, not
   derived from the handoff's option 1b.
 - Named device frames. `phone` stays deliberately unnamed.
 - Saved projects and saved presets, beyond named custom sizes.
 - Background images or bundled wallpapers.
 - Cross-browser verification. One engine, as every round so far.
+- The CLI, and with it the sidebar's CLI card. The card was HIDDEN on
+  2026-09-07, not deleted, because the CLI is still planned. It asserted
+  "CLI connected" beside a green dot while no CLI existed. Rock, twice:
+  "we are supposed to have CLI at some point, no? ... let's circle back on
+  this later." When the CLI lands, drop the `hidden` attribute and wire the
+  dot to something real - a status indicator that is always green is the
+  same defect in a different shape.

@@ -42,7 +42,7 @@ import { paintGround, paintWeb, roundRect, strokeInsetHairline } from '../core/r
  *
  * TASK 4D ADDED TWO MORE FAMILIES BELOW, and left everything above
  * untouched. The blend is the shot's colour at the boundary; those two are
- * the shot's SHAPE there — that it keeps the picture it was given (the
+ * the shot's SHAPE there, that it keeps the picture it was given (the
  * screenshot is no longer clipped, so nothing can be cut off it), and that
  * its straight edges run into its corner arcs without a step. All three
  * describe the same one-pixel line, from three directions.
@@ -170,7 +170,7 @@ function cornerWindow(rect, radius, corner = 'top-left') {
  * `frame: none` - the case Rock measured. Nothing is painted over the
  * screenshot here, so the ideal is exact and the tolerance can be tight.
  */
-describe('frame: none — the shot blends into the ground at its own edge', () => {
+describe('frame: none, the shot blends into the ground at its own edge', () => {
   const shot = scene('none', flatSource('#1e1e1e'));
   const bare = scene('none', transparentSource());
   const k = coverage(shot.c, shot.box, shot.box.radius);
@@ -222,7 +222,7 @@ describe('frame: none — the shot blends into the ground at its own edge', () =
  * as exact as `frame: none`. The white fill here read as a white ring inside
  * a dark bezel, which is the same bug at a different radius.
  */
-describe('phone frame — the screenshot blends into the bezel at the screen edge', () => {
+describe('phone frame, the screenshot blends into the bezel at the screen edge', () => {
   const shot = scene('phone', flatSource('#1e1e1e'));
   const bare = scene('phone', transparentSource());
   const screen = shot.box.chrome.screen;
@@ -287,7 +287,7 @@ describe('phone frame — the screenshot blends into the bezel at the screen edg
  * scale it by (1 - 0.09), so 0.85 of the path's coverage is a floor with
  * real room under it, not a fudged threshold.
  */
-describe('browser frame — the screenshot reaches its own boundary pixel', () => {
+describe('browser frame, the screenshot reaches its own boundary pixel', () => {
   const DARK = 20, LIGHT = 200;                 // #141414 and #c8c8c8
   // A wider pad than the default, and the ONLY reason is that these
   // assertions need a boundary pixel that is genuinely PARTIALLY covered.
@@ -363,7 +363,7 @@ describe('browser frame — the screenshot reaches its own boundary pixel', () =
  * the white fill" leaves exposed.
  */
 describe('a transparent source shows the ground, not a fill and not the shadow', () => {
-  it('frame: none — the transparent corner reads as ground', () => {
+  it('frame: none, the transparent corner reads as ground', () => {
     const { c, box, ctx } = scene('none', windowCaptureSource(), GROUND_MID);
     const ref = groundOnly(c, GROUND_MID);
 
@@ -390,7 +390,7 @@ describe('a transparent source shows the ground, not a fill and not the shadow',
     expect(Math.min(...actual), 'the shadow caster is showing through').toBeGreaterThan(25);
   });
 
-  it('browser frame — the transparent corner reads as ground, not the theme body', () => {
+  it('browser frame, the transparent corner reads as ground, not the theme body', () => {
     const { c, box, ctx } = scene('browser', windowCaptureSource(), GROUND_MID);
     const ref = groundOnly(c, GROUND_MID);
     const screen = box.chrome.screen;
@@ -411,10 +411,10 @@ describe('a transparent source shows the ground, not a fill and not the shadow',
     expect(Math.min(...actual)).toBeGreaterThan(25);
   });
 
-  it('phone frame — the transparent corner reads as the device, never as white', () => {
+  it('phone frame, the transparent corner reads as the device, never as white', () => {
     // Deliberately NOT the ground: what is behind a phone's screen is the
     // phone. Backing the screen with the ground instead was measured and
-    // puts a +52-level light halo inside the bezel — the reported bug again
+    // puts a +52-level light halo inside the bezel, the reported bug again
     // in a new colour. The white fill is what had to go, and it is gone.
     const { box, ctx } = scene('phone', windowCaptureSource(), GROUND_MID);
     const screen = box.chrome.screen;
@@ -455,7 +455,7 @@ describe('a transparent source shows the ground, not a fill and not the shadow',
  * run, not about the arc.
  */
 
-// Black, with the outermost row and column painted `mark` — the picture's
+// Black, with the outermost row and column painted `mark`, the picture's
 // first row and first column, and nothing else.
 function markedSource(mark) {
   const cv = createCanvas(SRC_W, SRC_H);
@@ -474,7 +474,7 @@ function markerCoverage(dark, light) {
 }
 
 describe('the screenshot keeps every pixel it was given', () => {
-  // Radius 0 (Rock's own control case — intact before this task), a tiny
+  // Radius 0 (Rock's own control case, intact before this task), a tiny
   // one (2px is 0.1% of the 1800px canvas, the radius slider's first step,
   // and where he saw the cut appear), and a large one.
   for (const radius of [0, 2, 120]) {
@@ -514,7 +514,7 @@ describe('the screenshot keeps every pixel it was given', () => {
  *
  * Rock's second report: "a visible spike where the straight edge meets the
  * corner arc", seen without zooming. Under a clip, the straight edges and
- * the arc stop agreeing — in Chromium the shot overshoots the clip by a
+ * the arc stop agreeing, in Chromium the shot overshoots the clip by a
  * whole pixel along the right and bottom but follows the arc around the
  * curve, so the two meet in a step.
  *
@@ -523,7 +523,7 @@ describe('the screenshot keeps every pixel it was given', () => {
  *
  *   edgeX(y) = window edge -/+ sum over x of coverage(x, y)
  *
- * done twice — once from the shot's own coverage, once from the path's —
+ * done twice, once from the shot's own coverage, once from the path's,
  * and compares them. The shot's coverage is normalised by its plateau along
  * the straight run first, because the browser frame paints a 1px hairline
  * over its own edge and scales every reading there by (1 - 0.09); that is a
@@ -543,8 +543,8 @@ describe('the screenshot keeps every pixel it was given', () => {
  *   Chromium, tile + clamp + one mask    worst 0.009px, worst step 0.012px
  *   @napi-rs/canvas, either              worst 0.031px, worst step 0.021px
  *
- * So it was confirmed red the one way it can be — in Chrome, on this
- * geometry, eight times its tolerance — and it stays here in Node as the
+ * So it was confirmed red the one way it can be, in Chrome, on this
+ * geometry, eight times its tolerance, and it stays here in Node as the
  * guard that the technique which fixed it keeps working. See
  * test/render-clip-safety.test.js for the structural half and
  * docs/verification-2026-09-01.md for the browser measurement.
@@ -664,7 +664,7 @@ describe('the straight edge meets the corner arc without a step', () => {
   ];
 
   for (const [label, frameKind, rectOf, radiusOf, tol] of cases) {
-    it(`${label} — the bottom edge runs into its arc continuously`, () => {
+    it(`${label}, the bottom edge runs into its arc continuously`, () => {
       const dark = scene(frameKind, flatSource('#141414'));
       const light = scene(frameKind, flatSource('#c8c8c8'));
       const rect = rectOf(dark), radius = radiusOf(dark);

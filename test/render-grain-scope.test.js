@@ -86,7 +86,7 @@ describe('grain is applied to the ground only', () => {
     ).toBe('1 colours, spread 0/0/0');
   });
 
-  it('still grains the ground — otherwise the fix above is just "grain off"', () => {
+  it('still grains the ground, otherwise the fix above is just "grain off"', () => {
     const image = flat(1440, 900, '#808080');
     const on = render({ ratio: '3:2', frameKind: 'none', grain: 1 }, { web: image, mobile: [] });
     const off = render({ ratio: '3:2', frameKind: 'none', grain: 0 }, { web: image, mobile: [] });

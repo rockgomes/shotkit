@@ -355,7 +355,7 @@ describe('luminosity replaces tone (Task 1)', () => {
 });
 
 
-// Task 4 fix round 1: web/sidebar.js's ground-preset swatches need to preview
+// Task 4 fix round 1: web/size.js's ground-preset swatches need to preview
 // a FORCED hue against the user's own loaded image without paying
 // analyse()'s cost again per swatch (see task-4-report.md's fix-round-1
 // section for the measured cost - ~87ms/call, ~700ms for 8 swatches against
@@ -479,7 +479,7 @@ describe('a preset carries its own saturation (Task 3)', () => {
 // The palette's own separation, asserted rather than eyeballed.
 //
 // Rock, on the first eight: "yeah they are extremely similar." Cycle C
-// Task 3 rewrote them and fixed `ash`, but added no guard — and paper and
+// Task 3 rewrote them and fixed `ash`, but added no guard, and paper and
 // ember then sat 5 levels apart for two more tasks before anyone measured
 // the whole grid. This is that guard.
 // ---------------------------------------------------------------------
@@ -487,8 +487,8 @@ describe('every preset is visibly different from every other', () => {
   // A muted UI blue, not the vivid magenta the suite uses elsewhere, and
   // not a grey. The source matters: saturation is derived from the
   // screenshot's own chroma, so on a near-grey every preset collapses to
-  // within 3 levels of every other BY DESIGN — "the ground comes from the
-  // product" — and no absolute floor can hold there. Measured on all three,
+  // within 3 levels of every other BY DESIGN, "the ground comes from the
+  // product", and no absolute floor can hold there. Measured on all three,
   // paper/ember is the closest pair either way; this one is simply where
   // the numbers are legible, and it is what a real screenshot looks like.
   function source() {

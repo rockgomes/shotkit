@@ -47,7 +47,7 @@ function framedScene(overrides) {
 }
 
 describe('strokes', () => {
-  it('style none paints nothing — output matches a config with no stroke key', () => {
+  it('style none paints nothing, output matches a config with no stroke key', () => {
     const a = scene({ stroke: { style: 'none' } });
     const b = scene({});
     const mid = Math.round(a.lay.web.y + a.lay.web.h / 2);
@@ -79,7 +79,7 @@ describe('strokes', () => {
     const { lay, ctx } = scene({ stroke: { style: 'light', width: 0.02 } });
     expect(px(ctx, lay.web.x + lay.web.w / 2, lay.web.y + lay.web.h / 2))
       .toEqual([16, 24, 38]);
-    // The centre alone cannot fail — it is the image with or without a mat.
+    // The centre alone cannot fail, it is the image with or without a mat.
     // The real guard is the picture's own left edge: the first fully interior
     // pixel of `inner` must already be screenshot, not more mat. A stroke
     // painted OVER the shot, or an interior computed too small, moves it.
@@ -211,7 +211,7 @@ describe('per-element stroke and shadow (Task 5)', () => {
     expect(maxOverColumns(bare.ctx, Math.ceil(b.x), mid, 3)).toBe(0);
   });
 
-  it('a phone-framed one still has it — the device keeps its highlight', () => {
+  it('a phone-framed one still has it, the device keeps its highlight', () => {
     const framed = phoneScene({});
     const b = framed.lay.phones[0];
     const mid = Math.round(b.y + b.h / 2);

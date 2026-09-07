@@ -1,14 +1,14 @@
-# shotkit Cycle C — Background, End to End Implementation Plan
+# shotkit Cycle C, Background, End to End Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the background worth choosing. Today it is one pale wash: "Ground tone" offers Light and Mid, both of which are pale — there is no dark ground anywhere in the tool — the eight named hues are indistinguishable at 14×14, and mesh was built and then withheld because on this palette it cannot be seen. All of that is one surface, and this cycle rebuilds it end to end.
+**Goal:** Make the background worth choosing. Today it is one pale wash: "Ground tone" offers Light and Mid, both of which are pale, there is no dark ground anywhere in the tool, the eight named hues are indistinguishable at 14×14, and mesh was built and then withheld because on this palette it cannot be seen. All of that is one surface, and this cycle rebuilds it end to end.
 
-**Architecture:** `tone` is replaced by a single continuous `luminosity`, resolved in `core/ground.js`. `null` means *sampled* and reproduces today's two-branch inference exactly, byte for byte — that is the acceptance test for the change, not a nicety. A number sets the ground's own top-stop lightness, and the two stops below it follow by ratios interpolated between the two branches that exist now, clamped so a near-black ground still has structure. The panel then rebuilds around it: type first, sampled inside each type, presets as tiles rendered by the real generator rather than approximated in CSS.
+**Architecture:** `tone` is replaced by a single continuous `luminosity`, resolved in `core/ground.js`. `null` means *sampled* and reproduces today's two-branch inference exactly, byte for byte, that is the acceptance test for the change, not a nicety. A number sets the ground's own top-stop lightness, and the two stops below it follow by ratios interpolated between the two branches that exist now, clamped so a near-black ground still has structure. The panel then rebuilds around it: type first, sampled inside each type, presets as tiles rendered by the real generator rather than approximated in CSS.
 
 **Tech Stack:** Zero-dependency ES modules in `core/`; Vite + vanilla JS in `web/`; vitest with `@napi-rs/canvas` and `pixelmatch` for goldens.
 
-**Spec:** `docs/superpowers/specs/2026-09-02-shotkit-round-two-design.md` — "Background, type-first", "Cycle C's shape", "Carried forward — a dark ground", "Carried forward — Background panel", "Mesh is built, and withheld".
+**Spec:** `docs/superpowers/specs/2026-09-02-shotkit-round-two-design.md`, "Background, type-first", "Cycle C's shape", "Carried forward, a dark ground", "Carried forward, Background panel", "Mesh is built, and withheld".
 
 ## Global Constraints
 
@@ -25,14 +25,14 @@ Carried forward from Cycles A and B. Every task's requirements implicitly includ
 - **One value, one home.** A control writes to exactly one place; readers may accept every input shape. This is the rule the shadow slider died for in Cycle A and the element block was built on in Cycle B.
 - Geometry in `core/` is **proportional to the canvas**, never fixed pixels, except the documented minimums (`lineWidth = 1`, the 240px grain tile, `PHONE_BEZEL_MIN = 3`, `SHADOW_SOURCE_INSET = 2`, `TILE_BLEED = 1`).
 - **Nothing is painted behind a shot, and nothing is drawn inside a clip.**
-- **Do not retune `paintShadow`'s alphas** — `0.17 / 0.07` web and browser, `0.22 / 0.10` phones — without saying so explicitly and showing the measurement. Task 2 is the one place this cycle even looks at them.
+- **Do not retune `paintShadow`'s alphas**, `0.17 / 0.07` web and browser, `0.22 / 0.10` phones, without saying so explicitly and showing the measurement. Task 2 is the one place this cycle even looks at them.
 - **An inset hairline's radius shrinks with its inset** (`strokeInsetHairline`).
 - Run `npx vitest run` before and after every task. Commit only green.
 - After each task, push the branch. Do not merge to `main` mid-cycle.
 
 ### The rule this cycle exists to defend
 
-**A control must be worth having, not merely present.** Cycle B's rule was that a control must act; this cycle's is stronger. Mesh acted — every slider moved something — and was still withheld, because on this palette nothing it did could be seen. "It changes pixels" is not the bar. The bar is that Rock can see the difference and wants it.
+**A control must be worth having, not merely present.** Cycle B's rule was that a control must act; this cycle's is stronger. Mesh acted, every slider moved something, and was still withheld, because on this palette nothing it did could be seen. "It changes pixels" is not the bar. The bar is that Rock can see the difference and wants it.
 
 ### THE APPROVAL GATE
 
@@ -44,16 +44,16 @@ Carried forward from Cycles A and B. Every task's requirements implicitly includ
 
 `test` and `netlify/shotkit-app/deploy-preview` must both be green before handing over. Then stop. Do not assume approval from silence.
 
-**This cycle is almost entirely taste.** More than any before it, "the tests pass" says very little — a palette that measures well and looks muddy is a failed task. Every handover must say what to *look at*, not only what to click.
+**This cycle is almost entirely taste.** More than any before it, "the tests pass" says very little, a palette that measures well and looks muddy is a failed task. Every handover must say what to *look at*, not only what to click.
 
 ### Tests that cannot fail
 
-Cycles A and B produced fifteen between them. The pattern is consistent enough to name: **a test whose setup leaves the old code path on its default will pass by accident**, and **a sample point chosen by arithmetic rather than by measurement will read the wrong thing**. Cycle B added a third: **a comparison that includes a value which moves for a different reason** — the enumeration that compared whole layouts, including the safe box, and reported that everything worked.
+Cycles A and B produced fifteen between them. The pattern is consistent enough to name: **a test whose setup leaves the old code path on its default will pass by accident**, and **a sample point chosen by arithmetic rather than by measurement will read the wrong thing**. Cycle B added a third: **a comparison that includes a value which moves for a different reason**, the enumeration that compared whole layouts, including the safe box, and reported that everything worked.
 
 So, for every assertion added below:
 
 1. Run it against the **unchanged** code first and record that it goes red.
-2. If it goes green, it is not a test. Fix it or delete it — do not tune it.
+2. If it goes green, it is not a test. Fix it or delete it, do not tune it.
 3. For any pixel assertion, print the actual values around the sample point and record them beside it.
 4. Say in the task report which assertions are regression guards that pass on arrival. Do not count those as evidence.
 
@@ -68,11 +68,11 @@ So, for every assertion added below:
 | `core/config.js` | `luminosity` replaces `tone` |
 | `core/index.js` | exports the new vocabulary |
 | `web/inspector-background.js` | rebuilt: type first, sampled inside each type, luminosity, angle |
-| `web/preset-tiles.js` | **new** — renders a preset into a small canvas through the real generator |
-| `web/sidebar.js` | `renderGroundSwatches` retires in favour of the tiles |
+| `web/preset-tiles.js` | **new**, renders a preset into a small canvas through the real generator |
+| `web/size.js` | `renderGroundSwatches` retires in favour of the tiles |
 | `web/style.css` | the tile grid, the full-width preset row, the angle readout |
 
-`web/preset-tiles.js` is a new file because it is the one piece here with a hard rule attached — *the tile is drawn by the real generator, never approximated* — and a rule is easier to keep in a file that contains only the thing it governs. That is the same reasoning that gave `web/selection.js` its own file in Cycle B, and the same class of defect: a swatch that lies about what it will produce.
+`web/preset-tiles.js` is a new file because it is the one piece here with a hard rule attached, *the tile is drawn by the real generator, never approximated*, and a rule is easier to keep in a file that contains only the thing it governs. That is the same reasoning that gave `web/selection.js` its own file in Cycle B, and the same class of defect: a swatch that lies about what it will produce.
 
 ---
 
@@ -91,7 +91,7 @@ git checkout main && git pull --ff-only && git checkout -b feat/cycle-c
 - [ ] **Step 2: After Task 1's commit, open the PR**
 
 ```bash
-gh pr create --title "Cycle C — background, end to end" --body "$(cat <<'EOF'
+gh pr create --title "Cycle C, background, end to end" --body "$(cat <<'EOF'
 Cycle C of the round-two plan. This PR stays open for the whole cycle: each task
 pushes to it, so the deploy preview URL below always reflects the latest task.
 
@@ -104,7 +104,7 @@ The background, rebuilt end to end. Today it is one pale wash: both "Ground
 tone" options are pale, the eight hues are indistinguishable at 14×14, and
 mesh was built and then withheld because on this palette it cannot be seen.
 
-- [ ] 1. `luminosity` replaces `tone` in core/ — sampled still means sampled
+- [ ] 1. `luminosity` replaces `tone` in core/, sampled still means sampled
 - [ ] 2. The shadow, re-verified across the whole luminosity range
 - [ ] 3. A palette worth choosing from
 - [ ] 4. Background becomes type-first, with sampled inside each type
@@ -123,11 +123,11 @@ EOF
 ## Task 1: `luminosity` replaces `tone`
 
 **Files:**
-- Modify: `core/ground.js` — `tail()`
-- Modify: `core/presets.js` — `LUMINOSITY_RANGE`, the two anchor triples
-- Modify: `core/config.js` — `luminosity` replaces `tone`
+- Modify: `core/ground.js`, `tail()`
+- Modify: `core/presets.js`, `LUMINOSITY_RANGE`, the two anchor triples
+- Modify: `core/config.js`, `luminosity` replaces `tone`
 - Modify: `core/index.js`
-- Modify: `web/inspector-background.js` — the Tone segmented becomes a slider
+- Modify: `web/inspector-background.js`, the Tone segmented becomes a slider
 - Test: `test/ground.test.js`, `test/inspector-background.test.js`
 
 **Interfaces:**
@@ -145,7 +145,7 @@ light branch   lightness  0.975  0.925  0.868     sat × 0.55  0.62  0.66
 mid branch     lightness  0.855  0.780  0.712     sat × 0.42  0.40  0.44
 ```
 
-"Mid" means *less pale*. Neither is dark. Rock: *"in the ground tone, why don't we have dark anymore? or you never had it?"* — it never existed.
+"Mid" means *less pale*. Neither is dark. Rock: *"in the ground tone, why don't we have dark anymore? or you never had it?"*, it never existed.
 
 **The model.** `luminosity` is the **top stop's lightness**. The two stops below follow by RATIO, not by subtraction:
 
@@ -154,7 +154,7 @@ light branch   0.925/0.975 = 0.948718…   0.868/0.975 = 0.890256…
 mid branch     0.780/0.855 = 0.912281…   0.712/0.855 = 0.832749…
 ```
 
-Ratios rather than differences because a difference goes negative at the dark end — extrapolating the light branch's 0.107 gap below a top stop of 0.15 produces a negative lightness — while a ratio cannot. Interpolate each ratio linearly in the top stop's lightness across those two anchors, then clamp:
+Ratios rather than differences because a difference goes negative at the dark end, extrapolating the light branch's 0.107 gap below a top stop of 0.15 produces a negative lightness, while a ratio cannot. Interpolate each ratio linearly in the top stop's lightness across those two anchors, then clamp:
 
 ```js
 // Anchors: (L, k1, k2) at the two grounds that exist today. `t` is 0 at the
@@ -174,7 +174,7 @@ export const LUM_K2_RANGE = [0.76, 0.92];
 export const LUMINOSITY_RANGE = [0.15, 0.975];
 ```
 
-**The acceptance test is exactness, not closeness.** At `t = 0` and `t = 1` — that is, at luminosity 0.975 and 0.855 — the interpolation must return the two triples above *identically*, so that `luminosity: null` renders byte-for-byte what ships today. The ratios above are written as divisions, not decimals, precisely so this holds to the last bit.
+**The acceptance test is exactness, not closeness.** At `t = 0` and `t = 1`, that is, at luminosity 0.975 and 0.855, the interpolation must return the two triples above *identically*, so that `luminosity: null` renders byte-for-byte what ships today. The ratios above are written as divisions, not decimals, precisely so this holds to the last bit.
 
 - [x] **Step 2: Write the failing tests**
 
@@ -244,12 +244,12 @@ describe('luminosity replaces tone (Cycle C Task 1)', () => {
 });
 ```
 
-Use `test/ground.test.js`'s own existing sample fixtures and frozen expectations rather than inventing new ones — that file already has a pale case and a dark-UI case with golden values, and reusing them is what makes the first three assertions meaningful.
+Use `test/ground.test.js`'s own existing sample fixtures and frozen expectations rather than inventing new ones, that file already has a pale case and a dark-UI case with golden values, and reusing them is what makes the first three assertions meaningful.
 
 - [x] **Step 3: Run and watch them fail**
 
 Run: `npx vitest run test/ground.test.js -t 'luminosity replaces tone'`
-Expected: every one FAILS. `groundFor`'s third argument is a mode string today, so a number falls through every `if` and lands on the sampled branch — which means the "reaches a dark ground" and "monotonic" cases fail on the values, not on a crash. Confirm that specifically; a crash would prove less.
+Expected: every one FAILS. `groundFor`'s third argument is a mode string today, so a number falls through every `if` and lands on the sampled branch, which means the "reaches a dark ground" and "monotonic" cases fail on the values, not on a crash. Confirm that specifically; a crash would prove less.
 
 - [x] **Step 4: Rewrite `tail()`**
 
@@ -298,13 +298,13 @@ function tail({ lum, hue, chroma }, forceHue, luminosity) {
 
 `darkUI` stays on the returned meta: `web/inspector-background.js` reads it for the "a dark screenshot gets a mid-tone ground" hint, and Cycle B's `groundKeyFor` cache key does not include it but callers may. Do not remove a field this task has no reason to touch.
 
-**Watch the saturation at the dark end.** `s` extrapolates past the mid anchor and the mid triple's multipliers are *lower* than the light one's, so a near-black ground gets progressively less chroma — the opposite of what it needs to avoid reading as flat grey. If the dark end looks muddy, clamp `s` with its own range rather than reworking the model, and record the measurement that made you.
+**Watch the saturation at the dark end.** `s` extrapolates past the mid anchor and the mid triple's multipliers are *lower* than the light one's, so a near-black ground gets progressively less chroma, the opposite of what it needs to avoid reading as flat grey. If the dark end looks muddy, clamp `s` with its own range rather than reworking the model, and record the measurement that made you.
 
 - [x] **Step 5: Replace `tone` in the config and the panel**
 
 `core/config.js`: `tone` is deleted, not deprecated. `luminosity: input.luminosity === undefined ? null : num(input.luminosity, null)`, clamped into `LUMINOSITY_RANGE` when not null.
 
-`web/inspector-background.js`: the Tone segmented control (`Auto / Light / Mid`) becomes a slider with a **Sampled** reset beside it — the same idiom the hue control already uses for `resetToSampled`. `null` renders the slider at the sampled position, and moving it writes a number. Reuse `activeToneUi`'s replacement, not a second path.
+`web/inspector-background.js`: the Tone segmented control (`Auto / Light / Mid`) becomes a slider with a **Sampled** reset beside it, the same idiom the hue control already uses for `resetToSampled`. `null` renders the slider at the sampled position, and moving it writes a number. Reuse `activeToneUi`'s replacement, not a second path.
 
 The hint text under the control must change with it. It currently says a dark screenshot gets a mid-tone ground; that is still true of the sampled default and is now only the default.
 
@@ -314,7 +314,7 @@ The hint text under the control must change with it. It currently says a dark sc
 >    as the step warned they might: the mid anchor's are LOWER than the
 >    light one's, so extrapolating past it drains chroma exactly where a
 >    dark ground most needs to keep a hue. Measured at luminosity 0.15 with
->    the clamp: `#20232c / #1c1e26 / #181b22` — blue-leaning, not grey.
+>    the clamp: `#20232c / #1c1e26 / #181b22`, blue-leaning, not grey.
 > 2. `Math.max(LUMINOSITY_RANGE[0], null)` returns the FLOOR, so a garbage
 >    value would have silently produced the darkest ground instead of
 >    falling back to sampled. Guarded, and the old "BREAK IT" test was
@@ -322,7 +322,7 @@ The hint text under the control must change with it. It currently says a dark sc
 > 3. **The slider sat at the wrong place, and only the browser showed it.**
 >    It is built before any image exists, syncs once at init against a null
 >    `state.meta`, and so sat at the pale anchor over a dark screenshot
->    whose sampled ground was the mid one — the requirement of this whole
+>    whose sampled ground was the mid one, the requirement of this whole
 >    task, silently unmet with every test green. Same shape as Cycle B Task
 >    7's header reading "Desktop" over a phone-only shot. It re-syncs from
 >    `refreshSampled` now. Not unit-tested: `initBackgroundInspector` needs
@@ -340,7 +340,7 @@ Expected: PASS, and **no golden modified.** Every golden omits `tone`, so every 
 
 Then tell Rock:
 
-> Drag the new **Luminosity** slider all the way down. There is a dark ground now — there never has been. Check that "Sampled" still puts it back where the app chose, and that a dark screenshot still gets a less-pale ground by default. What I want your eye on: whether the dark end still reads as *coloured* rather than flat grey.
+> Drag the new **Luminosity** slider all the way down. There is a dark ground now, there never has been. Check that "Sampled" still puts it back where the app chose, and that a dark screenshot still gets a less-pale ground by default. What I want your eye on: whether the dark end still reads as *coloured* rather than flat grey.
 
 ---
 
@@ -353,7 +353,7 @@ Then tell Rock:
 
 **Interfaces:** none. This task may end with no source change at all, and that is a legitimate outcome.
 
-**Why it is a task and not a checklist item.** `paintShadow`'s alphas were verified against pale grounds only. Two fixed tones meant two cases; a slider means the whole range. The dark end is where a shadow stops reading — a dark shadow on a near-black ground is invisible, and the shot loses its lift. This has to be measured in **Chromium**, because the shadow is the one thing in this codebase where `@napi-rs/canvas` and the browser have historically disagreed by a factor of five.
+**Why it is a task and not a checklist item.** `paintShadow`'s alphas were verified against pale grounds only. Two fixed tones meant two cases; a slider means the whole range. The dark end is where a shadow stops reading, a dark shadow on a near-black ground is invisible, and the shot loses its lift. This has to be measured in **Chromium**, because the shadow is the one thing in this codebase where `@napi-rs/canvas` and the browser have historically disagreed by a factor of five.
 
 - [ ] **Step 1: Measure, before deciding anything**
 
@@ -365,9 +365,9 @@ Do not sample through `@napi-rs/canvas`. Do not infer the dark end from the ligh
 
 Three outcomes are all acceptable, and which one is right is a measurement, not a preference:
 
-1. **The shadow holds.** Report the ratios and change nothing. Most likely at the pale end and plausible throughout — the shadow is a dark wash and a dark ground is still lighter than black.
+1. **The shadow holds.** Report the ratios and change nothing. Most likely at the pale end and plausible throughout, the shadow is a dark wash and a dark ground is still lighter than black.
 2. **The shadow disappears at the dark end** and the fix is the shot's own edge, not the shadow. A stroke, or the existing device hairline, may already carry the separation. Report and propose.
-3. **The shadow needs to change with the ground.** This is the one that touches the alphas, and it is the one to be most careful about. If it is the answer, the change is a documented function of luminosity with the current alphas as its value at the pale end — never a flat retune. Say so loudly in the report, and add a golden at the dark end so the new behaviour is frozen.
+3. **The shadow needs to change with the ground.** This is the one that touches the alphas, and it is the one to be most careful about. If it is the answer, the change is a documented function of luminosity with the current alphas as its value at the pale end, never a flat retune. Say so loudly in the report, and add a golden at the dark end so the new behaviour is frozen.
 
 - [ ] **Step 3: Add a golden at the dark end regardless of the outcome**
 
@@ -379,15 +379,15 @@ Even under outcome 1 this is worth having: it is the only golden that would catc
 
 - [ ] **Step 4: Commit, deploy, and STOP**
 
-> Set Luminosity near the bottom and look at whether the shot still lifts off the background. That is the whole question here — a shadow you cannot see is a shot lying flat on the page. I have the measurements either way; I want your eye on it.
+> Set Luminosity near the bottom and look at whether the shot still lifts off the background. That is the whole question here, a shadow you cannot see is a shot lying flat on the page. I have the measurements either way; I want your eye on it.
 
 ---
 
 ## Task 3: A palette worth choosing from
 
 **Files:**
-- Modify: `core/ground.js` — the `sat` formula
-- Modify: `core/presets.js` — `HUES`, if the eight change
+- Modify: `core/ground.js`, the `sat` formula
+- Modify: `core/presets.js`, `HUES`, if the eight change
 - Test: `test/ground.test.js`
 - Regenerate: every golden with a ground, which is all of them
 
@@ -397,7 +397,7 @@ Even under outcome 1 this is worth having: it is the only golden that would catc
 
 - [ ] **Step 1: Measure how close they actually are**
 
-`sat = 0.16 + 0.26 × min(chroma × 1.6, 1)`, then multiplied by 0.55/0.62/0.66 at the light anchor. So the most saturated stop any pale ground can reach is `0.42 × 0.66 = 0.277` — and a screenshot with little colour lands nearer `0.16 × 0.55 = 0.088`.
+`sat = 0.16 + 0.26 × min(chroma × 1.6, 1)`, then multiplied by 0.55/0.62/0.66 at the light anchor. So the most saturated stop any pale ground can reach is `0.42 × 0.66 = 0.277`, and a screenshot with little colour lands nearer `0.16 × 0.55 = 0.088`.
 
 Render all eight named hues at the default luminosity and report, as a table: each ground's middle stop in hex, its HSL saturation, and the **maximum channel difference between adjacent hues**. That number is the one Rock is describing, and it should be recorded before it changes.
 
@@ -405,7 +405,7 @@ Render all eight named hues at the default luminosity and report, as a table: ea
 
 The comment on `sat` says "never fully saturated", and that is right: a ground competing with the screenshot is worse than a dull one. What is wrong is where the ceiling sits, not that there is one.
 
-Change the formula, not the multipliers — the multipliers carry the *relationship between the three stops*, which Task 1 now interpolates and which must not be disturbed:
+Change the formula, not the multipliers, the multipliers carry the *relationship between the three stops*, which Task 1 now interpolates and which must not be disturbed:
 
 ```js
 // WAS 0.16 + 0.26 * ..., topping out at 0.42 before the per-stop
@@ -426,15 +426,15 @@ Those two numbers are a **starting point to be judged on the canvas, not a resul
 node scripts/make-render-goldens.js && git status --short test/golden
 ```
 
-**All sixteen change.** That is unavoidable and it is the point — the ground is in every one. It also means the golden suite proves nothing about this task, so the report must carry the before/after table and the contact sheet from Step 4 instead.
+**All sixteen change.** That is unavoidable and it is the point, the ground is in every one. It also means the golden suite proves nothing about this task, so the report must carry the before/after table and the contact sheet from Step 4 instead.
 
 - [ ] **Step 4: Build a contact sheet and put it in front of Rock**
 
-Render all eight hues, before and after, at the default luminosity, with a shot on top — not bare grounds. A palette is judged with a screenshot covering the middle, because that is what the user sees.
+Render all eight hues, before and after, at the default luminosity, with a shot on top, not bare grounds. A palette is judged with a screenshot covering the middle, because that is what the user sees.
 
 - [ ] **Step 5: Commit, deploy, and STOP**
 
-> Eight grounds, more saturated. Look at them with a shot on top — that is the real test, since the screenshot covers most of the canvas and only a border of ground shows. Two questions: can you tell them apart now, and does any of them fight the screenshot? Both numbers are one line to move.
+> Eight grounds, more saturated. Look at them with a shot on top, that is the real test, since the screenshot covers most of the canvas and only a border of ground shows. Two questions: can you tell them apart now, and does any of them fight the screenshot? Both numbers are one line to move.
 
 ---
 
@@ -462,7 +462,7 @@ Background
   Stops / Spread / Seed              (mesh only)
 ```
 
-Mesh is still withheld from `UI_BG_TYPES` (Cycle A). **Task 8 is where it comes back, or does not** — do not restore it here, and do not build the mesh row's tiles speculatively.
+Mesh is still withheld from `UI_BG_TYPES` (Cycle A). **Task 8 is where it comes back, or does not**, do not restore it here, and do not build the mesh row's tiles speculatively.
 
 - [x] **Step 2: Write the failing tests**
 
@@ -495,7 +495,7 @@ describe('the Background panel is type-first (Task 4)', () => {
 ```
 
 > **One thing found while doing it.** `Angle` was shown for every background
-> type, but `paintSolid` fills flat with the middle stop and never reads it —
+> type, but `paintSolid` fills flat with the middle stop and never reads it,
 > a slider that moves and changes nothing, in this panel, the whole time
 > Cycle B was removing exactly that defect elsewhere. It is gated on the
 > gradient type now (`showsAngle`).
@@ -506,7 +506,7 @@ Move the DOM construction, not the logic. Every pure helper in this file already
 
 - [x] **Step 4: Commit, deploy, and STOP**
 
-> Background now reads top-down: pick the type, then the ground, then the adjustments. Check that switching Gradient ↔ Solid keeps whatever you had — if you were on Sampled you should still be on Sampled, and if you had picked a hue it should still be picked.
+> Background now reads top-down: pick the type, then the ground, then the adjustments. Check that switching Gradient ↔ Solid keeps whatever you had, if you were on Sampled you should still be on Sampled, and if you had picked a hue it should still be picked.
 
 ---
 
@@ -515,14 +515,14 @@ Move the DOM construction, not the logic. Every pure helper in this file already
 **Files:**
 - Create: `web/preset-tiles.js`
 - Modify: `web/inspector-background.js`
-- Modify: `web/sidebar.js` — `renderGroundSwatches` and `gradientFor` retire
+- Modify: `web/size.js`, `renderGroundSwatches` and `gradientFor` retire
 - Modify: `web/style.css`
 - Test: `test/preset-tiles.test.js` (create)
 
 **Interfaces:**
 - Produces: `renderTile(canvas, hue, config, meta)` paints one preset at tile size through `core/`'s own painters.
 
-**The rule with a file to itself.** `gradientFor` in `web/sidebar.js` builds a CSS `linear-gradient` string that *approximates* what `paintGround` will draw. It is a second implementation of the ground, in a different language, and it has already lied once. A 44px tile drawn by the real generator cannot.
+**The rule with a file to itself.** `gradientFor` in `web/size.js` builds a CSS `linear-gradient` string that *approximates* what `paintGround` will draw. It is a second implementation of the ground, in a different language, and it has already lied once. A 44px tile drawn by the real generator cannot.
 
 - [x] **Step 1: Write the failing test**
 
@@ -548,7 +548,7 @@ describe('preset tiles are the real thing (Task 5)', () => {
   });
 
   it('the retired CSS approximation is gone, not merely unused', () => {
-    expect(codeOf('web/sidebar.js')).not.toContain('linear-gradient');
+    expect(codeOf('web/size.js')).not.toContain('linear-gradient');
   });
 });
 ```
@@ -557,23 +557,23 @@ The tolerance of 4 is for the gradient's own interpolation across two very diffe
 
 - [x] **Step 2: Run and watch it fail**
 
-Expected: the file does not exist, and `web/sidebar.js` still contains `linear-gradient`.
+Expected: the file does not exist, and `web/size.js` still contains `linear-gradient`.
 
 - [x] **Step 3: Write `web/preset-tiles.js`**
 
-It builds a small config (`w`/`h` at tile size, the preset's `forceHue`, the current `bgType`, `luminosity` and `seed`), calls `groundFromMeta` for the stops and `paintGround` for the pixels. `groundFromMeta` is the cheap path that already exists precisely for previewing a different hue against the current image's analysis — see its doc comment, and `web/sidebar.js`'s existing caller for the no-image fallback.
+It builds a small config (`w`/`h` at tile size, the preset's `forceHue`, the current `bgType`, `luminosity` and `seed`), calls `groundFromMeta` for the stops and `paintGround` for the pixels. `groundFromMeta` is the cheap path that already exists precisely for previewing a different hue against the current image's analysis, see its doc comment, and `web/size.js`'s existing caller for the no-image fallback.
 
 Nothing here may re-implement a gradient.
 
 - [x] **Step 4: Replace the swatch rows with a tile grid**
 
-~44px tiles in a grid, per the spec. The row's whole area stays clickable — Task 6 is where that is made true for the rows that remain, but a tile grid gets it for free and must not lose it.
+~44px tiles in a grid, per the spec. The row's whole area stays clickable, Task 6 is where that is made true for the rows that remain, but a tile grid gets it for free and must not lose it.
 
 Delete `gradientFor` and `renderGroundSwatches` rather than leaving them unused. An unused second implementation of the ground is exactly the thing that lies later.
 
 - [x] **Step 5: Commit, deploy, and STOP**
 
-> The eight grounds are tiles now, each one painted by the same code that paints the canvas — so what you see in the tile is what you get. With Task 3's palette behind it, this is the point where "I can't tell them apart" should be fixed or clearly not fixed. Tell me which.
+> The eight grounds are tiles now, each one painted by the same code that paints the canvas, so what you see in the tile is what you get. With Task 3's palette behind it, this is the point where "I can't tell them apart" should be fixed or clearly not fixed. Tell me which.
 
 ---
 
@@ -590,12 +590,12 @@ Delete `gradientFor` and `renderGroundSwatches` rather than leaving them unused.
 
 > *"the color names's clickable area should be the whole row, like we have for templates. short names atm have also a short click target."*
 
-Cycle A Task 2 fixed exactly this for the template and ratio rows: `.template-row` shrink-wrapped to its text, and `width: 100%` fixed it. Apply the same reasoning here, and **check the sampled row and the type cells while you are in there** — the same defect tends to travel.
+Cycle A Task 2 fixed exactly this for the template and ratio rows: `.template-row` shrink-wrapped to its text, and `width: 100%` fixed it. Apply the same reasoning here, and **check the sampled row and the type cells while you are in there**, the same defect tends to travel.
 
 If Task 5's tile grid has already made this moot for the presets, say so and fix only what remains. Do not invent work to fill the task.
 
 > **Done.** It was moot for the presets, and the sampled row and the type
-> cells were already full-width and equal — all measured, not read off the
+> cells were already full-width and equal, all measured, not read off the
 > CSS. The one real instance left was `.segmented--mini`, whose cells sized
 > to their own labels (Mid 36.9px against Light 49.5px). Fixed with
 > `grid-auto-columns: 1fr`; `flex: 1` cannot fix a shrink-wrapped control.
@@ -606,16 +606,16 @@ If Task 5's tile grid has already made this moot for the presets, say so and fix
 
 > *"selecting a background changes the hue, but not the angle. why?"*
 
-Because nothing wires them together: a preset writes `forceHue` only, and `angle` is independent, defaulting to 166°. The spec calls this *"not a decision anyone took — it is how the CLI's flags happened to map"*, and asks whether each named ground should carry a considered angle.
+Because nothing wires them together: a preset writes `forceHue` only, and `angle` is independent, defaulting to 166°. The spec calls this *"not a decision anyone took, it is how the CLI's flags happened to map"*, and asks whether each named ground should carry a considered angle.
 
 **This is a design question with a real answer either way**, so present both to Rock rather than picking silently:
 
 - **A preset sets hue only** (today). Angle is a separate axis the user owns, and a preset that moved it would overwrite a choice they made deliberately.
 - **A preset carries its own angle.** Each named ground becomes a considered look rather than a hue, which is what "preset" implies.
 
-Recommend one, implement it after Rock answers, and write the answer into the spec. If he chooses the second, a preset must still leave an angle the user set explicitly alone — the same sampled-versus-explicit rule as everything else in this panel.
+Recommend one, implement it after Rock answers, and write the answer into the spec. If he chooses the second, a preset must still leave an angle the user set explicitly alone, the same sampled-versus-explicit rule as everything else in this panel.
 
-> **Answered 2026-09-05: the first — a preset sets the hue only.** No code
+> **Answered 2026-09-05: the first, a preset sets the hue only.** No code
 > change. Recorded in the spec with the reasoning, including why the second
 > option was weaker than it read: with the explicit-value guard in place it
 > would have differed from today only until the user first touched Angle.
@@ -637,55 +637,55 @@ Item 17. Rock, on the shipped app: *"I can't seem to understand the logic behind
 
 - [x] **Step 1: Find out what it actually does before changing how it reads**
 
-`DEFAULT_ANGLE` is 166°, and `paintGround`'s linear gradient uses it. Determine, by rendering and measuring rather than by reading: at 0°, where is the light end? At 90°? Which way does increasing the number rotate? Write the answer down — that is the thing the control has to communicate, and it cannot be communicated until it is known.
+`DEFAULT_ANGLE` is 166°, and `paintGround`'s linear gradient uses it. Determine, by rendering and measuring rather than by reading: at 0°, where is the light end? At 90°? Which way does increasing the number rotate? Write the answer down, that is the thing the control has to communicate, and it cannot be communicated until it is known.
 
 - [x] **Step 2: Make the control show it**
 
 A number alone cannot say which way 166° points. The control needs a **direction you can see**: a small dial, or the readout paired with an arrow that rotates. Whatever it is, it must be drawn from the same angle value the render uses, so it cannot drift.
 
-Keep the slider — it is good for sweeping — and add the indicator beside it. Do not replace one unclear control with a different unclear control.
+Keep the slider, it is good for sweeping, and add the indicator beside it. Do not replace one unclear control with a different unclear control.
 
 > **Done, and Step 1 found more than an unclear readout.** The angle steered
 > one of `paintGround`'s three layers; the two radial washes were pinned to
 > the canvas. Measured, the light landed up to **178° from where the number
 > pointed**, and through 285°–345° it did not move at all. An arrow drawn
 > from the number would therefore have been a lie, which is the exact failure
-> this step warns against — so the washes now rotate with the angle
+> this step warns against, so the washes now rotate with the angle
 > (`angle − DEFAULT_ANGLE`, zero at the default, **no golden moved**), and the
 > indicator is a circle of the real ground rather than a drawn arrow.
 > Numbers in `docs/verification-2026-09-01.md`.
 
 - [ ] **Step 3: Commit, deploy, and STOP**
 
-> Angle now shows which way it points. Sweep it and check the indicator agrees with what the canvas does — if they ever disagree, the indicator is lying and that is worse than the number alone was.
+> Angle now shows which way it points. Sweep it and check the indicator agrees with what the canvas does, if they ever disagree, the indicator is lying and that is worse than the number alone was.
 
 ---
 
 ## Task 8: Mesh's second hearing
 
 **Files:**
-- Modify: `web/inspector-background.js` — `UI_BG_TYPES`
-- Modify: `README.md` — the "Not built yet" entry, if it comes back
+- Modify: `web/inspector-background.js`, `UI_BG_TYPES`
+- Modify: `README.md`, the "Not built yet" entry, if it comes back
 - Test: `test/inspector-background.test.js`
 
 **The task may end with mesh still withheld, and that is a real outcome.** From the spec: *"If it still cannot be seen at that point, delete it rather than hiding it a second time."*
 
 - [x] **Step 1: Restore it locally and look, with a shot on top**
 
-Mesh was withheld because on the shipped palette it could not be seen — and Rock was precise about why: *"I can see it on your screenshots, but when there's a screen on top, there isn't much to see."* The mistake the first time was judging it on a bare ground.
+Mesh was withheld because on the shipped palette it could not be seen, and Rock was precise about why: *"I can see it on your screenshots, but when there's a screen on top, there isn't much to see."* The mistake the first time was judging it on a bare ground.
 
 So: temporarily add `'mesh'` back to `UI_BG_TYPES`, render it **with a screenshot covering the middle**, on the Task 3 palette, at several luminosities including a dark one, and look at the border of ground that actually shows.
 
 - [x] **Step 2: Take one of the three outcomes, and say which**
 
 1. **It reads now.** Restore it: remove it from `UI_BG_TYPES`, delete the "not built yet" entry, add the mesh tiles to Task 5's grid, and hand Rock a preview.
-2. **It still cannot be seen.** Delete it — `paintMesh`, `MESH_*`, the config block, both goldens, the tests, and `'mesh'` from `BG_TYPES`. The spec says so explicitly, and hiding it a second time would be the worse choice.
+2. **It still cannot be seen.** Delete it, `paintMesh`, `MESH_*`, the config block, both goldens, the tests, and `'mesh'` from `BG_TYPES`. The spec says so explicitly, and hiding it a second time would be the worse choice.
 3. **It reads only at some luminosities.** Report that and let Rock decide; do not invent a rule that hides it conditionally.
 
-> **Outcome 2 — deleted.** Not a taste call in the end. Measured in the
+> **Outcome 2, deleted.** Not a taste call in the end. Measured in the
 > visible ground with a shot on top: a mean difference from the plain
 > gradient of 5 levels, worse as the ground darkens, unchanged at four times
-> the padding. The cause is structural — every blob takes its saturation and
+> the padding. The cause is structural, every blob takes its saturation and
 > lightness from `g1`/`g3`, about 60 levels apart, so the field cannot vary
 > more than the gradient already does. **The palette was never what failed**,
 > which means the Cycle A diagnosis was wrong and no tuning would have fixed
@@ -694,7 +694,7 @@ So: temporarily add `'mesh'` back to `UI_BG_TYPES`, render it **with a screensho
 
 - [ ] **Step 3: Commit, deploy, and STOP**
 
-> Mesh, judged the way it should have been the first time: with a shot on top, on the new palette. Here is what it looks like at a pale ground and a dark one. Keep it or cut it — either is a fine answer, and I would rather cut it than hide it twice.
+> Mesh, judged the way it should have been the first time: with a shot on top, on the new palette. Here is what it looks like at a pale ground and a dark one. Keep it or cut it, either is a fine answer, and I would rather cut it than hide it twice.
 
 ---
 
@@ -702,8 +702,8 @@ So: temporarily add `'mesh'` back to `UI_BG_TYPES`, render it **with a screensho
 
 After Task 8 is approved:
 
-1. `npx vitest run` — green.
-2. `git status --short test/golden` — clean, and the full set intentional. Expect 17 if mesh stays (16 plus `ground-dark`), or 15 if mesh is deleted (its two goldens go with it).
+1. `npx vitest run`, green.
+2. `git status --short test/golden`, clean, and the full set intentional. Expect 17 if mesh stays (16 plus `ground-dark`), or 15 if mesh is deleted (its two goldens go with it).
 3. Update the README: `luminosity` in the `core/` section and the vocabulary table, `tone` removed everywhere it appears, the dark ground struck from "Not built yet", and the mesh entry resolved either way.
 4. Merge the PR to `main` with `--merge` (not squash), delete the branch, confirm CI on `main` and the production deploy.
 5. **Verify the live site**, not just the preview.
@@ -713,12 +713,12 @@ After Task 8 is approved:
 
 ## Self-review
 
-**Spec coverage.** "Carried forward — a dark ground" and "Tone becomes a luminosity slider" → Tasks 1 and 2, including the spec's two explicit requirements (sampled default, shadow re-verified). "Background, type-first" → Task 4. "Preset tiles rendered by the real generator" → Task 5. "Carried forward — Background panel" → Task 6, both halves. Item 17, Angle → Task 7. "Mesh is built, and withheld" → Task 8. The stronger palette → Task 3.
+**Spec coverage.** "Carried forward, a dark ground" and "Tone becomes a luminosity slider" → Tasks 1 and 2, including the spec's two explicit requirements (sampled default, shadow re-verified). "Background, type-first" → Task 4. "Preset tiles rendered by the real generator" → Task 5. "Carried forward, Background panel" → Task 6, both halves. Item 17, Angle → Task 7. "Mesh is built, and withheld" → Task 8. The stronger palette → Task 3.
 
-**Not covered here, deliberately:** the left/right panel split, tabbed size, per-control Resets and the accent colour, all moved to Cycle D when this cycle split. Background blur stays out entirely — the spec is explicit that it only becomes real once there are image or generated-wallpaper types, and there are none this round.
+**Not covered here, deliberately:** the left/right panel split, tabbed size, per-control Resets and the accent colour, all moved to Cycle D when this cycle split. Background blur stays out entirely, the spec is explicit that it only becomes real once there are image or generated-wallpaper types, and there are none this round.
 
 **Known open questions, both routed to Rock rather than guessed:** whether a preset carries its own angle (Task 6 Step 2), and whether mesh survives (Task 8 Step 2). Both are recorded as decisions to present, with a recommendation, not as things to settle silently.
 
-**Where this plan is weakest, said plainly.** Task 3 is a taste change with almost no test cover — the goldens all move, so they prove nothing about it — and the two saturation constants are a starting point, not a result. Task 7 begins with "find out what the control actually does", which is honest but means its second half cannot be specified until its first half runs. Both are the kind of task where the preview, not the suite, is the acceptance test.
+**Where this plan is weakest, said plainly.** Task 3 is a taste change with almost no test cover, the goldens all move, so they prove nothing about it, and the two saturation constants are a starting point, not a result. Task 7 begins with "find out what the control actually does", which is honest but means its second half cannot be specified until its first half runs. Both are the kind of task where the preview, not the suite, is the acceptance test.
 
 **Type consistency.** `luminosity` is the field name in config, meta and the panel; `l` is the resolved top-stop lightness inside `tail()`; `LUM_ANCHOR_LIGHT` / `LUM_ANCHOR_MID` are the two triples; `LUMINOSITY_RANGE`, `LUM_K1_RANGE`, `LUM_K2_RANGE` are the bounds. `groundFor(samples, forceHue, luminosity)` and `groundFromMeta(meta, forceHue, luminosity)` keep their arity, with the third argument's type changed from string to number. `renderTile(canvas, hue, config, meta)` is Task 5's only export.
