@@ -312,9 +312,15 @@ Honest list. None of these is half-done; they are simply not there.
   markup, marked `hidden`, because the design for it exists and the CLI is
   still planned.
 - **Saved presets, and the rail's Library / Presets / Integrations / Settings.**
-  They render, disabled. Nothing is wired behind them.
+  Nothing is wired behind them, so the whole left rail is `hidden` as of
+  2026-09-07: a navigation bar whose every destination but the current one is
+  unreachable is not navigation. The markup stays, waiting for a second place
+  to go.
 - **Zoom, and copy-to-clipboard.** The toolbar's zoom stepper and its "Copy"
-  button both render disabled and are wired to nothing. When zoom is built it
+  button are wired to nothing, so the whole top-right group is `hidden` as of
+  2026-09-07. The toolbar's Export button went with them, not because it is
+  broken but because it was the second of two: the right panel's "Export PNG"
+  does the same job beside the format and scale it uses. When zoom is built it
   must stay a pure view transform and never reach `composeWithMeta`, the
   preview canvas *is* the export canvas, so a zoom that touched the
   composition would ship in the PNG. Confirmed 2026-09-06 as the sense Rock
