@@ -54,9 +54,10 @@
    Off is FLAT: all five text rungs collapse to one tone, because
    "unavailable" is one state and not five.
 
-   Two things this rule cannot reach, each handled where it lives: the ground
-   swatches (an inline background, see .inspector-section[inert]
-   .preset-swatch below) and .zoom-btn, whose `color: inherit` takes its
+   Two things this rule cannot reach, each handled where it lives: the
+   sampled row's stop chips (an inline background, see
+   .inspector-section[inert] .sampled-stop below) and .zoom-btn, whose
+   `color: inherit` takes its
    parent's COMPUTED colour and so cannot see a custom property re-declared
    on the button itself. */
 .inspector-section[inert],
@@ -707,22 +708,17 @@ input {
   color: var(--text-muted);
 }
 
-.template-row--add {
-  justify-content: center;
-  margin-top: 4px;
-  border: 1px dashed var(--border-dashed);
-  color: var(--text-primary);
-}
-
-.template-row:focus-visible,
-.preset-row:focus-visible {
+/* `.template-row--add` lived here: the dashed "+ Custom size" row that used
+   to hang under Templates. The Custom TAB replaced it in Cycle D, and
+   nothing has rendered the class since. */
+.template-row:focus-visible {
   outline: 2px solid var(--text-primary);
   outline-offset: -2px;
 }
 
-/* "+ Custom size" (Task 4): the disclosure form under the dashed toggle
-   row. Same dashed border token as the toggle itself, so the two read as
-   one control while it's open. */
+/* The custom W/H form. It was a disclosure under a dashed "+ Custom size"
+   row in Task 4; since Cycle D the Custom TAB is the disclosure, and the
+   form is simply what that tab shows. */
 .custom-size-form {
   display: flex;
   flex-direction: column;
@@ -774,48 +770,16 @@ input {
   width: 100%;
 }
 
-.preset-row {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  height: 30px;
-  padding: 0 10px;
-  /* transparent 1px border (not `border: none`) so .is-selected below only
-     ever changes border-color, never border-WIDTH, that's what keeps
-     selecting a row from nudging its own content by a pixel, the same
-     convention .template-row already uses. */
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  background: none;
-  color: var(--text-primary);
-  cursor: pointer;
-  text-align: left;
-}
-
-.preset-row:hover:not(.is-selected) {
-  background: var(--surface-hover);
-}
-
-.preset-row.is-selected {
-  background: var(--surface-raised-1);
-  border-color: var(--border-strong);
-  color: var(--text-primary);
-}
-
-.preset-swatch {
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  flex: none;
-}
-
-/* `.preset-swatch--aurora/--slate/--candy` (three fixed gradient chips from
-   the design handoff) lived here, removed with the rail's Ground list they
-   were the only markup for (Cycle A Task 2). The surviving `.preset-swatch`
-   above is still real: web/size.js's `renderGroundSwatches` builds it and
-   sets `style.background` from the live hue, so the chip's colour comes from
-   the ground itself rather than from three hard-coded modifiers. Their six
-   `--color-*` tokens went with them, in tokens.css. */
+/* `.preset-row` and `.preset-swatch` lived here: a row with a 14x14 CSS
+   gradient chip, the ground list's old shape. Cycle C Task 5 replaced the
+   whole thing with `.preset-tile`, a real <canvas> painted by core/'s own
+   paintGround (web/preset-tiles.js), because the CSS chip was a second
+   implementation of the gradient and it lied about `ash`. The rules
+   outlived the markup by two cycles, and the comment that used to sit here
+   still claimed `renderGroundSwatches` built them, a function deleted in
+   the same task. `.preset-swatch--aurora/--slate/--candy` and their six
+   `--color-*` tokens went earlier, with the rail's duplicate Ground list
+   (Cycle A Task 2). */
 
 .sidebar-spacer {
   flex: 1;
@@ -1221,8 +1185,8 @@ input {
    whole: a colour sample carries no text and no contrast obligation, so
    there is nothing for it to destroy. 0.4 lands a pale swatch within about
    0.1:1 of --text-inert, so the swatches sit in the same tone as the rest of
-   the dimmed panel instead of above it. */
-.inspector-section[inert] .preset-swatch,
+   the dimmed panel instead of above it. (`.preset-swatch` was in this
+   selector too, until its rules went above.) */
 .inspector-section[inert] .sampled-stop {
   filter: brightness(0.4);
 }
@@ -1389,13 +1353,26 @@ input {
   cursor: pointer;
 }
 
+/* THE FILLED PART IS THE ACCENT, not white. Every slider in Rock's frame
+   draws it that way (nodes 7:598, 7:608, 7:618, 7:646, 7:258, 7:456,
+   7:467), and this was the last colour in the app still disagreeing with
+   it.
+
+   The accent against the unfilled track measures 1.48:1, below the 3:1 this
+   project gives boundaries. That is deliberate and it is argued, not
+   ignored: the boundary that tells you the VALUE is the thumb, not the
+   colour change under it. The thumb is white, and it clears 3:1 against
+   both halves of the track (4.53 on the fill, 3.07 on the rest), which is
+   what test/contrast.test.js now asserts. A fill/track pair is the "two
+   decorative regions inside one control" case the exception argument at the
+   top of that file already covers. */
 .slider::-webkit-slider-runnable-track {
   height: 3px;
   border-radius: 2px;
   background: linear-gradient(
     to right,
-    var(--text-primary) 0%,
-    var(--text-primary) calc(var(--slider-fill, 50%)),
+    var(--accent) 0%,
+    var(--accent) calc(var(--slider-fill, 50%)),
     var(--border-strong) calc(var(--slider-fill, 50%)),
     var(--border-strong) 100%
   );
@@ -1410,7 +1387,7 @@ input {
 .slider::-moz-range-progress {
   height: 3px;
   border-radius: 2px;
-  background: var(--text-primary);
+  background: var(--accent);
 }
 
 .slider::-webkit-slider-thumb {
@@ -1447,9 +1424,9 @@ input {
 /* -------------------------------------------------------------------------
    Control primitive: Sampled row (Task 5, web/inspector-background.js)
 
-   Same shape/tokens as .preset-row (a real <button>, transparent 1px
-   border so selecting it never nudges layout by a pixel) but three small
-   stop chips instead of one gradient chip, and, the one genuinely new
+   A real <button> with a transparent resting edge, so selecting it never
+   nudges layout by a pixel, carrying three small stop chips, and, the one
+   genuinely new
    rule, a DIMMED-not-hidden state for "this is true, but not what's
    currently in effect" (an override is forcing a different hue). Opacity
    is the whole mechanism: nothing about the row's structure or colours
