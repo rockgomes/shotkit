@@ -276,8 +276,8 @@ input {
 
 .file-chip {
   display: flex;
-  align-items: center;
-  gap: 2px;
+  align-items: baseline;
+  gap: 5px;
   /* `none`, so a chip never shrinks to just its X. The row scrolls instead. */
   flex: none;
   height: 24px;
@@ -295,6 +295,15 @@ input {
   flex: none;
 }
 
+/* The kind leads, because it is what you check before pressing X. */
+.file-chip-kind {
+  flex: none;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+/* The filename follows it, smaller and quieter: the same pairing the size
+   dropdown's rows already use for a name and its pixels (node 7:693). */
 .file-chip-name {
   min-width: 0;
   /* one long filename does not get to own the whole row */
@@ -302,7 +311,9 @@ input {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--text-primary);
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--text-muted);
 }
 
 /* 20x20 inside a 24px chip. Under the 24x24 target floor, like the zoom

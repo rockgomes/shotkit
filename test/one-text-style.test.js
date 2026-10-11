@@ -22,6 +22,7 @@ const ALLOWED = new Map([
   ['.section-label', 'a heading does not inherit either, it has UA defaults'],
   ['.btn-block', '12.5px, node 7:291 (the Export button)'],
   ['.template-row .dim', '10.5px Regular, node 7:693'],
+  ['.file-chip-name', '10.5px Regular: the same name-and-detail pairing as 7:693'],
   ['.size-trigger-dims', '9px Regular, node 7:661'],
   ['.export-footnote', '10.5px Regular, node 7:292'],
   ['.preset-tile-label', '11px Medium, node 7:184'],

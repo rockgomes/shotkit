@@ -510,11 +510,21 @@ function renderFileList(loaded) {
     const li = document.createElement('li');
     li.className = 'file-chip';
 
+    // WHICH SHOT IT IS, said out loud. Rock, 2026-10-12: "I had to hover on
+    // the file to see the 'desktop 1 / phone 1'. why not have that
+    // outside?" It was a `title`, which is a tooltip: invisible on touch,
+    // invisible to anyone not hovering, and the one thing you actually need
+    // to read before pressing a remove button.
+    const kindEl = document.createElement('span');
+    kindEl.className = 'file-chip-kind';
+    kindEl.textContent = kind;
+
     const name = document.createElement('span');
     name.className = 'file-chip-name';
     name.textContent = img.__name;
-    // The full name on hover: the chip itself ellipsises a long one.
-    name.title = `${kind}: ${img.__name}`;
+    // Still a title, but now only for the case it is good for: a long
+    // filename the chip has ellipsised.
+    name.title = img.__name;
 
     const remove = document.createElement('button');
     remove.type = 'button';
@@ -523,7 +533,7 @@ function renderFileList(loaded) {
     remove.setAttribute('aria-label', `Remove ${kind}, ${img.__name}`);
     remove.innerHTML = '<svg class="icon icon-sm" aria-hidden="true"><use href="#icon-x"></use></svg>';
 
-    li.append(name, remove);
+    li.append(kindEl, name, remove);
     fileList.appendChild(li);
   }
 }
