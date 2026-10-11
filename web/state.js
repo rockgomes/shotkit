@@ -242,6 +242,79 @@ export async function addFiles(files) {
   return errors;
 }
 
+/**
+ * Remove ONE loaded screenshot, by the id web/decode.js stamped on its
+ * bitmap. Returns true if something was actually removed.
+ *
+ * Rock, 2026-10-12: *"what if I wanna just delete one of the shots I
+ * uploaded?"* He could not. `addFiles` above was the only thing that had
+ * ever touched `state.images`, and it only ever added: a phone shot dropped
+ * by mistake was stuck until the page was reloaded, which also threw away
+ * every slider.
+ *
+ * Keyed on `__id` rather than on an array index, because the caller holds a
+ * chip rendered from a past state and the array may have moved underneath
+ * it. The id is stable for the life of the decoded bitmap (decode.js).
+ */
+export function removeImage(id) {
+  let removed = false;
+  if (state.images.web && state.images.web.__id === id) {
+    state.images.web = null;
+    removed = true;
+  } else {
+    const before = state.images.mobile.length;
+    state.images.mobile = state.images.mobile.filter((img) => img.__id !== id);
+    removed = state.images.mobile.length !== before;
+  }
+  if (removed) afterImagesChanged();
+  return removed;
+}
+
+/** Remove every loaded screenshot, leaving the config alone: "Clear" means
+ *  start on a new shot, not throw away the ground you just tuned. */
+export function clearImages() {
+  if (!hasContent()) return false;
+  state.images.web = null;
+  state.images.mobile = [];
+  afterImagesChanged();
+  return true;
+}
+
+/**
+ * The one path out of a removal, so nothing can drop an image and forget
+ * what read it.
+ *
+ * Three things have to go, and each was a real bug waiting:
+ * - the SELECTION, if the thing it pointed at is gone. The inspector edits
+ *   `state.selection`, so leaving it set means a panel editing a shot that
+ *   is not there.
+ * - the META and its cache. `meta` is the ground sampled FROM a shot; after
+ *   a clear, the Background panel's "Sampled" row would otherwise still
+ *   report a hue taken from a picture the app no longer has.
+ * - the PIXELS, when nothing is left. render() returns early with no images
+ *   (see its first lines), so without this the canvas keeps the last shot
+ *   painted on it. It is hidden by CSS at that point, but the preview canvas
+ *   IS the export canvas, and stale pixels in it are exactly the class of
+ *   thing this project does not leave lying around.
+ */
+function afterImagesChanged() {
+  if (state.selection === 'web' && !state.images.web) state.selection = null;
+  if (state.selection === 'mobile' && !state.images.mobile.length) state.selection = null;
+
+  metaCache = null;
+  state.meta = null;
+
+  if (hasContent()) {
+    render();
+    return;
+  }
+
+  state.lay = null;
+  const ctx = canvasEl && canvasEl.getContext('2d');
+  if (ctx) ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+  for (const fn of afterRender) fn();
+}
+
 export function hasContent() {
   return !!(state.images.web || state.images.mobile.length);
 }

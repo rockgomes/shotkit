@@ -87,6 +87,9 @@
       <symbol id="icon-chevron-down" viewBox="0 0 24 24">
         <path d="m6 9 6 6 6-6" />
       </symbol>
+      <symbol id="icon-x" viewBox="0 0 24 24">
+        <path d="M18 6 6 18M6 6l12 12" />
+      </symbol>
     </defs>
   </svg>
 
@@ -108,8 +111,18 @@
 
       <div class="toolbar-divider" aria-hidden="true"></div>
 
+      <!-- EVERY LOADED SHOT, AND A WAY TO REMOVE IT. Rock, 2026-10-12:
+           "what if I wanna just delete one of the shots I uploaded?" He
+           could not: images were only ever added. This slot used to be one
+           span joining the names with " + ", which showed WHAT was loaded
+           and offered nothing to do about it.
+
+           web/main.js fills #fileList with one chip per shot. Phone shots
+           stack up to three, so there can be four chips. -->
       <div class="toolbar-file" id="toolbarFile">
-        <span class="file-slot file-slot--empty">No screenshot loaded</span>
+        <span class="file-slot file-slot--empty" id="fileSlotEmpty">No screenshot loaded</span>
+        <ul class="file-list" id="fileList" hidden></ul>
+        <button type="button" id="clearShotsBtn" class="btn btn-ghost" hidden>Clear</button>
       </div>
 
       <div class="toolbar-spacer"></div>

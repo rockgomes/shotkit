@@ -71,6 +71,9 @@ to three. Then:
   opt-in stroke (light, glass or a custom colour), and Export. Padding is
   canvas-level and stays here for now; grain moved to the left panel with the
   rest of the ground.
+- **The shot list**, in the toolbar: one chip per loaded screenshot, each
+  with its own remove button, plus **Clear** for all of them. Clear removes
+  the shots and leaves the ground, frame and finish settings alone.
 - **Export**, PNG, JPEG or WebP at 1×, 2× or 3×. Filenames come from the source
   file, e.g. `fieldset--web@2x.png`.
 

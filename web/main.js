@@ -6,7 +6,9 @@
 // where a drop/browse/surround click actually reaches `state` and the
 // on-page canvas, see web/state.js for the render() pipeline itself.
 
-import { state, SURROUNDS, bindCanvas, addFiles, hasContent, onRender } from './state.js';
+import {
+  state, SURROUNDS, bindCanvas, addFiles, removeImage, clearImages, hasContent, onRender,
+} from './state.js';
 import { exportShot } from './export.js';
 import { initSize, sizeLabel } from './size.js';
 import { makePopover } from './controls.js';
@@ -324,7 +326,9 @@ const dropzone = document.getElementById('dropzone');
 const dropzoneDims = document.getElementById('dropzoneDims');
 const dropError = document.getElementById('dropError');
 const fileInput = document.getElementById('fileInput');
-const toolbarFileSlot = document.querySelector('#toolbarFile .file-slot');
+const toolbarFileSlot = document.getElementById('fileSlotEmpty');
+const fileList = document.getElementById('fileList');
+const clearShotsBtn = document.getElementById('clearShotsBtn');
 const exportFootnote = document.querySelector('.export-footnote');
 const sidebarEl = document.getElementById('sidebar');
 
@@ -475,6 +479,67 @@ function updateEmptyFrame() {
  *  aren't the canvas itself: which of canvas/dropzone is showing, the
  *  toolbar's filename slot, the export footnote, the inspector's greyed
  *  "Properties" state (Task 7), and the arrival animation. */
+/** Every loaded shot as a named chip with its own remove button, plus one
+ *  Clear for the lot.
+ *
+ *  This slot used to be a single span joining the names with " + ": it said
+ *  WHAT was loaded and offered nothing to do about it, which is how the app
+ *  shipped with no way to remove a phone shot dropped by mistake.
+ *
+ *  Rebuilt from `state.images` every time rather than patched, because the
+ *  list is four rows at most and the only thing worse than rebuilding it is
+ *  a chip whose `__id` no longer matches the shot it sits next to. Each
+ *  button carries its shot's id, so a stale click removes nothing rather
+ *  than removing the wrong thing. */
+function renderFileList(loaded) {
+  if (toolbarFileSlot) toolbarFileSlot.hidden = loaded;
+  if (clearShotsBtn) clearShotsBtn.hidden = !loaded;
+  if (!fileList) return;
+
+  fileList.hidden = !loaded;
+  fileList.textContent = '';
+  if (!loaded) return;
+
+  const shots = [];
+  if (state.images.web) shots.push({ img: state.images.web, kind: 'Desktop' });
+  state.images.mobile.forEach((img, i) => {
+    shots.push({ img, kind: `Phone ${i + 1}` });
+  });
+
+  for (const { img, kind } of shots) {
+    const li = document.createElement('li');
+    li.className = 'file-chip';
+
+    const name = document.createElement('span');
+    name.className = 'file-chip-name';
+    name.textContent = img.__name;
+    // The full name on hover: the chip itself ellipsises a long one.
+    name.title = `${kind}: ${img.__name}`;
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'file-chip-remove';
+    remove.dataset.id = String(img.__id);
+    remove.setAttribute('aria-label', `Remove ${kind}, ${img.__name}`);
+    remove.innerHTML = '<svg class="icon icon-sm" aria-hidden="true"><use href="#icon-x"></use></svg>';
+
+    li.append(name, remove);
+    fileList.appendChild(li);
+  }
+}
+
+/** The one path out of adding, removing or clearing a shot. handleFiles()
+ *  used to carry these four calls inline; the remove and clear buttons owe
+ *  exactly the same four, and a second hand-written copy is how one of them
+ *  ends up missing `refreshSampled` and showing a hue sampled from a
+ *  picture that is gone. */
+function afterImagesChanged() {
+  syncContentUI();
+  syncInspectors();
+  placeSelectionOutline();
+  background?.refreshSampled();
+}
+
 function syncContentUI() {
   const loaded = hasContent();
   const wasLoaded = renderCanvas.classList.contains('is-visible');
@@ -501,13 +566,7 @@ function syncContentUI() {
     else section.setAttribute('inert', '');
   }
 
-  if (toolbarFileSlot) {
-    const names = [];
-    if (state.images.web) names.push(state.images.web.__name);
-    for (const m of state.images.mobile) names.push(m.__name);
-    toolbarFileSlot.textContent = loaded ? names.join(' + ') : 'No screenshot loaded';
-    toolbarFileSlot.classList.toggle('file-slot--empty', !loaded);
-  }
+  renderFileList(loaded);
 
   if (exportFootnote) {
     exportFootnote.textContent = loaded ? 'Ready to export' : 'No screenshot loaded yet';
@@ -588,6 +647,19 @@ function setSelection(next) {
   syncInspectors();
 }
 
+/* Remove one shot, or all of them. Delegated from the list rather than
+   bound per chip, because renderFileList rebuilds the chips on every change
+   and per-chip listeners would be re-attached four at a time for no gain. */
+fileList?.addEventListener('click', (event) => {
+  const btn = event.target.closest('.file-chip-remove');
+  if (!btn) return;
+  if (removeImage(Number(btn.dataset.id))) afterImagesChanged();
+});
+
+clearShotsBtn?.addEventListener('click', () => {
+  if (clearImages()) afterImagesChanged();
+});
+
 renderCanvas.addEventListener('click', (event) => {
   if (!hasContent()) return;
   const p = canvasSpace(event);
@@ -635,21 +707,15 @@ async function handleFiles(fileList) {
   if (!fileList || !fileList.length) return;
   const errors = await addFiles(fileList);
   showDropErrors(errors);
-  syncContentUI();
-  // The drop may have changed which element the panels are editing - see
-  // syncInspectors' own comment.
-  syncInspectors();
-  // addFiles() above calls render() synchronously when it decodes anything,
-  // so state.meta already reflects the new image(s) by this point, this is
-  // what tells the Background panel's preset swatches to stop showing the
-  // synthetic no-image fallback and start previewing the real thing (see
-  // web/size.js's "Ground swatch gradients" header comment), and what
-  // re-derives its "Sampled" row (Task 5), see web/inspector-background.js's
-  // "Sampled" header comment for why it keeps an independent cache that only
-  // this call invalidates. The rail had a second copy of this handshake
-  // (`sidebar.refreshGrounds()`) until Cycle A Task 2 removed its Ground
-  // group; refreshSampled() re-renders the presets too, so one call covers it.
-  background?.refreshSampled();
+  afterImagesChanged();
+  // What afterImagesChanged() covers, and why each part is there:
+  // the drop may have changed which element the panels edit (syncInspectors'
+  // own comment); addFiles() calls render() synchronously when it decodes
+  // anything, so state.meta already reflects the new image and
+  // refreshSampled() is what tells the Background panel's tiles to stop
+  // showing the synthetic no-image fallback and re-derives its "Sampled"
+  // row (see web/inspector-background.js's "Sampled" header comment for why
+  // it keeps an independent cache that only this call invalidates).
 }
 
 /** Drop anywhere on the stage, not just the dropzone box, so a shot can be
