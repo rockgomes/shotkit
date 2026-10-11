@@ -78,3 +78,44 @@ describe('the app has one text style', () => {
     expect(users, '--text-secondary is not a text colour in node 7:130').toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------
+// THE SLIDER FILL IS THE ACCENT
+//
+// Found 2026-10-12 answering "are we missing something?": it was the last
+// colour in the app still disagreeing with node 7:130, which fills all
+// seven slider tracks with the accent. The app filled them white.
+// ---------------------------------------------------------------------
+
+describe('the slider fill', () => {
+  const css = readFileSync('web/style.css', 'utf8');
+
+  it('is the accent in both engines, not white', () => {
+    for (const sel of ['.slider::-webkit-slider-runnable-track', '.slider::-moz-range-progress']) {
+      const at = css.indexOf(sel + ' {');
+      expect(at, `${sel} is gone`).toBeGreaterThan(-1);
+      const block = css.slice(at, css.indexOf('}', at));
+      expect(block, `${sel} does not fill with the accent`).toContain('var(--accent)');
+      expect(block, `${sel} still fills with white`).not.toContain('var(--text-primary)');
+    }
+  });
+});
+
+// ---------------------------------------------------------------------
+// NO CSS FOR MARKUP THAT NO LONGER EXISTS
+//
+// `.preset-row`, `.preset-swatch` and `.template-row--add` outlived their
+// markup by two cycles, and one of their comments still described a
+// function deleted in the same task that removed them. Dead CSS is not
+// harmless: it is a wrong answer waiting for the next person who greps.
+// ---------------------------------------------------------------------
+
+describe('no rules for deleted controls', () => {
+  const css = readFileSync('web/style.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  for (const cls of ['preset-row', 'preset-swatch', 'template-row--add']) {
+    it(`has no .${cls} rule`, () => {
+      expect(css, `.${cls} is styled but nothing renders it`).not.toContain(`.${cls}`);
+    });
+  }
+});
