@@ -246,8 +246,104 @@ input {
 .toolbar-file {
   display: flex;
   align-items: center;
+  gap: 8px;
   min-width: 0;
   overflow: hidden;
+}
+
+/* One chip per loaded shot. Four at most (one desktop, three phones), so
+   this never needs to scroll or collapse; it shrinks by ellipsising the
+   names instead, which is what `min-width: 0` on the chip is for. */
+/* THE CHIPS SCROLL, CLEAR DOES NOT. Four chips plus Clear do not fit a
+   320px toolbar. Clipping the row cuts the last shot off silently, and
+   shrinking the chips leaves each one as a bare X. So the LIST is the
+   scroller and Clear sits outside it, pinned: every shot stays reachable at
+   every width, Clear never scrolls away, and the page itself still never
+   scrolls sideways.
+   (Putting the scroll on .toolbar-file instead looked right and was not:
+   the chips then overflowed .file-list and painted over the Clear button.) */
+.file-list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  list-style: none;
+}
+
+.file-chip {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  /* `none`, so a chip never shrinks to just its X. The row scrolls instead. */
+  flex: none;
+  height: 24px;
+  padding: 0 2px 0 8px;
+  border-radius: var(--radius-control);
+  background: var(--surface-control);
+}
+
+/* Clear never shrinks. Measured at 320px before this rule: flex squeezed it
+   to 0x0 while still reporting itself as shown, so the control Rock asked
+   for first silently disappeared on a phone. The chips give way instead -
+   their names ellipsise to nothing and each one keeps its 20px remove
+   button, which carries the shot's name in its aria-label. */
+#clearShotsBtn {
+  flex: none;
+}
+
+/* The kind leads, because it is what you check before pressing X. */
+.file-chip-kind {
+  flex: none;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+/* The filename follows it, smaller and quieter: the same pairing the size
+   dropdown's rows already use for a name and its pixels (node 7:693). */
+.file-chip-name {
+  min-width: 0;
+  /* one long filename does not get to own the whole row */
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* 20x20 inside a 24px chip. Under the 24x24 target floor, like the zoom
+   buttons and the slider resets before it, and like them it passes 2.5.8 by
+   the spacing exception: the next target's centre is more than 24px away.
+   Re-measured in docs/verification-2026-09-01.md. */
+.file-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.file-chip-remove:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.file-chip-remove:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: -1px;
 }
 
 .file-slot {
@@ -1823,12 +1919,16 @@ input {
   }
 }
 
-@media (max-width: 559px) {
-  .zoom-stepper,
-  .btn-ghost {
-    display: none;
-  }
-}
+/* A `@media (max-width: 559px) { .zoom-stepper, .btn-ghost { display: none } }`
+   rule lived here. It dropped the toolbar's secondary actions on a phone,
+   which was reasonable when those actions were the zoom stepper and Copy.
+   Both are inside the `hidden` .toolbar-actions block now, so the rule had
+   nothing left to do, and it was doing harm in two places instead:
+   - the Custom size tab's "Apply" is a .btn-ghost, so on a phone the only
+     way to commit a custom W/H was invisible. That is a bug this rule has
+     been quietly causing since the Custom tab shipped.
+   - the new Clear button is a .btn-ghost too, and it computed to
+     display:none at 320px while still reporting `hidden === false`. */
 
 @media (prefers-reduced-motion: reduce) {
   #sidebar,
