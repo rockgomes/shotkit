@@ -271,6 +271,18 @@ const NON_TEXT = [
   // The CLI-connected status dot (787), a 6px indicator carrying state that
   // nothing else in that card carries.
   ['--color-status-green', '--surface-window', BOUNDARY, BOUNDARY],
+  // THE SLIDER, after its fill became the accent (2026-10-12, Rock's design
+  // draws it that way in all seven sliders).
+  //
+  // The fill against the unfilled track is 1.48:1 and is NOT asserted. That
+  // is the exception argument at the top of this file, applied: the two are
+  // decorative regions inside one control, and the thing that tells you the
+  // VALUE is the thumb sitting on the join. So the thumb is what owes 3:1,
+  // against BOTH halves, and these two rows are what keep it honest. Move
+  // the accent darker and the first one fails.
+  ['--color-white', '--accent', BOUNDARY, BOUNDARY],
+  ['--color-white', '--border-strong', BOUNDARY, BOUNDARY],
+
   // The slider thumb (1220, 1231).
   ['--color-white', '--surface-window', BOUNDARY, BOUNDARY],
   // The .btn-primary fill (331) and the selected chip's pill (1365-1366):
