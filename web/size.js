@@ -40,7 +40,7 @@
 // not a burden. A bespoke widget buys nothing here and adds real failure
 // surface (wrap-around, Home/End, orientation) for a keyboard user who
 // already has a working, consistent way to reach every row.
-import { TEMPLATES, RATIOS, HUES, normalise } from '../core/index.js';
+import { TEMPLATES, RATIOS, HUES, normalise, sizeProblem, MAX_SIDE } from '../core/index.js';
 import { state, scheduleRender } from './state.js';
 
 // ---------------------------------------------------------------------
@@ -90,13 +90,28 @@ export function selectRatio(config, key) {
  *  numbers, an invalid pair is silently rejected (the caller, the Apply
  *  button, stays disabled until both fields are valid, so in practice this
  *  guard is a second line of defence, not the primary one). */
+/**
+ * Apply a typed W/H, or refuse it and say why.
+ *
+ * Returns `null` when the size was applied, and a sentence when it was not.
+ * It used to return a boolean and accept anything positive and finite,
+ * including `1e308`. Measured 2026-10-17: 50000x50000 was accepted,
+ * render() returned in 1ms without throwing, and the canvas came back
+ * BLANK, because a canvas past the browser's limit does not fail loudly, it
+ * silently paints nothing. Export would then have saved a blank file.
+ *
+ * `sizeProblem` (core/presets.js) owns the limits, so the control and
+ * core/'s own defensive clamp in normalise() can never disagree about what
+ * is paintable.
+ */
 export function applyCustomSize(config, rawW, rawH) {
   const w = Math.round(Number(rawW));
   const h = Math.round(Number(rawH));
-  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return false;
+  const problem = sizeProblem(w, h);
+  if (problem) return problem;
   config.w = w;
   config.h = h;
-  return true;
+  return null;
 }
 
 /** The size control's three tabs. Templates, ratios and a custom size are
@@ -292,6 +307,7 @@ export function initSize({ onSizeChange } = {}) {
       const wInput = document.createElement('input');
       wInput.type = 'number';
       wInput.min = '1';
+      wInput.max = String(MAX_SIDE);
       wInput.step = '1';
       wInput.className = 'custom-size-input';
       wInput.value = customW;
@@ -304,6 +320,7 @@ export function initSize({ onSizeChange } = {}) {
       const hInput = document.createElement('input');
       hInput.type = 'number';
       hInput.min = '1';
+      hInput.max = String(MAX_SIDE);
       hInput.step = '1';
       hInput.className = 'custom-size-input';
       hInput.value = customH;
@@ -317,10 +334,24 @@ export function initSize({ onSizeChange } = {}) {
       applyBtn.className = 'btn btn-ghost custom-size-apply';
       applyBtn.textContent = 'Apply';
 
+      // Why a size was refused. `role="status"`, not "alert": this is the
+      // consequence of what you just typed, not an interruption.
+      const note = document.createElement('p');
+      note.className = 'custom-size-note';
+      note.setAttribute('role', 'status');
+      note.hidden = true;
+
       const syncApplyDisabled = () => {
-        const w = Number(wInput.value);
-        const h = Number(hInput.value);
-        applyBtn.disabled = !(Number.isFinite(w) && w > 0 && Number.isFinite(h) && h > 0);
+        const w = Math.round(Number(wInput.value));
+        const h = Math.round(Number(hInput.value));
+        const problem = sizeProblem(w, h);
+        applyBtn.disabled = !!problem;
+        // Only speak up once both fields hold something. Complaining about
+        // "at least 1 pixel" while someone is still typing the first digit
+        // is noise, not help.
+        const typing = wInput.value === '' || hInput.value === '';
+        note.hidden = !problem || typing;
+        if (problem && !typing) note.textContent = problem;
       };
       wInput.addEventListener('input', () => {
         customW = wInput.value;
@@ -334,9 +365,16 @@ export function initSize({ onSizeChange } = {}) {
 
       const apply = () => {
         if (applyBtn.disabled) return;
-        if (applyCustomSize(state.config, wInput.value, hInput.value)) {
-          afterSizeChange();
+        const problem = applyCustomSize(state.config, wInput.value, hInput.value);
+        if (problem) {
+          // Say WHY, in the form itself. Refusing in silence is how the
+          // 50000x50000 blank export went unnoticed in the first place.
+          note.textContent = problem;
+          note.hidden = false;
+          return;
         }
+        note.hidden = true;
+        afterSizeChange();
       };
       applyBtn.addEventListener('click', apply);
       const onEnter = (event) => {
@@ -345,7 +383,7 @@ export function initSize({ onSizeChange } = {}) {
       wInput.addEventListener('keydown', onEnter);
       hInput.addEventListener('keydown', onEnter);
 
-      form.append(fields, applyBtn);
+      form.append(fields, applyBtn, note);
       li.appendChild(form);
     }
 

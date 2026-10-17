@@ -2,7 +2,7 @@ import {
   RATIOS, HUES, GROUNDS, DEFAULTS, RADIUS_RATIO, TEMPLATES, DEFAULT_ANGLE, SCALES, FRAME_KINDS,
   LAYOUTS, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE, LUMINOSITY_RANGE,
   STROKE_STYLES, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
-  ELEMENT_KINDS, ELEMENT_DEFAULTS,
+  ELEMENT_KINDS, ELEMENT_DEFAULTS, MAX_SIDE, MAX_AREA,
 } from './presets.js';
 
 function num(v, fallback) {
@@ -98,13 +98,56 @@ function elementsFrom(input) {
  * complete config. Same names and defaults as the shipped CLI, so a
  * jobs.json written for the old tool stays valid input here.
  */
+/**
+ * A canvas size the browser can actually paint, keeping the SHAPE asked
+ * for. See MAX_SIDE / MAX_AREA in presets.js for the measurement.
+ *
+ * One scale factor, from whichever limit bites hardest, applied to both
+ * sides. Clamping each side on its own looked equivalent and was not: it
+ * turned a 50000x25000 request (2:1) into 8000x8000, a square, because
+ * both sides hit MAX_SIDE before the area clamp ever saw them. Asking for
+ * a wide canvas and getting a square one is a worse answer than a smaller
+ * wide one.
+ *
+ * A value that is not a usable number falls back to the template or
+ * ratio's own side: garbage should give you the default size, not the
+ * largest one allowed.
+ *
+ * This runs BEFORE `w` and `h` are bound, deliberately: everything below in
+ * normalise() derives from them (`radius` is `w * RADIUS_RATIO`), and a
+ * first version clamped at the return statement instead, which left the
+ * corner radius computed from a width the canvas never had.
+ */
+function clampCanvas(rawW, rawH, fallbackW, fallbackH) {
+  let w = Number.isFinite(rawW) && rawW >= 1 ? rawW : fallbackW;
+  let h = Number.isFinite(rawH) && rawH >= 1 ? rawH : fallbackH;
+
+  // A number big enough to overflow its own area is not a shape to
+  // preserve, it is garbage with a decimal point. 1e308 x 1e308 multiplies
+  // to Infinity, which made the scale factor 0 and handed back a 1x1
+  // canvas. Fall back, the same as NaN does.
+  if (!Number.isFinite(w * h)) {
+    w = fallbackW;
+    h = fallbackH;
+  }
+
+  const k = Math.min(1, MAX_SIDE / w, MAX_SIDE / h, Math.sqrt(MAX_AREA / (w * h)));
+  if (k >= 1) return [Math.round(w), Math.round(h)];
+  return [Math.max(1, Math.floor(w * k)), Math.max(1, Math.floor(h * k))];
+}
+
 export function normalise(input = {}) {
   const tpl = TEMPLATES[input.template];
   const [rw, rh] = RATIOS[input.ratio] || RATIOS[DEFAULTS.ratio];
   const baseW = tpl ? tpl.w : rw;
   const baseH = tpl ? tpl.h : rh;
-  const w = num(input.w, baseW);
-  const h = num(input.h, baseH);
+  // CLAMPED, the same defensive way every other bounded field in this file
+  // is. web/size.js refuses an out-of-range custom size at the control, but
+  // `w`/`h` also arrive from a jobs.json, a CLI flag or a stale saved
+  // config, and a canvas past the browser's limit does not throw - it goes
+  // blank, and the export ships blank. See MAX_SIDE / MAX_AREA in
+  // presets.js for the measurement behind these numbers.
+  const [w, h] = clampCanvas(num(input.w, baseW), num(input.h, baseH), baseW, baseH);
 
   // A named preset carries its own saturation as well as its hue - that is
   // what lets `ash` be a grey rather than a hue nobody can see. A RAW

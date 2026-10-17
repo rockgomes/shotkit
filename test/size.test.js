@@ -81,10 +81,10 @@ describe('sidebar selection helpers', () => {
 
   it('applyCustomSize accepts a valid pair and rejects invalid ones without mutating', () => {
     const config = { ratio: '3:2' };
-    expect(applyCustomSize(config, '0', '500')).toBe(false);
-    expect(applyCustomSize(config, 'not-a-number', '500')).toBe(false);
+    expect(applyCustomSize(config, '0', '500')).toBeTruthy();
+    expect(applyCustomSize(config, 'not-a-number', '500')).toBeTruthy();
     expect(config.w).toBeUndefined();
-    expect(applyCustomSize(config, '640.6', '480.2')).toBe(true);
+    expect(applyCustomSize(config, '640.6', '480.2')).toBeNull();
     expect(config.w).toBe(641); // rounded
     expect(config.h).toBe(480);
     expect(isCustomSize(config)).toBe(true);
@@ -413,7 +413,7 @@ describe('sizeLabel, the dropdown trigger', () => {
 
   it('says Custom for an explicit size, and gives its real pixels', () => {
     const config = {};
-    expect(applyCustomSize(config, '1234', '567')).toBe(true);
+    expect(applyCustomSize(config, '1234', '567')).toBeNull();
     expect(sizeLabel(config)).toEqual({ name: 'Custom', dims: '1234\u00d7567' });
   });
 
