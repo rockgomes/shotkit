@@ -277,7 +277,11 @@ input {
 
 .file-chip {
   display: flex;
-  align-items: baseline;
+  /* `center`, not `baseline`. A button with no text of its own has its
+     baseline at its bottom margin edge, so baseline alignment dropped the X
+     below the two labels. `.template-row` pairs a name and a smaller detail
+     the same way, and centres them. */
+  align-items: center;
   gap: 5px;
   /* `none`, so a chip never shrinks to just its X. The row scrolls instead. */
   flex: none;
@@ -864,6 +868,16 @@ input {
 
 .custom-size-apply {
   width: 100%;
+}
+
+/* Why a typed size was refused. Same 10.5px Regular the other secondary
+   readouts use, in --text-muted so it reads as an explanation rather than
+   an error: the form is not broken, the number is just too big. */
+.custom-size-note {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--text-muted);
 }
 
 /* `.preset-row` and `.preset-swatch` lived here: a row with a 14x14 CSS
@@ -1861,6 +1875,42 @@ input {
 .select-control:focus-visible {
   outline: 2px solid var(--text-primary);
   outline-offset: 2px;
+}
+
+/* Put the message away. Pushed to the end of the strip, away from Undo,
+   so the destructive-looking one and the harmless one are not adjacent. */
+.drop-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.drop-dismiss:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.drop-dismiss:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: -1px;
+}
+
+/* The way back out of a removal, inside the message announcing it. */
+.drop-undo {
+  height: 22px;
+  padding: 0 8px;
+  margin-left: 4px;
+  vertical-align: middle;
 }
 
 .export-footnote {

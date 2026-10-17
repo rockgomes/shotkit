@@ -122,6 +122,7 @@ export function compose(target, rawConfig, images, makeCanvas) {
 export { normalise, layout, groundFor, groundFromMeta, paintGround };
 export {
   RATIOS, HUES, GROUNDS, DEFAULTS, TEMPLATES, FRAME_KINDS, SCALES, DEFAULT_ANGLE,
+  MAX_SIDE, MAX_AREA, sizeProblem,
   LAYOUTS, BG_TYPES, CHROME_THEMES, SHADOW_SCALE_RANGE,
   STROKE_STYLES, STROKE_WIDTH_RANGE, STROKE_DEFAULTS,
   ELEMENT_KINDS, ELEMENT_DEFAULTS,

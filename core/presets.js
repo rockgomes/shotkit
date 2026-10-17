@@ -237,6 +237,48 @@ export const DEFAULT_ANGLE = 166;
 
 export const SCALES = [1, 2, 3];
 
+/**
+ * THE BIGGEST CANVAS SHOTKIT WILL COMPOSE, at 1x.
+ *
+ * Not a taste limit, a browser one. A <canvas> has a maximum area (about
+ * 268 million pixels in Chromium) and a maximum single dimension (65535),
+ * and exceeding either does NOT throw: the canvas silently becomes blank.
+ * Measured 2026-10-17 on the live app before this existed: a 50000x50000
+ * custom size was accepted, render() returned in 1ms without error, and the
+ * centre pixel came back [0,0,0,0]. Export would have handed over a blank
+ * file with no warning, which is the worst way for software to fail.
+ *
+ * Export recomposes at up to 3x (SCALES), so the ceiling at 1x is the
+ * browser's ceiling divided by 9. These numbers sit under that with room:
+ *
+ *   MAX_SIDE 8000  -> 24000 at 3x, well under 65535
+ *   MAX_AREA 25M   -> 225M at 3x, under ~268M
+ *
+ * For scale: the largest template this app ships is App Store at
+ * 2880x1800, which is 5.2M. Nothing real comes close to the cap.
+ */
+export const MAX_SIDE = 8000;
+export const MAX_AREA = 25_000_000;
+
+/**
+ * Is this canvas size one the browser can actually paint at every export
+ * scale? Returns a reason string when not, so a caller can say WHY rather
+ * than just refusing.
+ */
+export function sizeProblem(w, h) {
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w < 1 || h < 1) {
+    return 'Width and height must both be at least 1 pixel.';
+  }
+  if (w > MAX_SIDE || h > MAX_SIDE) {
+    return `Each side can be at most ${MAX_SIDE} pixels.`;
+  }
+  if (w * h > MAX_AREA) {
+    return `That canvas is too large to export at 3x. Keep width times height under ${
+      (MAX_AREA / 1_000_000)} million pixels.`;
+  }
+  return null;
+}
+
 // Valid `layout` values for normalise(). Anything else is treated as absent
 // and falls back to the existing web/mobile/web+mobile inference.
 export const LAYOUTS = ['web', 'mobile', 'web+mobile'];

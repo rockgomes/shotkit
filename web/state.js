@@ -13,7 +13,7 @@ import { composeWithMeta, DEFAULTS } from '../core/index.js';
 import { decodeFiles } from './decode.js';
 
 export const SURROUNDS = ['dark', 'mid', 'light'];
-const MAX_PHONES = 3;
+export const MAX_PHONES = 3;
 
 export const state = {
   config: { ...DEFAULTS },
@@ -218,9 +218,13 @@ export function scheduleRender() {
  * - A landscape file becomes the web screenshot (the last one wins, if the
  *   batch somehow contains more than one).
  * - Portrait files are appended to the phone list, kept in drop order and
- *   capped at MAX_PHONES total (existing + new), extras are silently
- *   dropped, matching core/'s own "phone that overflows the max is never
- *   drawn" behaviour rather than erroring.
+ *   capped at MAX_PHONES total (existing + new). Extras are dropped and
+ *   SAID OUT LOUD. They used to be dropped in silence: five phone shots in,
+ *   three kept, two gone, nothing on screen about it (measured 2026-10-17).
+ *   A truncation is not a decode error, so it never reached the error
+ *   strip, and the app knew exactly what it had thrown away.
+ * - Replacing the web screenshot is announced the same way, for the same
+ *   reason: the old one is gone and nothing else would have mentioned it.
  * - Files that fail to decode never touch `state.images` at all: if EVERY
  *   file in the batch is bad, state.images (and therefore the last good
  *   render) is untouched. That is the whole point of collecting errors
@@ -230,16 +234,60 @@ export function scheduleRender() {
  * Returns an array of human-readable error strings (empty if every file in
  * the batch decoded).
  */
+/**
+ * What a drop silently did, as sentences. PURE: no DOM, no bitmaps, no
+ * state, which is the only reason it can be tested at all - `addFiles`
+ * below cannot be, because `createImageBitmap` does not exist under node
+ * and the whole decode path hangs off it. The decision lives here and the
+ * plumbing lives there.
+ *
+ * @param {object} drop
+ * @param {boolean} drop.replacingWeb   a desktop shot is already loaded
+ * @param {string}  [drop.webName]      the incoming desktop shot's filename
+ * @param {number}  drop.incomingPhones portrait files in this batch
+ * @param {number}  drop.existingPhones portrait files already loaded
+ * @returns {string[]}
+ */
+export function dropNotes({ replacingWeb, webName, incomingPhones, existingPhones }) {
+  const notes = [];
+  if (replacingWeb) {
+    notes.push(`Replaced the desktop screenshot with "${webName}".`);
+  }
+  const room = Math.max(0, MAX_PHONES - existingPhones);
+  const dropped = Math.max(0, incomingPhones - room);
+  if (dropped > 0) {
+    notes.push(
+      `Only ${MAX_PHONES} phone screenshots fit, so ${dropped} `
+      + `${dropped === 1 ? 'was' : 'were'} not added.`,
+    );
+  }
+  return notes;
+}
+
 export async function addFiles(files) {
   const { web, mobile, errors } = await decodeFiles(files);
+
+  const notes = dropNotes({
+    replacingWeb: !!(web && state.images.web),
+    webName: web?.__name,
+    incomingPhones: mobile.length,
+    existingPhones: state.images.mobile.length,
+  });
 
   if (web) state.images.web = web;
   if (mobile.length) {
     state.images.mobile = [...state.images.mobile, ...mobile].slice(0, MAX_PHONES);
   }
 
-  if (web || mobile.length) render();
-  return errors;
+  // A drop retires the undo. "Undo" has to mean the last thing that
+  // happened, and after a drop that is the drop, not a removal from before
+  // it - restoring the old list would silently throw away what was just
+  // added.
+  if (web || mobile.length) {
+    lastRemoval = null;
+    render();
+  }
+  return [...errors, ...notes];
 }
 
 /**
@@ -256,7 +304,50 @@ export async function addFiles(files) {
  * chip rendered from a past state and the array may have moved underneath
  * it. The id is stable for the life of the decoded bitmap (decode.js).
  */
+/**
+ * The images as they were before the last removal, so it can be taken
+ * back. Null when there is nothing to undo.
+ *
+ * Audit finding U4: Clear removed up to four screenshots on one click,
+ * with no confirmation and no way back, and the files then had to be found
+ * and dropped again. A confirmation dialog would make the common case
+ * worse to avoid a rare mistake; an undo makes the mistake free.
+ *
+ * It holds the DECODED BITMAPS, not filenames, so undoing is an assignment
+ * rather than a re-decode: the pictures never left memory, only the list
+ * pointing at them did.
+ */
+let lastRemoval = null;
+
+/** What the last removal took, for the sentence offering to undo it, or
+ *  null when there is nothing to take back. */
+export function undoableRemoval() {
+  return lastRemoval ? lastRemoval.label : null;
+}
+
+/** Put back whatever the last removal took. Returns false when there is
+ *  nothing to put back. */
+export function undoRemoval() {
+  if (!lastRemoval) return false;
+  state.images.web = lastRemoval.web;
+  state.images.mobile = [...lastRemoval.mobile];
+  lastRemoval = null;
+  afterImagesChanged();
+  return true;
+}
+
+/** Remember the current images under a label, before taking some away. */
+function rememberForUndo(label) {
+  lastRemoval = { web: state.images.web, mobile: [...state.images.mobile], label };
+}
+
 export function removeImage(id) {
+  const target = state.images.web && state.images.web.__id === id
+    ? state.images.web
+    : state.images.mobile.find((img) => img.__id === id);
+  if (!target) return false;
+  rememberForUndo(`Removed "${target.__name}".`);
+
   let removed = false;
   if (state.images.web && state.images.web.__id === id) {
     state.images.web = null;
@@ -274,6 +365,8 @@ export function removeImage(id) {
  *  start on a new shot, not throw away the ground you just tuned. */
 export function clearImages() {
   if (!hasContent()) return false;
+  const n = (state.images.web ? 1 : 0) + state.images.mobile.length;
+  rememberForUndo(`Cleared ${n} screenshot${n === 1 ? '' : 's'}.`);
   state.images.web = null;
   state.images.mobile = [];
   afterImagesChanged();
