@@ -730,7 +730,37 @@ canvasSurface.addEventListener('click', (event) => {
 // as selecting the whole shot). Keyboard SELECTION does not exist yet and
 // is a known gap, recorded there.
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && state.selection) setSelection(null);
+  if (event.key === 'Escape' && state.selection) {
+    setSelection(null);
+    return;
+  }
+
+  // Delete removes the selected shot. The selection already knows which
+  // element you mean - the right panel has been editing it - and until now
+  // the keyboard did nothing with that.
+  //
+  // Not while typing: the custom size fields and the browser URL field are
+  // text inputs, and Backspace in one of them means Backspace.
+  if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+  if (!state.selection) return;
+  // TEXT-ENTRY fields only. `tagName === 'INPUT'` was too broad: the file
+  // input is an <input>, it is focusable, and it can hold focus after a
+  // browse, which would have switched Delete off with nothing on screen to
+  // explain why. A focused slider is an <input> too.
+  const el = document.activeElement;
+  if (el && (el.isContentEditable || el.matches('textarea, input:is([type=text], [type=number], [type=search], [type=url], [type=email], [type=password])'))) return;
+
+  // 'mobile' is the phones as a CLASS (see boxFor in web/selection.js), so
+  // there is no single phone for it to point at. Taking the first one
+  // would be a guess, and a destructive one. The chip's own X is exact,
+  // and that is where removing a specific phone belongs.
+  const target = state.selection === 'web' ? state.images.web : null;
+  if (!target) return;
+
+  event.preventDefault();
+  if (!removeImage(target.__id)) return;
+  afterImagesChanged();
+  showDropNotes([undoableRemoval()], { undo: true });
 });
 
 // The layout moves with every render and with every resize, so the outline
@@ -762,7 +792,10 @@ function showDropNotes(notes, { undo = false } = {}) {
   // read, so it carries its own way back. Built here and not kept around,
   // because the strip is rewritten on every message and a stale Undo
   // button is worse than none.
-  if (!undo) return;
+  if (!undo) {
+    addDismiss();
+    return;
+  }
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'btn btn-ghost drop-undo';
@@ -773,6 +806,20 @@ function showDropNotes(notes, { undo = false } = {}) {
     showDropNotes([]);
   });
   dropError.append(' ', btn);
+  addDismiss();
+}
+
+/** A way to put the message away. It clears itself on the next good drop,
+ *  so this is a convenience rather than the only escape, but a notice that
+ *  sits there until something else happens is a notice you stop reading. */
+function addDismiss() {
+  const x = document.createElement('button');
+  x.type = 'button';
+  x.className = 'drop-dismiss';
+  x.setAttribute('aria-label', 'Dismiss this message');
+  x.innerHTML = '<svg class="icon icon-sm" aria-hidden="true"><use href="#icon-x"></use></svg>';
+  x.addEventListener('click', () => showDropNotes([]));
+  dropError.append(x);
 }
 
 async function handleFiles(fileList) {

@@ -339,3 +339,59 @@ describe('a drop retires the undo', () => {
     expect(typeof addFiles).toBe('function');
   });
 });
+
+
+// ---------------------------------------------------------------------
+// DELETE REMOVES THE SELECTED SHOT
+//
+// Audit finding U5. Clicking a shot selected it and the right panel
+// edited it, but Delete and Backspace did nothing: the selection knew
+// what you meant and the keyboard did not use it.
+//
+// Verified in the browser: click the desktop shot, press Delete, it goes
+// and the undo appears. Click a PHONE and press Delete, nothing happens.
+// Press Backspace while typing in the Custom width field, nothing
+// happens. No jsdom here, so these guard the two decisions in the source.
+// ---------------------------------------------------------------------
+
+describe('the Delete key', () => {
+  // BOTH comment forms. Stripping only /* */ left the `//` note explaining
+  // what was removed, and the test failed on the fix. Fourth time in this
+  // suite: a test that greps source has to read code, not prose.
+  const main = readFileSync('web/main.js', 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+  const handler = (() => {
+    const at = main.indexOf("if (event.key !== 'Delete' && event.key !== 'Backspace') return;");
+    return main.slice(at, main.indexOf('\n});', at));
+  })();
+
+  it('is wired at all', () => {
+    expect(handler.length).toBeGreaterThan(0);
+  });
+
+  it('refuses to guess which phone, because the selection is the class', () => {
+    // boxFor in web/selection.js: a 'mobile' selection means the phones as
+    // a group. Deleting "the first one" would be a guess, and destructive.
+    // The chip's own X is exact, and that is where it belongs.
+    expect(handler).toContain("state.selection === 'web' ? state.images.web : null");
+  });
+
+  it('does not fire while someone is typing', () => {
+    expect(handler).toContain('isContentEditable');
+    expect(handler).toContain('textarea');
+  });
+
+  it('checks the input TYPE, not just the tag', () => {
+    // `tagName === 'INPUT'` was too broad: the file input is an <input>
+    // and can hold focus after a browse, which would have switched Delete
+    // off with nothing on screen to explain why.
+    expect(handler, 'a blanket INPUT check disables Delete after a file browse')
+      .not.toMatch(/tagName\s*===\s*'INPUT'/);
+    expect(handler).toContain('[type=text]');
+  });
+
+  it('offers the same undo a chip removal does', () => {
+    expect(handler).toContain('undoableRemoval()');
+  });
+});

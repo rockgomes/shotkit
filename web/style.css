@@ -1877,6 +1877,34 @@ input {
   outline-offset: 2px;
 }
 
+/* Put the message away. Pushed to the end of the strip, away from Undo,
+   so the destructive-looking one and the harmless one are not adjacent. */
+.drop-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.drop-dismiss:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.drop-dismiss:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: -1px;
+}
+
 /* The way back out of a removal, inside the message announcing it. */
 .drop-undo {
   height: 22px;
