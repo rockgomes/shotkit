@@ -4,12 +4,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>shotkit</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    rel="stylesheet"
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@400;500;600&display=swap"
-  />
+  <!-- INTER IS SERVED FROM HERE, not from Google. Audit finding S4: every
+       visitor's IP address and user agent went to fonts.googleapis.com and
+       fonts.gstatic.com just to draw the interface, and the page's text
+       depended on Google staying up.
+
+       Inter v20 is a VARIABLE font, so one 48 KB file covers every weight
+       this app uses (400, 500, 600, 700). That is fewer bytes and fewer
+       round trips than the four static faces it replaces, and it lets the
+       CSP in netlify.toml drop to 'self' for both styles and fonts.
+
+       `Inter+Tight` was in the old request and is referenced nowhere in
+       any stylesheet. It was a download nobody used.
+
+       Inter is SIL Open Font License 1.1, which permits this. -->
+  <link rel="preload" href="/fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin />
   <!-- SVG only, deliberately: with this present the browser stops asking for
        /favicon.ico, which was the one 404 on the live site. -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />

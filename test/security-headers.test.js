@@ -56,17 +56,16 @@ describe('netlify.toml sends a CSP', () => {
     expect(directive('frame-ancestors')).toBe("'none'");
   });
 
-  it('names every third-party origin the page actually uses, and no others', () => {
-    const html = readFileSync('web/index.html', 'utf8');
-    const used = new Set(
-      [...html.matchAll(/https:\/\/([a-z0-9.-]+)/g)].map((m) => m[1]),
-    );
-    const allowed = new Set(
-      [...csp.matchAll(/https:\/\/([a-z0-9.-]+)/g)].map((m) => m[1]),
-    );
-    for (const host of allowed) {
-      expect(used.has(host), `CSP allows ${host}, which the page never loads`).toBe(true);
-    }
+  it('names no third-party origin at all', () => {
+    // Inter is self-hosted (audit finding S4), so every directive is
+    // 'self' or 'none' and there is no host list to keep in step with the
+    // markup. If one ever comes back, this fails and whoever added it has
+    // to say why in the same breath.
+    expect([...csp.matchAll(/https:\/\/([a-z0-9.-]+)/g)].map((m) => m[1])).toEqual([]);
+  });
+
+  it('keeps fonts on this origin, which is the point of self-hosting them', () => {
+    expect(directive('font-src')).toBe("'self'");
   });
 });
 
@@ -85,5 +84,50 @@ describe('the other headers', () => {
   it('still sends what it already sent', () => {
     expect(toml).toContain('X-Content-Type-Options = "nosniff"');
     expect(toml).toContain('Referrer-Policy = "strict-origin-when-cross-origin"');
+  });
+});
+
+
+// ---------------------------------------------------------------------
+// INTER IS OURS NOW
+//
+// Audit finding S4: every visitor's IP address and user agent went to
+// fonts.googleapis.com and fonts.gstatic.com just to draw the interface,
+// and the page's text depended on Google staying up.
+// ---------------------------------------------------------------------
+
+describe('the font', () => {
+  // Comments stripped from both. The note explaining the move names the
+  // Google hosts and the unused family, and without this the tests fail
+  // on their own fix. Fifth time in this suite.
+  const html = readFileSync('web/index.html', 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+  const tokens = readFileSync('web/tokens.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  it('is not fetched from Google any more', () => {
+    expect(html).not.toContain('fonts.googleapis.com');
+    expect(html).not.toContain('fonts.gstatic.com');
+  });
+
+  it('is declared once, as a variable face covering every weight used', () => {
+    // v20 is variable, so 400/500/600/700 all come out of one request.
+    expect(tokens).toContain('font-weight: 100 900');
+    expect((tokens.match(/@font-face/g) || [])).toHaveLength(1);
+  });
+
+  it('ships the file it points at', () => {
+    const src = (tokens.match(/src:\s*url\('([^']+)'\)/) || [])[1];
+    expect(src).toBe('/fonts/inter-latin-var.woff2');
+    const bytes = readFileSync(`web/public${src}`);
+    // wOF2 magic, so a broken or truncated download fails here and not in
+    // someone's browser.
+    expect(bytes.subarray(0, 4).toString('latin1')).toBe('wOF2');
+  });
+
+  it('does not ask for a family nothing uses', () => {
+    // `Inter+Tight` was in the old Google request and referenced in no
+    // stylesheet: a download nobody used.
+    const css = readFileSync('web/style.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '') + tokens;
+    expect(html).not.toContain('Inter+Tight');
+    expect(css).not.toContain('Inter Tight');
   });
 });

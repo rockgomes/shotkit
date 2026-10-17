@@ -1,3 +1,24 @@
+/* Inter, self-hosted. See the note in web/index.html for why, and
+   web/public/fonts/ for the file.
+
+   One @font-face for the whole family: v20 is a variable font, so the
+   `100 900` range below is what lets 400, 500, 600 and 700 all come out of
+   a single 48 KB request.
+
+   `font-display: swap` keeps text visible while it loads, which matters
+   more here than it looks: the font is the FIRST thing on the page, and
+   the alternative is an invisible interface for a moment.
+
+   Latin only. A filename in another script falls back to system-ui, which
+   is the right trade for a UI that is otherwise entirely English. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/inter-latin-var.woff2') format('woff2');
+}
+
 /*
  * Design tokens for the shotkit editor shell ("Obsidian", option 1a of the
  * Backdrop handoff, design_handoff_backdrop_1a/Backdrop Mockups.dc.html).
