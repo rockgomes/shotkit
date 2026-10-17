@@ -182,3 +182,49 @@ describe('the shot list is reachable', () => {
     expect(offenders, '.btn-ghost is being hidden by a rule again').toEqual([]);
   });
 });
+
+
+// ---------------------------------------------------------------------
+// FOCUS SURVIVES A REMOVAL
+//
+// Measured 2026-10-17: focus the second chip's remove button, activate it,
+// and document.activeElement became <body>. renderFileList rebuilds every
+// chip on each change, so the focused button stops existing. A keyboard
+// user clearing three shots had to Tab from the top of the page each time.
+//
+// Verified in the browser after the fix: removing the middle chip lands on
+// the chip that took its place, removing the last lands on the one before
+// it, removing every chip lands on the drop zone, Clear lands on the drop
+// zone, and a MOUSE removal leaves focus exactly where it was.
+//
+// There is no jsdom here, so these guard the two things that were actually
+// wrong, in the source.
+// ---------------------------------------------------------------------
+
+describe('focus after a removal', () => {
+  const main = readFileSync('web/main.js', 'utf8');
+
+  it('reads the chip order BEFORE the list is rebuilt', () => {
+    // Taken after renderFileList runs, the index means nothing: the button
+    // it refers to has already been destroyed.
+    const handler = main.slice(main.indexOf("fileList?.addEventListener('click'"));
+    const body = handler.slice(0, handler.indexOf('});'));
+    expect(body.indexOf('indexOf(btn)')).toBeLessThan(body.indexOf('afterImagesChanged()'));
+  });
+
+  it('falls through to the drop zone, never to the hidden Clear button', () => {
+    // Clear hides itself the moment the last shot goes, and a hidden
+    // element cannot take focus. A first version focused it and left focus
+    // on <body> anyway.
+    const fn = main.slice(main.indexOf('function restoreFocusAfterRemoval'));
+    const body = fn.slice(0, fn.indexOf('\n}'));
+    expect(body).toContain('dropzone?.focus()');
+    expect(body, 'focusing Clear here does nothing, it is hidden by now')
+      .not.toContain('clearShotsBtn.focus()');
+  });
+
+  it('leaves focus alone when the removal came from the mouse', () => {
+    const fn = main.slice(main.indexOf('function restoreFocusAfterRemoval'));
+    expect(fn.slice(0, fn.indexOf('\n}'))).toContain('document.body');
+  });
+});

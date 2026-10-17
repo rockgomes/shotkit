@@ -663,11 +663,48 @@ function setSelection(next) {
 fileList?.addEventListener('click', (event) => {
   const btn = event.target.closest('.file-chip-remove');
   if (!btn) return;
-  if (removeImage(Number(btn.dataset.id))) afterImagesChanged();
+  // WHERE FOCUS GOES NEXT, worked out BEFORE the list is rebuilt.
+  // renderFileList destroys every chip on each change, so the button that
+  // was just activated stops existing and focus falls to <body>. Measured
+  // 2026-10-17: a keyboard user removing three shots had to Tab from the
+  // top of the page after each one.
+  const buttons = [...fileList.querySelectorAll('.file-chip-remove')];
+  const at = buttons.indexOf(btn);
+  if (!removeImage(Number(btn.dataset.id))) return;
+  afterImagesChanged();
+  restoreFocusAfterRemoval(at);
 });
 
+/** Put focus on the chip that took the removed one's place, or on the one
+ *  before it when the last chip went, or on the drop zone when there are no
+ *  chips left at all.
+ *
+ *  Only when the removal came from the keyboard: moving focus after a mouse
+ *  click is noise, and it would pull the page around under the pointer.
+ *
+ *  The no-chips-left case falls through to the DROP ZONE, not to Clear.
+ *  Clear hides itself the moment the last shot goes, and a hidden element
+ *  cannot take focus - a first version tried it and left focus on <body>
+ *  anyway, which is the exact bug this function exists to fix. The drop
+ *  zone is also simply what the page is about once it is empty. */
+function restoreFocusAfterRemoval(removedIndex) {
+  if (!fileList) return;
+  const fromKeyboard = document.activeElement === document.body
+    || document.activeElement === null;
+  if (!fromKeyboard) return;
+
+  const buttons = [...fileList.querySelectorAll('.file-chip-remove')];
+  const next = buttons[removedIndex] || buttons[buttons.length - 1];
+  if (next) next.focus();
+  else dropzone?.focus();
+}
+
 clearShotsBtn?.addEventListener('click', () => {
-  if (clearImages()) afterImagesChanged();
+  if (!clearImages()) return;
+  afterImagesChanged();
+  // Clear hides itself once it has nothing to clear, so focus would be lost
+  // the same way a removed chip loses it.
+  if (document.activeElement === document.body) dropzone?.focus();
 });
 
 renderCanvas.addEventListener('click', (event) => {
