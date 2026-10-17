@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createCanvas } from '@napi-rs/canvas';
 import { readFileSync } from 'node:fs';
-import { state, bindCanvas, render, removeImage, clearImages, hasContent } from '../web/state.js';
+import {
+  state, bindCanvas, render, removeImage, clearImages, hasContent,
+  undoRemoval, undoableRemoval, addFiles,
+} from '../web/state.js';
 
 // REMOVING A SHOT.
 //
@@ -30,6 +33,13 @@ function shot(name, id, w = 1200, h = 800) {
 }
 
 beforeEach(() => {
+  // The canvas first: draining the undo below can call render().
+  bindCanvas(createCanvas(10, 10), mk);
+  // `lastRemoval` is module state with no reset of its own, deliberately -
+  // in the app a page load is the reset, and an exported clearUndo() would
+  // exist only for these tests. Draining it is the honest way to isolate
+  // them.
+  while (undoRemoval());
   state.config = { ratio: '3:2' };
   state.images.web = null;
   state.images.mobile = [];
@@ -37,7 +47,6 @@ beforeEach(() => {
   state.lay = null;
   state.selection = null;
   state.surround = 'mid';
-  bindCanvas(createCanvas(10, 10), mk);
 });
 
 describe('removeImage', () => {
@@ -226,5 +235,107 @@ describe('focus after a removal', () => {
   it('leaves focus alone when the removal came from the mouse', () => {
     const fn = main.slice(main.indexOf('function restoreFocusAfterRemoval'));
     expect(fn.slice(0, fn.indexOf('\n}'))).toContain('document.body');
+  });
+});
+
+
+// ---------------------------------------------------------------------
+// A REMOVAL CAN BE TAKEN BACK
+//
+// Audit finding U4: Clear removed up to four screenshots on one click,
+// with no confirmation and no way back, and the files then had to be found
+// and dropped again. A confirmation would make the common case worse to
+// avoid a rare mistake. An undo makes the mistake free.
+//
+// It holds the decoded bitmaps, so undoing is an assignment, not a
+// re-decode: the pictures never left memory, only the list pointing at
+// them did.
+// ---------------------------------------------------------------------
+
+describe('undo', () => {
+  it('puts a removed phone back WHERE IT WAS', () => {
+    // Order is the point. Pushing it onto the end would "work" and be
+    // wrong: Phone 2 would come back as Phone 3.
+    state.images.mobile = [shot('a.png', 10, 400, 800), shot('b.png', 11, 400, 800),
+      shot('c.png', 12, 400, 800)];
+    removeImage(11);
+    expect(state.images.mobile.map((m) => m.__name)).toEqual(['a.png', 'c.png']);
+
+    expect(undoRemoval()).toBe(true);
+    expect(state.images.mobile.map((m) => m.__name)).toEqual(['a.png', 'b.png', 'c.png']);
+  });
+
+  it('puts everything back after a clear', () => {
+    state.images.web = shot('desk.png', 1);
+    state.images.mobile = [shot('a.png', 10, 400, 800)];
+    clearImages();
+    expect(hasContent()).toBe(false);
+
+    expect(undoRemoval()).toBe(true);
+    expect(state.images.web.__name).toBe('desk.png');
+    expect(state.images.mobile.map((m) => m.__name)).toEqual(['a.png']);
+  });
+
+  it('names what it would put back, for the message offering it', () => {
+    state.images.web = shot('desk.png', 1);
+    state.images.mobile = [shot('a.png', 10, 400, 800), shot('b.png', 11, 400, 800)];
+
+    removeImage(11);
+    expect(undoableRemoval()).toBe('Removed "b.png".');
+
+    clearImages();
+    expect(undoableRemoval()).toBe('Cleared 2 screenshots.');
+  });
+
+  it('uses the singular for one screenshot', () => {
+    state.images.web = shot('only.png', 1);
+    clearImages();
+    expect(undoableRemoval()).toBe('Cleared 1 screenshot.');
+  });
+
+  it('offers nothing before anything has been removed', () => {
+    expect(undoableRemoval()).toBeNull();
+    expect(undoRemoval()).toBe(false);
+  });
+
+  it('is spent after one use', () => {
+    state.images.web = shot('desk.png', 1);
+    removeImage(1);
+    expect(undoRemoval()).toBe(true);
+    expect(undoableRemoval()).toBeNull();
+    expect(undoRemoval()).toBe(false);
+  });
+
+  it('is not offered for a removal that did not happen', () => {
+    state.images.web = shot('desk.png', 1);
+    expect(removeImage(999)).toBe(false);
+    expect(undoableRemoval()).toBeNull();
+  });
+
+  it('still clears the canvas and the meta on the clear it can undo', () => {
+    state.images.web = shot('desk.png', 1);
+    render();
+    clearImages();
+    expect(state.meta).toBeNull();
+    undoRemoval();
+    // and brings them back
+    expect(state.meta).not.toBeNull();
+  });
+});
+
+describe('a drop retires the undo', () => {
+  it('because "undo" has to mean the last thing that happened', async () => {
+    // Restoring the pre-removal list after a drop would silently throw
+    // away whatever was just added.
+    state.images.web = shot('desk.png', 1);
+    removeImage(1);
+    expect(undoableRemoval()).not.toBeNull();
+
+    // addFiles cannot run here (no createImageBitmap under node), so this
+    // asserts the line that does it rather than the behaviour.
+    const src = readFileSync('web/state.js', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const fn = src.slice(src.indexOf('export async function addFiles'));
+    expect(fn.slice(0, fn.indexOf('\n}'))).toContain('lastRemoval = null');
+    expect(typeof addFiles).toBe('function');
   });
 });

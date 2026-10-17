@@ -279,7 +279,14 @@ export async function addFiles(files) {
     state.images.mobile = [...state.images.mobile, ...mobile].slice(0, MAX_PHONES);
   }
 
-  if (web || mobile.length) render();
+  // A drop retires the undo. "Undo" has to mean the last thing that
+  // happened, and after a drop that is the drop, not a removal from before
+  // it - restoring the old list would silently throw away what was just
+  // added.
+  if (web || mobile.length) {
+    lastRemoval = null;
+    render();
+  }
   return [...errors, ...notes];
 }
 
@@ -297,7 +304,50 @@ export async function addFiles(files) {
  * chip rendered from a past state and the array may have moved underneath
  * it. The id is stable for the life of the decoded bitmap (decode.js).
  */
+/**
+ * The images as they were before the last removal, so it can be taken
+ * back. Null when there is nothing to undo.
+ *
+ * Audit finding U4: Clear removed up to four screenshots on one click,
+ * with no confirmation and no way back, and the files then had to be found
+ * and dropped again. A confirmation dialog would make the common case
+ * worse to avoid a rare mistake; an undo makes the mistake free.
+ *
+ * It holds the DECODED BITMAPS, not filenames, so undoing is an assignment
+ * rather than a re-decode: the pictures never left memory, only the list
+ * pointing at them did.
+ */
+let lastRemoval = null;
+
+/** What the last removal took, for the sentence offering to undo it, or
+ *  null when there is nothing to take back. */
+export function undoableRemoval() {
+  return lastRemoval ? lastRemoval.label : null;
+}
+
+/** Put back whatever the last removal took. Returns false when there is
+ *  nothing to put back. */
+export function undoRemoval() {
+  if (!lastRemoval) return false;
+  state.images.web = lastRemoval.web;
+  state.images.mobile = [...lastRemoval.mobile];
+  lastRemoval = null;
+  afterImagesChanged();
+  return true;
+}
+
+/** Remember the current images under a label, before taking some away. */
+function rememberForUndo(label) {
+  lastRemoval = { web: state.images.web, mobile: [...state.images.mobile], label };
+}
+
 export function removeImage(id) {
+  const target = state.images.web && state.images.web.__id === id
+    ? state.images.web
+    : state.images.mobile.find((img) => img.__id === id);
+  if (!target) return false;
+  rememberForUndo(`Removed "${target.__name}".`);
+
   let removed = false;
   if (state.images.web && state.images.web.__id === id) {
     state.images.web = null;
@@ -315,6 +365,8 @@ export function removeImage(id) {
  *  start on a new shot, not throw away the ground you just tuned. */
 export function clearImages() {
   if (!hasContent()) return false;
+  const n = (state.images.web ? 1 : 0) + state.images.mobile.length;
+  rememberForUndo(`Cleared ${n} screenshot${n === 1 ? '' : 's'}.`);
   state.images.web = null;
   state.images.mobile = [];
   afterImagesChanged();

@@ -8,6 +8,7 @@
 
 import {
   state, SURROUNDS, bindCanvas, addFiles, removeImage, clearImages, hasContent, onRender,
+  undoableRemoval, undoRemoval,
 } from './state.js';
 import { exportShot } from './export.js';
 import { initSize, sizeLabel } from './size.js';
@@ -672,6 +673,7 @@ fileList?.addEventListener('click', (event) => {
   const at = buttons.indexOf(btn);
   if (!removeImage(Number(btn.dataset.id))) return;
   afterImagesChanged();
+  showDropNotes([undoableRemoval()], { undo: true });
   restoreFocusAfterRemoval(at);
 });
 
@@ -702,6 +704,7 @@ function restoreFocusAfterRemoval(removedIndex) {
 clearShotsBtn?.addEventListener('click', () => {
   if (!clearImages()) return;
   afterImagesChanged();
+  showDropNotes([undoableRemoval()], { undo: true });
   // Clear hides itself once it has nothing to clear, so focus would be lost
   // the same way a removed chip loses it.
   if (document.activeElement === document.body) dropzone?.focus();
@@ -746,7 +749,7 @@ window.addEventListener('resize', placeSelectionOutline);
  *  screenshot it replaced - because those used to happen in total silence.
  *  So the old "N files were skipped" prefix is gone: a truncation is not a
  *  skipped file, and each message already says what it means on its own. */
-function showDropNotes(notes) {
+function showDropNotes(notes, { undo = false } = {}) {
   if (!notes.length) {
     dropError.hidden = true;
     dropError.textContent = '';
@@ -754,6 +757,22 @@ function showDropNotes(notes) {
   }
   dropError.hidden = false;
   dropError.textContent = notes.join(' ');
+
+  // A removal is the one message you might want to act on rather than just
+  // read, so it carries its own way back. Built here and not kept around,
+  // because the strip is rewritten on every message and a stale Undo
+  // button is worse than none.
+  if (!undo) return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn btn-ghost drop-undo';
+  btn.textContent = 'Undo';
+  btn.addEventListener('click', () => {
+    if (!undoRemoval()) return;
+    afterImagesChanged();
+    showDropNotes([]);
+  });
+  dropError.append(' ', btn);
 }
 
 async function handleFiles(fileList) {
