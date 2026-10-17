@@ -560,7 +560,7 @@ function syncContentUI() {
   } else {
     // Not a path state.js's own logic can currently reach (images are only
     // ever added, never cleared), kept correct anyway rather than assumed
-    // unreachable, exactly like showDropErrors() below being written to
+    // unreachable, exactly like showDropNotes() below being written to
     // handle zero errors even though most callers only ever pass one.
     dropzone.hidden = false;
     dropzone.classList.remove('is-leaving');
@@ -698,25 +698,30 @@ document.addEventListener('keydown', (event) => {
 onRender(placeSelectionOutline);
 window.addEventListener('resize', placeSelectionOutline);
 
-/** A bad drop is an inline message, never a wiped canvas, addFiles() never
+/** What happened to the last drop, in one line.
+ *
+ *  A bad drop is an inline message, never a wiped canvas: addFiles() never
  *  touches state.images for files it couldn't decode, so whatever was last
- *  rendered stays exactly as it was; this just surfaces what went wrong. */
-function showDropErrors(errors) {
-  if (!errors.length) {
+ *  rendered stays exactly as it was.
+ *
+ *  It carries more than errors now. addFiles also reports what it dropped
+ *  on purpose - phone screenshots past the limit of three, and a desktop
+ *  screenshot it replaced - because those used to happen in total silence.
+ *  So the old "N files were skipped" prefix is gone: a truncation is not a
+ *  skipped file, and each message already says what it means on its own. */
+function showDropNotes(notes) {
+  if (!notes.length) {
     dropError.hidden = true;
     dropError.textContent = '';
     return;
   }
   dropError.hidden = false;
-  dropError.textContent = errors.length === 1
-    ? errors[0]
-    : `${errors.length} files were skipped, ${errors.join(' ')}`;
+  dropError.textContent = notes.join(' ');
 }
 
 async function handleFiles(fileList) {
   if (!fileList || !fileList.length) return;
-  const errors = await addFiles(fileList);
-  showDropErrors(errors);
+  showDropNotes(await addFiles(fileList));
   afterImagesChanged();
   // What afterImagesChanged() covers, and why each part is there:
   // the drop may have changed which element the panels edit (syncInspectors'
@@ -945,9 +950,9 @@ async function handleExportClick() {
   setExportBusy(true);
   try {
     await exportShot(renderCanvas, { format: exportFormat, scale: selectedScale() });
-    showDropErrors([]);
+    showDropNotes([]);
   } catch (err) {
-    showDropErrors([`Export failed: ${err.message || err}.`]);
+    showDropNotes([`Export failed: ${err.message || err}.`]);
   } finally {
     exporting = false;
     setExportBusy(false);
