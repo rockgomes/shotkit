@@ -277,7 +277,11 @@ input {
 
 .file-chip {
   display: flex;
-  align-items: baseline;
+  /* `center`, not `baseline`. A button with no text of its own has its
+     baseline at its bottom margin edge, so baseline alignment dropped the X
+     below the two labels. `.template-row` pairs a name and a smaller detail
+     the same way, and centres them. */
+  align-items: center;
   gap: 5px;
   /* `none`, so a chip never shrinks to just its X. The row scrolls instead. */
   flex: none;
