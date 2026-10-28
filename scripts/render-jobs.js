@@ -14,6 +14,10 @@ import path from 'node:path';
 //     ]
 //   }
 // Paths are relative to the jobs file. The output type comes from `out`.
+//
+// `groundFrom` (in `defaults` or on a job, the job winning; null turns it
+// off) names an image whose sampled background every such shot reuses, so a
+// set of thumbnails can share one ground instead of each taking its own.
 
 const TYPES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
 const MAX_PHONES = 3; // what core/ composes; composeWithMeta drops the rest silently
@@ -23,7 +27,7 @@ export function readJobs(file, baseDir) {
     throw new Error('The jobs file needs a "jobs" list with at least one job.');
   }
   const quality = Number.isFinite(file.quality) ? file.quality : 0.9;
-  const defaults = file.defaults || {};
+  const { groundFrom: sharedGround = null, ...defaults } = file.defaults || {};
   const at = p => path.resolve(baseDir, p);
 
   const jobs = file.jobs.map((job, i) => {
@@ -34,8 +38,10 @@ export function readJobs(file, baseDir) {
     if (mobile.length > MAX_PHONES) throw new Error(`${name}: a shot holds at most three phones.`);
     const ext = path.extname(job.out).toLowerCase();
     if (!TYPES[ext]) throw new Error(`${name}: cannot write ${ext || 'a file with no extension'}, use .png, .jpg or .webp.`);
+    const groundFrom = job.groundFrom !== undefined ? job.groundFrom : sharedGround;
     return {
       out: at(job.out),
+      groundFrom: groundFrom ? at(groundFrom) : null,
       web: job.web ? at(job.web) : null,
       mobile: mobile.map(at),
       config: { ...defaults, ...(job.config || {}) },

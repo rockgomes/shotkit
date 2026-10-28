@@ -31,6 +31,9 @@ for (const job of jobs) {
   for (const src of [job.web, ...job.mobile].filter(Boolean)) {
     if (!fs.existsSync(src)) throw new Error(`Missing image: ${src}`);
   }
+  if (job.groundFrom && !fs.existsSync(job.groundFrom)) {
+    throw new Error(`Missing groundFrom image: ${job.groundFrom}`);
+  }
 }
 
 const browser = await chromium.launch();
@@ -52,8 +55,15 @@ try {
       const load = async p => createImageBitmap(await (await fetch('/image?path=' + encodeURIComponent(p))).blob());
       const images = { web: job.web ? await load(job.web) : null, mobile: await Promise.all(job.mobile.map(load)) };
       const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+      // groundFrom: sample that image and hand its ground to this shot.
+      // core/ paints the ground from meta.ground alone (see composeWithMeta),
+      // so the same meta gives the same background behind any screenshot.
+      let meta = null;
+      if (job.groundFrom) {
+        meta = composeWithMeta(mk(1, 1), job.config, { web: await load(job.groundFrom), mobile: [] }, mk).meta;
+      }
       const canvas = mk(1, 1);
-      composeWithMeta(canvas, job.config, images, mk);
+      composeWithMeta(canvas, job.config, images, mk, meta);
       return canvas.toDataURL(job.type, job.quality);
     }, { job });
     fs.mkdirSync(path.dirname(job.out), { recursive: true });

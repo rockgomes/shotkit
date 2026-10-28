@@ -31,6 +31,15 @@ describe('readJobs', () => {
     expect(jobs[1].config).toEqual({ w: 1940, h: 1576, pad: 0.05 });
   });
 
+  it('resolves groundFrom, so a set of shots can share one background', () => {
+    const { jobs } = readJobs({
+      defaults: { groundFrom: 'sources/ai.png' },
+      jobs: [{ out: 'a.png', web: 'a.png' }, { out: 'b.png', web: 'b.png', groundFrom: 'b.png' }, { out: 'c.png', web: 'c.png', groundFrom: null }],
+    }, base);
+    expect(jobs.map(j => j.groundFrom)).toEqual([path.resolve(base, 'sources/ai.png'), path.resolve(base, 'b.png'), null]);
+    expect(jobs[0].config).not.toHaveProperty('groundFrom');
+  });
+
   it('takes the output format from the file name', () => {
     const { jobs } = readJobs({
       quality: 0.8,

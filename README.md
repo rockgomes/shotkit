@@ -123,6 +123,9 @@ cards this way.
 - Paths are relative to the jobs file. `out` sets the type: `.png`, `.jpg` or
   `.webp`. `quality` is for JPEG and WebP only.
 - A job has one `web` image, up to three `mobile` images, or both.
+- `groundFrom` (in `defaults` or on a job) names an image whose sampled
+  background the shot reuses, so a whole set shares one ground. The
+  portfolio takes its ground from one card's screenshot this way.
 
 It runs `core/` inside Chromium through Playwright, not under
 `@napi-rs/canvas`: that renderer draws shadows fainter than a browser does (see
@@ -262,7 +265,7 @@ design_handoff_backdrop_1a/
 
 ## Tests
 
-`npm test` runs 582 tests across 27 files, including 11 golden PNGs and one
+`npm test` runs 583 tests across 27 files, including 11 golden PNGs and one
 golden JSON of colour values. The goldens are a **regression** baseline rendered
 under `@napi-rs/canvas`, they catch unintended changes to this renderer's own
 output over time. They are not a fidelity check against a browser: `@napi-rs/canvas`
