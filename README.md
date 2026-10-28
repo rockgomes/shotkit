@@ -99,6 +99,41 @@ npm run preview   # serve dist/ locally
 `netlify.toml` builds with `npm run build` and publishes `dist`. The repo is not
 connected to a Netlify site, that is a deliberate, separate step.
 
+## Rendering a batch
+
+`npm run render -- path/to/jobs.json` renders every shot listed in a jobs
+file, so a set of thumbnails can be made again in one command, always with the
+same settings. The portfolio keeps its own jobs file
+(`thumbnails/cards.json` in rockgomes/portfolio2026) and renders all its Work
+cards this way.
+
+```json
+{
+  "defaults": { "w": 1940, "h": 1576 },
+  "quality": 0.9,
+  "jobs": [
+    { "out": "cards/ai.jpg", "web": "sources/ai.png" },
+    { "out": "cards/loan.jpg", "mobile": ["a.png", "b.png", "c.png"], "config": { "pad": 0.08 } }
+  ]
+}
+```
+
+- `defaults` and each job's `config` take any `core/` config field (see
+  `normalise()` below); the job's own value wins.
+- Paths are relative to the jobs file. `out` sets the type: `.png`, `.jpg` or
+  `.webp`. `quality` is for JPEG and WebP only.
+- A job has one `web` image, up to three `mobile` images, or both.
+- `groundFrom` (in `defaults` or on a job) names an image whose sampled
+  background the shot reuses, so a whole set shares one ground. The
+  portfolio takes its ground from one card's screenshot this way.
+
+It runs `core/` inside Chromium through Playwright, not under
+`@napi-rs/canvas`: that renderer draws shadows fainter than a browser does (see
+Tests), and these files ship. In Chromium the output matches what the app
+exports. Nothing goes over the network; every file the page asks for is
+answered from disk. The rules for the jobs file live in
+`scripts/render-jobs.js` and are tested in `test/render-jobs.test.js`.
+
 ## The `core/` library
 
 `core/` is a zero-runtime-dependency ES module library that composes a shot onto
@@ -230,7 +265,7 @@ design_handoff_backdrop_1a/
 
 ## Tests
 
-`npm test` runs 551 tests across 25 files, including 11 golden PNGs and one
+`npm test` runs 583 tests across 27 files, including 11 golden PNGs and one
 golden JSON of colour values. The goldens are a **regression** baseline rendered
 under `@napi-rs/canvas`, they catch unintended changes to this renderer's own
 output over time. They are not a fidelity check against a browser: `@napi-rs/canvas`
@@ -308,12 +343,10 @@ Honest list. None of these is half-done; they are simply not there.
   and each mobile frame have exactly one golden, all at 1800×1200. Since every geometric quantity is a fraction of
   the canvas it was handed, a stray fixed-pixel literal in one of those painters
   would still show its face first at another size.
-- **A CLI.** The old one is gone and nothing replaced it. `core/` is a library, so
-  a thin Node shell over `composeWithMeta` and `@napi-rs/canvas` would bring back
-  batch rendering without Python or Playwright, it just has not been written. The
-  sidebar carries a hidden card for its status line, waiting: it is in the
-  markup, marked `hidden`, because the design for it exists and the CLI is
-  still planned.
+- **The app's CLI card.** Batch rendering exists now (`npm run render`, see
+  "Rendering a batch" above), but the app knows nothing about it. The sidebar
+  carries a hidden card for a CLI status line: it stays `hidden`, because
+  there is no live connection between the app and the command to report.
 - **Saved presets, and the rail's Library / Presets / Integrations / Settings.**
   Nothing is wired behind them, so the whole left rail is `hidden` as of
   2026-09-07: a navigation bar whose every destination but the current one is
