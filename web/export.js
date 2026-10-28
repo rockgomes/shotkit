@@ -5,7 +5,7 @@
 //     PNG/JPEG/WebP exist. Turning pixels into bytes is `canvas.toBlob`'s
 //     job, called from here.
 //   - the filename: derived from the source screenshot's own name plus the
-//     resolved layout and scale (see filenameFor below).
+//     resolved layout and scale (see exportFilenameFor below).
 //
 // `scale`, by contrast, is NOT this module's to invent - it is a `core/`
 // config field (see core/config.js's `normalise` and composeWithMeta's use
@@ -37,11 +37,50 @@ const EXTENSIONS = { png: 'png', jpeg: 'jpg', webp: 'webp' };
 // for png/webp is harmless but meaningless, so it's applied to jpeg only.
 const JPEG_QUALITY = 0.92;
 
-/** Strip a filename down to its stem (no extension, no path). */
+/** The longest stem that goes into a download name. Most filesystems stop
+ *  at 255 bytes for the whole name, and this is only the first part of
+ *  one: the layout, the scale and the extension are added after it. */
+const MAX_STEM = 120;
+
+/**
+ * Strip a filename down to a stem that is safe to hand to a download.
+ *
+ * The path and extension go, which is what this always did. What it did
+ * NOT do, until the audit on 2026-10-17, is strip anything else: the
+ * measured output for a hostile filename was 348 characters containing
+ * `<`, `>` and U+202E, the right-to-left override, straight into the
+ * `download` attribute.
+ *
+ * The saved file is still a PNG blob, so nothing executes. The risk is
+ * deception: a bidi override makes the name in the download shelf read as
+ * a different extension than the one actually saved, so `shot\u202Egnp.exe`
+ * appears as `shotexe.png` and vice versa. Cheap to remove, so removed.
+ *
+ * Stripped, in order:
+ * - the path, so `../../x` cannot escape anywhere;
+ * - C0 and C1 control characters, which include newlines;
+ * - every Unicode bidi control (U+200E, U+200F, U+202A-U+202E,
+ *   U+2066-U+2069), which is the deception above;
+ * - the characters a filesystem or a shell would rather not see;
+ * - leading dots, so a stem cannot make the file hidden;
+ * - and the length.
+ *
+ * Returns null when nothing usable survives, which `sourceStem` already
+ * handles by falling back to "shotkit".
+ */
 function stemOf(name) {
   if (!name) return null;
   const base = name.split(/[\\/]/).pop();
-  const stem = base.replace(/\.[^.]+$/, '');
+  const stem = base
+    .replace(/\.[^.]+$/, '')
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f-\u009f]/g, '')
+    .replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '')
+    .replace(/["*/:<>?\\|]/g, '')
+    .replace(/^\.+/, '')
+    .trim()
+    .slice(0, MAX_STEM)
+    .trim();
   return stem || null;
 }
 
@@ -71,7 +110,11 @@ function resolvedLayout() {
   return layout;
 }
 
-function filenameFor(format, scale) {
+/** The name a download is given: a sanitised stem from the source file,
+ *  the layout, the scale and the real extension. Exported so
+ *  test/export-filename.test.js can drive the real thing rather than a
+ *  copy of its rules. */
+export function exportFilenameFor(format, scale) {
   return `${sourceStem()}--${resolvedLayout()}@${scale}x.${EXTENSIONS[format]}`;
 }
 
@@ -145,7 +188,7 @@ export async function exportShot(canvas, { format, scale }) {
     throw new Error('nothing to export yet');
   }
 
-  const filename = filenameFor(format, scale);
+  const filename = exportFilenameFor(format, scale);
   // Whatever the preview's own scale was (always 1 today - nothing in the
   // app sets state.config.scale to anything else) - restored in `finally`
   // below regardless of how the render/encode below turns out, so a failed

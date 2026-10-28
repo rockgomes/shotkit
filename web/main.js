@@ -8,6 +8,7 @@
 
 import {
   state, SURROUNDS, bindCanvas, addFiles, removeImage, clearImages, hasContent, onRender,
+  undoableRemoval, undoRemoval,
 } from './state.js';
 import { exportShot } from './export.js';
 import { initSize, sizeLabel } from './size.js';
@@ -560,7 +561,7 @@ function syncContentUI() {
   } else {
     // Not a path state.js's own logic can currently reach (images are only
     // ever added, never cleared), kept correct anyway rather than assumed
-    // unreachable, exactly like showDropErrors() below being written to
+    // unreachable, exactly like showDropNotes() below being written to
     // handle zero errors even though most callers only ever pass one.
     dropzone.hidden = false;
     dropzone.classList.remove('is-leaving');
@@ -663,11 +664,50 @@ function setSelection(next) {
 fileList?.addEventListener('click', (event) => {
   const btn = event.target.closest('.file-chip-remove');
   if (!btn) return;
-  if (removeImage(Number(btn.dataset.id))) afterImagesChanged();
+  // WHERE FOCUS GOES NEXT, worked out BEFORE the list is rebuilt.
+  // renderFileList destroys every chip on each change, so the button that
+  // was just activated stops existing and focus falls to <body>. Measured
+  // 2026-10-17: a keyboard user removing three shots had to Tab from the
+  // top of the page after each one.
+  const buttons = [...fileList.querySelectorAll('.file-chip-remove')];
+  const at = buttons.indexOf(btn);
+  if (!removeImage(Number(btn.dataset.id))) return;
+  afterImagesChanged();
+  showDropNotes([undoableRemoval()], { undo: true });
+  restoreFocusAfterRemoval(at);
 });
 
+/** Put focus on the chip that took the removed one's place, or on the one
+ *  before it when the last chip went, or on the drop zone when there are no
+ *  chips left at all.
+ *
+ *  Only when the removal came from the keyboard: moving focus after a mouse
+ *  click is noise, and it would pull the page around under the pointer.
+ *
+ *  The no-chips-left case falls through to the DROP ZONE, not to Clear.
+ *  Clear hides itself the moment the last shot goes, and a hidden element
+ *  cannot take focus - a first version tried it and left focus on <body>
+ *  anyway, which is the exact bug this function exists to fix. The drop
+ *  zone is also simply what the page is about once it is empty. */
+function restoreFocusAfterRemoval(removedIndex) {
+  if (!fileList) return;
+  const fromKeyboard = document.activeElement === document.body
+    || document.activeElement === null;
+  if (!fromKeyboard) return;
+
+  const buttons = [...fileList.querySelectorAll('.file-chip-remove')];
+  const next = buttons[removedIndex] || buttons[buttons.length - 1];
+  if (next) next.focus();
+  else dropzone?.focus();
+}
+
 clearShotsBtn?.addEventListener('click', () => {
-  if (clearImages()) afterImagesChanged();
+  if (!clearImages()) return;
+  afterImagesChanged();
+  showDropNotes([undoableRemoval()], { undo: true });
+  // Clear hides itself once it has nothing to clear, so focus would be lost
+  // the same way a removed chip loses it.
+  if (document.activeElement === document.body) dropzone?.focus();
 });
 
 renderCanvas.addEventListener('click', (event) => {
@@ -690,7 +730,37 @@ canvasSurface.addEventListener('click', (event) => {
 // as selecting the whole shot). Keyboard SELECTION does not exist yet and
 // is a known gap, recorded there.
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && state.selection) setSelection(null);
+  if (event.key === 'Escape' && state.selection) {
+    setSelection(null);
+    return;
+  }
+
+  // Delete removes the selected shot. The selection already knows which
+  // element you mean - the right panel has been editing it - and until now
+  // the keyboard did nothing with that.
+  //
+  // Not while typing: the custom size fields and the browser URL field are
+  // text inputs, and Backspace in one of them means Backspace.
+  if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+  if (!state.selection) return;
+  // TEXT-ENTRY fields only. `tagName === 'INPUT'` was too broad: the file
+  // input is an <input>, it is focusable, and it can hold focus after a
+  // browse, which would have switched Delete off with nothing on screen to
+  // explain why. A focused slider is an <input> too.
+  const el = document.activeElement;
+  if (el && (el.isContentEditable || el.matches('textarea, input:is([type=text], [type=number], [type=search], [type=url], [type=email], [type=password])'))) return;
+
+  // 'mobile' is the phones as a CLASS (see boxFor in web/selection.js), so
+  // there is no single phone for it to point at. Taking the first one
+  // would be a guess, and a destructive one. The chip's own X is exact,
+  // and that is where removing a specific phone belongs.
+  const target = state.selection === 'web' ? state.images.web : null;
+  if (!target) return;
+
+  event.preventDefault();
+  if (!removeImage(target.__id)) return;
+  afterImagesChanged();
+  showDropNotes([undoableRemoval()], { undo: true });
 });
 
 // The layout moves with every render and with every resize, so the outline
@@ -698,25 +768,63 @@ document.addEventListener('keydown', (event) => {
 onRender(placeSelectionOutline);
 window.addEventListener('resize', placeSelectionOutline);
 
-/** A bad drop is an inline message, never a wiped canvas, addFiles() never
+/** What happened to the last drop, in one line.
+ *
+ *  A bad drop is an inline message, never a wiped canvas: addFiles() never
  *  touches state.images for files it couldn't decode, so whatever was last
- *  rendered stays exactly as it was; this just surfaces what went wrong. */
-function showDropErrors(errors) {
-  if (!errors.length) {
+ *  rendered stays exactly as it was.
+ *
+ *  It carries more than errors now. addFiles also reports what it dropped
+ *  on purpose - phone screenshots past the limit of three, and a desktop
+ *  screenshot it replaced - because those used to happen in total silence.
+ *  So the old "N files were skipped" prefix is gone: a truncation is not a
+ *  skipped file, and each message already says what it means on its own. */
+function showDropNotes(notes, { undo = false } = {}) {
+  if (!notes.length) {
     dropError.hidden = true;
     dropError.textContent = '';
     return;
   }
   dropError.hidden = false;
-  dropError.textContent = errors.length === 1
-    ? errors[0]
-    : `${errors.length} files were skipped, ${errors.join(' ')}`;
+  dropError.textContent = notes.join(' ');
+
+  // A removal is the one message you might want to act on rather than just
+  // read, so it carries its own way back. Built here and not kept around,
+  // because the strip is rewritten on every message and a stale Undo
+  // button is worse than none.
+  if (!undo) {
+    addDismiss();
+    return;
+  }
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn btn-ghost drop-undo';
+  btn.textContent = 'Undo';
+  btn.addEventListener('click', () => {
+    if (!undoRemoval()) return;
+    afterImagesChanged();
+    showDropNotes([]);
+  });
+  dropError.append(' ', btn);
+  addDismiss();
+}
+
+/** A way to put the message away. It clears itself on the next good drop,
+ *  so this is a convenience rather than the only escape, but a notice that
+ *  sits there until something else happens is a notice you stop reading. */
+function addDismiss() {
+  const x = document.createElement('button');
+  x.type = 'button';
+  x.className = 'drop-dismiss';
+  x.setAttribute('aria-label', 'Dismiss this message');
+  x.innerHTML = '<svg class="icon icon-sm" aria-hidden="true"><use href="#icon-x"></use></svg>';
+  x.addEventListener('click', () => showDropNotes([]));
+  dropError.append(x);
 }
 
 async function handleFiles(fileList) {
   if (!fileList || !fileList.length) return;
-  const errors = await addFiles(fileList);
-  showDropErrors(errors);
+  showDropNotes(await addFiles(fileList));
   afterImagesChanged();
   // What afterImagesChanged() covers, and why each part is there:
   // the drop may have changed which element the panels edit (syncInspectors'
@@ -945,9 +1053,9 @@ async function handleExportClick() {
   setExportBusy(true);
   try {
     await exportShot(renderCanvas, { format: exportFormat, scale: selectedScale() });
-    showDropErrors([]);
+    showDropNotes([]);
   } catch (err) {
-    showDropErrors([`Export failed: ${err.message || err}.`]);
+    showDropNotes([`Export failed: ${err.message || err}.`]);
   } finally {
     exporting = false;
     setExportBusy(false);

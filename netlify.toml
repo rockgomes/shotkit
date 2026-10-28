@@ -14,8 +14,54 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# SECURITY HEADERS. Audited 2026-10-17: the site sent nosniff,
+# Referrer-Policy and Netlify's own HSTS, and nothing else.
+#
+# There is no XSS vector in the app today, and that was tested rather than
+# assumed: a screenshot loaded under the filename
+# `../../<img src=x onerror=alert(1)>` plus a bidi override rendered as a
+# single text node, zero injected elements, no alert. Every innerHTML in
+# web/ is a static literal and every piece of user text reaches the DOM
+# through textContent or setAttribute.
+#
+# So the CSP below is defence in depth, not a patch. It is worth having
+# because it turns any FUTURE injection from "runs anything" into
+# "blocked", and because the policy is genuinely tight here: this app has
+# no backend, no analytics and no third-party JavaScript at all.
 [[headers]]
   for = "/*"
   [headers.values]
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+    # script-src 'self': the bundle is the only JavaScript, and there is no
+    #   inline script in web/index.html to need a hash or a nonce.
+    # style-src needs 'unsafe-inline': the app sets element.style directly
+    #   (the slider fill custom property, the preset tile backgrounds, the
+    #   selection outline's position). Those are style ATTRIBUTES, which
+    #   this allows and which cannot execute anything; script stays locked.
+    # img-src needs blob: and data:: every screenshot is an object URL or a
+    #   canvas blob made in the visitor's own browser.
+    # connect-src 'none': the app makes no network requests at all. If one
+    #   ever appears, this is what will catch it.
+    # Every directive is 'self' or 'none'. Inter is served from this
+    #   origin (audit finding S4), so there is no third-party host left in
+    #   the policy at all, and nothing to keep in step with the markup.
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' blob: data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests"
+
+    # Nothing here is worth clickjacking - no account, no one-click
+    # destructive action - but denying it costs nothing. frame-ancestors
+    # above is the modern form; this is for anything that still reads it.
+    X-Frame-Options = "DENY"
+
+    # The app needs none of these. Denying them means a future dependency
+    # cannot quietly start asking.
+    Permissions-Policy = "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()"
+
+
+# The font is immutable content at a stable path. A year is the usual
+# answer; if Inter is ever updated the filename changes with it.
+[[headers]]
+  for = "/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
